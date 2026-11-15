@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { parseVariants, readVariant, variantsEnabled } from '@/lib/variants'
+import { parseVariants, readVariant, rememberVariants, variantsEnabled } from '@/lib/variants'
 
 describe('parseVariants', () => {
   it('reads one letter for every feature', () => {
@@ -61,22 +61,33 @@ describe('readVariant from the address', () => {
     })
     at('?v=stamp:b')
     expect(readVariant('stamp', opts)).toBe('b')
+    expect(store.size).toBe(0) // reading never writes
+    rememberVariants()
+    expect(store.get('everybird:variants')).toBe('stamp:b')
     at('')
+    rememberVariants() // no v: the remembered one stays
     expect(readVariant('stamp', opts)).toBe('b')
     at('?v=')
     expect(readVariant('stamp', opts)).toBe('a')
+    rememberVariants()
     at('')
     expect(readVariant('stamp', opts)).toBe('a')
+    expect(store.size).toBe(0)
   })
   it('still reads the address when storage throws', () => {
     vi.stubGlobal('sessionStorage', { getItem: () => { throw new Error('no') }, setItem: () => { throw new Error('no') }, removeItem: () => { throw new Error('no') } })
     at('?v=b')
+    expect(() => rememberVariants()).not.toThrow()
     expect(readVariant('stamp', opts)).toBe('b')
     at('')
     expect(readVariant('stamp', opts)).toBe('a')
   })
-  it('is always the first option on the production domain or a production build', () => {
+  it('is always the first option on the production domain or a production build, and remembers nothing there', () => {
+    const setItem = vi.fn()
+    vi.stubGlobal('sessionStorage', { getItem: () => 'b', setItem, removeItem: vi.fn() })
     at('?v=b', 'everybird.yusuftaleb.com')
+    rememberVariants()
+    expect(setItem).not.toHaveBeenCalled()
     expect(readVariant('stamp', opts)).toBe('a')
     expect(readVariant('stamp', opts, '?v=b')).toBe('a')
     vi.stubEnv('NEXT_PUBLIC_VERCEL_ENV', 'production')

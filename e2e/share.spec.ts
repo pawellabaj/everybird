@@ -16,15 +16,14 @@ const backup = JSON.stringify({
 });
 const OUT = process.env.SHARE_PNG_DIR;
 
-/** `search` (e.g. "?v=stamp:b") goes into the collage's address before Share opens (no reload: the list saves on a debounce). */
-async function openShare(page: Page, search?: string) {
-  await page.goto("/settings");
+/** `search` (e.g. "?v=stamp:b") is on the Settings address the flow starts from; the restore then lands on / without it. */
+async function openShare(page: Page, search = "") {
+  await page.goto(`/settings${search}`);
   await expect(page.getByTestId("ebird-drop")).toBeVisible();
   // Restore from backup on Settings opens the collage (/).
   await page.locator('input[type="file"][accept*="json"]').first().setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("region", { name: "Your collage" })).toBeVisible();
-  if (search) await page.evaluate((q) => history.replaceState(history.state, "", `/${q}`), search);
   await page.getByRole("button", { name: "Share", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Share your collage" });
   await expect(dialog).toBeVisible();
@@ -169,7 +168,9 @@ test.describe("date stamp", () => {
   test("preview variant b (?v=stamp:b) puts the stamp beside the address", async ({ page }) => {
     test.setTimeout(90_000);
     await stampClock(page);
+    // On /settings?v=stamp:b; the restore goes to / without it, and the tab remembers it.
     const dialog = await openShare(page, "?v=stamp:b");
+    expect(new URL(page.url()).search).toBe("");
     const preview = dialog.getByTestId("share-preview");
     await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
     await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });

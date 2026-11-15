@@ -1,11 +1,12 @@
 // Preview variants: `?v=<letter>` (every feature) or `?v=<key>:<letter>,…` picks a design to compare on local servers
 // and Vercel previews. Never on the production domain: there every feature is its first option. A `v` in the address
-// is remembered for the tab (sessionStorage), so it survives in-app navigation; `?v=` clears it.
+// is remembered for the tab (sessionStorage) by rememberVariants (TopBar, on every page load), so it survives in-app
+// navigation; `?v=` clears it.
 import { useSyncExternalStore } from 'react'
 import { SHARE_ORIGIN } from '@/lib/share/origin'
 
 const PROD_HOST = new URL(SHARE_ORIGIN).host
-const KEY = 'everybird:v'
+const KEY = 'everybird:variants'
 const LETTER = /^[a-z]$/
 const FEATURE = /^[a-z][a-z0-9-]*$/
 
@@ -30,18 +31,29 @@ function parseValue(value: string): Record<string, string> {
   return out
 }
 
-/** The tab's `v` value: the address's (remembered, or cleared when empty), else the one remembered earlier. */
-function currentValue(): string {
-  if (typeof location === 'undefined') return ''
+/** Remember the address's `v` for the tab (`?v=` clears it); nothing without a `v`, or on the production domain. */
+export function rememberVariants(): void {
+  if (typeof location === 'undefined' || !variantsEnabled()) return
   const v = new URLSearchParams(location.search).get('v')
+  if (v === null) return
   try {
-    if (v === null) return sessionStorage.getItem(KEY) ?? ''
     if (v) sessionStorage.setItem(KEY, v)
     else sessionStorage.removeItem(KEY)
   } catch {
-    // No storage: the address alone decides.
+    // No storage: the address alone decides, on this page.
   }
-  return v ?? ''
+}
+
+/** The tab's `v` value: the address's, else the one remembered (a pure read). */
+function currentValue(): string {
+  if (typeof location === 'undefined') return ''
+  const v = new URLSearchParams(location.search).get('v')
+  if (v !== null) return v
+  try {
+    return sessionStorage.getItem(KEY) ?? ''
+  } catch {
+    return ''
+  }
 }
 
 /** The feature's variant: its own key, else `*`, if it is one of `options`; `options[0]` otherwise and when disabled. */

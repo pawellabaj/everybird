@@ -8,6 +8,7 @@ import Link from '@/components/app/IntentLink'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { attachHeadroom } from '@/lib/headroom'
+import { rememberVariants } from '@/lib/variants'
 import { ThemeToggle } from './ThemeToggle'
 
 const PAGES = [
@@ -20,6 +21,8 @@ export function TopBar() {
   const path = usePathname()
   const ref = useRef<HTMLElement>(null)
   useEffect(() => (ref.current ? attachHeadroom(ref.current) : undefined), [])
+  // Preview variants: a `?v=` on any page load is remembered for the tab (src/lib/variants.ts).
+  useEffect(rememberVariants, [])
   return (
     <header ref={ref} className="eb-topbar" data-testid="topbar">
       <div className="eb-topbar-in">
