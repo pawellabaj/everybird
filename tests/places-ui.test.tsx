@@ -392,6 +392,30 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
       expect(filterOf()).toEqual({ order: 'Strigiformes' })
     })
 
+    it('a checked county stays reachable when another filter leaves its province listed with no counties', () => {
+      vi.stubGlobal('innerWidth', 1000)
+      withVariant(v)
+      render(<Harness />)
+      fireEvent.click(placesBtn())
+      fireEvent.click(screen.getByTestId('drill-c:CA'))
+      fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+      fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+      // The crow was seen in British Columbia, but in no county there.
+      fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
+      fireEvent.click(placesBtn())
+      for (const k of ['c:CA', 's:CA-BC']) {
+        const btn = screen.getByTestId(`drill-${k}`)
+        if (k === 's:CA-BC') expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).not.toBeChecked()
+        if (v === 'a') fireEvent.click(btn)
+        else expect(btn).toHaveAttribute('aria-expanded', 'true')
+      }
+      const box = screen.getByRole('checkbox', { name: 'Capital, 0 species' })
+      expect(box).toBeChecked()
+      fireEvent.click(box)
+      expect(filterOf()).toEqual({ order: 'Passeriformes' })
+    })
+
     it('selects a province, then a county, through the same filter', () => {
       vi.stubGlobal('innerWidth', 1000)
       withVariant(v)

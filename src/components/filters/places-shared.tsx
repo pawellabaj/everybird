@@ -41,27 +41,30 @@ export const fmt = (x: number) => x.toLocaleString('en-US')
 /**
  * The rows of the level under `parent` (placeOptions), and, at 0, any place at that level they lack (another filter
  * left it no species) that is checked or holds a checked place: so every checked place can still be reached and
- * unchecked. A row that only holds checked places has them as its children, so it drills or opens.
+ * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills or opens.
  */
 export function usePlaceRows(state: AppState, parent: string | undefined, regions: Regions, species: SpeciesIndex): PlaceOption[] {
   const { list, filter, seen } = state
   return useMemo(() => {
     const label = (k: string) => placeName(k, regions)
     const opts = placeOptions(list, filter, parent, species, label, seen)
-    const have = new Set(opts.map((o) => o.value))
-    // Missing row -> the distinct checked places (or their ancestors) one level under it.
-    const missing = new Map<string, Set<string>>()
+    // Each place at this level that is checked or holds a checked place -> the distinct ones one level under it.
+    const held = new Map<string, Set<string>>()
     for (const key of filterPlaceKeys(filter)) {
       let child: string | undefined
       for (let k: string | undefined = key; k; child = k, k = parentKey(k)) {
-        if (parentKey(k) !== parent || have.has(k)) continue
-        const kids = missing.get(k) ?? new Set<string>()
+        if (parentKey(k) !== parent) continue
+        const kids = held.get(k) ?? new Set<string>()
         if (child) kids.add(child)
-        missing.set(k, kids)
+        held.set(k, kids)
       }
     }
-    const zero = [...missing].map(([k, kids]): PlaceOption => ({ value: k, label: label(k), count: 0, children: kids.size }))
-    return [...opts, ...zero]
+    const listed = opts.map((o) => (o.children === 0 && held.get(o.value)?.size ? { ...o, children: held.get(o.value)!.size } : o))
+    const have = new Set(opts.map((o) => o.value))
+    const zero = [...held]
+      .filter(([k]) => !have.has(k))
+      .map(([k, kids]): PlaceOption => ({ value: k, label: label(k), count: 0, children: kids.size }))
+    return [...listed, ...zero]
   }, [list, filter, parent, species, regions, seen])
 }
 
