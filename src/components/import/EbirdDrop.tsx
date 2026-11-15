@@ -2,7 +2,7 @@
 import { FileCsv } from '@phosphor-icons/react'
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
 import type { EbirdJob } from '@/components/app/use-import-jobs'
-import { MYEBIRDDATA_PLACES } from '@/lib/list/filter-summary'
+import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY } from '@/lib/list/filter-summary'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
 import type { Saved, EbirdDetails } from '@/lib/list/storage'
 import { notCounted } from './NotCounted'
@@ -65,8 +65,9 @@ const ROWS: Row[] = [
  * the file the same way, and it lands in the row of its kind (read from its header); both rows and the open panels
  * take a dropped file (they highlight while one is dragged over). The import itself runs above the routes, so it
  * survives navigation. With only the life list download, a note under the rows says Places knows only each bird's first
- * place, with "Add MyEBirdData"; that button and arrival at /settings#add-mydata (the Places panel's note) open
- * MyEBirdData's Add panel and focus its picker (MyEBirdData already on the list: its Replace).
+ * place, its "Add MyEBirdData" an inline link (each row keeps its one button); that link and arrival at
+ * /settings#add-mydata (the Places panel's note) open MyEBirdData's Add panel and focus its picker (MyEBirdData already
+ * on the list: its Replace).
  */
 export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts }: Props) {
   const id = useId()
@@ -220,22 +221,19 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
         )
       })}
       {quickOnly && (
-        <div className="eb-src-status eb-lifer-note" data-testid="places-lifer-note">
-          <p className="eb-note">
-            Your eBird life list only says where each bird was first seen, so Places filters by those first places. {P.name} has every place you saw each bird, {P.reach}.
-          </p>
-          <button
-            type="button"
-            className="eb-btn eb-btn-quiet eb-btn-sm"
+        <p className="eb-note eb-src-status eb-lifer-note" data-testid="places-lifer-note">
+          Your eBird life list only says where each bird first went on your list, so Places filters by those first places.{' '}
+          <a
+            href={`#${P.anchor}`}
             data-testid="places-lifer-add"
-            disabled={off}
             aria-label={`${P.add} for every place`}
             aria-controls={fullOn ? undefined : `${id}-ebird`}
-            onClick={() => toFull(false)}
+            onClick={(e) => { e.preventDefault(); toFull(false) }}
           >
             {P.add}
-          </button>
-        </div>
+          </a>
+          {' '}to filter by {PLACES_EVERY}, {P.reach}.
+        </p>
       )}
       <p className="eb-status eb-src-status" role="status">
         {busy ? (rows ? `Reading your file… ${rows.toLocaleString('en-US')} rows` : 'Reading your file…') : ''}
@@ -243,7 +241,7 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
       {error && <p className="eb-error eb-src-status" role="alert">{error}</p>}
       {reimport && (
         <p className="eb-note eb-src-status" data-testid="ebird-detail">
-          Places only knows where each bird was first seen. {P.again} to filter by every place you saw each bird.
+          {PLACES_FIRST_ONLY} {P.again} to filter by {PLACES_EVERY}.
         </p>
       )}
     </div>

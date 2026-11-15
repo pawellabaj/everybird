@@ -90,9 +90,10 @@
 .eb-src-formrow > .eb-btn { flex: none; }
 .eb-src-status { padding: 0 16px 12px; }
 .eb-src-status:empty { padding: 0; }
-/* The lifer-only note under the eBird rows: the sentence, then "Add MyEBirdData" beside it or wrapped under it, right-aligned as the rows' buttons. */
-.eb-lifer-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 16px; }
-.eb-lifer-note > .eb-note { flex: 1 1 280px; min-width: 0; margin: 0 auto 0 0; max-width: 62ch; }
+/* The lifer-only note under the eBird rows: one sentence at the rows' title edge (16px), its "Add MyEBirdData" an
+   inline link in Accent (a row has one button; links in notes are Accent). */
+.eb-lifer-note { max-width: calc(62ch + 32px); box-sizing: border-box; }
+.eb-lifer-note a { color: var(--accent); font-weight: 600; text-decoration-thickness: from-font; text-underline-offset: 3px; }
 .eb-btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }
 @media (pointer: coarse) { .eb-btn-sm { min-height: 44px; } }
 .eb-filedrop { border-radius: 12px; transition: background-color .15s cubic-bezier(.25, .8, .25, 1), box-shadow .15s cubic-bezier(.25, .8, .25, 1); }
@@ -101,6 +102,7 @@
 @media (pointer: coarse) { .eb-drop-hint { display: none; } }
 @media (max-width: 479px) {
   .eb-src-main { padding: 12px 14px; }
+  .eb-src-status { padding-left: 14px; padding-right: 14px; } /* the notes under the rows keep the rows' title edge */
   .eb-src-panel, .eb-src-why { margin-left: 14px; margin-right: 14px; padding: 12px; }
   .eb-dropzone > .eb-btn { flex: 1 1 100%; }
   .eb-src-formrow > .eb-input { flex-basis: 100%; }

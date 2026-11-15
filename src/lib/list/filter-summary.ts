@@ -71,17 +71,21 @@ export function timeSpoken(f: Filter): string | undefined {
 
 /**
  * What the lifer-only notes say about the file that knows every place each bird was seen: its Add link's and its
- * name, its import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
+ * import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
  * reads it). One source today (MyEBirdData); another plugs in as another of these.
  */
-export type FullPlacesSource = { name: string; add: string; again: string; reach: string; anchor: string }
+export type FullPlacesSource = { add: string; again: string; reach: string; anchor: string }
 export const MYEBIRDDATA_PLACES: FullPlacesSource = {
-  name: 'MyEBirdData',
   add: 'Add MyEBirdData',
   again: 'Import MyEBirdData again',
   reach: 'down to the county',
   anchor: 'add-mydata',
 }
+
+/** The lifer-only notes' shared words (never "seen": heard-only birds count too, DESIGN.md "Voice and copy"). */
+export const PLACES_FIRST_ONLY = 'Places only knows where each bird first went on your list.'
+/** What the file that knows every place lets Places filter by: "to filter by every place you recorded each bird". */
+export const PLACES_EVERY = 'every place you recorded each bird'
 
 /**
  * Whether the Places dropdown says its places are only lifer places, and what to do: undefined for an empty list or

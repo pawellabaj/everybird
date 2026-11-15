@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { EbirdDrop } from '@/components/import/EbirdDrop'
 
@@ -12,11 +12,14 @@ afterEach(() => {
 })
 
 describe('EbirdDrop: what each eBird file brings', () => {
-  it('only the life list download: a visible note, and its button opens the MyEBirdData panel', () => {
+  it('only the life list download: a visible note, and its inline link opens the MyEBirdData panel', () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
     expect(screen.getByTestId('places-lifer-note')).toBeVisible()
-    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent('Your eBird life list only says where each bird was first seen, so Places filters by those first places. MyEBirdData has every place you saw each bird, down to the county.')
-    // Its own name beside the row's "Add MyEBirdData", starting with the words it shows; it controls the row's panel.
+    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent('Your eBird life list only says where each bird first went on your list, so Places filters by those first places. Add MyEBirdData to filter by every place you recorded each bird, down to the county.')
+    // A link inside the sentence, not a second button under the row's own Add: named apart from it, starting with the
+    // words it shows; it controls the row's panel.
+    expect(screen.getByTestId('places-lifer-add').tagName).toBe('A')
+    expect(within(screen.getByTestId('places-lifer-note')).queryAllByRole('button')).toEqual([])
     expect(screen.getByTestId('places-lifer-add')).toHaveTextContent('Add MyEBirdData')
     expect(screen.getByTestId('places-lifer-add')).toHaveAccessibleName('Add MyEBirdData for every place')
     expect(screen.queryByRole('group', { name: 'Add MyEBirdData' })).toBeNull()
@@ -90,7 +93,7 @@ describe('EbirdDrop: what each eBird file brings', () => {
   })
   it("the Places panel's reimport note: the same words here, Import MyEBirdData again", () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} placesNote="reimport" connected={[{ slot: 'ebird' }]} />)
-    expect(note()).toHaveTextContent(/^Places only knows where each bird was first seen\. Import MyEBirdData again to filter by every place you saw each bird\.$/)
+    expect(note()).toHaveTextContent(/^Places only knows where each bird first went on your list\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
   })
   it('no reimport note otherwise, counties or not', () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} connected={[{ slot: 'ebird' }]} />)

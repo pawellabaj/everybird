@@ -6,7 +6,7 @@
 // filter only through togglePlace / withPlaces (filters.ts) and keeps the same test ids: `country-<ISO2>` and
 // `place-<key>` checkboxes, `drill-<key>` buttons.
 import Link from '@/components/app/IntentLink'
-import { MYEBIRDDATA_PLACES, type FullPlacesSource } from '@/lib/list/filter-summary'
+import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY, type FullPlacesSource } from '@/lib/list/filter-summary'
 import { useVariant } from '@/lib/variants'
 import type { PlacesBodyProps, PlacesNote } from './places-shared'
 import { PlacesDrill } from './PlacesDrill'
@@ -30,9 +30,9 @@ export function PlacesNoteLine({ note, source = MYEBIRDDATA_PLACES }: { note: Pl
   const again = note === 'reimport'
   return (
     <p className="eb-note eb-places-note" data-testid="places-lifer-only">
-      Places only knows where each bird was first seen.{' '}
+      {PLACES_FIRST_ONLY}{' '}
       <Link href={`/settings#${source.anchor}`}>{again ? source.again : source.add}</Link>
-      {' '}to filter by every place you saw each bird{again ? '' : `, ${source.reach}`}.
+      {' '}to filter by {PLACES_EVERY}{again ? '' : `, ${source.reach}`}.
     </p>
   )
 }

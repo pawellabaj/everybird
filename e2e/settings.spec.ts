@@ -330,13 +330,20 @@ test("Settings fits about 1.5 screens at 1280x800 with a source connected", asyn
   expect(height).toBeLessThanOrEqual(1.6 * 800);
 });
 
-// A life list download knows only where each bird was first seen: Settings says so under the eBird rows, with a button
-// to MyEBirdData's Add panel, and the collage's Places panel links to the same panel (/settings#add-mydata).
-test("after a life list import, Settings and Places say places are first places only, one tap from MyEBirdData", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+// A life list download knows only where each bird first went on the list: Settings says so under the eBird rows, with
+// an inline link to MyEBirdData's Add panel (each row keeps its one button), and the collage's Places panel links to the
+// same panel (/settings#add-mydata).
+for (const width of [1280, 390]) test(`after a life list import, Settings and Places say places are first places only, one tap from MyEBirdData (${width}px)`, async ({ page }) => {
+  await page.setViewportSize({ width, height: width < 600 ? 844 : 800 });
   await importLifeList(page);
   const note = page.getByTestId("places-lifer-note");
   await expect(note).toBeVisible();
+  await expect(note.getByRole("button")).toHaveCount(0);
+  await expect(note.getByRole("link", { name: "Add MyEBirdData for every place" })).toBeVisible();
+  // The sentence starts at the rows' title edge.
+  const title = page.getByTestId("ebird-drop").locator(".eb-src-title").first();
+  const [nx, tx] = await Promise.all([note.evaluate((el) => el.getBoundingClientRect().left + parseFloat(getComputedStyle(el).paddingLeft)), title.evaluate((el) => el.getBoundingClientRect().left)]);
+  expect(Math.abs(nx - tx)).toBeLessThanOrEqual(1);
   const group = page.getByRole("group", { name: "Add MyEBirdData" });
   const choose = group.getByRole("button", { name: "Choose your eBird file" });
   await page.getByTestId("places-lifer-add").click();
