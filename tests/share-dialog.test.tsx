@@ -88,7 +88,6 @@ describe('share dialog', () => {
   })
 
   it('the image and the link carry the collage title verbatim, trimmed (no "\'s birds" added)', async () => {
-    const image = await import('@/lib/share/image')
     const writeText = vi.fn(async () => {})
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
     const state = stateWith([entry('ostric2')])
