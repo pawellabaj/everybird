@@ -50,7 +50,7 @@ describe('the bar buttons', () => {
 
 describe('placesNoteFor (the lifer-only notice)', () => {
   const rec = (seen?: string[]) => ({ code: 'a', source: 'ebird' as const, seen })
-  const saved = (ebird: ReturnType<typeof rec>[], list: ReturnType<typeof rec>[] = []) => ({ records: { ebird, 'ebird-list': list, inat: [], manual: [] } })
+  const saved = (ebird: ReturnType<typeof rec>[], list: ReturnType<typeof rec>[] = []) => ({ records: { obsorg: [], 'obsorg-list': [], ebird, 'ebird-list': list, inat: [], manual: [] } })
   it('hidden on an empty list and when seen-here is known', () => {
     expect(placesNoteFor(saved([]), 0, false)).toBeUndefined()
     expect(placesNoteFor(saved([rec(['|CA'])]), 3, true)).toBeUndefined()

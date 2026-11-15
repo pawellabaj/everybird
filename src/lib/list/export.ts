@@ -87,7 +87,7 @@ export function fromJson(text: string): Saved {
 
   if (!isObj(raw.records)) throw new Error('Backup has no records.')
   // Backups made before the second eBird slot have no 'ebird-list'; it starts empty.
-  const records = { ebird: [], 'ebird-list': [], inat: [], manual: [] } as Record<Slot, SourceRecord[]>
+  const records = { ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] } as Record<Slot, SourceRecord[]>
   for (const [k, v] of Object.entries(raw.records)) {
     if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen))))
       throw new Error('Backup records are malformed.')

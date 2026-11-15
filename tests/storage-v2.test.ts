@@ -12,7 +12,7 @@ import type { Regions } from '@/lib/species/types'
 /** A list saved by v1 (no seen-here anywhere). */
 const v1 = () => ({
   v: 1,
-  records: { ebird: [{ code: 'a', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' } }], 'ebird-list': [], inat: [], manual: [] },
+  records: { obsorg: [], 'obsorg-list': [], ebird: [{ code: 'a', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' } }], 'ebird-list': [], inat: [], manual: [] },
   unmatched: [],
   edits: { removed: [], added: [], marks: {}, fixes: {} },
   rules: { ...DEFAULT_RULES },
@@ -20,7 +20,7 @@ const v1 = () => ({
 })
 const withSeen = () => ({
   ...emptySaved(),
-  records: { ebird: [{ code: 'a', source: 'ebird' as const, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US'] }], 'ebird-list': [], inat: [], manual: [] },
+  records: { obsorg: [], 'obsorg-list': [], ebird: [{ code: 'a', source: 'ebird' as const, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US'] }], 'ebird-list': [], inat: [], manual: [] },
   unmatched: [{ source: 'ebird' as const, row: 3, reason: 'no-match' as const, seen: ['2020-01-01|MX'] }],
 })
 
@@ -45,7 +45,7 @@ describe('Saved v2', () => {
   })
   it('malformed seen-here and unknown versions are refused', () => {
     expect(() => fromJson(JSON.stringify({ ...withSeen(), v: 5 }))).toThrow(/version/i)
-    const bad = withSeen() as unknown as { records: { ebird: { seen: unknown }[] } }
+    const bad = withSeen() as unknown as { records: { obsorg: [], 'obsorg-list': [], ebird: { seen: unknown }[] } }
     bad.records.ebird[0].seen = [1, 2]
     expect(() => fromJson(JSON.stringify(bad))).toThrow(/records/)
     const badU = withSeen() as unknown as { unmatched: { seen: unknown }[] }

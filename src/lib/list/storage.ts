@@ -55,7 +55,7 @@ export const STORAGE_KEY = 'everybird:v1'
 export function emptySaved(): Saved {
   return {
     v: 4,
-    records: { ebird: [], 'ebird-list': [], inat: [], manual: [] },
+    records: { ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] },
     unmatched: [],
     edits: { removed: [], added: [], marks: {}, fixes: {} },
     rules: { ...DEFAULT_RULES },

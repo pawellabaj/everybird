@@ -1,13 +1,13 @@
-export type Source = 'ebird' | 'inat' | 'manual'
+export type Source = 'ebird' | 'inat' | 'obsorg' | 'manual'
 /**
  * Where a source's records are kept in Saved.records. The two eBird files keep their own slots, so importing one
  * never replaces the other: 'ebird' holds the full MyEBirdData export (places down to the county), 'ebird-list' the
  * quick life list download (state or province only). Records in both carry source 'ebird'.
  */
-export type Slot = Source | 'ebird-list'
-export const SLOTS: readonly Slot[] = ['ebird', 'ebird-list', 'inat', 'manual']
+export type Slot = Source | 'ebird-list' | 'obsorg-list'
+export const SLOTS: readonly Slot[] = ['ebird', 'ebird-list', 'inat', 'obsorg', 'obsorg-list', 'manual']
 /** The source a slot's records come from. */
-export const slotSource = (slot: Slot): Source => (slot === 'ebird-list' ? 'ebird' : slot)
+export const slotSource = (slot: Slot): Source => (slot === 'ebird-list' ? 'ebird' : slot === 'obsorg-list' ? 'obsorg' : slot)
 export type Place = { country?: string /* ISO2 */; sub1?: string /* "CA-BC" */; sub2?: string /* "Okanagan-Similkameen" */ }
 export type SourceRecord = {
   code: string

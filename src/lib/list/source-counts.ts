@@ -19,9 +19,9 @@ export function slottedRecords(saved: Saved): { slot: Slot; record: SourceRecord
 }
 
 /** The three sources the summary and "only here" compare: the two eBird files are one. */
-export type Group = 'ebird' | 'inat' | 'manual'
-export const GROUPS: readonly Group[] = ['ebird', 'inat', 'manual']
-const groupOf = (slot: Slot): Group => (slot === 'ebird-list' ? 'ebird' : slot)
+export type Group = 'ebird' | 'inat' | 'obsorg' | 'manual'
+export const GROUPS: readonly Group[] = ['ebird', 'inat', 'obsorg', 'manual']
+const groupOf = (slot: Slot): Group => slotSource(slot)
 
 /** One Settings row's counts: the species it brings to the collage, and how many of them no other source has. */
 export type RowCount = {
@@ -118,7 +118,7 @@ export function sourceCounts(saved: Saved, list: readonly ListEntry[]): SourceCo
 }
 
 const num = (x: number) => x.toLocaleString('en-US')
-const FROM: Record<Group, string> = { ebird: 'from eBird', inat: 'from iNaturalist', manual: 'ticked by hand' }
+const FROM: Record<Group, string> = { ebird: 'from eBird', inat: 'from iNaturalist', obsorg: 'from observation.org', manual: 'ticked by hand' }
 
 /**
  * Settings' one line above the sources: "Your collage has 199 species: 185 from eBird, 11 more from iNaturalist,
