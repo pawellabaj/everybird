@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applyFilter, filterKey, filterToShow, statusOptions, threatenedCount, toggleStatus, withStatuses } from '@/lib/list/filters'
+import { emptyHere } from '@/components/filters/places-shared'
+import { applyFilter, filterKey, filterToShow, placeCounts, placeRows, statusOptions, threatenedCount, toggleStatus, withStatuses } from '@/lib/list/filters'
 import { applyFilterValidity } from '@/lib/list/filters-validate'
 import type { ListEntry } from '@/lib/list/model'
 import { buildSpeciesIndex } from '@/lib/species/load'
@@ -45,6 +46,24 @@ describe('the Status filter', () => {
     expect(filterKey({ order: 'X' })).toBe('o:X')
     expect(filterKey({ order: 'X', statuses: ['VU', 'EN'] })).toBe('o:X|i:VU,EN')
     expect(filterKey({ order: 'X', from: '2020-01', statuses: ['EN'] })).toBe('o:X|r:2020-01~|i:EN')
+    // In Red List order whatever order the array holds, so equal filters share a key.
+    expect(filterKey({ statuses: ['EN', 'VU'] })).toBe('i:VU,EN')
+  })
+  it('placeCounts counts the places under a status filter', () => {
+    const placed: ListEntry[] = [
+      { ...entry('duck'), place: { country: 'CA' } },
+      { ...entry('owl'), place: { country: 'CA' } },
+      { ...entry('crow'), place: { country: 'EG' } },
+      { ...entry('robin'), place: { country: 'EG' } },
+    ]
+    const rows = (f: object) => placeRows(placeCounts(placed, f, species), undefined, (k) => k).map((o) => [o.value, o.count])
+    expect(rows({})).toEqual([['c:CA', 2], ['c:EG', 2]])
+    expect(rows({ statuses: ['VU', 'EN'] })).toEqual([['c:CA', 1], ['c:EG', 1]])
+    expect(rows({ statuses: ['LC'] })).toEqual([['c:CA', 1]])
+  })
+  it('an empty drilled Places level names a status filter among the other filters', () => {
+    expect(emptyHere({ statuses: ['VU'] })).toBe('No places here under the other filters.')
+    expect(emptyHere({})).toBe('No places here on your list now.')
   })
   it('threatened: VU + EN + CR only', () => {
     expect(threatenedCount(list, species)).toBe(2)

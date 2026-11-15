@@ -62,7 +62,7 @@ export function filterKey(f: Filter): string {
   if (f.counties?.length) parts.push(`k:${[...f.counties].sort().join(',')}`)
   if (f.year) parts.push(`y:${f.year}`)
   if (f.from || f.to) parts.push(`r:${f.from ?? ''}~${f.to ?? ''}`)
-  if (f.statuses?.length) parts.push(`i:${f.statuses.join(',')}`)
+  if (f.statuses?.length) parts.push(`i:${[...f.statuses].sort((a, b) => IUCN_CATS.indexOf(a) - IUCN_CATS.indexOf(b)).join(',')}`)
   return parts.join('|')
 }
 
@@ -187,7 +187,7 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
 }
 
 /**
- * Drill into an order or family from a search pick: within the current place and time filters, or with them cleared
+ * Drill into an order or family from a search pick: within the current place, time and status filters, or with them cleared
  * when they would leave the group empty.
  */
 export function drillTo(f: Filter, group: { order: string; family?: string }, list: ListEntry[], species: SpeciesIndex, seen?: SeenIndex): Filter {
