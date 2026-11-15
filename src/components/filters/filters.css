@@ -66,8 +66,8 @@
 @keyframes eb-sheet-up { from { opacity: 0; transform: translateY(16px); } }
 @keyframes eb-fade-in { from { opacity: 0; } }
 
-/* The Places and Time dropdowns (FilterDropdowns.tsx): a popover under the controls bar (Places at the bar's right,
-   under its button; Time across the bar, for the timeline), or the phone's bottom sheet. */
+/* The Places, Time and Status dropdowns (FilterDropdowns.tsx): a popover under the controls bar (Places and Status at
+   the bar's right, under their buttons; Time across the bar, for the timeline), or the phone's bottom sheet. */
 .eb-drop {
   position: absolute; z-index: 9; top: calc(100% + 6px); right: 0; width: min(380px, 100%); box-sizing: border-box;
   max-height: min(70vh, 560px); display: flex; flex-direction: column;
@@ -117,6 +117,9 @@
   border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
 .eb-places-row .eb-check { flex: 1; min-width: 0; }
+/* Status (StatusList.tsx): one checklist, each row the box, the Red List pill (card-list.css .eb-iucn), the full name
+   and the count; the row is the hover target, as a Places row is. */
+.eb-status-row { border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
 .eb-drill {
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none;
   color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .15s ease;
@@ -140,7 +143,7 @@
 .eb-places-path button { position: relative; }
 .eb-places-path button::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100% + 8px, 44px); height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) and (pointer: fine) {
-  .eb-places-row:hover { background: var(--surface); }
+  .eb-places-row:hover, .eb-status-row:hover { background: var(--surface); }
   .eb-drill:hover { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) {

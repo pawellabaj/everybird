@@ -1,0 +1,159 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { useReducer, useState } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
+import { StatusList } from '@/components/filters/StatusList'
+import { IucnPill } from '@/components/collage/IucnPill'
+import { initialState, makeReducer, type AppState } from '@/lib/list/store'
+import { emptySaved } from '@/lib/list/storage'
+import { monthBins } from '@/lib/list/timeline'
+import type { IucnCat } from '@/lib/species/iucn'
+import { buildSpeciesIndex } from '@/lib/species/load'
+import type { Regions, SpeciesRow } from '@/lib/species/types'
+
+const row = (code: string, ord: string, fam: string, to: number, iu?: IucnCat): SpeciesRow => ({
+  code, com: code, sci: `Avis ${code}`, ord, fam, famCom: fam, to, g: 100, gSrc: 'avonet', st: true, ar: 1, q: true, ...(iu ? { iu } : {}),
+})
+const species = buildSpeciesIndex([
+  row('duck1', 'Anseriformes', 'Anatidae', 1, 'LC'),
+  row('owl1', 'Strigiformes', 'Strigidae', 5, 'VU'),
+  row('crow1', 'Passeriformes', 'Corvidae', 3, 'EN'),
+  row('robin1', 'Passeriformes', 'Turdidae', 7),
+])
+const regions: Regions = { v: 1, countries: { CA: 'Canada' }, sub1: {} }
+const reduce = makeReducer({ species, countryName: (c) => regions.countries[c] ?? c })
+
+function seeded(codes: string[]): AppState {
+  const saved = emptySaved()
+  saved.records.ebird = codes.map((code) => ({ code, source: 'ebird', date: '2020-01-01', place: { country: 'CA' } }))
+  return reduce(initialState(), { type: 'restore', saved })
+}
+
+function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'] }: { codes?: string[] }) {
+  const [state, dispatch] = useReducer(reduce, undefined, () => seeded(codes))
+  const [open, setOpen] = useState<Panel | null>(null)
+  const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
+  return (
+    <>
+      <div className="eb-dock">
+        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} />
+      </div>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
+      <output data-testid="filter">{JSON.stringify(state.filter)}</output>
+    </>
+  )
+}
+const filterOf = () => JSON.parse(screen.getByTestId('filter').textContent || '{}')
+const statusBtn = () => screen.getByTestId('filter-tab-status')
+
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
+
+describe('Status: a dropdown in the controls bar', () => {
+  it('a Status button after Time; its panel lists the categories on the list, in Red List order, with counts', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    const group = screen.getByRole('group', { name: 'Places, time and status' })
+    expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
+    expect(statusBtn()).toHaveAccessibleName('Status')
+    fireEvent.click(statusBtn())
+    const panel = screen.getByRole('dialog', { name: 'Status' })
+    expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
+    expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
+    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
+    expect(screen.getByText('Global IUCN Red List categories. Birds without one are left out once you pick a category.')).toBeInTheDocument()
+    // Each row: the box, the pill (hidden from assistive tech), the full name, the count.
+    const label = screen.getByTestId('status-VU').closest('label')!
+    const pill = label.querySelector('.eb-iucn')!
+    expect(pill).toHaveTextContent('VU')
+    expect(pill).toHaveAttribute('aria-hidden', 'true')
+    expect(label).toHaveTextContent('VUVulnerable1, 1 species')
+    expect(screen.queryByTestId('status-clear')).toBeNull()
+  })
+
+  it('checking filters live; the button says how many and names them; Clear clears', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(statusBtn())
+    fireEvent.click(screen.getByTestId('status-VU'))
+    fireEvent.click(screen.getByTestId('status-EN'))
+    expect(filterOf()).toEqual({ statuses: ['VU', 'EN'] })
+    expect(screen.getByTestId('status-VU')).toBeChecked()
+    expect(statusBtn()).toHaveTextContent('Status · 2')
+    expect(statusBtn()).toHaveAccessibleName('Status: Vulnerable, Endangered')
+    // The counts are under the other filters: checking a category changes none of them.
+    expect(screen.getByRole('checkbox', { name: 'Least Concern, 1 species' })).not.toBeChecked()
+    fireEvent.click(screen.getByTestId('status-clear'))
+    expect(filterOf()).toEqual({})
+    expect(screen.queryByTestId('status-clear')).toBeNull()
+  })
+
+  it('a checked category another filter empties stays at 0 so it can be unchecked', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(statusBtn())
+    fireEvent.click(screen.getByTestId('status-EN'))
+    fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
+    expect(filterOf()).toEqual({ order: 'Strigiformes', statuses: ['EN'] })
+    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU', 'status-EN'])
+    expect(screen.getByTestId('status-EN')).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Endangered, 0 species' })).toBeInTheDocument()
+    expect(screen.getByText(/Categories · 2/)).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('status-EN'))
+    expect(filterOf()).toEqual({ order: 'Strigiformes' })
+  })
+
+  it('no Status button on a list where no species has a status', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness codes={['robin1']} />)
+    expect(screen.queryByTestId('filter-tab-status')).toBeNull()
+    expect(screen.getByTestId('filter-tab-places')).toBeInTheDocument()
+  })
+
+  it('Esc closes the panel and focus returns to the Status button; at phone width it is the bottom sheet', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const { unmount } = render(<Harness />)
+    statusBtn().focus()
+    fireEvent.click(statusBtn())
+    expect(screen.getByRole('dialog', { name: 'Status' })).toContainElement(document.activeElement as HTMLElement)
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(statusBtn()).toHaveFocus()
+    unmount()
+
+    vi.stubGlobal('innerWidth', 390)
+    render(<Harness />)
+    fireEvent.click(statusBtn())
+    const sheet = screen.getByRole('dialog', { name: 'Status' })
+    expect(sheet).toHaveAttribute('aria-modal', 'true')
+    expect(within(sheet).getByTestId('status-LC')).toBeInTheDocument()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('the threatened line (variant c) shows only when given a count', () => {
+    const state = seeded(['duck1', 'owl1', 'crow1'])
+    const { rerender } = render(<StatusList state={state} species={species} onFilter={() => {}} />)
+    expect(screen.queryByTestId('status-threatened')).toBeNull()
+    rerender(<StatusList state={state} species={species} threatLine={12} onFilter={() => {}} />)
+    expect(screen.getByTestId('status-threatened')).toHaveTextContent('12 threatened: Vulnerable, Endangered or Critically Endangered.')
+  })
+})
+
+describe('IucnPill', () => {
+  it('the span form: the abbreviation, its Red List colours inline, hidden from assistive tech', () => {
+    render(<IucnPill cat="CR" />)
+    const pill = screen.getByText('CR')
+    expect(pill.tagName).toBe('SPAN')
+    expect(pill).toHaveClass('eb-iucn')
+    expect(pill).toHaveAttribute('data-cat', 'CR')
+    expect(pill).toHaveAttribute('aria-hidden', 'true')
+    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#d81e05')
+    expect(pill.style.getPropertyValue('--iucn-text')).toBe('#ffffff')
+  })
+})
