@@ -24,7 +24,7 @@ async function main() {
         skippedTypes[type] = (skippedTypes[type] ?? 0) + 1
       }
     } })
-    console.log(`rows ${result.rows} · species ${result.records.length} · not species ${result.unmatched.filter(u => u.reason === 'not-species').length} · unmatched ${result.unmatched.filter(u => u.reason === 'no-match').length} · skipped by type ${JSON.stringify(skippedTypes)}`)
+    console.log(`rows ${result.rows} · species ${result.records.length} · undated ${result.undated} · not species ${result.unmatched.filter(u => u.reason === 'not-species').length} · unmatched ${result.unmatched.filter(u => u.reason === 'no-match').length} · skipped by type ${JSON.stringify(skippedTypes)}`)
     return
   }
   if (kind !== 'obsorg-observations') throw new Error('Unsupported file kind.')
@@ -60,6 +60,6 @@ async function main() {
     divisions.add(key)
     if (place?.sub1) divisionResolved.add(key)
   } })
-  console.log(`rows ${result.rows} · soort names matched ${matched.size}/${names.size} · species ${result.records.length} · unmatched ${result.unmatched.filter(u => u.reason === 'no-match').length} · countries resolved ${countryResolved.size}/${countries.size} (World excluded) · divisions matched ${divisionResolved.size}/${divisions.size} · excluded escape ${result.excluded.escape}, uncertain ${result.excluded.uncertain} · not species names ${result.unmatched.filter(u => u.reason === 'not-species').length} · skipped by type ${JSON.stringify(skippedTypes)} · ocean rows ${oceanRows} · empty division rows ${emptyDivisionRows} · parse errors ${parseErrors}`)
+  console.log(`rows ${result.rows} · soort names matched ${matched.size}/${names.size} · species ${result.records.length} · unmatched ${result.unmatched.filter(u => u.reason === 'no-match').length} · countries resolved ${countryResolved.size}/${countries.size} (World excluded) · divisions matched ${divisionResolved.size}/${divisions.size} · excluded escape ${result.excluded.escape}, uncertain ${result.excluded.uncertain} · undated ${result.undated} · not species names ${result.unmatched.filter(u => u.reason === 'not-species').length} · skipped by type ${JSON.stringify(skippedTypes)} · ocean rows ${oceanRows} · empty division rows ${emptyDivisionRows} · parse errors ${parseErrors}`)
 }
 main().catch(() => { console.error('Validation failed. Check the file kind and CSV structure locally.'); process.exitCode = 1 })
