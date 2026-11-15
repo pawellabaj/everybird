@@ -193,6 +193,24 @@ for (const { layout, width, height } of SIZES) {
     await ctx.close()
   })
 
+  test(`How it works: each share image's footer, stamped, fits inside the image (${layout})`, async ({ browser }) => {
+    // Under reduced motion the poster is all there is, so nothing replaces it while it's measured. The images are
+    // overflow: hidden; the hidden formats are only opacity 0, so their boxes measure as laid out.
+    const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" })
+    const page = await ctx.newPage()
+    await page.goto("/about")
+    await page.evaluate(() => document.fonts.ready)
+    const out: string[] = []
+    for (const f of ["story", "post", "square"]) {
+      const img = page.locator(`[data-poster="${layout}"] .ebd-img[data-format="${f}"]`)
+      const [a, b] = [await img.boundingBox(), await img.locator(".ebd-img-foot").boundingBox()]
+      if (!a || !b) out.push(`${f}: not laid out`)
+      else if (b.x + b.width > a.x + a.width + 0.5) out.push(`${f}: footer ends ${(b.x + b.width - a.x - a.width).toFixed(1)}px past the image`)
+    }
+    expect(out).toEqual([])
+    await ctx.close()
+  })
+
   test(`How it works: no sticker paints on the count, in the collage and the share images (${layout})`, async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" })
     const page = await ctx.newPage()
@@ -283,20 +301,6 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
   expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
   expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, asOfDate(")
-  // The longer line still fits inside each image (they're overflow: hidden; the hidden ones are only opacity 0), in
-  // both designs: wide here, compact at a phone's width
-  const clipped = async (design: string) => {
-    await page.evaluate(() => document.fonts.ready)
-    const out: string[] = []
-    for (const f of ["story", "post", "square"]) {
-      const img = page.locator(`[data-poster="${design}"] .ebd-img[data-format="${f}"]`)
-      const [a, b] = [await img.boundingBox(), await img.locator(".ebd-img-foot").boundingBox()]
-      if (!a || !b) out.push(`${design} ${f}: not laid out`)
-      else if (b.x + b.width > a.x + a.width + 0.5) out.push(`${design} ${f}: footer ends ${(b.x + b.width - a.x - a.width).toFixed(1)}px past the image`)
-    }
-    return out
-  }
-  expect(await clipped("wide")).toEqual([])
   expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")
@@ -306,6 +310,4 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   expect(all).not.toContain("Stickers: huashu")
   expect(all).not.toMatch(/\bseen\b/i)
   expect(all).not.toContain("Yusuf")
-  await page.setViewportSize({ width: 390, height: 844 })
-  expect(await clipped("compact")).toEqual([])
 })
