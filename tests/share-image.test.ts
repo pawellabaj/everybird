@@ -38,6 +38,11 @@ describe('filterLabel', () => {
     expect(filterLabel({ countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx)).toBe('Egypt · Sep 2026')
     expect(filterLabel({ order: 'Pelecaniformes', countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx)).toBe(`${orderLabel('Pelecaniformes')} · Egypt · Sep 2026`)
   })
+  it('names a Status filter in words after the birds and before the places', () => {
+    expect(filterLabel({ order: 'Pelecaniformes', family: 'Ardeidae', statuses: ['VU', 'EN', 'CR'], countries: ['EG'] }, ctx)).toBe('Herons, Egrets, and Bitterns · Threatened · Egypt')
+    expect(filterLabel({ statuses: ['EN'] }, ctx)).toBe('Endangered')
+    expect(filterLabel({ statuses: ['VU', 'EN'], from: '2025-03', to: '2026-06' }, ctx)).toBe('Vulnerable + Endangered · Mar 2025 to Jun 2026')
+  })
 })
 
 describe('share image constants', () => {

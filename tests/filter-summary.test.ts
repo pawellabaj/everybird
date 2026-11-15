@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
@@ -60,5 +60,25 @@ describe('placesNoteFor (the lifer-only notice)', () => {
   })
   it('only the life list download or ticks by hand: add MyEBirdData or iNaturalist', () => {
     expect(placesNoteFor(saved([], [rec()]), 1, false)).toBe('add')
+  })
+})
+
+describe('Status in words', () => {
+  it('the button: the number checked; spoken as the full names in IUCN_CATS order', () => {
+    expect(statusSummary({})).toBeUndefined()
+    expect(statusSummary({ statuses: [] })).toBeUndefined()
+    expect(statusSummary({ statuses: ['VU', 'EN'] })).toBe('2')
+    expect(statusSpoken({})).toBeUndefined()
+    expect(statusSpoken({ statuses: ['VU', 'EN'] })).toBe('Vulnerable, Endangered')
+    expect(statusSpoken({ statuses: ['CR', 'EX', 'DD'] })).toBe('Critically Endangered, Extinct, Data Deficient')
+  })
+  it('the share label: exactly VU, EN and CR read "Threatened"; else one, two joined by +, or "and N more"', () => {
+    expect(statusLabel(undefined)).toBeUndefined()
+    expect(statusLabel([])).toBeUndefined()
+    expect(statusLabel(['VU', 'EN', 'CR'])).toBe('Threatened')
+    expect(statusLabel(['EN'])).toBe('Endangered')
+    expect(statusLabel(['VU', 'EN'])).toBe('Vulnerable + Endangered')
+    expect(statusLabel(['NT', 'VU', 'EN', 'CR'])).toBe('Near Threatened and 3 more')
+    expect(statusLabel(['VU', 'EN', 'CR', 'EW'])).toBe('Vulnerable and 3 more')
   })
 })

@@ -28,7 +28,7 @@ import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
-import { countriesLabel, placesLabel } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel, statusLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
 import type { ListEntry } from '@/lib/list/model'
@@ -66,7 +66,8 @@ export function latestText(latest: { com: string; date?: string }): { label: str
 }
 
 /**
- * The current filter in words, birds then places then time: "Egypt · 2026", "Herons · Canada + Egypt"; a range reads
+ * The current filter in words, birds then status then places then time: "Egypt · 2026", "Herons · Canada + Egypt",
+ * "Herons · Threatened · Canada" (filter-summary.ts statusLabel); a range reads
  * "Mar 2020 to Jun 2021" (timeline.ts rangeLabel). With `regions`, places at every level by their short names
  * ("Owls · British Columbia"); without, the countries only.
  * Undefined when nothing is filtered.
@@ -80,6 +81,8 @@ export function filterLabel(
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
   else if (f.order) parts.push(orderLabel(f.order))
+  const status = statusLabel(f.statuses)
+  if (status) parts.push(status)
   if (place) parts.push(place)
   const range = rangeLabel(f.from, f.to)
   if (range) parts.push(range)

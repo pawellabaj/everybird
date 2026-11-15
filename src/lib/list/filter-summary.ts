@@ -1,5 +1,6 @@
-// What the Places and Time buttons in the controls bar say about the active filter, and the places label the share
-// image uses. Pure, so the bar, the share image and the tests agree.
+// What the Places, Time and Status buttons in the controls bar say about the active filter, and the places and
+// status labels the share image uses. Pure, so the bar, the share image and the tests agree.
+import { IUCN_NAMES, THREATENED, type IucnCat } from '@/lib/species/iucn'
 import type { Regions } from '@/lib/species/types'
 import { filterPlaceKeys, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
@@ -41,6 +42,25 @@ export function placesSpoken(f: Filter, regions: Names): string | undefined {
   if (!keys.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
   return keys.map((k) => placeNameLong(k, regions)).join(sep)
+}
+
+/** The Status button's short summary: the number of checked categories ("2"), or undefined for none. */
+export function statusSummary(f: Filter): string | undefined {
+  return f.statuses?.length ? String(f.statuses.length) : undefined
+}
+
+/** The Status button's accessible description: the full names in `IUCN_CATS` order ("Vulnerable, Endangered"). */
+export function statusSpoken(f: Filter): string | undefined {
+  return f.statuses?.length ? f.statuses.map((c) => IUCN_NAMES[c]).join(', ') : undefined
+}
+
+/**
+ * The share image's status label: exactly Vulnerable, Endangered and Critically Endangered read "Threatened"; else
+ * worded as `countriesLabel`: "Endangered", "Vulnerable + Endangered", "Near Threatened and 3 more"; undefined for none.
+ */
+export function statusLabel(statuses: readonly IucnCat[] | undefined): string | undefined {
+  if (statuses?.length === THREATENED.length && THREATENED.every((c) => statuses.includes(c))) return 'Threatened'
+  return countriesLabel(statuses, (c) => IUCN_NAMES[c as IucnCat])
 }
 
 const year = (m: string) => m.slice(0, 4)
