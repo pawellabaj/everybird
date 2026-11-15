@@ -11,7 +11,7 @@
 //    digested and the crosswalk rerun. Codes whose sticker file's blob changed, or that gained or lost a sticker, are
 //    the sticker changes. Nothing relevant changed: prints so, writes changed=false to $GITHUB_OUTPUT and exits 0.
 // 3. Otherwise only the changed and new sticker files are checked out (sparse checkout), rebuilt with sharp into
-//    <out>/stickers/v1/{128,384}/<code>.<sv>.webp (sv: the start of the source blob SHA), their masks and `ar` merged
+//    <out>/stickers/v1/{128,384,1024}/<code>.<sv>.webp (sv: the start of the source blob SHA), their masks and `ar` merged
 //    into the committed public/data/masks and species.v1.json (no other sticker is needed on disk), species.v1.json
 //    regenerated with the new huashu (the taxonomy comes from the committed public files, so no eBird download),
 //    the sample pack rebuilt, and data/sticker-versions.json and the lock updated.
@@ -31,7 +31,7 @@ import { availableParallelism, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HuashuRecord, Overrides, Regions, SpeciesFile, SpeciesRow, TaxonomyFile } from '../../src/lib/species/types'
-import { STICKER_BASE, SMALL, stickerPath } from '../../src/lib/sticker-url'
+import { STICKER_BASE, SMALL, LARGE, PRINT, stickerPath } from '../../src/lib/sticker-url'
 import { IUCN_SOURCE } from '../../src/lib/species/iucn'
 import {
   applyStickerVersions, buildSpecies, creditMatchesSources, iucnSources, loadHuashu, matchHuashu, taxonomyFromPublic, STICKER_VERSIONS,
@@ -252,7 +252,7 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   if (deferred.length) console.log(`cap: shipping ${ship.length - ship.filter((c) => c.kind === 'removed').length} rebuilt stickers, ${deferred.length} left for the next run`)
 
   // Stickers: only this batch's are checked out and rebuilt; every other mask and ar is merged as is.
-  const { readMaskTables, updateStickers } = await import('../build-data/build-stickers')
+  const { readMaskTables, stickerCount, updateStickers } = await import('../build-data/build-stickers')
   const { default: sharp } = await import('sharp')
   sharp.concurrency(1) // parallelism comes from updateStickers' pool, one sticker per thread
   const rebuild = ship.filter((s) => s.kind !== 'removed')
@@ -262,7 +262,7 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   const masks = readMaskTables(join(root, 'public/data/masks'))
   const written = await updateStickers({
     rows, codes: new Set(rebuild.map((s) => s.code)), source: (code) => join(dir, codes[code]), out: stickersOut, masks,
-    concurrency: availableParallelism(),
+    concurrency: availableParallelism(), sizes: [SMALL, LARGE, PRINT],
   })
 
   // The landing sample pack, from the new rows and masks.
@@ -328,10 +328,10 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   writeFileSync(join(a.out, 'stickers-written.txt'), written.join('\n') + (written.length ? '\n' : ''))
 
   console.log(`changed files (${a.dryRun ? `written under ${target}` : 'in place'}): ${changedFiles.join(', ')}`)
-  console.log(`stickers built: ${written.length / 2} into ${stickersOut}; sheets: ${pages} page(s) in ${artifact}`)
+  console.log(`stickers built: ${stickerCount(written)} into ${stickersOut}; sheets: ${pages} page(s) in ${artifact}`)
   output({
     changed: 'true', website: issueBody ? 'true' : 'false', commit, short: commit.slice(0, 7),
-    stickers: String(written.length / 2), deferred: String(deferred.length),
+    stickers: String(stickerCount(written)), deferred: String(deferred.length),
   })
   if (a.dryRun) {
     const show = (t: string) => t.replace(ARTIFACT_URL, artifact).replace(PR_URL, '(dry run: no PR)')

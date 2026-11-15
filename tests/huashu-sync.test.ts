@@ -9,7 +9,8 @@ import {
   type StickerChange,
 } from '../scripts/sync/huashu-lib'
 import { applyStickerVersions, buildSpecies, matchHuashu, taxonomyFromPublic } from '../scripts/build-data/build-species'
-import { readMaskTables, updateStickers, writeMaskTables, type MaskTables } from '../scripts/build-data/build-stickers'
+import { readMaskTables, stickerCount, updateStickers, writeMaskTables, type MaskTables } from '../scripts/build-data/build-stickers'
+import { SMALL, LARGE, PRINT } from '../src/lib/sticker-url'
 import { websiteCodes } from '../scripts/build-data/build-website-codes'
 import { assertRawPinned, assertShippedSource, gitBlobSha } from '../scripts/build-data/huashu-pin'
 import { checkoutHuashu } from '../scripts/build-data/fetch-sources'
@@ -256,6 +257,27 @@ describe('updateStickers (merge mode)', () => {
     expect(rows.map((r) => r.ar)).toEqual([0.5, 1, 1]) // kept, outline, measured (the fixture trims to a square)
     writeMaskTables(join(dir, 'masks'), masks)
     expect(Object.keys(readMaskTables(join(dir, 'masks')).get('Testiformes')!)).toEqual(['keep1', 'new1'])
+  })
+
+  it('builds all three tiers with unchanged 384 masks and counts one sticker per code', async () => {
+    const run = async (sizes: readonly (128 | 384 | 1024)[]) => {
+      const rows = [row('print1', true, 'abc123'), row('print2', true, 'def456')]
+      const masks: MaskTables = new Map()
+      const written = await updateStickers({ rows, masks, sizes, codes: new Set(rows.map((r) => r.code)),
+        source: () => resolve(__dirname, 'fixtures/build/sticker.png'), out: dir })
+      return { rows, masks, written }
+    }
+    const two = await run([SMALL, LARGE])
+    const three = await run([SMALL, LARGE, PRINT])
+    expect(three.masks).toEqual(two.masks)
+    expect(three.rows).toEqual(two.rows)
+    for (const r of three.rows) {
+      const rel = `v1/1024/${r.code}.${r.sv}.webp`
+      expect(three.written).toContain(rel)
+      expect(existsSync(join(dir, rel))).toBe(true)
+    }
+    expect(three.written).toHaveLength(6)
+    expect(stickerCount(three.written)).toBe(2)
   })
 
   it('runs the check on each source before building, so a refusal writes nothing', async () => {
