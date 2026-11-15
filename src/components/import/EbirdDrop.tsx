@@ -74,8 +74,9 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
   const input = useRef<HTMLInputElement>(null)
   const chooseFull = useRef<HTMLButtonElement>(null)
   const replaceFull = useRef<HTMLButtonElement>(null)
-  // Bumped to focus MyEBirdData's picker once its panel is shown (it is `hidden` until this render commits).
-  const [toPicker, setToPicker] = useState(0)
+  // Set to focus MyEBirdData's picker once its panel is shown (it is `hidden` until this render commits); `scroll`
+  // centres it first (arrival at #add-mydata, from another page).
+  const [toPicker, setToPicker] = useState<{ scroll: boolean } | null>(null)
   const { busy, rows, error } = job
   // A file landed (a row connected or went): fold the Add panels away.
   const on = connected.map((c) => c.slot).join()
@@ -105,23 +106,23 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
   const fullOn = connected.some((c) => c.slot === 'ebird')
 
   // MyEBirdData's Add panel, opened and its picker focused; with MyEBirdData on the list, its Replace focused.
-  const toFull = () => {
+  const toFull = (scroll: boolean) => {
     if (off) return
     if (fullOn) replaceFull.current?.focus()
     else {
       setAdding('ebird')
-      setToPicker((n) => n + 1)
+      setToPicker({ scroll })
     }
   }
   useEffect(() => {
     if (!toPicker) return
-    chooseFull.current?.scrollIntoView?.({ block: 'center' })
+    if (toPicker.scroll) chooseFull.current?.scrollIntoView?.({ block: 'center' })
     chooseFull.current?.focus()
   }, [toPicker])
   const toFullRef = useRef(toFull)
   useEffect(() => { toFullRef.current = toFull })
   useEffect(() => {
-    const onHash = () => { if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current() }
+    const onHash = () => { if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(true) }
     // The Places panel's link is a client navigation: the router writes the new URL after this mounts, and a router
     // push fires no hashchange. Read it once mounted, as MatchReport reads #match.
     onHash()
@@ -208,7 +209,7 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
           <p className="eb-note">
             Your eBird life list only says where each bird was first seen, so Places filters by those first places. MyEBirdData has every place you saw each bird, down to the county.
           </p>
-          <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" data-testid="places-lifer-add" disabled={off} onClick={toFull}>
+          <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" data-testid="places-lifer-add" disabled={off} onClick={() => toFull(false)}>
             {MYEBIRDDATA_PLACES.add}
           </button>
         </div>

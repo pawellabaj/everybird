@@ -204,6 +204,10 @@ test("the lifer-only note opens MyEBirdData's Add panel on Settings, or focuses 
   const choose = page.getByRole("group", { name: "Add MyEBirdData" }).getByRole("button", { name: "Choose your eBird file" });
   await expect(choose).toBeFocused();
   await expect(choose).toBeInViewport();
+  // A hard load of the address does the same.
+  await page.goto("/about");
+  await page.goto("/settings#add-mydata");
+  await expect(choose).toBeFocused();
 
   await seed(page);
   await page.getByTestId("filter-tab-places").click();
