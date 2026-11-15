@@ -22,15 +22,86 @@ export const OBSORG_SUB1_ALIASES: Record<string, string[]> = {
   'BE-VBR': ['Vlaams-Brabant'],
   'BE-VOV': ['Oost-Vlaanderen'],
   'BE-VWV': ['West-Vlaanderen'],
-  'BE-BRU': ['Brussel', 'Brussels Hoofdstedelijk Gewest', 'Bruxelles'],
+  'BE-BRU': ['Brussel', 'Brussels Hoofdstedelijk Gewest', 'Bruxelles', 'Bruxelles / Brussel', 'Brussel / Bruxelles'],
   'BE-WBR': ['Waals-Brabant', 'Brabant wallon'],
   'BE-WHT': ['Henegouwen'],
   'BE-WLG': ['Luik'],
   'BE-WLX': ['Luxemburg'],
   'BE-WNA': ['Namen'],
+  // Every region whose own-language name differs from regions.v1.json's English one, for the countries below (the
+  // ISO 3166-2 names in each country's language), so the table is a public list, never fitted to one birder's file.
   'PE-CUS': ['Cusco', 'Cuzco'],
-  'DE-BY': ['Beieren'],
+  'PE-CAL': ['Callao', 'El Callao', 'Provincia Constitucional del Callao'],
+  'FR-75': ['Ville de Paris', 'Paris'],
+  // Germany and Austria (Bavaria in Dutch too).
+  'DE-BY': ['Bayern', 'Beieren'],
+  'DE-HB': ['Bremen', 'Freie Hansestadt Bremen'],
+  'DE-HE': ['Hessen'],
+  'DE-MV': ['Mecklenburg-Vorpommern'],
+  'DE-NI': ['Niedersachsen'],
+  'DE-NW': ['Nordrhein-Westfalen'],
+  'DE-RP': ['Rheinland-Pfalz'],
+  'DE-SN': ['Sachsen'],
+  'DE-ST': ['Sachsen-Anhalt'],
+  'DE-TH': ['Thüringen'],
+  'AT-2': ['Kärnten'],
+  'AT-3': ['Niederösterreich'],
+  'AT-4': ['Oberösterreich'],
+  'AT-6': ['Steiermark'],
+  'AT-7': ['Tirol'],
+  'AT-9': ['Wien'],
+  // Denmark and Finland.
+  'DK-81': ['Nordjylland', 'Region Nordjylland'],
+  'DK-82': ['Midtjylland', 'Region Midtjylland'],
+  'DK-83': ['Syddanmark', 'Region Syddanmark'],
+  'DK-84': ['Hovedstaden', 'Region Hovedstaden'],
+  'DK-85': ['Sjælland', 'Region Sjælland'],
+  'FI-01': ['Ahvenanmaa', 'Åland'],
+  'FI-02': ['Etelä-Karjala'],
+  'FI-03': ['Etelä-Pohjanmaa'],
+  'FI-04': ['Etelä-Savo'],
+  'FI-06': ['Kanta-Häme'],
+  'FI-07': ['Keski-Pohjanmaa'],
+  'FI-08': ['Keski-Suomi'],
+  'FI-10': ['Lappi'],
+  'FI-12': ['Pohjanmaa'],
+  'FI-13': ['Pohjois-Karjala'],
+  'FI-14': ['Pohjois-Pohjanmaa'],
+  'FI-15': ['Pohjois-Savo'],
+  'FI-16': ['Päijät-Häme'],
+  'FI-19': ['Varsinais-Suomi'],
+  // Croatia's 21 counties by their Croatian names (Istarska županija, ...).
+  'HR-01': ['Zagrebačka'],
+  'HR-02': ['Krapinsko-zagorska'],
+  'HR-03': ['Sisačko-moslavačka'],
+  'HR-04': ['Karlovačka'],
+  'HR-05': ['Varaždinska'],
+  'HR-06': ['Koprivničko-križevačka'],
+  'HR-07': ['Bjelovarsko-bilogorska'],
+  'HR-08': ['Primorsko-goranska'],
+  'HR-09': ['Ličko-senjska'],
+  'HR-10': ['Virovitičko-podravska'],
+  'HR-11': ['Požeško-slavonska'],
+  'HR-12': ['Brodsko-posavska'],
+  'HR-13': ['Zadarska'],
+  'HR-14': ['Osječko-baranjska'],
+  'HR-15': ['Šibensko-kninska'],
+  'HR-16': ['Vukovarsko-srijemska'],
+  'HR-17': ['Splitsko-dalmatinska'],
+  'HR-18': ['Istarska'],
+  'HR-19': ['Dubrovačko-neretvanska'],
+  'HR-20': ['Međimurska'],
+  'HR-21': ['Grad Zagreb'],
+  // Portugal's districts and autonomous regions.
+  'PT-11': ['Lisboa'],
+  'PT-20': ['Açores', 'Região Autónoma dos Açores'],
+  'PT-30': ['Região Autónoma da Madeira'],
 }
+
+// The UK's divisions read "<Nation> - <County>": eBird's subnational1 there is the nation (England, Scotland, Wales,
+// Northern Ireland); the county would be subnational2, which this export never sets.
+const ukNation = (country: string, division: string) =>
+  country === 'GB' ? /^(.+?)\s+-\s+.+$/.exec(division)?.[1] : undefined
 
 /** Reverse the regions' English names and Intl country names; ambiguous folded names never resolve. */
 export function countryNameMap(regions: Regions, langs: readonly string[] = OBSORG_NAME_LANGS): Map<string, string> {
@@ -77,7 +148,8 @@ export function makeObsOrgPlaces(regions: Regions): (country: string, division: 
     const country = foldName(countryName) === 'world' ? undefined : countries.get(foldName(countryName))
     let place: Place | undefined
     if (country) {
-      const code = sub1Of(country, division)
+      const nation = ukNation(country, division)
+      const code = sub1Of(country, division) ?? (nation ? sub1Of(country, nation) : undefined)
       place = code ? { country, sub1: code } : { country }
     }
     cache.set(key, place)

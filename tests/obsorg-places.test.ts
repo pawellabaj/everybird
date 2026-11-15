@@ -24,6 +24,21 @@ describe('observation.org country and division names', () => {
     expect(p('Nederland','Noord Holand')).toEqual({ country:'NL' })
     expect(p('Nederland','Antwerpen')).toEqual({ country:'NL' })
   })
+  it('reads divisions in their own languages, and the UK nation before " - "', () => {
+    const p = place()
+    for (const [country, division, iso, sub1] of [
+      ['Duitsland','Hessen','DE','DE-HE'], ['Duitsland','Thüringen','DE','DE-TH'], ['Oostenrijk','Steiermark','AT','AT-6'],
+      ['Oostenrijk','Wien','AT','AT-9'], ['Denemarken','Nordjylland','DK','DK-81'], ['Finland','Varsinais-Suomi','FI','FI-19'],
+      ['Kroatië','Splitsko-dalmatinska','HR','HR-17'], ['Kroatië','Grad Zagreb','HR','HR-21'], ['Portugal','Açores','PT','PT-20'],
+      ['Peru','Provincia Constitucional del Callao','PE','PE-CAL'], ['België','Brussel / Bruxelles','BE','BE-BRU'],
+      ['Frankrijk','Paris','FR','FR-75'],
+      ['Verenigd Koninkrijk','England - Kent','GB','GB-ENG'], ['Verenigd Koninkrijk','Wales - Gwynedd','GB','GB-WLS'],
+    ]) expect(p(country,division)).toEqual({ country:iso, sub1 })
+    // Only the UK's divisions split at the dash; elsewhere the whole name must match.
+    expect(p('Duitsland','Hessen - Kassel')).toEqual({ country:'DE' })
+    // Slovenia's eBird subnational1 are municipalities: a statistical region stays the country.
+    expect(p('Slovenië','Pomurska')).toEqual({ country:'SI' })
+  })
   it('falls back to country for empty or unknown divisions and caches a pair', () => {
     const p = place()
     expect(p('Nederland','')).toEqual({ country:'NL' })
