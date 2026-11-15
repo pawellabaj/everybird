@@ -36,8 +36,9 @@ What changed, and why each label is what it is:
   Post / Square with their ratios (icons and ratios dropped in the compact column, as the product does under 420 px),
   the collage title field and the three actions. The image is the centre-count card without a name (the collage has no
   title): stickers around "112 / SPECIES", "LATEST LIFER · OCT 2026" over Tricolored Heron, a hairline, the wordmark and
-  "everybird.yusuftaleb.com · stickers by huashu" on one line. The old separate credit line is gone (the credit stays
-  under the figure).
+  "everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026" on one line (the demo's fixed date stamp, the
+  day of its "Imported 6 Nov"; the product stamps the day the image is made). The old separate credit line is gone (the
+  credit stays under the figure).
 - The landing ("A lifetime of birds.") isn't in the story: the scene starts on Settings, as before.
 
 Beats (wide, about 17 s a loop):
@@ -147,8 +148,8 @@ no name. Sticker codes are public
 taxonomy codes. Stickers load from the configured sticker base (`NEXT_PUBLIC_STICKER_BASE`), so the demo needs the
 stickers site to be live (Task 25) in production.
 
-Unresolved: the share image's small text (the lifer row, the footer) is set 1.25 to 1.5 times its true scale so it
-reads as text in a 168 px preview. The collage and the images show 24 stickers under "112" (a miniature: the packing is
+Unresolved: the share image's small text (the lifer row, the wordmark) is set 1.25 to 1.5 times its true scale so it
+reads as text in a 168 px preview; the footer line, longer with its date stamp, is at its true scale so it fits. The collage and the images show 24 stickers under "112" (a miniature: the packing is
 the product's for these 24). The compact page leaves out the stats line for room.
 
 Not checked: real devices and touch, Firefox, headed Safari over a long run (headed WebKit windows were throttled by the

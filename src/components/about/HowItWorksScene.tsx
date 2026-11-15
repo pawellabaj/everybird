@@ -20,6 +20,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 import { CollageIcon, FilterLinesIcon, ListIcon, SearchIcon } from '@/components/collage/icons'
 import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
 import { FOOTER_LINE } from '@/lib/share/image'
+import { asOfDate, withStamp } from '@/lib/share/stamp'
 import { stickerUrl } from '@/lib/sticker-url'
 import { AR, BIRDS, COLLAGE, FAMILIES, HERONS, LATEST, SHARE, SV, TOTAL, type Box } from './how-it-works-data'
 import type { Layout } from './stageshow/looks'
@@ -62,6 +63,8 @@ const SINCE = 'Mar 2019'
 const SKIPPED = 3
 const IMPORTED = '6 Nov'
 const LATEST_DATE = 'Oct 2026'
+/** The share images' date stamp: fixed, the day the demo's file came in (IMPORTED). */
+const STAMPED = new Date(2026, 10, 6)
 const FAMILY = 'Herons, Egrets, and Bitterns'
 const n = (x: number) => x.toLocaleString('en-US')
 
@@ -484,8 +487,9 @@ function ShareDialog({ format, show, wide }: { format: Format; show: boolean; wi
 /**
  * One share image, drawn from the product's layout (cardLayout, at the image's 1080 px width, scaled into the preview
  * box): the collage's stickers packed around "112 / SPECIES", the latest lifer row, a hairline, and the quiet footer
- * line: the wordmark, then "everybird.yusuftaleb.com · stickers by huashu". No name on top (the demo's collage has no
- * title). Small text is set a little larger than its true scale so it reads as text.
+ * line: the wordmark, then "everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026" (the stamp fixed at
+ * STAMPED). No name on top (the demo's collage has no title). Small text is set a little larger than its true scale so
+ * it reads as text, except the footer line: stamped, it fits the image (overflow: hidden) only at its true 20 px.
  */
 function ShareImage({ format, box, show }: { format: Format; box: { w: number; h: number }; show: boolean }) {
   const L = SHARE[format]
@@ -516,7 +520,7 @@ function ShareImage({ format, box, show }: { format: Format; box: { w: number; h
       <span className="ebd-img-rule" style={{ left: M, right: M, top: L.rule * k }} />
       <span className="ebd-img-foot" style={{ left: M, top: L.footer * k, height: 30 * k * 1.25 }}>
         <span className="ebd-img-mark" style={{ fontSize: 30 * k * 1.25 }}>Everybird</span>
-        <span className="ebd-img-line" style={{ fontSize: 20 * k * 1.25 }}>{FOOTER_LINE}</span>
+        <span className="ebd-img-line" style={{ fontSize: 20 * k }}>{withStamp(FOOTER_LINE, asOfDate(STAMPED))}</span>
       </span>
     </div>
   )

@@ -4,6 +4,7 @@ import { BIRDS, TOTAL } from "../src/components/about/how-it-works-data";
 import { pageTitle } from "../src/lib/list/title";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
+import { asOfDate, withStamp } from "../src/lib/share/stamp";
 
 // share/image.ts's FOOTER_LINE (that module can't load here: it starts a worker with import.meta); the test checks its
 // definition is still this.
@@ -277,7 +278,25 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)
   expect(formats).toEqual(["Story9:16", "Post4:5", "Square1:1"])
   expect(await scene.locator(".ebd-seg-btn").allTextContents()).toEqual(formats)
-  expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([FOOTER_LINE, FOOTER_LINE, FOOTER_LINE])
+  // The footer line ends with the demo's fixed date stamp (its "Imported 6 Nov"), as the product's ends with the day's
+  const LINE = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 10, 6)))
+  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
+  expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
+  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, asOfDate(")
+  // The longer line still fits inside each image (they're overflow: hidden; the hidden ones are only opacity 0), in
+  // both designs: wide here, compact at a phone's width
+  const clipped = async (design: string) => {
+    await page.evaluate(() => document.fonts.ready)
+    const out: string[] = []
+    for (const f of ["story", "post", "square"]) {
+      const img = page.locator(`[data-poster="${design}"] .ebd-img[data-format="${f}"]`)
+      const [a, b] = [await img.boundingBox(), await img.locator(".ebd-img-foot").boundingBox()]
+      if (!a || !b) out.push(`${design} ${f}: not laid out`)
+      else if (b.x + b.width > a.x + a.width + 0.5) out.push(`${design} ${f}: footer ends ${(b.x + b.width - a.x - a.width).toFixed(1)}px past the image`)
+    }
+    return out
+  }
+  expect(await clipped("wide")).toEqual([])
   expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")
@@ -287,4 +306,6 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   expect(all).not.toContain("Stickers: huashu")
   expect(all).not.toMatch(/\bseen\b/i)
   expect(all).not.toContain("Yusuf")
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await clipped("compact")).toEqual([])
 })
