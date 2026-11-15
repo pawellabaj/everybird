@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { createLayoutClient, type LayoutClient, type StateLayout } from '@/lib/layout/layout-client'
 import type { LayoutName } from '@/lib/layout/layout.worker'
-import { applyFilter, filterKey, inRange, options, withCountries, type Filter, type FilterLevel } from '@/lib/list/filters'
+import { applyFilter, filterKey, hasPlaces, inRange, options, withCountries, type Filter, type FilterLevel } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import { timeless } from '@/lib/list/timeline'
 import type { SeenIndex } from '@/lib/list/seen'
@@ -25,7 +25,7 @@ export { timeless }
 
 /**
  * The states one tap away from `f`: the next taxonomy level (orders, or the chosen order's families), the
- * top countries (one checked, when none is). At most PREFETCH_CAP. Range drags are continuous, so they are not guessed ahead.
+ * top countries (one checked, when no place is). At most PREFETCH_CAP. Range drags are continuous, so they are not guessed ahead.
  */
 export function childFilters(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): Filter[] {
   const out: Filter[] = []
@@ -33,7 +33,7 @@ export function childFilters(list: ListEntry[], f: Filter, species: SpeciesIndex
   const vals = (level: FilterLevel) => options(list, f, level, species, undefined, seen).map((o) => o.value)
   if (!f.order) add('order', vals('order'))
   else if (!f.family) add('family', vals('family'))
-  if (!f.countries) for (const v of vals('country').slice(0, COUNTRY_PREFETCH)) out.push(withCountries(f, [v]))
+  if (!hasPlaces(f)) for (const v of vals('country').slice(0, COUNTRY_PREFETCH)) out.push(withCountries(f, [v]))
   return out.slice(0, PREFETCH_CAP)
 }
 
@@ -95,11 +95,11 @@ export function useCollageLayout({ list, seen, filter, mode, species, container,
   const [result, setResult] = useState<CollageLayout | null>(null)
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
   // Every edit builds a new list (a mark toggle too), so compare what the layout actually uses. `packSig`: the
-  // codes and masses in order (what the worker packs). `filterSig`: what filters resolve on (months, lifer places, the
-  // seen-here places).
+  // codes and masses in order (what the worker packs). `filterSig`: what filters resolve on (months, lifer places down
+  // to the county, the seen-here places).
   const packSig = useMemo(() => known.map((e) => `${e.code}:${species.byCode.get(e.code)!.g}`).join(','), [known, species])
   const filterSig = useMemo(
-    () => `${known.map((e) => `${e.date?.slice(0, 7) ?? ''}${e.place?.sub1 ?? e.place?.country ?? ''}`).join(',')}#${seen?.sig ?? ''}`,
+    () => `${known.map((e) => `${e.date?.slice(0, 7) ?? ''}${e.place?.sub1 ?? e.place?.country ?? ''}${e.place?.sub2 ? `|${e.place.sub2}` : ''}`).join(',')}#${seen?.sig ?? ''}`,
     [known, seen],
   )
   // The client resolves filters lazily, against the newest list and seen-here.

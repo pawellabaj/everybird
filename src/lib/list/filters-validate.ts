@@ -1,5 +1,5 @@
 import type { SpeciesIndex } from '@/lib/species/load'
-import { inRange, withCountries, type Filter } from './filters'
+import { filterPlaceKeys, inRange, withPlaces, type Filter } from './filters'
 import type { ListEntry } from './model'
 import { keysOf, type SeenIndex } from './seen'
 import { MONTH_RE } from './timeline'
@@ -7,9 +7,11 @@ import { MONTH_RE } from './timeline'
 /**
  * Repair a filter so it never holds state the chips can't show.
  * Always: a year becomes the range Jan..Dec of that year (the Time panel shows ranges, not years); a range end that is
- * not YYYY-MM goes, and reversed ends swap; a family needs an order it belongs to; countries are ISO2 codes, sorted and deduplicated. Older state migrates: a single `country` joins
- * `countries`; the province and county levels (`sub1`, `sub2`) and trips (`trip`) are gone and dropped.
- * With `pruneValues` (after a list change): also drop order/family, countries no species was seen in (seen-here, else
+ * not YYYY-MM goes, and reversed ends swap; a family needs an order it belongs to; places (countries, provinces,
+ * counties) are well-formed, sorted and deduplicated, and a place whose ancestor is also chosen goes (withPlaces).
+ * Older state migrates: a single `country` joins `countries`; the old single province and county (`sub1`, `sub2`) and
+ * trips (`trip`) are dropped.
+ * With `pruneValues` (after a list change): also drop order/family, places no species was seen in (seen-here, else
  * lifer places) and a range that match no entry.
  */
 /** Place levels of filters from before countries became a set, and the trip from before trips were removed. */
@@ -19,8 +21,11 @@ export function applyFilterValidity(f: Filter & Legacy, list: ListEntry[], speci
   const { country, sub1, sub2, trip, ...rest } = f
   void sub1; void sub2; void trip
   let out: Filter = { ...rest }
-  const isos = [...(Array.isArray(out.countries) ? out.countries : []), ...(country ? [country] : [])].filter((c) => typeof c === 'string' && /^[A-Z]{2}$/.test(c))
-  out = withCountries(out, isos)
+  const level = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
+  out.countries = level(out.countries)
+  out.provinces = level(out.provinces)
+  out.counties = level(out.counties)
+  out = withPlaces(out, [...filterPlaceKeys(out), ...(typeof country === 'string' ? [`c:${country}`] : [])])
   if (out.year) {
     if (/^\d{4}$/.test(out.year) && !out.from && !out.to) { out.from = `${out.year}-01`; out.to = `${out.year}-12` }
     delete out.year
@@ -38,7 +43,7 @@ export function applyFilterValidity(f: Filter & Legacy, list: ListEntry[], speci
     if (out.order && !has((e) => row(e)?.ord === out.order)) delete out.order
     if (out.family && !has((e) => row(e)?.fam === out.family)) delete out.family
     const seenAt = (key: string) => has((e) => keysOf(seen, e).has(key))
-    if (out.countries) out = withCountries(out, out.countries.filter((c) => seenAt(`c:${c}`)))
+    out = withPlaces(out, filterPlaceKeys(out).filter(seenAt))
     if ((out.from || out.to) && !has((e) => inRange(e.date, out.from, out.to))) {
       delete out.from
       delete out.to
