@@ -13,6 +13,14 @@
 .eb-credit-body { margin: 0; font-size: 15px; line-height: 1.55; color: var(--muted); max-width: 62ch; }
 .eb-credit-code { text-transform: none; letter-spacing: 0; }
 @media (hover: hover) and (pointer: fine) { .eb-credit-title a:hover { color: var(--accent); } }
+/* Buy me a coffee (credits, after "Made by"): the sentence, then Buy Me a Coffee's own static button, 40px tall (its
+   yellow reads on both Paper themes; the one third-party brand image on the site, DESIGN.md). The press is 44px: 2px of
+   padding all round, taken back by the margin. */
+.eb-coffee { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: -4px; }
+.eb-coffee .eb-prose { text-wrap: pretty; }
+.eb-coffee-btn { display: inline-flex; padding: 2px; margin: -2px; } /* the global :focus-visible ring */
+.eb-coffee-btn img { display: block; width: 143px; height: 40px; }
+@media (hover: hover) and (pointer: fine) { .eb-coffee-btn:hover img { opacity: .88; } }
 
 /* "How it works": the animated demo (src/components/about). The slot holds the stage's exact height before and after
    the scene loads (the wide design is 720 × 470, scaled to the column; under 560px the compact one, 358 × 356), so

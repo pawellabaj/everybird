@@ -92,7 +92,15 @@ export default function AboutPage() {
           Made by <A href="https://www.yusuftaleb.com">Yusuf Taleb</A>. It grew out of the{' '}
           <A href="https://www.yusuftaleb.com/lifelist">life list on his site</A>, and is built from other people&apos;s generous work.
         </p>
-        <p className="eb-prose">If you enjoy Everybird, you can <A href={COFFEE_URL}>buy Yusuf a coffee</A>.</p>
+        <div className="eb-coffee">
+          <p className="eb-prose">If you enjoy Everybird, you can buy Yusuf a coffee.</p>
+          <a className="eb-coffee-btn" href={COFFEE_URL} target="_blank" rel="noopener noreferrer">
+            {/* Buy Me a Coffee's standard static button (https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png, 545 × 153),
+                self-hosted so nothing loads from them before a click: no widget, no script, no cookies. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/buy-me-a-coffee.png" width={143} height={40} alt="Buy me a coffee" />
+          </a>
+        </div>
         <ul className="eb-credits">
           <Credit label="Stickers · CC BY 4.0" title={<A href={HUASHU_URL}>huashu-bird-sticker</A>}>
             Every bird sticker comes from huashu-bird-sticker by alchaincyf, licensed{' '}

@@ -1,7 +1,12 @@
-/* The share dialog: a centred modal, preview beside the controls from 720px, stacked below. The preview is one box
-   whatever the format (each image letterboxed in it), so switching Story / Post / Square never moves the controls.
-   It never scrolls sideways: beside the preview the controls keep at least 300px, and shrink their contents, the
-   format control included. */
+/* The share dialog: a centred modal, preview beside the controls from 720px, stacked below. The preview is as large
+   as the window allows (Yusuf, 2026-11-15: no narrow story between grey bands), in one of two layouts (preview variant
+   `sharepv`, the dialog's data-layout):
+   a (default): the preview box takes the shown image's own shape (data-format: 9:16, 4:5 or 1:1) at the dialog's full
+     height, and the dialog fits around it and the controls, so nothing is letterboxed; switching format changes the
+     dialog's width (the controls keep theirs).
+   b: one square stage at the same height for every format, the image centred in it with its own hairline and nothing
+     drawn around it, so the dialog and the controls never move.
+   It never scrolls sideways: the preview's size is bound by the window's width as well as its height. */
 .eb-share-scrim { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgb(0 0 0 / .28); display: grid; place-items: center; padding: 16px; }
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
@@ -23,23 +28,49 @@
 .eb-share-close svg { width: 18px; height: 18px; }
 
 .eb-share-body { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-@media (min-width: 720px) { .eb-share-body { flex-direction: row; align-items: flex-start; } }
 
-/* One 4:5 box for every format: its width never depends on the format (story is letterboxed at the sides, square
-   above and below, on Surface), so neither does the controls' column. Stacked, it is as wide as its height cap
-   allows; beside the controls, 320px, but never so wide that they get less than 300px (plus the 20px gap). */
+/* The image's shape, from the format it shows. */
+.eb-share-preview { --ar: calc(9 / 16); }
+.eb-share-preview[data-format="post"] { --ar: calc(4 / 5); }
+.eb-share-preview[data-format="square"] { --ar: 1; }
 .eb-share-preview {
-  --cap: min(46dvh, 440px);
-  position: relative; flex: none; align-self: center; box-sizing: border-box;
-  width: min(100%, calc(var(--cap) * 4 / 5)); aspect-ratio: 4 / 5;
-  background: var(--surface); border: 1px solid var(--hairline); overflow: hidden;
+  position: relative; flex: none; align-self: center; box-sizing: border-box; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--hairline);
   border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
-}
-@media (min-width: 720px) {
-  .eb-share-preview { align-self: flex-start; width: 320px; max-width: calc(100% - 300px - 20px); }
+  transition: width .3s cubic-bezier(.25, .8, .25, 1), height .3s cubic-bezier(.25, .8, .25, 1);
 }
 .eb-share-preview img { display: block; width: 100%; height: 100%; object-fit: contain; transition: opacity .2s cubic-bezier(.25, .8, .25, 1); }
 .eb-share-preview[aria-busy="true"] img { opacity: .55; }
+
+/* Stacked (phones): as tall as about 62% of the screen allows, as wide as the dialog allows. */
+.eb-share-preview { --cap: min(62dvh, 600px); }
+.eb-share[data-layout="a"] .eb-share-preview { width: min(100%, calc(var(--cap) * var(--ar))); aspect-ratio: var(--ar); }
+.eb-share[data-layout="b"] .eb-share-preview { width: 100%; height: var(--cap); }
+
+/* Beside the controls: the window's height minus the chrome (16px scrim padding twice, the dialog's padding, head,
+   gap and 1px borders: 134px), at most 760px, and never wider than the window leaves beside the controls' column
+   (--ctl: 300px, 420px from 1000px so the format control keeps its icons; 92px of padding and gap, 16px of slack for a
+   scrollbar). The height is --pv-h, not --h, which collage.css registers as a number. */
+@media (min-width: 720px) {
+  .eb-share { --ctl: 300px; width: fit-content; max-width: 100%; }
+  .eb-share-body { flex-direction: row; align-items: flex-start; }
+  .eb-share-controls { flex: none; width: var(--ctl); }
+  .eb-share-preview { align-self: flex-start; --room: calc(100vw - var(--ctl) - 108px); --tall: min(100dvh - 134px, 760px); }
+  .eb-share[data-layout="a"] .eb-share-preview {
+    --pv-h: max(240px, min(var(--tall), var(--room) / var(--ar)));
+    height: var(--pv-h); width: calc(var(--pv-h) * var(--ar)); aspect-ratio: auto;
+  }
+  .eb-share[data-layout="b"] .eb-share-preview { --pv-h: max(240px, min(var(--tall), var(--room))); height: var(--pv-h); width: var(--pv-h); }
+}
+@media (min-width: 1000px) { .eb-share { --ctl: 420px; } }
+
+/* b: the stage is invisible; the image carries the hairline and the corners, at its own shape inside it. */
+.eb-share[data-layout="b"] .eb-share-preview { display: flex; align-items: center; justify-content: center; background: none; border: 0; border-radius: 0; }
+.eb-share[data-layout="b"] .eb-share-preview:not(:has(img)) { background: var(--surface); border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); }
+.eb-share[data-layout="b"] .eb-share-preview img {
+  width: auto; height: auto; max-width: 100%; max-height: 100%; box-sizing: border-box;
+  border: 1px solid var(--hairline); border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+}
 .eb-share-spin {
   position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px;
   border: 3px solid var(--hairline); border-top-color: var(--accent); border-radius: 50%;
@@ -48,7 +79,7 @@
 @keyframes eb-share-spin { to { transform: rotate(360deg); } }
 .eb-share-failed { position: absolute; inset: auto 12px 12px; text-align: center; }
 
-.eb-share-controls { display: flex; flex-direction: column; gap: 16px; min-width: 0; flex: 1 1 300px; container-type: inline-size; }
+.eb-share-controls { display: flex; flex-direction: column; gap: 16px; min-width: 0; container-type: inline-size; }
 .eb-share-controls .eb-seg { align-self: flex-start; }
 .eb-share-hint { font-family: var(--font-mono); font-size: 12px; line-height: 1; letter-spacing: .02em; color: var(--muted); }
 .eb-share-field { display: flex; flex-direction: column; gap: 6px; }
@@ -86,7 +117,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .eb-share { animation: none; }
-  .eb-share-preview img { transition: none; }
+  .eb-share-preview, .eb-share-preview img { transition: none; }
   .eb-share-spin { animation: none; border-color: var(--accent); opacity: .5; }
   .eb-share .eb-share-switch, .eb-share-switch .eb-track, .eb-share-switch .eb-knob { transition: none; }
 }

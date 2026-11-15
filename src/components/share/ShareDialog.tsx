@@ -66,6 +66,10 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const theme = useTheme()
   // Preview variant `stamp` (?v=stamp:b): the date stamp beside the address instead of at the end of the footer line.
   const stampAt = useVariant('stamp', ['a', 'b'] as const) === 'b' ? 'address' : 'end'
+  // Preview variant `sharepv` (share.css): a = the preview box takes the image's own shape at the dialog's full height and
+  // the dialog fits around it; b = one square stage for every format (the image centred in it, no box), so the controls
+  // never move.
+  const layout = useVariant('sharepv', ['a', 'b'] as const)
 
   // What the image shows: the current view (the filter applied), and the filter in words.
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
@@ -241,6 +245,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       <div
         ref={ref}
         className="eb-share"
+        data-layout={layout}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -255,8 +260,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
         </div>
 
         <div className="eb-share-body">
-          {/* One box for every format (share.css): the image is letterboxed in it, so the controls never move. */}
-          <div className="eb-share-preview" aria-busy={busy} data-testid="share-preview">
+          {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it. */}
+          <div className="eb-share-preview" data-format={preview?.format ?? format} aria-busy={busy} data-testid="share-preview">
             {preview && (
               // A blob URL of the rendered PNG: next/image has nothing to optimise here.
               // eslint-disable-next-line @next/next/no-img-element
@@ -319,9 +324,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             {manual && (
               <input ref={manualRef} className="eb-share-input" type="text" readOnly value={manual} aria-label="Share link" onFocus={(e) => e.currentTarget.select()} />
             )}
-            <p className="eb-note">
-              {fk ? 'The image shows the current filter. ' : ''}The link opens your whole collage, with first months and regions, never towns or coordinates.
-            </p>
+            {fk && <p className="eb-note">The image shows the current filter.</p>}
             <p className="eb-note eb-share-coffee">
               <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
             </p>

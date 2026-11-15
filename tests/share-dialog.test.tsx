@@ -166,4 +166,35 @@ describe('share dialog', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     expect(link.querySelector('img, svg')).toBeNull()
   })
+
+  it('has no note about what the link carries (About explains it)', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.queryByText(/The link opens your whole collage/)).toBeNull()
+    expect(screen.queryByText(/never towns or coordinates/)).toBeNull()
+  })
+
+  it("the preview box takes the rendered image's format, so it hugs the image (layout a by default)", async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    const box = screen.getByTestId('share-preview')
+    expect(box).toHaveAttribute('data-format', 'story')
+    expect(box.closest('.eb-share')).toHaveAttribute('data-layout', 'a')
+    await waitFor(() => expect(renders).toHaveLength(1))
+    await act(async () => renders[0].resolve(new Blob(['png'], { type: 'image/png' })))
+    fireEvent.click(screen.getByRole('button', { name: /^Post/ }))
+    // Until the post image is ready the box keeps the story's shape around the story image.
+    expect(box).toHaveAttribute('data-format', 'story')
+    await waitFor(() => expect(renders).toHaveLength(2))
+    await act(async () => renders[1].resolve(new Blob(['png'], { type: 'image/png' })))
+    await waitFor(() => expect(box).toHaveAttribute('data-format', 'post'))
+  })
+
+  it('preview variant b (?v=sharepv:b) keeps one stage for every format', () => {
+    window.history.replaceState(null, '', '/?v=sharepv:b')
+    try {
+      render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+      expect(screen.getByTestId('share-preview').closest('.eb-share')).toHaveAttribute('data-layout', 'b')
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
 })

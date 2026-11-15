@@ -27,8 +27,18 @@ test("/about says what Everybird is, what True size means, and credits the stick
   const credits = main.locator("#credits");
   await expect(credits.getByRole("link", { name: "Yusuf Taleb" })).toHaveAttribute("href", "https://www.yusuftaleb.com");
   await expect(credits.getByRole("link", { name: "life list on his site" })).toHaveAttribute("href", "https://www.yusuftaleb.com/lifelist");
-  await expect(credits.getByRole("link", { name: "buy Yusuf a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
   await expect(credits.getByText(/If you enjoy Everybird, you can buy Yusuf a coffee\./)).toBeVisible();
+  // Buy Me a Coffee's own static button, from this origin (nothing from their CDN), 40px tall, a 44px press.
+  const coffee = credits.getByRole("link", { name: "Buy me a coffee" });
+  await expect(coffee).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+  await expect(coffee).toHaveAttribute("target", "_blank");
+  const button = coffee.getByRole("img", { name: "Buy me a coffee" });
+  await expect(button).toHaveAttribute("src", "/buy-me-a-coffee.png");
+  await expect.poll(() => button.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth)).toBe(545);
+  const box = (await button.boundingBox())!;
+  expect(Math.round(box.height)).toBe(40);
+  const press = (await coffee.boundingBox())!;
+  expect(press.height).toBeGreaterThanOrEqual(44);
   await expect(credits.locator('a[href="https://github.com/alchaincyf/huashu-bird-sticker"]').first()).toBeVisible();
   await expect(credits.getByText("CC BY 4.0").first()).toBeVisible();
   await expect(credits.locator('a[href="https://theodore.net/projects/AvianVisitors/"]')).toBeVisible();
