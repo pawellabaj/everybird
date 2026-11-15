@@ -10,7 +10,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 ## Checklist
 
 - [ ] 1. Spanish
-- [ ] 2. Share dialog: "Show latest lifer" switch and Buy Me a Coffee
+- [x] 2. Share dialog: "Show latest lifer" switch and Buy Me a Coffee (shipped on feat/nf-2-share-switch; plan 2026-11-15-2-share-switch.md)
 - [ ] 3. Conservation status (IUCN)
 - [x] 4. Date stamp on share images (shipped on feat/nf-4-date-stamp; plan 2026-11-15-4-date-stamp.md)
 - [ ] 5. Smaller places (province/state, county)
