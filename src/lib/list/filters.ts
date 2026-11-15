@@ -1,4 +1,5 @@
 import type { SpeciesIndex } from '@/lib/species/load'
+import { IUCN_CATS, IUCN_NAMES, isIucnCat, THREATENED, type IucnCat } from '@/lib/species/iucn'
 import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
@@ -13,6 +14,8 @@ import { keysOf, seenOf, type SeenIndex } from './seen'
  * seen-here index; without it (a shared link) the lifer places stand in. A selection never holds a place and one of
  * its ancestors (withPlaces). Time stays about lifers: places and a range together keep the species seen there whose
  * lifer falls in the range. (Trips are gone: an old `trip` value is dropped by applyFilterValidity.)
+ * Status: `statuses`, global IUCN Red List categories in `IUCN_CATS` order, never empty when set (withStatuses); keeps
+ * the species in ANY of them, so once one is chosen the species without a status are left out.
  */
 export type Filter = {
   order?: string
@@ -23,12 +26,13 @@ export type Filter = {
   year?: string
   from?: string
   to?: string
+  statuses?: IucnCat[]
 }
 export type ChipOption = { value: string; label: string; count: number }
 /** `country`: the countries' options (the filter holds a set, `countries`); as a skipped dimension, every place level. */
 export type FilterLevel = 'order' | 'family' | 'country' | 'year'
-/** The range (`from`/`to`) as one dimension, for skipping it when counting. */
-type Dim = FilterLevel | 'range'
+/** The range (`from`/`to`) and the statuses as dimensions of their own, for skipping them when counting. */
+type Dim = FilterLevel | 'range' | 'status'
 type Level = FilterLevel
 
 const yearOf = (e: ListEntry) => (e.date && /^\d{4}/.test(e.date) ? e.date.slice(0, 4) : undefined)
@@ -46,8 +50,8 @@ export function inRange(date: string | undefined, from: string | undefined, to: 
   return (!from || hi >= from) && (!to || lo <= to)
 }
 /**
- * Stable key, e.g. "o:Passeriformes|f:Corvidae|c:CA,EG|s:US-WA|k:CA-BC|Capital|y:2026|r:2026-03~2026-09"; empty values
- * are omitted (so filters without a range, provinces or counties keep the keys they always had).
+ * Stable key, e.g. "o:Passeriformes|f:Corvidae|c:CA,EG|s:US-WA|k:CA-BC|Capital|y:2026|r:2026-03~2026-09|i:VU,EN";
+ * empty values are omitted (so filters without a range, provinces, counties or statuses keep the keys they always had).
  */
 export function filterKey(f: Filter): string {
   const parts: string[] = []
@@ -58,6 +62,7 @@ export function filterKey(f: Filter): string {
   if (f.counties?.length) parts.push(`k:${[...f.counties].sort().join(',')}`)
   if (f.year) parts.push(`y:${f.year}`)
   if (f.from || f.to) parts.push(`r:${f.from ?? ''}~${f.to ?? ''}`)
+  if (f.statuses?.length) parts.push(`i:${f.statuses.join(',')}`)
   return parts.join('|')
 }
 
@@ -74,12 +79,14 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
   const year = skip.has('year') ? undefined : f.year
   const from = skip.has('range') ? undefined : f.from
   const to = skip.has('range') ? undefined : f.to
+  const statuses = skip.has('status') || !f.statuses?.length ? undefined : new Set<string>(f.statuses)
   return (e: ListEntry): boolean => {
-    if (order || family) {
+    if (order || family || statuses) {
       const row = species.byCode.get(e.code)
       if (!row) return false
       if (order && row.ord !== order) return false
       if (family && row.fam !== family) return false
+      if (statuses && !(row.iu && statuses.has(row.iu))) return false
     }
     if (places) {
       const keys = keysOf(seen, e)
@@ -174,6 +181,7 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
   }
   if (next.year && yearOf(e) !== next.year) delete next.year
   if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) { delete next.from; delete next.to }
+  if (next.statuses?.length && !(row?.iu && next.statuses.includes(row.iu))) delete next.statuses
   for (const k of Object.keys(next) as (keyof Filter)[]) if (!next[k]) delete next[k]
   return next
 }
@@ -336,4 +344,45 @@ export function toggleCountry(f: Filter, iso: string): Filter {
 export function withCountries(f: Filter, countries: readonly string[]): Filter {
   const others = filterPlaceKeys(f).filter((k) => !k.startsWith('c:'))
   return withPlaces(f, [...countries.filter(Boolean).map((c) => `c:${c}`), ...others])
+}
+
+/** The filter with exactly these statuses: unknown values and duplicates go, in `IUCN_CATS` order; none drops the field. */
+export function withStatuses(f: Filter, cats: readonly string[]): Filter {
+  const set = new Set(cats.filter(isIucnCat))
+  const next: Filter = { ...f }
+  delete next.statuses
+  const statuses = IUCN_CATS.filter((c) => set.has(c))
+  if (statuses.length) next.statuses = statuses
+  return next
+}
+
+/** The filter with `cat` unchecked when it is checked, else checked. */
+export function toggleStatus(f: Filter, cat: IucnCat): Filter {
+  const cur = f.statuses ?? []
+  return withStatuses(f, cur.includes(cat) ? cur.filter((c) => c !== cat) : [...cur, cat])
+}
+
+/**
+ * The Status panel's rows: species per category under the OTHER filters, whatever statuses are checked; only
+ * categories with species, in `IUCN_CATS` order, labelled by full name. `seen`: the seen-here index (else lifer places).
+ */
+export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): (ChipOption & { value: IucnCat })[] {
+  const m = matcher(f, species, new Set<Dim>(['status']), seen)
+  const counts = new Map<IucnCat, number>()
+  for (const e of list) {
+    if (!m(e)) continue
+    const iu = species.byCode.get(e.code)?.iu
+    if (iu) counts.set(iu, (counts.get(iu) ?? 0) + 1)
+  }
+  return IUCN_CATS.filter((c) => counts.has(c)).map((value) => ({ value, label: IUCN_NAMES[value], count: counts.get(value)! }))
+}
+
+/** How many of the entries are globally threatened (Vulnerable, Endangered or Critically Endangered). */
+export function threatenedCount(entries: readonly ListEntry[], species: SpeciesIndex): number {
+  let n = 0
+  for (const e of entries) {
+    const iu = species.byCode.get(e.code)?.iu
+    if (iu && THREATENED.includes(iu)) n++
+  }
+  return n
 }
