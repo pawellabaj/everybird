@@ -94,7 +94,7 @@ describe('print stickers', () => {
     expect(await result).toBeNull()
     expect(fetch).toHaveBeenCalledTimes(fallback ? 3 : 2)
     expect(decode).not.toHaveBeenCalled()
-    expect(loader.stats()).toEqual({ soft: fallback ? 1 : 0, missing: 1 })
+    expect(loader.stats()).toEqual({ soft: 0, missing: 1 }) // an outline is missing only, never soft
     expect(await loader.get(source)).toBeNull() // failed result is cached by original URL
     loader.dispose()
   })
@@ -238,7 +238,10 @@ describe('print stickers', () => {
     await flush()
     if (action === 'dispose') loader.dispose()
     else loader.release(print().url)
-    await expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    // A release mid-load is not a user cancel, so it must not look like one.
+    await expect(result).rejects.toMatchObject(action === 'dispose'
+      ? { name: 'AbortError' }
+      : { name: 'StickerReleased', message: 'print sticker released while loading' })
     if (queued) await expect(queued).rejects.toMatchObject({ name: 'AbortError' })
     pending.resolve(image)
     await flush()
@@ -261,6 +264,44 @@ describe('print stickers', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
     expect(loader.stats()).toEqual({ soft: 0, missing: 0 })
     expect(vi.getTimerCount()).toBe(0)
+    loader.dispose()
+  })
+
+  it('a release mid-load rejects a caller whose own signal never aborted with StickerReleased', async () => {
+    const pending = deferred<ImageBitmap>()
+    const image = bitmap()
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () => ok())
+    const loader = createPrintStickers({ fetch, decode: () => pending.promise })
+    const c = new AbortController()
+    const a = loader.get(screen(), c.signal)
+    const b = loader.get(screen())
+    await flush()
+    loader.release(screen().url)
+    await expect(a).rejects.toMatchObject({ name: 'StickerReleased' })
+    await expect(b).rejects.toMatchObject({ name: 'StickerReleased' })
+    expect(c.signal.aborted).toBe(false)
+    pending.resolve(image)
+    await flush()
+    expect(image.close).toHaveBeenCalledTimes(1)
+    // The released entry stays out of the cache: the next get loads again.
+    expect(await loader.get(screen())).toBe(image)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    loader.dispose()
+  })
+
+  it('calls injected fetch and decode as plain functions, so window.fetch and createImageBitmap can be passed', async () => {
+    const image = bitmap()
+    const fetch = function (this: unknown) {
+      if (this !== undefined) throw new TypeError('Illegal invocation')
+      return Promise.resolve(ok())
+    } as typeof globalThis.fetch
+    const decode = function (this: unknown) {
+      if (this !== undefined) throw new TypeError('Illegal invocation')
+      return Promise.resolve(image)
+    }
+    const loader = createPrintStickers({ fetch, decode })
+    expect(await loader.get(print())).toBe(image)
+    expect(loader.stats()).toEqual({ soft: 0, missing: 0 })
     loader.dispose()
   })
 

@@ -1,5 +1,8 @@
 // Print-only bitmap cache. Keys are the requested URLs, even when a 384 fallback is drawn.
 // Until a print bitmap succeeds, probes are serial; three failures skip the tier for this instance.
+// `release` is not reference-counted: it drops the URL for every caller at once. Release a URL only
+// after its last use, with no `get` for it still pending. A pending `get` for a released URL rejects
+// with a StickerReleased error, never an AbortError, so a release bug can't pass for a user cancel.
 import { abortError } from './image'
 
 export type PrintStickerSource = { fetch: typeof fetch; decode: (b: Blob) => Promise<ImageBitmap> }
@@ -19,9 +22,16 @@ type Entry = {
   bitmap: ImageBitmap | null
   done: boolean
   waiters: number
+  released: boolean
 }
 
 function check(signal: AbortSignal) { if (signal.aborted) throw abortError() }
+
+function releasedError(): Error {
+  const error = new Error('print sticker released while loading')
+  error.name = 'StickerReleased'
+  return error
+}
 
 /** Stop waiting promptly even when the underlying source ignores cancellation. */
 function waitFor<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -45,10 +55,10 @@ export function createPrintStickers(
   src: Partial<PrintStickerSource> = {},
   opts: { timeoutMs?: number; retryMs?: number } = {},
 ): PrintStickers {
-  const source: PrintStickerSource = {
-    fetch: src.fetch ?? ((url, init) => fetch(url, init)),
-    decode: src.decode ?? ((blob) => createImageBitmap(blob)),
-  }
+  // Kept as plain functions and called without a receiver, so `window.fetch` or `createImageBitmap`
+  // can be passed directly without an "Illegal invocation".
+  const doFetch: typeof fetch = src.fetch ?? ((url, init) => fetch(url, init))
+  const doDecode: PrintStickerSource['decode'] = src.decode ?? ((blob) => createImageBitmap(blob))
   const timeoutMs = opts.timeoutMs ?? LOAD_TIMEOUT_MS
   const retryMs = opts.retryMs ?? RETRY_MS
   const cache = new Map<string, Entry>()
@@ -75,12 +85,12 @@ export function createPrintStickers(
       signal.addEventListener('abort', onAbort, { once: true })
       void (async () => {
         try {
-          const response = await source.fetch(url, { mode: 'cors', signal: controller.signal })
+          const response = await doFetch(url, { mode: 'cors', signal: controller.signal })
           if (settled) return
           if (!response.ok) throw new Error(`print sticker HTTP ${response.status}`)
           const blob = await response.blob()
           if (settled) return
-          finish(undefined, await source.decode(blob))
+          finish(undefined, await doDecode(blob))
         } catch (error) {
           finish(error instanceof Error ? error : new Error(String(error)))
         }
@@ -113,9 +123,10 @@ export function createPrintStickers(
 
   async function load(s: { url: string; fallback: string | null }, signal: AbortSignal): Promise<ImageBitmap | null> {
     let bitmap: ImageBitmap | null = null
+    let fellBack = false
     if (s.fallback !== null) {
       bitmap = await tryPrint(s.url, signal)
-      if (!bitmap) { check(signal); soft.add(s.url) }
+      if (!bitmap) { check(signal); fellBack = true }
     }
     if (!bitmap) {
       const url = s.fallback ?? s.url
@@ -129,6 +140,8 @@ export function createPrintStickers(
     }
     // Cancellation can land after decode resolves but before this continuation stores the bitmap.
     if (signal.aborted) { bitmap?.close(); throw abortError() }
+    // Soft means the 384 was drawn. A sticker that ends as an outline counts only as missing.
+    if (bitmap && fellBack) soft.add(s.url)
     return bitmap
   }
 
@@ -136,6 +149,7 @@ export function createPrintStickers(
     const entry = cache.get(url)
     if (!entry) return
     cache.delete(url)
+    if (!disposed) entry.released = true
     entry.controller.abort()
     entry.bitmap?.close()
     entry.bitmap = null
@@ -147,16 +161,18 @@ export function createPrintStickers(
       let entry = cache.get(s.url)
       if (!entry) {
         const controller = new AbortController()
-        const created: Entry = { controller, bitmap: null, done: false, waiters: 0, promise: Promise.resolve(null) }
+        const created: Entry = {
+          controller, bitmap: null, done: false, waiters: 0, released: false, promise: Promise.resolve(null),
+        }
         created.promise = load(s, controller.signal).then((bitmap) => {
           created.done = true
-          if (controller.signal.aborted) { bitmap?.close(); throw abortError() }
+          if (controller.signal.aborted) { bitmap?.close(); throw created.released ? releasedError() : abortError() }
           created.bitmap = bitmap
           return bitmap
         }, (error) => {
           created.done = true
           if (cache.get(s.url) === created) cache.delete(s.url)
-          throw error
+          throw created.released ? releasedError() : error
         })
         entry = created
         cache.set(s.url, entry)
