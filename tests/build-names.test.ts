@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
-import { describe, expect, it } from 'vitest'
-import { capFirst, familyNames, mergeChain } from '../scripts/build-data/build-names'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { capFirst, familyNames, mergeChain, writeNames } from '../scripts/build-data/build-names'
 import { assertSameSpeciesCodes, taxonomyUrl } from '../scripts/build-data/fetch-sources'
 import { DATA_FILE_NAMES } from '../scripts/build-data/data-files'
 import { DATA_FILES } from '../src/lib/data-files'
@@ -9,12 +11,12 @@ import { familyLang, NAME_BASE, NAME_LOCALES, REGION_LOCALE } from '../src/lib/s
 import type { SpeciesFile } from '../src/lib/species/types'
 
 const english = new Map([['amerob', 'American Robin'], ['kea', 'Kea']])
-const es = new Map([['amerob', 'Zorzal robín'], ['kea', 'Kea']])
+const es = new Map([['amerob', 'Zorzal americano'], ['kea', 'Kea']])
 const read = (name: string) => readFileSync(new URL(`../public/data/${name}`, import.meta.url), 'utf8')
 
 describe('names fallback chains', () => {
   it('a partial regional set falls back to the base, not English', () => {
-    expect(mergeChain(english, [new Map([['amerob', 'American Robin']]), es])).toEqual({ amerob: 'Zorzal robín' })
+    expect(mergeChain(english, [new Map([['amerob', 'American Robin']]), es])).toEqual({ amerob: 'Zorzal americano' })
   })
 
   it('a regional name wins where it is real', () => {
@@ -50,6 +52,10 @@ describe('names fallback chains', () => {
     ], species, { Aidae: 'Manual' })).toEqual({ Aidae: 'Manual', Bidae: 'Grupo dos' })
   })
 
+  it('keeps an explicit hand translation even when it is a cognate of English', () => {
+    expect(familyNames([], [{ fam: 'Testidae', famCom: 'Kiwis' }], { Testidae: 'Kiwis' })).toEqual({ Testidae: 'Kiwis' })
+  })
+
   it('sorts name and family keys deterministically', () => {
     expect(Object.keys(mergeChain(new Map([['z', 'Z'], ['a', 'A']]), [new Map([['z', 'Zeta'], ['a', 'Alfa']])]))).toEqual(['a', 'z'])
     expect(Object.keys(familyNames([], [{ fam: 'Z', famCom: 'Z' }, { fam: 'A', famCom: 'A' }], { Z: 'Zeta', A: 'Alfa' }))).toEqual(['A', 'Z'])
@@ -81,6 +87,49 @@ describe('name locales and pinned source data', () => {
   })
 })
 
+describe('writeNames with synthetic source files', () => {
+  let root: string
+  const write = (path: string, value: unknown) => writeFileSync(join(root, path), JSON.stringify(value))
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'everybird-names-'))
+    for (const path of ['data/raw', 'data/i18n', 'public/data']) mkdirSync(join(root, path), { recursive: true })
+    vi.spyOn(process, 'cwd').mockReturnValue(root)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    write('public/data/species.v1.json', { v: 1, ebirdTaxonomy: '2026', species: [{ code: 'bird', com: 'Bird', fam: 'Testidae', famCom: 'Test birds' }] })
+    write('data/raw/manifest.json', { ebirdTaxonomy: '2026' })
+    const taxa = [{ speciesCode: 'bird', comName: 'Bird', category: 'species' }, { speciesCode: 'extra', comName: 'Extra bird', category: 'species' }]
+    write('data/raw/ebird-taxonomy.json', taxa)
+    for (const l of NAME_LOCALES) {
+      const name = l === 'es' ? 'Ave base' : l === 'pt_BR' ? 'ave-base' : l === 'nl' ? 'Basisvogel' : 'Bird'
+      write(`data/raw/ebird-taxonomy.${l}.json`, [{ ...taxa[0], comName: name }, { ...taxa[1], comName: 'Extra translated' }])
+    }
+    write('data/raw/ebird-groups.en.json', [{ groupOrder: 1, groupName: 'Test birds' }])
+    for (const lang of ['es', 'pt', 'nl']) {
+      write(`data/raw/ebird-groups.${lang}.json`, [{ groupOrder: 1, groupName: 'Translated group' }])
+      write(`data/i18n/families.${lang}.json`, { Testidae: 'Hand translation' })
+    }
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('writes the complete fallback chain, family overrides and metadata, without unpublished codes', () => {
+    writeNames()
+    const read = (l: string) => JSON.parse(readFileSync(join(root, `public/data/names.${l}.v1.json`), 'utf8'))
+    expect(read('es_AR')).toEqual({ v: 1, locale: 'es_AR', taxonomy: '2026', names: { bird: 'Ave base' }, fam: { Testidae: 'Hand translation' } })
+    expect(read('pt_PT').names).toEqual({ bird: 'Ave-base' })
+    expect(read('nl').names).toEqual({ bird: 'Basisvogel' })
+    for (const l of NAME_LOCALES) expect(existsSync(join(root, `public/data/names.${l}.v1.json`))).toBe(true)
+  })
+
+  it('refuses a different taxonomy year before writing outputs', () => {
+    write('data/raw/manifest.json', { ebirdTaxonomy: '2025' })
+    expect(() => writeNames()).toThrow(/taxonomy does not match/)
+    expect(existsSync(join(root, 'public/data/names.es.v1.json'))).toBe(false)
+  })
+})
+
 describe('committed names files', () => {
   it('the committed files cover the species file', () => {
     const species = JSON.parse(read('species.v1.json')) as SpeciesFile
@@ -101,6 +150,10 @@ describe('committed names files', () => {
       if (l === 'es' || l === 'nl') expect(Object.keys(file.names).length).toBeGreaterThanOrEqual(11100)
     }
     expect(gzipSync(read('names.es.v1.json'), { level: 9 }).length).toBeLessThan(110_000)
+    // Live eBird 2026: es_AR's American Robin falls through to the Spanish base.
+    expect(JSON.parse(read('names.es_AR.v1.json')).names.amerob).toBe('Zorzal americano')
+    expect(JSON.parse(read('names.pt_BR.v1.json')).names.amerob).toBe('Tordo-americano')
+    expect(JSON.parse(read('names.nl.v1.json')).names.amerob).toBe('Roodborstlijster')
   })
 
   it('every NAME_LOCALES entry has a data file and a DATA_FILES entry', () => {
