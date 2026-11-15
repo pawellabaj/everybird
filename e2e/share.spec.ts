@@ -199,6 +199,8 @@ test("Show latest lifer: on by default; off draws no latest lifer row, on draws 
   const clear = () => page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
   const sw = dialog.getByRole("switch", { name: "Show latest lifer" });
   await expect(sw).toHaveAttribute("aria-checked", "true");
+  // The dialog's last line: a plain Buy me a coffee link (never on the image).
+  await expect(dialog.getByRole("link", { name: "Buy me a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
   await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
   await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
   expect((await texts()).some((t) => t.startsWith("LATEST LIFER"))).toBe(true);

@@ -7,8 +7,8 @@ export const REPO_URL = 'https://github.com/yusuftaleb/everybird'
 
 /**
  * On every page: the way to every credit (About#credits, which carries huashu-bird-sticker's CC BY 4.0 attribution for
- * the site), the maker, a way to support him (Buy Me a Coffee), and the code on GitHub (the footer row's right edge). Share images and link previews carry the
- * sticker credit themselves: they travel without it.
+ * the site), the maker, a way to support him (Buy Me a Coffee), and the code on GitHub (the footer row's right edge).
+ * Share images and link previews carry the sticker credit themselves: they travel without it.
  */
 export function SiteFooter() {
   return (
