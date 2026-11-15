@@ -306,7 +306,7 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   await expect(scene.locator(".ebd-share-switch")).toHaveText("Show latest lifer")
   await expect(scene.locator(".ebd-share-switch")).toHaveAttribute("data-on", "")
   expect(src("src/components/share/ShareDialog.tsx")).toContain("<span>Show latest lifer</span>")
-  await expect(page.locator('[data-poster="compact"] .ebd-share-switch')).toBeHidden() // no room in the compact design, as the title field
+  await expect(page.locator('[data-poster="compact"] .ebd-share-switch')).toHaveCSS("display", "none") // no room in the compact design, as the title field
   // The dialog still fits inside the stage
   const fit = await scene.evaluate((s) => {
     const d = s.querySelector(".ebd-share")!.getBoundingClientRect(), st = s.getBoundingClientRect()

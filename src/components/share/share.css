@@ -63,9 +63,15 @@
   border-radius: calc(8px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
 .eb-share-input::placeholder { color: var(--muted); opacity: 1; }
-/* "Show latest lifer": the site's switch (collage.css), at full strength off too, flush with the column's left edge
-   (scoped to .eb-share so it wins over .eb-switch whatever order the stylesheets load in). */
-.eb-share .eb-share-switch { align-self: flex-start; opacity: 1; padding: 0; gap: 12px; font-weight: 500; }
+/* "Show latest lifer": the site's switch (collage.css), at full strength off too, flush with the column's left edge.
+   Scoped to .eb-share, it beats .eb-switch's padding, gap and opacity whatever order the stylesheets load in; it ties
+   with .eb-switch[aria-checked=true] and .eb-switch:hover, which only set opacity: 1 too, so nothing conflicts. The
+   label is 16/500 (DESIGN.md) in px and wraps (.eb-switch is nowrap at 1rem), so a reader's larger text size never
+   pushes the dialog sideways on a small phone; the track keeps flex: none. */
+.eb-share .eb-share-switch {
+  align-self: flex-start; opacity: 1; padding: 0; gap: 12px;
+  font-size: 16px; font-weight: 500; white-space: normal; text-align: start;
+}
 /* Buy me a coffee: a plain text link in the note's muted colour, last in the column; never on the images. */
 .eb-share-coffee a { color: inherit; text-underline-offset: 3px; }
 .eb-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }

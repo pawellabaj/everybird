@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ShareDialog from '@/components/share/ShareDialog'
@@ -166,7 +165,5 @@ describe('share dialog', () => {
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     expect(link.querySelector('img, svg')).toBeNull()
-    // Nothing draws it on the share images
-    expect(readFileSync('src/lib/share/image.ts', 'utf8')).not.toMatch(/coffee/i)
   })
 })

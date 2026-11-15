@@ -11,7 +11,7 @@ Everybird turns any birder's life list into a sticker collage. Import an eBird e
 
 - **Never commit personal data.** `private/` holds Yusuf's real eBird exports and his `lifelist.json`, and it's git-ignored. Test fixtures must be synthetic. Never commit coordinates, checklist comments or anything copied from those files.
 - **Credit the stickers.** On the site, the footer's "All credits" link (→ /about#credits) and the full credit on About; on share images and link previews, the footer line "everybird.yusuftaleb.com · stickers by huashu" (`FOOTER_LINE` in `image.ts`); in the share text (`navigator.share`), the full credit with the licence and link, "Stickers: huashu-bird-sticker (CC BY 4.0) github.com/alchaincyf/huashu-bird-sticker" (`SHARE_CREDIT`). The license link is https://github.com/alchaincyf/huashu-bird-sticker.
-- Buy Me a Coffee (`COFFEE_URL`) appears only as plain text links in the footer, About and the share dialog; never on share images or link previews, no pop-ups.
+- **Buy Me a Coffee stays quiet.** `COFFEE_URL` appears only as plain text links in the footer, About and the share dialog; never on share images or link previews, no pop-ups.
 - **Never commit the font files** for Satoshi and Cabinet Grotesk. Load them from Fontshare's CSS.
 - **Read-only references** in Yusuf's website repo (`/Users/yusuf/orca/projects/personal_website/framer-site/`): `code-components/LifeList.tsx`, `code-components/PlacesMap.tsx`, `scripts/lifelist/*.py` and `HANDOFF.md` ("Life list v4" to "v7.7"). Don't edit that repo.
 - **Ask Yusuf first, every time,** before anything outward-facing: creating GitHub repos, pushing, enabling GitHub Pages, creating or deploying the Vercel project, or posting anything. That's plan Task 25.

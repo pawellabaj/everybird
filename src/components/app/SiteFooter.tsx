@@ -18,7 +18,7 @@ export function SiteFooter() {
           <Link href="/about#credits">All credits</Link>
         </p>
         <p className="eb-mono">
-          <a href="https://www.yusuftaleb.com" target="_blank" rel="noopener">Made by Yusuf Taleb</a>
+          <a href="https://www.yusuftaleb.com" target="_blank" rel="noopener noreferrer">Made by Yusuf Taleb</a>
         </p>
         <p className="eb-mono">
           <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>

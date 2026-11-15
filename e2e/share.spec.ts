@@ -212,11 +212,14 @@ test("Show latest lifer: on by default; off draws no latest lifer row, on draws 
   expect(off.length).toBeGreaterThan(0); // a new image was drawn
   expect(off.some((t) => t.startsWith("LATEST LIFER"))).toBe(false);
   expect(off.some((t) => t.startsWith("everybird.yusuftaleb.com · stickers by huashu"))).toBe(true); // the footer and credit stay
+  expect(off.filter((t) => /coffee/i.test(t)), "Buy me a coffee is never drawn on the image").toEqual([]);
   await clear();
   await sw.click();
   await expect(sw).toHaveAttribute("aria-checked", "true");
   await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
-  expect((await texts()).some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+  const on = await texts();
+  expect(on.some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+  expect(on.filter((t) => /coffee/i.test(t)), "Buy me a coffee is never drawn on the image").toEqual([]);
 });
 
 test("copy link puts a /s/1… URL under 2000 chars on the clipboard", async ({ page, context, baseURL, browserName }) => {
@@ -335,7 +338,7 @@ test("Share image counts `shared` when the share sheet resolves, nothing when it
 // fits its column (Square was added later and pushed it out once). The preview is one box for every format, so the
 // controls' column, and with it the format control (its icons), never changes with the format.
 // SHOT_DIR (optional) saves each width and format, light and dark, there.
-test("the dialog never scrolls sideways at 390, 768, 1000 and 1280px, with a long name, in every format", async ({ page }, info) => {
+test("the dialog never scrolls sideways at 390, 768, 1000 and 1280px, with a long name, in every format, nor at 320px with large text", async ({ page }, info) => {
   test.setTimeout(180_000);
   const shots = process.env.SHOT_DIR;
   const dialog = await openShare(page);
@@ -379,4 +382,17 @@ test("the dialog never scrolls sideways at 390, 768, 1000 and 1280px, with a lon
     // Wide windows have room for the icons beside the preview.
     if (width >= 1000) expect(seen[0].icons, `at ${width}px the format control has its icons`).toBe(true);
   }
+  // A larger text size on a small phone (root font 150% and 200% at 320px, as a reader's setting makes it): the
+  // switch's label keeps its 16px and wraps rather than pushing the dialog wider.
+  await page.setViewportSize({ width: 320, height: 800 });
+  for (const size of ["150%", "200%"]) {
+    await page.evaluate((s) => { document.documentElement.style.fontSize = s; }, size);
+    const m = await dialog.evaluate((d) => {
+      const col = d.querySelector(".eb-share-controls")!.getBoundingClientRect();
+      return { sw: d.scrollWidth, cw: d.clientWidth, swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right };
+    });
+    expect(m.sw, `at 320px and ${size} text: the dialog scrolls sideways`).toBeLessThanOrEqual(m.cw);
+    expect(m.swOver, `at 320px and ${size} text: "Show latest lifer" sticks out of its column`).toBeLessThanOrEqual(0.5);
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
 });
