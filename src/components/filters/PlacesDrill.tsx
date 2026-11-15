@@ -44,6 +44,13 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
     go(target, k ? [`drill-${k}`, placeTestId(k)] : [])
   }
 
+  // Opened at the selection's level: the first checked row scrolled into the panel's view (focus stays with the panel).
+  useLayoutEffect(() => {
+    if (!at) return
+    headRef.current?.closest<HTMLElement>('.eb-places')?.querySelector<HTMLElement>('.eb-places-level input:checked')?.scrollIntoView?.({ block: 'nearest' })
+    // Only on opening: later levels place their own focus below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useLayoutEffect(() => {
     const ids = focusNext.current
     if (!ids) return

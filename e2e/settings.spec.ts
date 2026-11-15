@@ -330,7 +330,7 @@ test("Settings fits about 1.5 screens at 1280x800 with a source connected", asyn
   expect(height).toBeLessThanOrEqual(1.6 * 800);
 });
 
-// A life list download knows only where each bird first went on the list: Settings says so under the eBird rows, with
+// A life list download knows only where you first recorded each bird: Settings says so under the eBird rows, with
 // an inline link to MyEBirdData's Add panel (each row keeps its one button), and the collage's Places panel links to the
 // same panel (/settings#add-mydata).
 for (const width of [1280, 390]) test(`after a life list import, Settings and Places say places are first places only, one tap from MyEBirdData (${width}px)`, async ({ page }) => {

@@ -237,7 +237,7 @@ describe('Settings and the collage', () => {
   it("a MyEBirdData import saved before seen-here: Settings says what the Places panel says, with the same words", async () => {
     await mount({ path: '/settings', stored: (s) => { s.records.ebird = [{ code: 'snogoo', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC', sub2: 'Capital' } }] } })
     // Counties, but no seen-here: placesNoteFor says 'reimport', and so does Settings (counties used to hide it).
-    expect(await screen.findByTestId('ebird-detail')).toHaveTextContent('Places only knows where each bird first went on your list. Import MyEBirdData again to filter by every place you recorded each bird.')
+    expect(await screen.findByTestId('ebird-detail')).toHaveTextContent('Places only knows where you first recorded each bird. Import MyEBirdData again to filter by every place you recorded each bird.')
   })
   it('a MyEBirdData import with seen-here: no reimport line', async () => {
     await mount({ path: '/settings', stored: (s) => { s.records.ebird = [{ code: 'snogoo', source: 'ebird', date: '2020-01-01', place: { country: 'CA' }, seen: ['2020-01-01|CA'] }] } })
@@ -262,7 +262,7 @@ describe('Settings and the collage', () => {
     expect(why).toHaveAttribute('aria-controls', notCounted.id)
     expect(notCounted).toBeVisible()
     expect(notCounted).toHaveTextContent(/^1 entry isn't a species: birds only identified to a group \(like “duck sp\.”\), either\/or IDs/)
-    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent(/only says where each bird first went on your list.*Add MyEBirdData to filter by every place you recorded each bird, down to the county/)
+    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent(/only says where you first recorded each bird.*Add MyEBirdData to filter by every place you recorded each bird, down to the county/)
     await waitFor(async () => expect((await storage.load())?.records['ebird-list']).toHaveLength(3), { timeout: 2000 })
     expect((await storage.load())?.records.ebird).toEqual([])
     expect((await storage.load())?.skipped).toEqual({ 'ebird-list': 1 })

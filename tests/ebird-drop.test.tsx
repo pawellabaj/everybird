@@ -15,7 +15,7 @@ describe('EbirdDrop: what each eBird file brings', () => {
   it('only the life list download: a visible note, and its inline link opens the MyEBirdData panel', () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
     expect(screen.getByTestId('places-lifer-note')).toBeVisible()
-    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent('Your eBird life list only says where each bird first went on your list, so Places filters by those first places. Add MyEBirdData to filter by every place you recorded each bird, down to the county.')
+    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent('Your eBird life list only says where you first recorded each bird, so Places filters by those first places. Add MyEBirdData to filter by every place you recorded each bird, down to the county.')
     // A link inside the sentence, not a second button under the row's own Add: named apart from it, starting with the
     // words it shows; it controls the row's panel.
     expect(screen.getByTestId('places-lifer-add').tagName).toBe('A')
@@ -80,6 +80,15 @@ describe('EbirdDrop: what each eBird file brings', () => {
     rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
     expect(screen.queryByRole('group', { name: 'Add MyEBirdData' })).toBeNull()
   })
+  it("the note's link pressed during a read: held, and the panel opens when the read ends", () => {
+    const { rerender } = render(<EbirdDrop job={{ ...idle, busy: true }} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
+    fireEvent.click(screen.getByTestId('places-lifer-add'))
+    expect(screen.queryByRole('group', { name: 'Add MyEBirdData' })).toBeNull()
+    expect(window.location.hash).toBe('#add-mydata')
+    rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
+    expect(screen.getByRole('group', { name: 'Add MyEBirdData' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Choose your eBird file' })).toHaveFocus()
+  })
   it('#add-mydata with MyEBirdData already on the list (saved before seen-here): focuses its Replace, the reason beside it', () => {
     history.replaceState(null, '', '#add-mydata')
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} placesNote="reimport" connected={[{ slot: 'ebird' }]} />)
@@ -93,7 +102,7 @@ describe('EbirdDrop: what each eBird file brings', () => {
   })
   it("the Places panel's reimport note: the same words here, Import MyEBirdData again", () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} placesNote="reimport" connected={[{ slot: 'ebird' }]} />)
-    expect(note()).toHaveTextContent(/^Places only knows where each bird first went on your list\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
+    expect(note()).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
   })
   it('no reimport note otherwise, counties or not', () => {
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} connected={[{ slot: 'ebird' }]} />)

@@ -83,7 +83,7 @@ export const MYEBIRDDATA_PLACES: FullPlacesSource = {
 }
 
 /** The lifer-only notes' shared words (never "seen": heard-only birds count too, DESIGN.md "Voice and copy"). */
-export const PLACES_FIRST_ONLY = 'Places only knows where each bird first went on your list.'
+export const PLACES_FIRST_ONLY = 'Places only knows where you first recorded each bird.'
 /** What the file that knows every place lets Places filter by: "to filter by every place you recorded each bird". */
 export const PLACES_EVERY = 'every place you recorded each bird'
 

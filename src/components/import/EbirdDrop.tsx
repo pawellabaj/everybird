@@ -222,13 +222,18 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
       })}
       {quickOnly && (
         <p className="eb-note eb-src-status eb-lifer-note" data-testid="places-lifer-note">
-          Your eBird life list only says where each bird first went on your list, so Places filters by those first places.{' '}
+          Your eBird life list only says where you first recorded each bird, so Places filters by those first places.{' '}
           <a
             href={`#${P.anchor}`}
             data-testid="places-lifer-add"
             aria-label={`${P.add} for every place`}
             aria-controls={fullOn ? undefined : `${id}-ebird`}
-            onClick={(e) => { e.preventDefault(); toFull(false) }}
+            onClick={(e) => {
+              e.preventDefault()
+              // During a read the request is held until it ends, and taken up only while the address names it.
+              if (off) history.replaceState(history.state, '', `#${P.anchor}`)
+              toFull(false)
+            }}
           >
             {P.add}
           </a>

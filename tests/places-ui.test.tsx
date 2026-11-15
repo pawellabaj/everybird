@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useReducer, useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
@@ -181,12 +181,12 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness variant="lifer" note="add" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird first went on your list\. Add MyEBirdData to filter by every place you recorded each bird, down to the county\.$/)
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Add MyEBirdData to filter by every place you recorded each bird, down to the county\.$/)
     expect(screen.getByRole('link', { name: 'Add MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
     unmount()
     render(<Harness variant="lifer" note="reimport" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird first went on your list\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
   })
 })
@@ -302,6 +302,10 @@ describe('Places drills down: country, then state or province, then county', () 
   it('reopened, the panel starts at the selection\'s level: Capital checked opens on British Columbia\'s counties', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
+    // jsdom has no scrollIntoView: record what is scrolled to (removed after the test).
+    const scrolled: Element[] = []
+    Element.prototype.scrollIntoView = function (this: Element) { scrolled.push(this) }
+    onTestFinished(() => { delete (Element.prototype as Partial<Element>).scrollIntoView })
     fireEvent.click(placesBtn())
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
@@ -312,6 +316,7 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
     expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeChecked()
     expect(screen.getByTestId('place-all')).toHaveAccessibleName('All of British Columbia, 2 species')
+    expect(scrolled).toContain(screen.getByTestId('place-k:CA-BC|Capital'))
     // A step back lands on the province's drill button, as from a drill.
     fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'Canada' }))
     expect(screen.getByTestId('drill-s:CA-BC')).toHaveFocus()
