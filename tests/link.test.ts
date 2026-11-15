@@ -134,8 +134,9 @@ describe('share links', () => {
       const p = decodeShare(token)
       const { records, regions: shown } = payloadToRecords(p, regions)
       p.birds.forEach((b, i) => { if (b.p !== undefined) expect(formatPlace(records[i].place, shown)).toBe(p.places![b.p]) })
-      expect(records[0].place).toMatchObject({ country: 'CA', sub2: 'Okanagan-Similkameen' })
     }
+    // The first frozen token's county is its own drill level.
+    expect(payloadToRecords(decodeShare(tokens[0]), regions).records[0].place).toMatchObject({ country: 'CA', sub2: 'Okanagan-Similkameen' })
   })
 
   it('decodes the frozen v1 fixture', () => {
