@@ -7,9 +7,13 @@
 // URL is released with a get still pending. At most 12 gets run at once, and only for the current and the next strip,
 // so a long list never holds every bitmap at once.
 //
-// Never a canvas over IOS_CANVAS_AREA: the strip canvas is width × rows, capped by it.
+// Strips: at most STRIP_AREA px and STRIP_DESIGN_ROWS design rows each (A4 138 device rows in 13 strips, A3 195 in 13,
+// A2 276 in 13, A1 298 in 17), so two strips stay a small part of the card. Never a canvas over IOS_CANVAS_AREA: the
+// strip canvas is width × rows, capped by it.
+//
+// An abort disposes the encoder at once, so a wait on it (backpressure, end) rejects even if the worker never replies.
 import { abortError, paintCard, prepareCard, tileInRange, type PaintRange, type ShareImageOpts, type Tile } from './image'
-import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, STRIP_AREA, printScale, stripRanges, type PrintSize } from './print'
+import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, STRIP_AREA, STRIP_DESIGN_ROWS, printScale, stripRanges, type PrintSize } from './print'
 import { createPrintStickers, type PrintStickers } from './print-stickers'
 import type { PrintWorkerReply, PrintWorkerRequest } from './print.worker'
 
@@ -46,7 +50,7 @@ export type PosterDeps = {
   encoder(): EncoderPort
   stickers: PrintStickers
   frame(): Promise<void>
-  /** Rows per strip, instead of STRIP_AREA / width (tests). */
+  /** Rows per strip, instead of posterRows (tests); still capped by IOS_CANVAS_AREA. */
   rows: number | undefined
 }
 
@@ -55,6 +59,14 @@ const FONTS_WAIT_MS = 5_000
 const FRAME_WAIT_MS = 100
 
 const memoryError = () => new Error('poster-memory')
+/** What image.ts throws when a browser gives it no 2D canvas: the strip canvas would fail the same way. */
+const NO_CANVAS = 'Canvas is not available'
+
+/** Device rows per strip for a poster `width` px wide at `k` device px per design unit. */
+export function posterRows(width: number, k: number, override?: number): number {
+  const cap = Math.max(1, Math.floor(IOS_CANVAS_AREA / width))
+  return Math.min(override ?? Math.min(Math.floor(STRIP_AREA / width), Math.ceil(STRIP_DESIGN_ROWS * k)), cap)
+}
 
 /** One `<canvas>` for every strip, read back with getImageData. A null context or a failed read is poster-memory. */
 export function canvasStrip(width: number, rows: number): PosterStrip {
@@ -159,13 +171,21 @@ export function workerEncoder(
   }
 }
 
-/** Wait for the page's fonts (at most 5 s), so no face changes between strips. */
-async function fontsSettled(): Promise<void> {
-  if (typeof document === 'undefined' || !document.fonts) return
+/** Wait for the page's fonts (at most 5 s, or until the signal aborts), so no face changes between strips. */
+async function fontsSettled(signal?: AbortSignal): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts || signal?.aborted) return
   let timer: ReturnType<typeof setTimeout> | undefined
+  let onAbort: (() => void) | undefined
   try {
-    await Promise.race([document.fonts.ready.then(() => undefined, () => undefined), new Promise<void>((r) => { timer = setTimeout(r, FONTS_WAIT_MS) })])
-  } finally { clearTimeout(timer) }
+    await Promise.race([
+      document.fonts.ready.then(() => undefined, () => undefined),
+      new Promise<void>((r) => { timer = setTimeout(r, FONTS_WAIT_MS) }),
+      new Promise<void>((r) => { onAbort = () => r(); signal?.addEventListener('abort', onAbort, { once: true }) }),
+    ])
+  } finally {
+    clearTimeout(timer)
+    if (onAbort) signal?.removeEventListener('abort', onAbort)
+  }
 }
 
 /** For each sticker URL, the tile to load it with and the first and last strip that draw it. */
@@ -184,7 +204,8 @@ export function stickerSpans(tiles: Tile[], ranges: PaintRange[]): Map<string, {
 }
 
 /**
- * Make a poster: lay it out, paint it strip by strip, encode it. `onProgress(done, total)` after each strip. Rejects
+ * Make a poster: lay it out, paint it strip by strip, encode it. `onProgress(done, total)` after each strip and once
+ * more when the encoder has finished (total is the strip count plus 1, so 100% means the file is ready). Rejects
  * with an AbortError when `opts.signal` aborts, and with Error('poster-memory') when the canvas can't be made or read.
  */
 export async function makePoster(
@@ -196,17 +217,19 @@ export async function makePoster(
   const frame = deps.frame ?? nextFrame
   let encoder: EncoderPort | null = null
   let strip: PosterStrip | null = null
+  const onAbort = () => encoder?.dispose()
   try {
     check()
     const k = printScale(size)
     const [width, height] = PRINT_PX[size]
-    const card = await prepareCard({ ...rest, format: 'print', theme: 'light', printSize: size, signal }, k)
+    const card = await prepareCard({ ...rest, format: 'print', theme: 'light', printSize: size, signal }, k).catch((error: unknown) => {
+      throw error instanceof Error && error.message === NO_CANVAS ? memoryError() : error
+    })
     check()
-    await fontsSettled()
+    await fontsSettled(signal)
     check()
 
-    const cap = Math.max(1, Math.floor(IOS_CANVAS_AREA / width))
-    const strips = stripRanges(width, height, Math.min(deps.rows ?? Math.floor(STRIP_AREA / width), cap))
+    const strips = stripRanges(width, height, posterRows(width, k, deps.rows))
     const ranges = strips.map(({ y, rows }) => ({ y0: y / k, y1: (y + rows) / k }))
     const spans = stickerSpans([...card.tiles, ...(card.lifer ? [card.lifer] : [])], ranges)
     const byFirst = strips.map(() => [] as string[])
@@ -223,7 +246,9 @@ export async function makePoster(
       const { tile } = spans.get(url)!
       const p = new Promise<ImageBitmap | null>((resolve, reject) => {
         queue.push(() => {
-          stickers.get({ url, fallback: tile.fallback ?? null }, signal)
+          // Called inside a promise, so an injected get that throws still frees its slot.
+          Promise.resolve()
+            .then(() => stickers.get({ url, fallback: tile.fallback ?? null }, signal))
             .then(resolve, reject)
             .finally(() => { active--; pump() })
         })
@@ -238,6 +263,7 @@ export async function makePoster(
     if (!strip?.ctx) throw memoryError()
     const { ctx } = strip
     encoder = (deps.encoder ?? workerEncoder)()
+    signal?.addEventListener('abort', onAbort, { once: true })
     encoder.begin(width, height)
 
     const imgs = new Map<string, CanvasImageSource | null>()
@@ -258,12 +284,13 @@ export async function makePoster(
       for (const url of byLast[i]) { imgs.delete(url); loads.delete(url); stickers.release(url) }
       await encoder.strip(rgba, rows)
       check()
-      onProgress(i + 1, strips.length)
+      onProgress(i + 1, strips.length + 1)
       await frame()
       check()
     }
     const bytes = await encoder.end()
     check()
+    onProgress(strips.length + 1, strips.length + 1)
     const { soft, missing } = stickers.stats()
 
     const done = encoder
@@ -287,6 +314,7 @@ export async function makePoster(
     if (signal?.aborted && !(error instanceof Error && error.name === 'StickerReleased')) throw abortError()
     throw error
   } finally {
+    signal?.removeEventListener('abort', onAbort)
     stickers.dispose()
     const canvas = strip?.ctx?.canvas
     if (canvas) { canvas.width = 1; canvas.height = 1 }

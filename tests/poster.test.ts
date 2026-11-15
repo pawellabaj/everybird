@@ -2,9 +2,9 @@ import { inflateSync } from 'node:zlib'
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { prepareCard, tileInRange, type ImagePack, type PreparedCard } from '@/lib/share/image'
-import { IOS_CANVAS_AREA, STRIP_AREA, PRINT_PT, PRINT_PX, printScale, stripRanges, type PrintSize } from '@/lib/share/print'
+import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, printScale, stripRanges, type PrintSize } from '@/lib/share/print'
 import { PosterEncoder } from '@/lib/share/poster-encoder'
-import { makePoster, workerEncoder, type EncoderPort, type PosterDeps, type PosterOpts } from '@/lib/share/poster'
+import { makePoster, posterRows, workerEncoder, type EncoderPort, type PosterDeps, type PosterOpts, type WorkerLike } from '@/lib/share/poster'
 import type { PrintStickers } from '@/lib/share/print-stickers'
 import type { ListEntry } from '@/lib/list/model'
 import { buildSpeciesIndex } from '@/lib/species/load'
@@ -24,6 +24,20 @@ const pack: ImagePack = {
 }
 const NOW = new Date(2026, 10, 15)
 const opts = (size: PrintSize, extra: Partial<PosterOpts> = {}): PosterOpts => ({ size, entries, species, pack, now: NOW, ...extra })
+// Many birds: a dense band of 48 small ones at the top (more than 12 gets queue at once) and 24 spread down the frame.
+const MANY = Array.from({ length: 72 }, (_, i) => `synmany${i}`)
+const manySpecies = buildSpeciesIndex(MANY.map((c, i) => row(c, i + 1)))
+const manyEntries: ListEntry[] = MANY.map((code, i) => ({ code, date: i === 0 ? '2024-05' : '2020-05', place: { country: 'CA' }, heard: false, dead: false, media: false, sources: ['ebird'] }))
+const manyPack: ImagePack = {
+  W: 1000, H: 1000,
+  boxes: new Map(MANY.map((c, i) => [c, i < 48
+    ? [20 + (i % 12) * 80, Math.floor(i / 12) * 30, 60, 25]
+    : [100 + ((i - 48) % 4) * 220, 200 + Math.floor((i - 48) / 4) * 130, 120, 60]])),
+}
+const manyOpts = (size: PrintSize, extra: Partial<PosterOpts> = {}): PosterOpts =>
+  ({ size, entries: manyEntries, species: manySpecies, pack: manyPack, now: NOW, ...extra })
+const manyCard = (size: PrintSize) =>
+  prepareCard({ format: 'print', theme: 'light', printSize: size, entries: manyEntries, species: manySpecies, pack: manyPack, now: NOW }, printScale(size))
 const card = (size: PrintSize) => prepareCard({ format: 'print', theme: 'light', printSize: size, entries, species, pack, now: NOW }, printScale(size))
 
 class FakePath2D { constructor(public d: string) {} }
@@ -81,7 +95,7 @@ function fakeStickers() {
     stats: () => ({ soft: 1, missing: 2 }),
     dispose: vi.fn<() => void>(),
   } satisfies PrintStickers
-  return { stickers, gets, releases, held, maxInFlight: () => maxInFlight }
+  return { stickers, gets, releases, held, pending, maxInFlight: () => maxInFlight }
 }
 
 function fakeEncoder() {
@@ -93,6 +107,25 @@ function fakeEncoder() {
     file: vi.fn(async (kind: 'png' | 'pdf') => new Blob([kind], { type: kind === 'png' ? 'image/png' : 'application/pdf' })),
   } satisfies EncoderPort
   return { enc, rows }
+}
+
+/** A print worker that acknowledges each strip a tick later (or never, with `took: false`). */
+function fakePrintWorker({ took = true, failOnStrip = 0 } = {}) {
+  let strips = 0
+  const w = {
+    onmessage: null as WorkerLike['onmessage'], onerror: null as WorkerLike['onerror'],
+    terminate: vi.fn(),
+    postMessage(msg: { type: string }) {
+      const reply = (data: unknown) => setTimeout(() => w.onmessage?.({ data } as MessageEvent))
+      if (msg.type === 'strip') {
+        strips++
+        if (failOnStrip && strips === failOnStrip) reply({ type: 'error', message: 'deflate failed' })
+        else if (took) reply({ type: 'took', rows: 1 })
+      }
+      if (msg.type === 'end') reply({ type: 'encoded', bytes: 1 })
+    },
+  }
+  return { w, strips: () => strips }
 }
 
 function setup(extra: Partial<PosterDeps> = {}) {
@@ -108,7 +141,7 @@ function setup(extra: Partial<PosterDeps> = {}) {
 /** For each URL, the first and last strip index whose design range tileInRange reaches. */
 function spans(c: PreparedCard, size: PrintSize, rows?: number) {
   const [w, h] = PRINT_PX[size], k = printScale(size)
-  const ranges = stripRanges(w, h, rows).map(({ y, rows: r }) => ({ y0: y / k, y1: (y + r) / k }))
+  const ranges = stripRanges(w, h, posterRows(w, k, rows)).map(({ y, rows: r }) => ({ y0: y / k, y1: (y + r) / k }))
   const out = new Map<string, { first: number; last: number }>()
   for (const t of [...c.tiles, ...(c.lifer ? [c.lifer] : [])]) ranges.forEach((r, i) => {
     if (!t.url || !tileInRange(t, r)) return
@@ -119,15 +152,27 @@ function spans(c: PreparedCard, size: PrintSize, rows?: number) {
 }
 
 describe('makePoster', () => {
-  it('A1: one strip canvas of 3508 × 298, rows sent in order summing to 4967, progress 1..17 of 17', async () => {
+  it('strip rows per size: A1 298 (17 strips), A2 276, A3 195, A4 138 (13 strips each)', () => {
+    const got = (['A1', 'A2', 'A3', 'A4'] as const).map((size) => {
+      const [w, h] = PRINT_PX[size], rows = posterRows(w, printScale(size))
+      return [size, rows, stripRanges(w, h, rows).length]
+    })
+    expect(got).toEqual([['A1', 298, 17], ['A2', 276, 13], ['A3', 195, 13], ['A4', 138, 13]])
+  })
+
+  it('A1: one strip canvas of 3508 × 298, rows sent in order summing to 4967, progress 1..18 of 18', async () => {
     const { deps, stripCalls, e, f } = setup()
     const progress: [number, number][] = []
-    const poster = await makePoster(opts('A1'), (d, n) => progress.push([d, n]), deps)
+    const endedAt: number[] = []
+    const poster = await makePoster(opts('A1'), (d, n) => { progress.push([d, n]); endedAt.push(e.enc.end.mock.calls.length) }, deps)
     expect(stripCalls).toEqual([[3508, 298]])
     expect(e.enc.begin).toHaveBeenCalledWith(3508, 4967)
     expect(e.rows).toEqual(stripRanges(3508, 4967).map((s) => s.rows))
     expect(e.rows.reduce((a, b) => a + b, 0)).toBe(4967)
-    expect(progress).toEqual(Array.from({ length: 17 }, (_, i) => [i + 1, 17]))
+    expect(progress).toEqual(Array.from({ length: 18 }, (_, i) => [i + 1, 18]))
+    // The last step comes only once the encoder has finished.
+    expect(endedAt).toEqual([...Array(17).fill(0), 1])
+    expect(e.rows).toHaveLength(17)
     expect([poster.size, poster.bytes, poster.soft, poster.missing]).toEqual(['A1', 1234, 1, 2])
     expect([f.canvas.width, f.canvas.height]).toEqual([1, 1]) // shrunk once done
   })
@@ -171,7 +216,7 @@ describe('makePoster', () => {
     expect(top).toBeDefined() // precondition: synbird0's collage tile and the lifer use the same 384 file
     const { out } = spans(c, 'A1')
     const [w, h] = PRINT_PX.A1, k = printScale('A1')
-    const strips = stripRanges(w, h)
+    const strips = stripRanges(w, h, posterRows(w, k))
     const lastOfTop = Math.max(...strips.flatMap((s, i) => (tileInRange(top, { y0: s.y / k, y1: (s.y + s.rows) / k }) ? [i] : [])))
     const sp = out.get(top.url!)!
     expect(lastOfTop).toBeLessThan(sp.last - 1) // the lifer's strip is well after the tile's
@@ -190,7 +235,7 @@ describe('makePoster', () => {
       const { deps, f, stripCalls } = setup({ rows })
       await makePoster(opts(size), () => {}, deps)
       const [w, h] = PRINT_PX[size], k = printScale(size)
-      const ys = stripRanges(w, h, Math.min(rows ?? Math.floor(STRIP_AREA / w), Math.floor(IOS_CANVAS_AREA / w))).map((s) => s.y)
+      const ys = stripRanges(w, h, posterRows(w, k, rows)).map((s) => s.y)
       const scaled = f.transforms.filter((m) => m[0] !== 1)
       expect(scaled.map((m) => m[5] + 0)).toEqual(ys.map((y) => -y + 0))
       for (const m of scaled) {
@@ -205,7 +250,7 @@ describe('makePoster', () => {
     const a = setup(), b = setup({ rows: 100 })
     await makePoster(opts('A4'), () => {}, a.deps)
     await makePoster(opts('A4'), () => {}, b.deps)
-    expect(a.e.rows).toEqual([845, 845, 64])
+    expect(a.e.rows).toEqual([...Array(12).fill(138), 98])
     expect(b.e.rows).toHaveLength(18)
     expect(b.e.rows.reduce((x, y) => x + y, 0)).toBe(1754)
     expect(b.stripCalls).toEqual([[1240, 100]])
@@ -243,7 +288,9 @@ describe('makePoster', () => {
     await expect(makePoster(opts('A4'), () => {}, { ...deps, encoder })).rejects.toThrow('poster-memory')
     expect(encoder).not.toHaveBeenCalled()
     expect(s.stickers.dispose).toHaveBeenCalled()
-    expect([canvas.width, canvas.height]).toEqual([1, 1])
+    // Never left big: shrunk by canvasStrip, or never sized when prepareCard's measurer already gave up.
+    expect(canvas.width).toBeLessThanOrEqual(1)
+    expect(canvas.height).toBeLessThanOrEqual(1)
   })
 
   it('a getImageData that throws fails with poster-memory', async () => {
@@ -258,11 +305,106 @@ describe('makePoster', () => {
     expect(e.enc.dispose).toHaveBeenCalled()
   })
 
+  it('at most 12 gets in flight, with 72 stickers and 48 of them in the first strips', async () => {
+    const c = await manyCard('A1')
+    const { out } = spans(c, 'A1')
+    expect([...out.values()].filter((sp) => sp.first <= 1).length).toBeGreaterThan(12) // precondition
+    const { deps, s } = setup()
+    await makePoster(manyOpts('A1'), () => {}, deps)
+    expect(s.gets).toHaveLength(out.size)
+    expect(s.maxInFlight()).toBe(12)
+  })
+
+  it('prefetch never reaches past the next strip: every held or loading sticker is drawn by strip i or i + 1', async () => {
+    for (const size of ['A1', 'A4'] as const) {
+      const c = await manyCard(size)
+      const { out } = spans(c, size)
+      const s = fakeStickers()
+      let done = 0, peak = 0, audits = 0
+      const audit = () => {
+        audits++
+        const live = [...s.held.keys(), ...s.pending]
+        for (const url of live) {
+          const sp = out.get(url)!
+          expect(sp.first, url).toBeLessThanOrEqual(done + 1)
+          expect(sp.last, url).toBeGreaterThanOrEqual(done)
+        }
+        const near = [...out.values()].filter((sp) => sp.first <= done + 1 && sp.last >= done).length
+        expect(s.held.size).toBeLessThanOrEqual(near)
+        expect(s.held.size + s.pending.size).toBeLessThanOrEqual(near + 12)
+        peak = Math.max(peak, live.length)
+      }
+      const get = s.stickers.get
+      s.stickers.get = async (t, signal) => { const b = await get(t, signal); audit(); return b }
+      const { deps } = setup()
+      const read = deps.strip!
+      await makePoster(manyOpts(size), (d) => { done = d }, {
+        ...deps, stickers: s.stickers,
+        strip: (w, r) => { const st = read(w, r); return { ctx: st.ctx, read: (n) => { audit(); return st.read(n) } } },
+      })
+      expect(audits).toBeGreaterThan(out.size)
+      expect(peak).toBeLessThan(out.size) // never every sticker at once
+    }
+  })
+
+  it('a get that throws synchronously, started from a queue slot freed by another, still rejects the make', async () => {
+    const { deps, e, s } = setup()
+    const get = s.stickers.get
+    let calls = 0
+    // The 20th get is never among the first 12, so it starts when an earlier one settles.
+    deps.stickers!.get = (t, signal) => { if (++calls === 20) throw new Error('sync boom'); return get(t, signal) }
+    await expect(makePoster(manyOpts('A1'), () => {}, deps)).rejects.toThrow('sync boom')
+    expect(e.enc.dispose).toHaveBeenCalled()
+    expect(s.stickers.dispose).toHaveBeenCalled()
+  })
+
+  it('abort during a held get rejects with AbortError promptly and disposes stickers and encoder', async () => {
+    const { deps, e, s } = setup()
+    const ac = new AbortController()
+    let calls = 0
+    deps.stickers!.get = (_t, signal) => {
+      calls++
+      if (calls === 1) setTimeout(() => ac.abort())
+      return new Promise((_, reject) => signal!.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))))
+    }
+    const t0 = Date.now()
+    await expect(makePoster(opts('A4', { signal: ac.signal }), () => {}, deps)).rejects.toMatchObject({ name: 'AbortError' })
+    expect(Date.now() - t0).toBeLessThan(1_000)
+    expect(e.rows).toHaveLength(0)
+    expect(e.enc.dispose).toHaveBeenCalled()
+    expect(s.stickers.dispose).toHaveBeenCalled()
+  })
+
+  it('abort during encoder backpressure (a worker that never acknowledges) rejects with AbortError and terminates it', async () => {
+    const pw = fakePrintWorker({ took: false })
+    const { deps, s } = setup({ encoder: () => workerEncoder(() => pw.w) })
+    const ac = new AbortController()
+    const run = makePoster(opts('A1', { signal: ac.signal }), () => {}, deps)
+    await vi.waitFor(() => expect(pw.strips()).toBe(2)) // the second strip waits for an ack that never comes
+    await new Promise((r) => setTimeout(r, 10))
+    expect(pw.strips()).toBe(2)
+    ac.abort()
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' })
+    expect(pw.w.terminate).toHaveBeenCalledTimes(1)
+    expect(s.stickers.dispose).toHaveBeenCalled()
+  })
+
+  it('an encoder error mid-make rejects with that error and disposes the stickers', async () => {
+    const pw = fakePrintWorker({ failOnStrip: 3 })
+    const { deps, s } = setup({ encoder: () => workerEncoder(() => pw.w) })
+    await expect(makePoster(opts('A1'), () => {}, deps)).rejects.toThrow('deflate failed')
+    expect(pw.strips()).toBeLessThan(17)
+    expect(pw.w.terminate).toHaveBeenCalledTimes(1)
+    expect(s.stickers.dispose).toHaveBeenCalled()
+  })
+
   it('files: asked once per kind with the ISO page, returned as a copy', async () => {
     const { deps, e } = setup()
     const poster = await makePoster(opts('A3'), () => {}, deps)
     const [a, b] = await Promise.all([poster.file('pdf'), poster.file('pdf')])
     expect(a).toBe(b)
+    expect(a).toBeInstanceOf(Blob)
+    expect(a).not.toBe(await e.enc.file.mock.results[0].value) // a copy, not the worker's Blob
     expect(await a.text()).toBe('pdf')
     expect(a.type).toBe('application/pdf')
     expect(e.enc.file).toHaveBeenCalledTimes(1)

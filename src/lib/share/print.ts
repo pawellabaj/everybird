@@ -35,6 +35,11 @@ export const printDesignH = (s: PrintSize): number => PRINT_PX[s][1] / printScal
 export const IOS_CANVAS_AREA = 16_777_216
 /** A strip's largest area in px (about 1 MP, 4 MB of RGBA). */
 export const STRIP_AREA = 1_048_576
+/**
+ * A strip's most rows in design units (about 8% of the card), so the current and the next strip never hold most of
+ * the stickers at once on a small poster, and no strip is one long main-thread task.
+ */
+export const STRIP_DESIGN_ROWS = 120
 
 /**
  * The strips that cover a `width` × `height` poster once, top to bottom: `rows` device rows each (the last one
