@@ -104,6 +104,8 @@ async function mount(opts: { blockStorage?: boolean; failForget?: boolean; path?
   const { SettingsPage } = await import('@/components/app/SettingsPage')
   const { SiteFooter } = await import('@/components/app/SiteFooter')
   const { TopBar } = await import('@/components/app/TopBar')
+  // After resetModules: the same I18nProvider module instance the components above read their context from.
+  const { withI18n } = await import('./i18n-render')
   const storage = await import('@/lib/list/storage')
   if (opts.stored) { const s = storage.emptySaved(); opts.stored(s); await storage.save(s) }
   const inat = await import('@/lib/import/inat')
@@ -122,7 +124,7 @@ async function mount(opts: { blockStorage?: boolean; failForget?: boolean; path?
       </EverybirdProvider>
     )
   }
-  const utils = render(<App />)
+  const utils = render(<App />, { wrapper: withI18n('en') })
   if ((opts.path ?? '/settings') === '/settings') await screen.findByTestId('ebird-drop') // the data and the stored list have loaded
   return { storage, inat, analytics, ...utils }
 }
@@ -158,6 +160,29 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+})
+
+describe('the top bar under a language prefix', () => {
+  it('TopBar marks the current page from the unprefixed path', async () => {
+    const { TopBar } = await import('@/components/app/TopBar')
+    const { withI18n } = await import('./i18n-render')
+    // The server prerenders /es/settings, the browser shows /settings: the same aria-current both times (no mismatch).
+    const current = (path: string) => {
+      nav.path = path
+      const { unmount } = render(<TopBar />, { wrapper: withI18n('en') })
+      const bar = screen.getByRole('banner')
+      const marked = within(bar).getAllByRole('link').filter((a) => a.getAttribute('aria-current') === 'page').map((a) => a.textContent)
+      const html = bar.outerHTML
+      unmount()
+      return { marked, html }
+    }
+    const prefixed = current('/es/settings')
+    const plain = current('/settings')
+    expect(prefixed.marked).toEqual(['Settings'])
+    expect(plain).toEqual(prefixed)
+    expect(current('/nl').marked).toEqual(['Collage'])
+    expect(current('/').marked).toEqual(['Collage'])
+  }, 15_000)
 })
 
 describe('the Collage page (/)', () => {

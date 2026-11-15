@@ -1,8 +1,7 @@
 'use client'
-// The birder's list and the imports in flight, above the routes (app/(app)/layout.tsx): / (Collage), /settings and
+// The birder's list and the imports in flight, above the routes (app/[lang]/(app)/layout.tsx): / (Collage), /settings and
 // /about share one store, and an import started on /settings keeps running while the birder moves between them. The
 // shared view (/s/[token]) lives outside this layout, so it never loads or touches the saved list.
-import { usePathname } from 'next/navigation'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { track } from '@/lib/analytics'
 import { loadRegions } from '@/lib/import/places'
@@ -11,6 +10,7 @@ import type { EbirdDetails, InatDetails, Saved } from '@/lib/list/storage'
 import { useEverybird, type Action, type AppState, type EverybirdMeta } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
+import { useAppPath } from '@/i18n/path'
 import { useImportJobs, type ImportJobs } from './use-import-jobs'
 
 export type Everybird = {
@@ -37,7 +37,7 @@ const Ctx = createContext<Everybird | null>(null)
 
 export function EverybirdProvider({ children }: { children: ReactNode }) {
   // On the landing page, a visitor without a list sees the pre-packed sample; the species file can wait.
-  const [state, dispatch, meta] = useEverybird({ deferIfEmpty: usePathname() === '/' })
+  const [state, dispatch, meta] = useEverybird({ deferIfEmpty: useAppPath() === '/' })
   const [regions, setRegions] = useState<Regions | null>(null)
   const [regionsFailed, setRegionsFailed] = useState(false)
   useEffect(() => {
@@ -65,6 +65,6 @@ export function EverybirdProvider({ children }: { children: ReactNode }) {
 
 export function useEverybirdContext(): Everybird {
   const v = useContext(Ctx)
-  if (!v) throw new Error('useEverybirdContext needs <EverybirdProvider> (app/(app)/layout.tsx)')
+  if (!v) throw new Error('useEverybirdContext needs <EverybirdProvider> (app/[lang]/(app)/layout.tsx)')
   return v
 }

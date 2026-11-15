@@ -9,7 +9,7 @@
 //   public/icons/icon-{16,32}.png            light tab icons;  icon-dark-{16,32}.png  dark ones (media query)
 //   public/icons/icon-{192,512}.png          rounded Paper tiles for the web manifest (app/manifest.ts)
 //   public/icons/apple-icon.png              180, full-bleed Paper (iOS rounds the corners itself)
-// app/layout.tsx declares them (metadata.icons) so the dark variant can carry its media query; an app/favicon.ico
+// app/[lang]/layout.tsx declares them (metadata.icons) so the dark variant can carry its media query; an app/favicon.ico
 // would add a sizes="any" link that browsers prefer over the media-matched ones.
 // At 16px the bird's strokes are thickened a little (a dilation of the mask before scaling) so it stays legible.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'

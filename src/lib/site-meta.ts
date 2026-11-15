@@ -12,6 +12,9 @@ export const ABOUT_DESCRIPTION =
 /** Buy Me a Coffee: a quiet way to support the maker (the footer, About#credits and the share dialog; never on the images). */
 export const COFFEE_URL = 'https://buymeacoffee.com/yusuftaleb'
 
+/** The repository, linked from the footer's right edge. */
+export const REPO_URL = 'https://github.com/yusuftaleb/everybird'
+
 /** The only pages offered to search engines (app/sitemap.ts). */
 export const INDEXED_PATHS = ['/', '/about'] as const
 

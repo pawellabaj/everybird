@@ -1,5 +1,5 @@
 /* Everybird design tokens. Light is the default, whatever the system says; dark only when <html> carries
-   data-theme=dark (the visitor's choice, applied before paint by app/layout.tsx; src/lib/theme.ts). */
+   data-theme=dark (the visitor's choice, applied before paint by app/[lang]/layout.tsx; src/lib/theme.ts). */
 :root {
   color-scheme: light;
   --ink: #1e1e24;

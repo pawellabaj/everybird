@@ -1,7 +1,8 @@
 'use client'
 // The UI language for client components. The root layout passes its language's `ui` (plain data from
 // messages/<lang>.ts); components read it with useI18n(): `const { lang, t } = useI18n()`, then `t.shell.nav.about`.
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
+import { refreshLangCookie } from './choose'
 import type { Lang } from './langs'
 import { EN_UI, type Ui } from './messages/en'
 
@@ -15,6 +16,8 @@ const I18nContext = createContext<I18n>(ENGLISH)
 
 export function I18nProvider({ lang, ui, children }: { lang: Lang; ui: Ui; children: ReactNode }) {
   const value = useMemo(() => ({ lang, t: ui }), [lang, ui])
+  // A chosen language's cookie gets a fresh year on every page load (Safari caps script-set cookies at 7 days).
+  useEffect(refreshLangCookie, [])
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 

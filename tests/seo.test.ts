@@ -7,9 +7,9 @@ import { pageSeo, SITE_DESCRIPTION, SITE_NAME } from '@/lib/site-meta'
 const ORIGIN = 'https://everybird.yusuftaleb.com'
 
 describe('robots.txt', () => {
-  it('lets crawlers in, keeps them out of /s/, and points at the sitemap', () => {
+  it('lets crawlers in, keeps them out of /s/ and its per-language copies, and points at the sitemap', () => {
     expect(robots()).toEqual({
-      rules: { userAgent: '*', allow: '/', disallow: '/s/' },
+      rules: { userAgent: '*', allow: '/', disallow: ['/s/', '/en/s/', '/es/s/', '/pt/s/', '/nl/s/'] },
       sitemap: `${ORIGIN}/sitemap.xml`,
     })
   })
@@ -35,18 +35,25 @@ describe('page metadata', () => {
   })
 
   it('/about has its own canonical and card', async () => {
-    const { metadata } = await import('../app/(app)/about/page')
+    const { metadata } = await import('../app/[lang]/(app)/about/page')
     expect(metadata.alternates?.canonical).toBe(`${ORIGIN}/about`)
     expect(metadata.openGraph).toMatchObject({ url: `${ORIGIN}/about`, title: metadata.title, description: metadata.description })
   })
 
+  it('the canonical of /about is unprefixed, though the page is prerendered at /<lang>/about', async () => {
+    const { metadata } = await import('../app/[lang]/(app)/about/page')
+    const canonical = String(metadata.alternates?.canonical)
+    expect(canonical).toBe(`${ORIGIN}/about`)
+    expect(canonical).not.toMatch(/\/(en|es|pt|nl)\//)
+  })
+
   it('/settings does not inherit the landing page canonical', async () => {
-    const { metadata } = await import('../app/(app)/settings/page')
+    const { metadata } = await import('../app/[lang]/(app)/settings/page')
     expect(metadata.alternates?.canonical).toBe(`${ORIGIN}/settings`)
   })
 
   it('a shared view is noindex and its metadata never carries the token', async () => {
-    const { generateMetadata } = await import('../app/s/[token]/page')
+    const { generateMetadata } = await import('../app/[lang]/s/[token]/page')
     const { token } = encodeShare({ v: 1, name: 'Test Birder', birds: [{ code: 'ostric2', ym: 1500 }] })
     for (const t of [token, 'not-a-token']) {
       const meta = await generateMetadata({ params: Promise.resolve({ token: t }) })

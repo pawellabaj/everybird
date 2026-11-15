@@ -123,7 +123,7 @@ describe('the image route when every font and sticker fetch fails', () => {
     vi.stubGlobal('fetch', () => Promise.reject(new Error('offline')))
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
-      const { default: Image } = await import('../app/s/[token]/opengraph-image')
+      const { default: Image } = await import('../app/[lang]/s/[token]/opengraph-image')
       const { encodeShare } = await import('@/lib/share/link')
       const token = encodeShare({ v: 1, name: 'Ada', birds: [{ code: 'grerhe1', ym: 1900 }, { code: 'lesrhe2' }] }).token
       for (const t of [token, 'garbage']) {
@@ -143,7 +143,7 @@ describe('the image route when every font and sticker fetch fails', () => {
 
 describe('the link preview footer', () => {
   it('link previews carry the footer line without the date stamp', () => {
-    const src = readFileSync(resolve('app/s/[token]/opengraph-image.tsx'), 'utf8')
+    const src = readFileSync(resolve('app/[lang]/s/[token]/opengraph-image.tsx'), 'utf8')
     expect(src).toContain('{FOOTER_LINE}')
     expect(src).not.toMatch(/asOfDate|withStamp|share\/stamp/)
   })

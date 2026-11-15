@@ -1,0 +1,36 @@
+// The language preference: one first-party cookie, `everybird-lang`, which the rewrites (routes.ts) read before
+// Accept-Language. It is the only stored copy. Safari caps script-set cookies at 7 days, so every page load writes a
+// present cookie again with the same value (I18nProvider's effect); a missing one is never created there.
+import { isLang, type Lang } from './langs'
+import { LANG_COOKIE } from './routes'
+
+type CookieDoc = { cookie: string; location?: { protocol?: string } }
+
+const YEAR = 31536000
+
+/** Writes the preference: a year, the whole site, Lax, and Secure on https. */
+export function setLangCookie(lang: Lang, doc: CookieDoc = document): void {
+  const secure = doc.location?.protocol === 'https:' ? '; Secure' : ''
+  doc.cookie = `${LANG_COOKIE}=${lang}; Max-Age=${YEAR}; Path=/; SameSite=Lax${secure}`
+}
+
+/** The cookie's language, when it is present and names one. */
+export function readLangCookie(doc: CookieDoc = document): Lang | undefined {
+  for (const part of doc.cookie.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq < 0 || part.slice(0, eq).trim() !== LANG_COOKIE) continue
+    const v = part.slice(eq + 1).trim()
+    return isLang(v) ? v : undefined
+  }
+  return undefined
+}
+
+/** Re-writes a present, valid cookie with its own value (a fresh year); never creates one. */
+export function refreshLangCookie(doc: CookieDoc = document): void {
+  try {
+    const lang = readLangCookie(doc)
+    if (lang) setLangCookie(lang, doc)
+  } catch {
+    // Cookies blocked: the browser's language decides, as without a choice.
+  }
+}

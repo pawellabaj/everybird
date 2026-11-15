@@ -1,5 +1,5 @@
 // Light by default (never the OS setting); a per-device choice in localStorage. The inline script in
-// app/layout.tsx applies it to <html data-theme> before the first paint, so there is no flash.
+// app/[lang]/layout.tsx applies it to <html data-theme> before the first paint, so there is no flash.
 
 export type Theme = 'light' | 'dark'
 export const THEME_KEY = 'everybird:theme'

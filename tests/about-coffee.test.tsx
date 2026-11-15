@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import AboutPage from '../app/(app)/about/page'
+import AboutPage from '../app/[lang]/(app)/about/page'
 
 vi.mock('@/components/about/HowItWorksDemo', () => ({ HowItWorksDemo: () => null }))
 vi.mock('@/components/app/IntentLink', () => ({ default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }))

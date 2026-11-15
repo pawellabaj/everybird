@@ -12,7 +12,7 @@ vi.mock('@/components/app/SiteFooter', () => ({ SiteFooter: () => null }))
 vi.mock('@/components/app/VisitTracker', async (orig) => ({ ...(await orig<object>()), VisitTracker: () => null }))
 vi.mock('@/components/app/app.css', () => ({}))
 
-import AppLayout from '../app/(app)/layout'
+import AppLayout from '../app/[lang]/(app)/layout'
 import { CF_BEACON_SRC, CF_BEACON_TOKEN, CloudflareBeacon } from '@/components/app/CloudflareBeacon'
 import { wantsFullLoad } from '@/components/app/FullNavigation'
 import { visitPageFor } from '@/components/app/VisitTracker'
@@ -64,11 +64,11 @@ describe('Cloudflare Web Analytics beacon', () => {
     }
   })
   it('is never in the root layout or the shared view, which the token travels through', () => {
-    for (const f of ['app/layout.tsx', 'app/s/[token]/page.tsx', 'app/s/[token]/opengraph-image.tsx']) {
+    for (const f of ['app/[lang]/layout.tsx', 'app/global-not-found.tsx', 'app/[lang]/s/[token]/page.tsx', 'app/[lang]/s/[token]/opengraph-image.tsx']) {
       const src = readFileSync(f, 'utf8')
       expect(src, f).not.toMatch(/CloudflareBeacon|cloudflareinsights|@vercel\/analytics/)
     }
-    expect(readFileSync('app/s/[token]/page.tsx', 'utf8')).toMatch(/<FullNavigation \/>/)
+    expect(readFileSync('app/[lang]/s/[token]/page.tsx', 'utf8')).toMatch(/<FullNavigation \/>/)
   })
 })
 

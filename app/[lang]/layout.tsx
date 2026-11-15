@@ -5,6 +5,9 @@ import { SHARE_ORIGIN } from "@/lib/share/origin";
 import { pageSeo, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site-meta";
 import { STICKER_READY_SCRIPT } from "@/lib/sticker-ready";
 import { THEME_SCRIPT } from "@/lib/theme";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { HTML_LANG, LANGS } from "@/i18n/langs";
+import { getMessages, langParam } from "@/i18n/server";
 import "@/styles/globals.css";
 
 const geistMono = Geist_Mono({
@@ -28,16 +31,23 @@ export const metadata: Metadata = {
   ...pageSeo("/", SITE_NAME, SITE_DESCRIPTION),
   // A share link's token is the birder's list: never let it leave as a Referer, not even to our own pages
   // (analytics beacons send one). Origin only, everywhere. No analytics script here: Cloudflare Web Analytics loads from
-  // app/(app)/layout.tsx only, so a shared view (/s/<token>) never loads it.
+  // app/[lang]/(app)/layout.tsx only, so a shared view (/s/<token>) never loads it.
   referrer: "strict-origin",
   icons: SITE_ICONS,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/** One prerendered copy of every page per language; next.config.ts's rewrites (src/i18n/routes.ts) pick the copy for the
+ *  unprefixed URL. No `dynamicParams = false`: it would reach /s/[token], whose tokens can't be listed. */
+export function generateStaticParams() {
+  return LANGS.map((lang) => ({ lang }));
+}
+
+export default async function RootLayout({ children, params }: { children: React.ReactNode; params: Promise<{ lang: string }> }) {
+  const lang = await langParam(params);
   return (
     // Light unless the visitor chose dark on this device: the inline script sets data-theme before the first paint
     // (src/lib/theme.ts), so suppressHydrationWarning lets React keep the attribute it finds.
-    <html lang="en" className={geistMono.variable} data-theme="light" suppressHydrationWarning>
+    <html lang={HTML_LANG[lang]} className={geistMono.variable} data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: STICKER_READY_SCRIPT }} />
@@ -50,7 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@700&display=swap" />
       </head>
       <body>
-        {children}
+        <I18nProvider lang={lang} ui={getMessages(lang).ui}>
+          {children}
+        </I18nProvider>
       </body>
     </html>
   );
