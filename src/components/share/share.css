@@ -169,7 +169,7 @@
 .eb-seg-label, .eb-seg-btn .eb-share-hint { display: block; line-height: 1; text-box: trim-both cap alphabetic; }
 .eb-seg-btn[aria-pressed="true"] { opacity: 1; background: var(--surface); }
 /* The control answers to its column's width (a container query), not the window's: where three formats with icons
-   don't fit, the row spans the column and the icons go; narrower still, the ratios go too, the words stay. */
+   don't fit, the formats share the column evenly and the icons go; narrower still, the ratios go too, the words stay. */
 /* The format words keep 16px (in px, as the switch's label does), so a reader's larger text size never pushes them
    past the control on a small phone (at 320px and 200% they overlapped). */
 .eb-share .eb-seg-btn { font-size: 16px; }
