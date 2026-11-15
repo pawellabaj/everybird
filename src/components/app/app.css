@@ -77,7 +77,8 @@
   text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px;
 }
 .eb-textbtn svg { width: 16px; height: 16px; flex: none; }
-.eb-textbtn::after { content: ''; position: absolute; inset: -4px 0; } /* drawn 36px, a 44px hit area */
+/* Drawn 36px, a 44px hit area; a short word ("Clear") gets 44px across too. */
+.eb-textbtn::after { content: ''; position: absolute; inset: -4px min(0px, calc(50% - 22px)); }
 
 /* The collage block: LifeList's column (12px between the stats line, the dock, the filters and the stage). */
 .eb-view { --eb-ease: cubic-bezier(.16, 1, .3, 1); display: flex; flex-direction: column; gap: 12px; min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.3; }
