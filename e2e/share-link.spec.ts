@@ -47,7 +47,7 @@ test("the shared view loads no Cloudflare beacon, counts one 'shared' visit with
   });
   await page.goto(`/s/${frozen}`);
   await expect(page.getByTestId("collage-stage")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __stats: string[] }).__stats)).toEqual(['{"n":"visit","p":"shared"}']);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __stats: string[] }).__stats)).toEqual([expect.stringMatching(/^\{"n":"visit","p":"shared"(,"l":"[a-z]{2,3}")?\}$/)]); // l: the browser language's primary subtag
   await expect(page.locator('script[src*="cloudflareinsights"]')).toHaveCount(0);
   // Every way into the app (Make yours, the top bar, the footer) is a new document, never a client navigation, so
   // Cloudflare's beacon can't load in a document whose history holds the token (and report it on Back).

@@ -281,8 +281,9 @@ test("visits, downloads and copy link each send one anonymous event: {n, p} only
   await expect(dialog.getByTestId("share-note")).toHaveText(/^Link copied/);
   // The level in the Worker's words (regions/countries/dates/species → full/compact/minimal/species).
   expect(await stats()).toEqual([
-    { n: "visit", p: "settings" },
-    { n: "visit", p: "collage" },
+    // A visit also carries the browser language's primary subtag (l: "en" under Playwright's en-US).
+    { n: "visit", p: "settings", l: expect.stringMatching(/^[a-z]{2,3}$/) },
+    { n: "visit", p: "collage", l: expect.stringMatching(/^[a-z]{2,3}$/) },
     { n: "image_downloaded", p: "story" },
     { n: "image_downloaded", p: "square" },
     { n: "link_copied", p: expect.stringMatching(/^(full|compact|minimal|species)$/) },

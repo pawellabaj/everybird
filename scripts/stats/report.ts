@@ -1,5 +1,5 @@
 // Everybird's usage report, from the stats Worker's D1 database (workers/stats, table events: day, name, value,
-// country, device, vid). Aggregates only: the table holds no names, species, places, IPs or cookies.
+// country, device, vid, lang). Aggregates only: the table holds no names, species, places, IPs or cookies.
 //
 //   npm run stats                              the last 30 days (UTC)
 //   npm run stats -- --since 2026-11-01        from a day on
@@ -48,7 +48,7 @@ export function parseArgs(argv: string[], now = new Date()): Args {
   return a
 }
 
-export type QueryName = 'visitors' | 'visitsByDay' | 'byValue' | 'people' | 'byDevice' | 'countries'
+export type QueryName = 'visitors' | 'visitsByDay' | 'byValue' | 'people' | 'byDevice' | 'countries' | 'byLanguage'
 
 /** The report's statements, in the order wrangler returns their results. */
 export function buildQueries(since: string, top: number): { name: QueryName; sql: string }[] {
@@ -69,6 +69,8 @@ export function buildQueries(since: string, top: number): { name: QueryName; sql
       name: 'countries',
       sql: `SELECT name, country, n, people FROM (SELECT name, country, COUNT(*) AS n, COUNT(DISTINCT ${vid}) AS people, ROW_NUMBER() OVER (PARTITION BY name ORDER BY COUNT(*) DESC, country) AS rk FROM events WHERE ${w} GROUP BY name, country) WHERE rk <= ${top} ORDER BY name, n DESC, country`,
     },
+    // The browser language's primary subtag on visits (workers/stats lang, since 2026-11-15; '' before, or none sent).
+    { name: 'byLanguage', sql: `SELECT lang, COUNT(DISTINCT ${vid}) AS people, COUNT(*) AS visits FROM events WHERE ${w} AND name = 'visit' GROUP BY lang ORDER BY people DESC` },
   ]
 }
 
@@ -133,6 +135,10 @@ export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): str
     const total = ['total', '', ...pages.map((_, i) => rows.reduce((s, row) => s + num(row[i + 2]), 0)), rows.reduce((s, row) => s + num(row[row.length - 1]), 0)]
     out.push(table(['day', 'visitors', ...pages, 'all events'], [...rows, total]))
   }
+
+  out.push('', 'Visitors by browser language')
+  if (!r.byLanguage.length) out.push('(none)')
+  else out.push(table(['language', 'people', 'visits'], r.byLanguage.map((x) => [String(x.lang ?? '') || 'unknown', num(x.people), num(x.visits)])))
 
   for (const name of EVENTS) {
     const values = r.byValue.filter((x) => x.name === name)
