@@ -68,6 +68,11 @@ describe('observation.org species export', () => {
     expect(parse(fixture('species-observed-en').replaceAll(',', ';')).records).toHaveLength(4)
     expect(parse(' Scientific Name , Species Type , Date First Observed \nColumba livia,species,not-a-date').records[0].date).toBeUndefined()
   })
+  it('does not resolve prototype property names as row types or synonym codes', () => {
+    expect(rowKind('constructor', 'A b c')).toBe('subspecies')
+    expect(resolveObsOrgName(t, 'constructor', 'species', {}).code).toBeNull()
+    expect(resolveObsOrgName(t, 'toString', 'species', {}).code).toBeNull()
+  })
   it('region-rule names already resolve exactly; synonym keys miss and targets are real species', () => {
     const publicT = buildTaxonomyIndex(JSON.parse(readFileSync('public/data/taxonomy.v1.json', 'utf8')).taxa)
     for (const name of Object.keys(REGION_RULES)) expect(resolveName(publicT, { sci: name })).toMatchObject({ via: 'sci' })

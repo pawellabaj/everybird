@@ -1,6 +1,9 @@
 import Papa from 'papaparse'
 import type { ImportResult, SourceRecord, Unmatched } from '@/lib/list/model'
 import { resolveName, type Resolution, type TaxonomyIndex } from '@/lib/species/resolve'
+import type { Regions } from '@/lib/species/types'
+import { SeenAgg } from '@/lib/list/seen'
+import { makeObsOrgPlaces } from './obsorg-places'
 
 export type ObsOrgRowKind = 'species' | 'subspecies' | 'synonym' | 'skip'
 
@@ -16,7 +19,8 @@ const ROW_TYPES: Record<string, ObsOrgRowKind> = {
 
 /** Classify before resolving: the shared resolver strips parentheses, which would otherwise count forms. */
 export function rowKind(type: string | undefined, sci: string): ObsOrgRowKind {
-  const known = ROW_TYPES[(type ?? '').trim().toLowerCase()]
+  const key = (type ?? '').trim().toLowerCase()
+  const known = Object.hasOwn(ROW_TYPES, key) ? ROW_TYPES[key] : undefined
   if (known) return known
   if (/\/|\s+x\s+|×|\(|(?:^|\s)\S+\.(?:\s|$)/i.test(sci)) return 'skip'
   const words = sci.trim().split(/\s+/).length
@@ -30,7 +34,9 @@ export function resolveObsOrgName(
   const resolve = (name: string): Resolution => {
     const result = resolveName(t, { sci: name })
     if (result.code !== null) return result
-    const code = OBSORG_SYNONYMS[name.toLowerCase()] ?? synonyms[name]
+    const lower = name.toLowerCase()
+    const code = (Object.hasOwn(OBSORG_SYNONYMS, lower) ? OBSORG_SYNONYMS[lower] : undefined)
+      ?? (Object.hasOwn(synonyms, name) ? synonyms[name] : undefined)
     return code ? { code, via: 'sci' } : result
   }
   const result = resolve(sci.trim())
@@ -85,4 +91,94 @@ export function parseObsOrgSpecies(csv: string, t: TaxonomyIndex, synonyms: Reco
   }
   if (!byCode.size && !unmatched.length) return { error: 'no-birds' }
   return { records: [...byCode.values()], unmatched: unmatched.sort((a,b) => a.row - b.row), skipped: 0, rows: parsed.data.length }
+}
+
+export type ObsOrgObservationsResult = ImportResult & { excluded: { escape: number; uncertain: number } }
+
+/**
+ * Stream observations, retaining only per-name/species/place aggregates. The seven column lookups below are the
+ * complete allowlist: raw location names, coordinates, notes, ids, links and validator details are never inspected.
+ */
+export async function parseObsOrgObservations(
+  csv: string | File, t: TaxonomyIndex, synonyms: Record<string, string>, regions: Regions,
+  onProgress?: (rows: number) => void,
+): Promise<ObsOrgObservationsResult | { error: 'no-birds' }> {
+  const placeOf = makeObsOrgPlaces(regions)
+  const byCode = new Map<string, SourceRecord>()
+  const unmatched = new Map<string, Unmatched>()
+  const resolutions = new Map<string, Resolution>()
+  const seen = new SeenAgg()
+  const seenUnmatched = new SeenAgg()
+  const excluded = { escape: 0, uncertain: 0 }
+  let rows = 0
+
+  const onRow = (r: Row) => {
+    rows++
+    if (rows % 5000 === 0) onProgress?.(rows)
+    const escape = r['is escape']?.trim().toLowerCase() === 'true'
+    const uncertain = r['is certain']?.trim().toLowerCase() === 'false'
+    if (escape) excluded.escape++
+    if (uncertain) excluded.uncertain++
+    if (escape || uncertain) return
+    const sci = r['scientific name']?.trim() ?? ''
+    if (!sci) return
+    const kind = rowKind(r['species type'], sci)
+    const key = `${kind}\u0000${sci}`
+    let result = resolutions.get(key)
+    if (!result) {
+      result = kind === 'skip' ? { code: null, reason: 'not-species' } : resolveObsOrgName(t, sci, kind, synonyms)
+      resolutions.set(key, result)
+    }
+    if (result.code === null && result.reason === 'not-species') {
+      if (!unmatched.has(sci)) unmatched.set(sci, { source: 'obsorg', row: rows, sci, reason: 'not-species' })
+      return
+    }
+    const date = isoDate(r.date)
+    const place = placeOf(r.country ?? '', r['country division'] ?? '')
+    if (result.code === null) {
+      seenUnmatched.add(sci, place, date)
+      const previous = unmatched.get(sci)
+      if (!previous || earlier(date, previous.date)) {
+        unmatched.set(sci, {
+          source: 'obsorg', row: rows, sci, reason: result.reason,
+          ...(result.suggestion ? { suggestion: result.suggestion } : {}),
+          ...(date ? { date } : {}), ...(place ? { place } : {}),
+        })
+      }
+    } else {
+      seen.add(result.code, place, date)
+      const previous = byCode.get(result.code)
+      if (!previous || earlier(date, previous.date)) {
+        // Replace the whole lifer so an earlier unplaced row cannot inherit a later row's place.
+        byCode.set(result.code, { code: result.code, source: 'obsorg', ...(date ? { date } : {}), ...(place ? { place } : {}) })
+      }
+    }
+  }
+
+  const finish = (): ObsOrgObservationsResult | { error: 'no-birds' } => {
+    if (!byCode.size && !unmatched.size) return { error: 'no-birds' }
+    const records = [...byCode.values()]
+    for (const r of records) r.seen = seen.get(r.code) ?? []
+    for (const u of unmatched.values()) if (u.reason === 'no-match') u.seen = seenUnmatched.get(u.sci!) ?? []
+    return { records, unmatched: [...unmatched.values()].sort((a,b) => a.row - b.row), skipped: 0, rows, excluded }
+  }
+
+  const run = (input: string | File) => new Promise<ObsOrgObservationsResult | { error: 'no-birds' }>((resolve, reject) => {
+    Papa.parse<Row>(input as never, {
+      header: true, skipEmptyLines: true, transformHeader: h => h.trim().toLowerCase(),
+      step: (result, parser) => {
+        if (result.errors.some(e => e.type === 'Quotes' || e.type === 'FieldMismatch')) {
+          reject(new Error('Malformed observation.org CSV.'))
+          parser.abort()
+          return
+        }
+        onRow(result.data)
+      },
+      complete: () => resolve(finish()),
+      error: () => reject(new Error('Could not read observation.org CSV.')),
+    })
+  })
+  if (typeof csv === 'string') return run(csv.replace(/^\uFEFF/, ''))
+  // Browser/worker FileReader streams the File; Node's test runner has only File.text().
+  return typeof FileReader === 'undefined' ? run((await csv.text()).replace(/^\uFEFF/, '')) : run(csv)
 }
