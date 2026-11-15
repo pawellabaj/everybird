@@ -113,6 +113,30 @@ describe('buildSeen', () => {
   })
 })
 
+describe('buildSeen output, pinned', () => {
+  it('the same places, keys and signature as before the place keys were shared', () => {
+    const recs: SourceRecord[] = [
+      rec('a', 'ebird', { date: '2020-01-01', seen: ['2020-01-01|CA-BC|Capital', '|CA-BC|Capital', '2019-05|US-WA', '|KE', '2021-01-01|HK|Kowloon', 'bad', '2020-01-01|', '2020-01-01|-X'] }),
+      rec('b', 'inat', { date: '2018-01-01', place: { country: 'CA', sub1: 'CA-ON', sub2: 'York' } }),
+      rec('a', 'inat', { date: '2017-01-01', seen: ['2017-01-01|CA-BC|Capital', '2022|MX'] }),
+      rec('c', 'ebird', { place: { country: 'EG' } }),
+    ]
+    // Twice: the second build reads the shared place keys.
+    for (let i = 0; i < 2; i++) {
+      const { seen } = build(recs)
+      expect(seen.sig).toBe('3:581dc675')
+      expect(seen.full).toBe(true)
+      expect([...seen.byCode].map(([k, v]) => [k, v.places, [...v.keys]])).toEqual([
+        ['a', [{ country: 'CA', sub1: 'CA-BC', sub2: 'Capital', date: '2017-01-01' }, { country: 'US', sub1: 'US-WA', date: '2019-05' }, { country: 'KE' }, { country: 'HK', sub2: 'Kowloon', date: '2021-01-01' }, { country: 'MX', date: '2022' }], ['c:CA', 's:CA-BC', 'k:CA-BC|Capital', 'c:US', 's:US-WA', 'c:KE', 'c:HK', 'c:MX']],
+        ['b', [{ country: 'CA', sub1: 'CA-ON', sub2: 'York', date: '2018-01-01' }], ['c:CA', 's:CA-ON', 'k:CA-ON|York']],
+        ['c', [{ country: 'EG' }], ['c:EG']],
+      ])
+      // Each species' places are its own objects.
+      expect(seen.byCode.get('a')!.places[2]).not.toBe(build(recs).seen.byCode.get('a')!.places[2])
+    }
+  })
+})
+
 describe('placeKeys', () => {
   it('names every level of the places', () => {
     expect(placeKeys([{ country: 'CA', sub1: 'CA-BC', sub2: 'Capital' }, { country: 'MX' }])).toEqual(new Set(['c:CA', 's:CA-BC', 'k:CA-BC|Capital', 'c:MX']))

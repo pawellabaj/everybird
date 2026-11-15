@@ -88,6 +88,11 @@ export class SeenAgg {
     if (m) for (const [k, d] of m) this.addKey(code, k, d)
   }
 
+  /** `code`'s places ("region" or "region|county") and their earliest dates, or undefined when it has none. */
+  places(code: string): ReadonlyMap<string, string> | undefined {
+    return this.by.get(code)
+  }
+
   /** The stored entries for `code`, or undefined when it has none. */
   get(code: string): string[] | undefined {
     const m = this.by.get(code)
@@ -138,6 +143,23 @@ function hash(h: number, s: string): number {
   return h >>> 0
 }
 
+/** A place key's decoded place (no date) and its filter keys, or null when it names no place. */
+type KnownPlace = { place: SeenPlace; keys: string[] } | null
+// Shared by every buildSeen: a list's places repeat across species and across rebuilds, so each "region[|county]" is
+// decoded and its filter keys made once (the same strings for every species there). Bounded: cleared when it grows big.
+const known = new Map<string, KnownPlace>()
+const KNOWN_MAX = 100_000
+function knownPlace(key: string): KnownPlace {
+  let hit = known.get(key)
+  if (hit === undefined) {
+    if (known.size >= KNOWN_MAX) known.clear()
+    const place = decodeSeen(`|${key}`)
+    hit = place ? { place, keys: keysOfPlace(place) } : null
+    known.set(key, hit)
+  }
+  return hit
+}
+
 /**
  * Seen-here for the species on `list` (buildList's output for the same records, edits and rules): every counting
  * record's places, merged per place with the earliest date. See the file comment for the rules.
@@ -165,15 +187,23 @@ export function buildSeen(records: SourceRecord[], edits: Edits, rules: Rules, l
   const byCode = new Map<string, SeenEntry>()
   let h = 2166136261
   for (const e of list) {
-    const entries = agg.get(e.code)
+    const entries = agg.places(e.code)
     if (!entries) continue
     const places: SeenPlace[] = []
-    for (const s of entries) {
-      const p = decodeSeen(s)
-      if (p) places.push(p)
+    const keys = new Set<string>()
+    h = hash(h, e.code)
+    let first = true
+    for (const [k, d] of entries) {
+      // The signature hashes the stored entries "date|key" joined by commas, as it always has (without building them).
+      if (!first) h = hash(h, ',')
+      first = false
+      h = hash(hash(hash(h, d), '|'), k)
+      const at = knownPlace(k)
+      if (!at) continue
+      places.push(d ? { ...at.place, date: d } : { ...at.place })
+      for (const key of at.keys) keys.add(key)
     }
-    byCode.set(e.code, { places, keys: placeKeys(places) })
-    h = hash(hash(h, e.code), entries.join(','))
+    byCode.set(e.code, { places, keys })
   }
   return { byCode, full, sig: `${byCode.size}:${h.toString(16)}` }
 }
