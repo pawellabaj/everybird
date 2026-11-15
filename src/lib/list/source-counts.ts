@@ -18,7 +18,7 @@ export function slottedRecords(saved: Saved): { slot: Slot; record: SourceRecord
   return out
 }
 
-/** The three sources the summary and "only here" compare: the two eBird files are one. */
+/** The source groups the summary compares: a source's export slots count together. */
 export type Group = 'ebird' | 'inat' | 'obsorg' | 'manual'
 export const GROUPS: readonly Group[] = ['ebird', 'inat', 'obsorg', 'manual']
 const groupOf = (slot: Slot): Group => slotSource(slot)
