@@ -13,7 +13,9 @@ import { emptyHere, fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck
 
 export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyProps) {
   const { filter } = state
-  const [at, setAt] = useState<string | undefined>()
+  // Opens at the selection's level: every checked place under one parent starts drilled there (the breadcrumb built),
+  // so a checked province or county is in view; else (none, countries, or several parents) the countries.
+  const [at, setAt] = useState<string | undefined>(() => startLevel(filterPlaceKeys(filter)))
   const [q, setQ] = useState('')
   // Test ids to focus, first found wins, once the new level has rendered (set by the drill and breadcrumb handlers).
   const focusNext = useRef<string[] | null>(null)
@@ -58,8 +60,9 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
 
   const visible = rows.length > SEARCH_FROM ? matchRows(rows, q) : rows
   // Where some row drills, the others keep the button's room, so every count lines up.
+  // At the counties the room is kept too, so the counts stay in the column they had a level up.
   const drills = level !== 'county' && rows.some((r) => r.children > 0)
-  const gap = drills ? <span className="eb-drill-space" aria-hidden="true" /> : null
+  const gap = drills || level === 'county' ? <span className="eb-drill-space" aria-hidden="true" /> : null
   const drillLabel = (name: string) => (level === 'country' ? `Show states and provinces in ${name}` : `Show counties in ${name}`)
 
   return (
@@ -117,4 +120,11 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
       )}
     </>
   )
+}
+
+/** The parent every checked place shares, or undefined (countries) when there are none or they have several. */
+export function startLevel(keys: string[]): string | undefined {
+  if (!keys.length) return undefined
+  const first = parentKey(keys[0])
+  return keys.every((k) => parentKey(k) === first) ? first : undefined
 }

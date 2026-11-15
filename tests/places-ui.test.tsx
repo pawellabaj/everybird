@@ -181,12 +181,12 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness variant="lifer" note="add" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird was first seen\. Add MyEBirdData to filter by every place you saw each bird, down to the county\.$/)
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird first went on your list\. Add MyEBirdData to filter by every place you recorded each bird, down to the county\.$/)
     expect(screen.getByRole('link', { name: 'Add MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
     unmount()
     render(<Harness variant="lifer" note="reimport" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird was first seen\. Import MyEBirdData again to filter by every place you saw each bird\.$/)
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird first went on your list\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
   })
 })
@@ -299,6 +299,49 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(filterOf()).toEqual({})
   })
 
+  it('reopened, the panel starts at the selection\'s level: Capital checked opens on British Columbia\'s counties', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    fireEvent.click(placesBtn())
+    expect(screen.getByText(/^Counties · 1$/)).toBeInTheDocument()
+    expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
+    expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeChecked()
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName('All of British Columbia, 2 species')
+    // A step back lands on the province's drill button, as from a drill.
+    fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'Canada' }))
+    expect(screen.getByTestId('drill-s:CA-BC')).toHaveFocus()
+  })
+
+  it('reopened with places under several parents (or countries only), the panel starts at the countries', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('place-s:CA-ON'))
+    fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
+    fireEvent.click(screen.getByTestId('drill-c:US'))
+    fireEvent.click(screen.getByTestId('place-s:US-WA'))
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    fireEvent.click(placesBtn())
+    expect(screen.getByText(/^Countries · 3$/)).toBeInTheDocument()
+    expect(screen.queryByTestId('places-path')).toBeNull()
+  })
+
+  it('every county row keeps the drill button\'s room, so the counts stay in one column', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    const level = screen.getByRole('list', { name: 'Counties' })
+    for (const li of level.querySelectorAll('li.eb-places-row')) expect(li.querySelector('.eb-drill-space')).not.toBeNull()
+  })
+
   it('a checked place that another filter empties stays listed at 0 so it can be unchecked', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
@@ -394,6 +437,12 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     sessionStorage.removeItem('everybird:variants')
   })
 
+  /** Variant a reopened at a checked county's level: it is shown checked; then the breadcrumb back to the countries. */
+  const backToCountries = (county: string) => {
+    expect(screen.getByTestId(`place-${county}`)).toBeChecked()
+    fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
+  }
+
   // The same steps in both designs (the test ids are shared): these check that each design reaches and writes the same
   // filter, not which design is on screen; the variant b tests below tell the designs apart.
   describe.each(['a', 'b'] as const)('variant %s', (v) => {
@@ -410,9 +459,10 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
       act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
       // The owl was only ever seen in Ontario.
       fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
-      // Reopened, variant a starts at the countries (drill down) and b with every ancestor of the county open. The
-      // emptied ancestor is listed at 0 and still drills or opens.
+      // Reopened, variant a starts at the county's level (its checkbox in view), and b with every ancestor of the county
+      // open. From the countries, the emptied ancestor is listed at 0 and still drills or opens.
       fireEvent.click(placesBtn())
+      if (v === 'a') backToCountries(county)
       for (const k of path) {
         const btn = screen.getByTestId(`drill-${k}`)
         if (k === ancestor) expect(screen.getByRole('checkbox', { name: spoken })).not.toBeChecked()
@@ -437,6 +487,7 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
       // The crow was seen in British Columbia, but in no county there.
       fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
       fireEvent.click(placesBtn())
+      if (v === 'a') backToCountries('k:CA-BC|Capital')
       for (const k of ['c:CA', 's:CA-BC']) {
         const btn = screen.getByTestId(`drill-${k}`)
         if (k === 's:CA-BC') expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).not.toBeChecked()

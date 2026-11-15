@@ -268,6 +268,27 @@ for (const width of [1280, 390]) {
   });
 }
 
+// Reopened, variant a starts at the selection's level, so a checked county is in view (checking "Canada" there would
+// otherwise silently replace it).
+test("variant a reopens at a checked county's level", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await seed(page, drilledSaved());
+  await page.goto("/");
+  await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
+  const places = page.getByTestId("filter-tab-places");
+  await places.click();
+  const panel = page.getByTestId("filter-panel-places");
+  await panel.getByTestId("drill-c:CA").click();
+  await panel.getByTestId("drill-s:CA-BC").click();
+  await row(panel, "place-k:CA-BC|Capital").click();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await places.click();
+  await expect(panel.locator(".eb-places-head")).toContainText("Counties · 2");
+  await expect(panel.getByTestId("places-path")).toContainText("All countries/Canada/British Columbia");
+  await expect(panel.getByTestId("place-k:CA-BC|Capital")).toBeChecked();
+});
+
 // Safari's aA at 150% on a 390px phone is a 260px viewport (as text-size.spec.ts uses): variant b's nested groups still
 // fit the sheet.
 test.describe("Places variant b at 260px", () => {

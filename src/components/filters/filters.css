@@ -81,6 +81,7 @@
 .eb-drop:focus, .eb-drop-sheet:focus { outline: none; }
 .eb-drop-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; }
 .eb-drop-sheet .eb-drop-body { padding: 4px 16px 18px; }
+.eb-drop-sheet .eb-sheet-head { padding-left: 16px; } /* the title over the panel's own head, at the body's 16px */
 /* Places: a checklist of countries, each row a real checkbox: box, flag, name, count (species seen there). */
 .eb-places { display: flex; flex-direction: column; gap: 10px; }
 .eb-places-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
