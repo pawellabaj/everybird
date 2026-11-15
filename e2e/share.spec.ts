@@ -394,6 +394,11 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       expect(m.ih, `${format} at ${width}px: the image doesn't fill its box`).toBeGreaterThanOrEqual(m.bh - 1);
       // Beside the controls in an 800px-tall window, the story is the dialog's height: well over twice the old 400px box's area.
       if (width >= 1000 && format === "Story") expect(m.bh, `the story at ${width}px is short`).toBeGreaterThanOrEqual(600);
+      // Stacked on a phone, the tallest preview still leaves Share image on the dialog's first screen.
+      if (width < 720 && format === "Story") {
+        const bottom = await dialog.evaluate((d) => { d.scrollTop = 0; return [...d.querySelectorAll("button")].find((b) => b.textContent!.includes("Share image"))!.getBoundingClientRect().bottom; });
+        expect(bottom, `at ${width}px Share image is below the first screen`).toBeLessThanOrEqual(800);
+      }
       seen.push({ format, col: m.col, icons: m.icons });
       if (shots) {
         for (const theme of ["light", "dark"]) {
