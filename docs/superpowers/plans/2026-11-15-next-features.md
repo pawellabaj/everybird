@@ -4,7 +4,7 @@ Decisions are Yusuf's unless marked *(builder's call)*. Each item is one branch 
 turn it into a step-by-step implementation plan (superpowers:writing-plans) next to this file, then tick it here when it
 ships. Nothing here is started yet.
 
-Order: 4 → 2 → 5 → 3 → 1+7 → 6 (small and self-contained first; i18n touches every string, so it lands after the
+Order: 4 → 2 → 5 → 3 → 1+7 (with Dutch) → 6 → 8 (small and self-contained first; i18n touches every string, so it lands after the
 share-image changes it has to translate; print reuses the finished share renderer).
 
 ## Checklist
@@ -16,6 +16,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 - [ ] 5. Smaller places (province/state, county)
 - [ ] 6. Print poster export (A1–A4)
 - [ ] 7. Portuguese (Brazilian)
+- [ ] 8. observation.org import (added 2026-11-15; brief `2026-11-15-8-observation-org-brief.md`; branch feat/nf-8-observation-org after item 6)
 
 ---
 
@@ -30,6 +31,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 - Build the i18n layer so a new language is one strings file plus eBird's names for that locale (item 7 relies on this).
 - Stats: add the browser language (primary subtag only, e.g. "es") to the visit event, to choose the next language.
   Candidates later: Thai (~10% of Thai visitors made a collage vs ~50% elsewhere, 2026-11-14/15), German, French.
+- Dutch (nl) added 2026-11-15 (Yusuf, see the item 8 brief): built on the same layer as Spanish and Portuguese, in item 1+7. UI strings, share images, link previews, About, errors and aria labels; bird names from eBird `nl_NL`; search in Dutch and English; picker, browser default and the date stamp as for the other languages.
 - Not now: Thai, German, French.
 
 ## 2. Share dialog: latest lifer switch and Buy Me a Coffee
@@ -89,6 +91,15 @@ tell him when it ships.
 
 - Same scope as Spanish (item 1), on the same i18n layer.
 - Names: eBird pt_BR by default, pt_PT for visitors in Portugal; search in Portuguese and English.
+
+## 8. observation.org import
+
+Added 2026-11-15 (requested by Koen, an observation.org user; approved by Yusuf). Full brief: `2026-11-15-8-observation-org-brief.md`.
+
+- Import observation.org's "Observed species" (life list) CSV as a third file source in Settings, matched on scientific name; subspecies reduce to their species; synonyms mapped (e.g. `Milvus aegyptius` → Black Kite); aggregates, hybrids, forma and variety skipped and listed in the match report.
+- The first-observed date is the lifer date. No locations: the same visible note as the eBird life-list import (Places needs a per-observation export).
+- Leave a clean seam for observation.org's per-observation export (country and region into seen-here) once Yusuf has a sample; don't guess its columns.
+- XLSX only if trivial, otherwise CSV only. Synthetic fixtures only; the real export in `private/` is never committed.
 
 ## Hard rules for whoever builds this
 
