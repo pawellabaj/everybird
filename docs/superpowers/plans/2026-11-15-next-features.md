@@ -12,7 +12,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 - [ ] 1. Spanish
 - [ ] 2. Share dialog: "Show latest lifer" switch and Buy Me a Coffee
 - [ ] 3. Conservation status (IUCN)
-- [ ] 4. Date stamp on share images
+- [x] 4. Date stamp on share images (shipped on feat/nf-4-date-stamp; plan 2026-11-15-4-date-stamp.md)
 - [ ] 5. Smaller places (province/state, county)
 - [ ] 6. Print poster export (A1–A4)
 - [ ] 7. Portuguese (Brazilian)
