@@ -4,7 +4,7 @@ import Link from '@/components/app/IntentLink'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { EditBird } from '@/components/edit/EditBird'
 import { pageTitle } from '@/lib/list/title'
-import { placesNoteFor } from '@/lib/list/filter-summary'
+import { placesNoteFor, placesUnplacedFor } from '@/lib/list/filter-summary'
 import { undoRemove } from '@/lib/list/tick'
 import type { Edits, ListEntry } from '@/lib/list/model'
 import { CollageView } from './CollageView'
@@ -82,6 +82,7 @@ export function CollagePage() {
             species={data.species}
             regions={data.regions}
             placesNote={placesNoteFor(saved, state.list.length, state.seen.full)}
+            placesUnplaced={placesUnplacedFor(saved)}
             label="Your collage"
             whose="your"
             cardActions={actions}

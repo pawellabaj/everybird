@@ -82,6 +82,17 @@ export const MYEBIRDDATA_PLACES: FullPlacesSource = {
   anchor: 'add-mydata',
 }
 
+/**
+ * The Places panel's line about birds only on the observation.org life list ("Observed species": no places): what it
+ * says, its link's words, and Settings' anchor that opens observation.org's observations Add panel.
+ */
+export const OBSORG_PLACES = {
+  unplaced: 'Birds only on your observation.org life list have no places, so a place filter leaves them out.',
+  add: 'Add the observations export',
+  reach: 'to place them by country and province',
+  anchor: 'add-obsorg',
+} as const
+
 /** The lifer-only notes' shared words (never "seen": heard-only birds count too, DESIGN.md "Voice and copy"). */
 export const PLACES_FIRST_ONLY = 'Places only knows where you first recorded each bird.'
 /** What the file that knows every place lets Places filter by: "to filter by every place you recorded each bird". */
@@ -95,6 +106,25 @@ export const PLACES_EVERY = 'every place you recorded each bird'
  */
 export function placesNoteFor(saved: Pick<Saved, 'records'>, listLength: number, seenFull: boolean): 'add' | 'reimport' | undefined {
   if (!listLength || seenFull) return undefined
-  const full = saved.records.ebird ?? []
+  const { records } = saved
+  const eBirdOrInat = !!(records.ebird?.length || records['ebird-list']?.length || records.inat?.length)
+  const obsorg = !!(records.obsorg?.length || records['obsorg-list']?.length)
+  if (!eBirdOrInat && obsorg) return undefined // the MyEBirdData pitch is only for eBird birders
+  const full = records.ebird ?? []
   return full.length && !full.some((r) => Array.isArray(r.seen)) ? 'reimport' : 'add'
+}
+
+/**
+ * Whether some bird on the observation.org life list ('obsorg-list', no places) has no record in any slot carrying a
+ * place or seen-here: those birds drop out of any place filter, and the Places panel says so. An observations import
+ * (or MyEBirdData, iNaturalist) that places the same birds turns it off for them.
+ */
+export function placesUnplacedFor(saved: Pick<Saved, 'records'>): boolean {
+  const listed = saved.records['obsorg-list'] ?? []
+  if (!listed.length) return false
+  const placed = new Set<string>()
+  for (const recs of Object.values(saved.records)) {
+    for (const r of recs ?? []) if (r.place || r.seen?.length) placed.add(r.code)
+  }
+  return listed.some((r) => !placed.has(r.code))
 }

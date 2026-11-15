@@ -60,7 +60,7 @@ function seededOwl() {
   return makeReducer({ species, countryName: name })(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
+function Harness({ variant = 'full', note, unplaced }: { variant?: Variant; note?: PlacesNote; unplaced?: boolean }) {
   const reduce = makeReducer({ species, countryName: name })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const [open, setOpen] = useState<Panel | null>(null)
@@ -68,7 +68,7 @@ function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesN
   return (
     <>
       <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} time={time} />
+        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} placesUnplaced={unplaced} time={time} />
       </div>
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
@@ -188,6 +188,30 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     fireEvent.click(placesBtn())
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
+  })
+
+  it('observation.org life list birds with no places: a line above the lifer-only note, linking to the observations Add panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const { unmount } = render(<Harness variant="lifer" note="add" unplaced />)
+    fireEvent.click(placesBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveClass('eb-note', 'eb-places-note')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\. Add the observations export to place them by country and province\.$/)
+    expect(within(line).getByRole('link', { name: 'Add the observations export' })).toHaveAttribute('href', '/settings#add-obsorg')
+    const lifer = screen.getByTestId('places-lifer-only')
+    expect(line.compareDocumentPosition(lifer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    unmount()
+    render(<Harness variant="lifer" unplaced />)
+    fireEvent.click(placesBtn())
+    expect(screen.getByTestId('places-unplaced')).toBeInTheDocument()
+    expect(screen.queryByTestId('places-lifer-only')).toBeNull()
+  })
+
+  it('no unplaced line without the prop', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" note="add" />)
+    fireEvent.click(placesBtn())
+    expect(screen.queryByTestId('places-unplaced')).toBeNull()
   })
 })
 

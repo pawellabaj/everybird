@@ -40,6 +40,8 @@ type Props = {
   hidePanels?: readonly Panel[]
   /** Every place on the list is a lifer place: the Places dropdown says so, and how to get more (the birder's own collage). */
   placesNote?: PlacesNote
+  /** Some birds on the observation.org life list have no places: the Places dropdown says so (the birder's own collage). */
+  placesUnplaced?: boolean
   /** Before the stats ("Sample: a demo birder's life list"). */
   statsPrefix?: string
   /** A line under the stats (the unmatched-rows note on the birder's own collage). */
@@ -77,7 +79,7 @@ export function statsLine(all: ListEntry[], shown: ListEntry[], species: Species
   return parts.join(' · ')
 }
 
-export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
+export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, placesUnplaced, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
   const { list, filter, mode, view, massOrder, sci, seen } = state
   const box = useRef<HTMLElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
@@ -195,7 +197,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
         filters={(inert) => (
-          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} />
+          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} placesUnplaced={placesUnplaced} time={time} inert={inert} />
         )}
       />
 

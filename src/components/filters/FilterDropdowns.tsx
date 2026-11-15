@@ -41,6 +41,8 @@ type Props = {
   /** Buttons to leave out (a shared link that carries no places or dates). */
   hide?: readonly Panel[]
   placesNote?: PlacesNote
+  /** Some birds on the observation.org life list have no places: the Places panel says so (the birder's own collage). */
+  placesUnplaced?: boolean
   /** The Time panel's timeline: the known entries, the whole list's months, today. */
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   /** The search covers the bar: the buttons are inert. */
@@ -52,7 +54,7 @@ const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] =
   { id: 'time', label: 'Time', Icon: CalendarBlank },
 ]
 
-export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert }: Props) {
+export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, placesUnplaced, time, inert }: Props) {
   const base = useId()
   const sheet = useIsSheet()
   const { filter } = state
@@ -106,7 +108,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
           onClose={() => onOpen(null)}
         >
           {current.id === 'places' ? (
-            <PlacesList state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
+            <PlacesList state={state} species={species} regions={regions} note={placesNote} unplaced={placesUnplaced} onFilter={onFilter} />
           ) : (
             <Timeline
               entries={time.entries}

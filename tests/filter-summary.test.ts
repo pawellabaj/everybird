@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesUnplacedFor, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
@@ -60,5 +60,36 @@ describe('placesNoteFor (the lifer-only notice)', () => {
   })
   it('only the life list download or ticks by hand: add MyEBirdData or iNaturalist', () => {
     expect(placesNoteFor(saved([], [rec()]), 1, false)).toBe('add')
+  })
+})
+
+describe('observation.org: the unplaced line, and no MyEBirdData pitch without eBird', () => {
+  type R = { code: string; source: 'ebird' | 'obsorg' | 'inat' | 'manual'; place?: { country: string }; seen?: string[] }
+  const saved = (r: Partial<Record<'obsorg' | 'obsorg-list' | 'ebird' | 'ebird-list' | 'inat' | 'manual', R[]>>) => ({
+    records: { obsorg: [], 'obsorg-list': [], ebird: [], 'ebird-list': [], inat: [], manual: [], ...r },
+  })
+  const listed = (code: string): R => ({ code, source: 'obsorg' })
+  it('observation.org alone: no MyEBirdData pitch, the unplaced line', () => {
+    const s = saved({ 'obsorg-list': [listed('a'), listed('b')] })
+    expect(placesNoteFor(s, 2, false)).toBeUndefined()
+    expect(placesUnplacedFor(s)).toBe(true)
+  })
+  it('with the eBird life list: both notes', () => {
+    const s = saved({ 'obsorg-list': [listed('a')], 'ebird-list': [{ code: 'b', source: 'ebird', place: { country: 'CA' } }] })
+    expect(placesNoteFor(s, 2, false)).toBe('add')
+    expect(placesUnplacedFor(s)).toBe(true)
+  })
+  it('with MyEBirdData (seen-here full): only the unplaced line', () => {
+    const s = saved({ 'obsorg-list': [listed('a')], ebird: [{ code: 'b', source: 'ebird', place: { country: 'CA' }, seen: ['2020-01-01|CA'] }] })
+    expect(placesNoteFor(s, 2, true)).toBeUndefined()
+    expect(placesUnplacedFor(s)).toBe(true)
+  })
+  it('the observations place the same birds: the unplaced line goes', () => {
+    const obs = (code: string): R => ({ code, source: 'obsorg', place: { country: 'NL' }, seen: ['2020-01-01|NL'] })
+    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a'), obs('b')] }))).toBe(false)
+    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a')] }))).toBe(true)
+  })
+  it('an empty list: no line', () => {
+    expect(placesUnplacedFor(saved({}))).toBe(false)
   })
 })
