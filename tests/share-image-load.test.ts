@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  clearStickerCache, loadStickers, packForImage, packFromReply, paintTiles, stickerCacheSize, type Tile,
+  clearStickerCache, loadStickers, packForImage, packFromReply, paintCard, paintTiles, prepareCard, stickerCacheSize, tileInRange, type ImagePack, type Tile,
 } from '@/lib/share/image'
+import { buildSpeciesIndex } from '@/lib/species/load'
+import type { SpeciesRow } from '@/lib/species/types'
 import type { WorkerReply } from '@/lib/layout/layout.worker'
 import { NO_HOLE, type Hole } from '@/lib/layout/count-box'
 import type { ListEntry } from '@/lib/list/model'
@@ -185,5 +187,91 @@ describe('worker image reply', () => {
     c.abort()
     await expect(p).rejects.toMatchObject({ name: 'AbortError' })
     expect(made[0].terminated).toBe(true)
+  })
+})
+
+describe('painting in ranges (the poster strips)', () => {
+  /** A fuller recording ctx: every call paintCard makes, with the text it draws. */
+  function fullRecorder() {
+    const calls: { op: string; args: unknown[] }[] = []
+    const rec = (op: string) => (...args: unknown[]) => { calls.push({ op, args }) }
+    const ctx = {
+      fillStyle: '', strokeStyle: '', lineWidth: 1, lineJoin: '', font: '', letterSpacing: '0px', textAlign: '', textBaseline: '',
+      imageSmoothingEnabled: false, imageSmoothingQuality: '',
+      measureText: (text: string) => ({ width: text.length * 10, actualBoundingBoxAscent: 0 }),
+      fillText: rec('fillText'), fillRect: rec('fillRect'), drawImage: rec('drawImage'), stroke: rec('stroke'),
+      save: rec('save'), restore: rec('restore'), translate: rec('translate'), scale: rec('scale'),
+      setTransform: rec('setTransform'), resetTransform: rec('resetTransform'),
+    }
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, calls }
+  }
+  const tiles: Tile[] = [0, 90, 180, 400, 610, 1000].map((y, i) => ({ x: 10 * i, y, w: 100, h: 120, url: `u${i}` }))
+
+  it('paintTiles with a range draws exactly the tiles tileInRange keeps', () => {
+    const imgs = new Map(tiles.map((t) => [t.url!, { id: t.url } as unknown as CanvasImageSource]))
+    for (const range of [{ y0: 0, y1: 100 }, { y0: 100, y1: 300 }, { y0: 520, y1: 610 }, { y0: 2000, y1: 3000 }]) {
+      const { ctx, calls } = fullRecorder()
+      paintTiles(ctx, tiles, imgs, '#857f74', range)
+      const drawn = calls.filter((c) => c.op === 'drawImage').map((c) => (c.args[0] as { id: string }).id)
+      expect(drawn).toEqual(tiles.filter((t) => tileInRange(t, range)).map((t) => t.url))
+    }
+    // The 1 unit margin: a tile ending at 520 still counts for a band from 520.5, not for one from 521.5.
+    expect(tileInRange({ y: 400, h: 120 }, { y0: 520.5, y1: 600 })).toBe(true)
+    expect(tileInRange({ y: 400, h: 120 }, { y0: 521.5, y1: 600 })).toBe(false)
+    expect(tileInRange({ y: 610, h: 10 }, { y0: 0, y1: 609.5 })).toBe(true)
+    expect(tileInRange({ y: 610, h: 10 }, { y0: 0, y1: 608.5 })).toBe(false)
+  })
+
+  it('paintCard over bands covering the card: each tile in exactly the bands it meets, all the text in every band', async () => {
+    // Synthetic birds, packed by hand in a ring so tiles spread over the card's height.
+    const codes = Array.from({ length: 10 }, (_, i) => `bird${i}`)
+    const row = (code: string, i: number) => ({ code, com: `Bird ${i}`, sci: code, ord: 'Passeriformes', fam: 'X', famCom: 'X', to: i, g: 10 + i, gSrc: 'family', st: i !== 3, ar: 1, q: true }) as SpeciesRow
+    const species = buildSpeciesIndex(codes.map(row))
+    const entries = codes.map((code, i) => ({ code, date: `2020-${String(i + 1).padStart(2, '0')}`, heard: false, dead: false, media: false, sources: ['ebird'] })) as ListEntry[]
+    const boxes = new Map(codes.map((c, i) => {
+      const a = (i / codes.length) * 2 * Math.PI
+      return [c, [500 + 380 * Math.cos(a) - 50, 500 + 380 * Math.sin(a) - 50, 100, 100]] as [string, [number, number, number, number]]
+    }))
+    const pack: ImagePack = { W: 1000, H: 1000, boxes }
+    const card = await prepareCard({ format: 'print', printSize: 'A1', theme: 'light', entries, species, pack, name: 'A test list', filterLabel: 'Perching birds', now: new Date(2026, 10, 15) }, 3.248)
+    expect(card.lifer).not.toBeNull()
+    // Half the stickers loaded, the rest (and bird3, which has none) drawn as outlines.
+    const all = [...card.tiles, card.lifer!]
+    const imgs = new Map<string, CanvasImageSource | null>()
+    all.forEach((t, i) => { if (t.url) imgs.set(t.url, i % 2 ? null : ({ id: t.url } as unknown as CanvasImageSource)) })
+    const loaded = (t: Tile) => !!(t.url && imgs.get(t.url))
+
+    const step = 97.3
+    const bands = Array.from({ length: Math.ceil(card.L.H / step) }, (_, i) => ({ y0: i * step, y1: Math.min(card.L.H, (i + 1) * step) }))
+    let texts: unknown[] | undefined
+    const drawnIn = new Map<Tile, number>()
+    let strokes = 0
+    for (const band of bands) {
+      const { ctx, calls } = fullRecorder()
+      paintCard(ctx, card, imgs, band)
+      expect(calls.some((c) => c.op === 'setTransform' || c.op === 'resetTransform')).toBe(false) // the caller's transform
+      expect(calls[0]).toEqual({ op: 'fillRect', args: [0, 0, card.L.W, card.L.H] }) // Paper over the whole card first
+      const t = calls.filter((c) => c.op === 'fillText').map((c) => c.args[0])
+      if (texts) expect(t).toEqual(texts)
+      else texts = t
+      const draws = calls.filter((c) => c.op === 'drawImage').map((c) => c.args)
+      const want = all.filter((x) => tileInRange(x, band))
+      expect(draws).toEqual(want.filter(loaded).map((x) => [imgs.get(x.url!), x.x, x.y, x.w, x.h]))
+      // An outline only for the tiles in the band without an image.
+      const s = calls.filter((c) => c.op === 'stroke').length
+      expect(s).toBe(want.filter((x) => !loaded(x)).length)
+      strokes += s
+      for (const x of want) drawnIn.set(x, (drawnIn.get(x) ?? 0) + 1)
+    }
+    expect(texts).toEqual(expect.arrayContaining(['A test list', 'Perching birds', 'Everybird', card.footerLine, card.K.number]))
+    // Every tile drawn in at least one band, and in exactly the bands it meets.
+    for (const x of all) expect(drawnIn.get(x)).toBe(bands.filter((b) => tileInRange(x, b)).length)
+    expect(all.every((x) => (drawnIn.get(x) ?? 0) >= 1)).toBe(true)
+    expect(strokes).toBeGreaterThan(0)
+    // Without a range: every tile once.
+    const { ctx, calls } = fullRecorder()
+    paintCard(ctx, card, imgs)
+    expect(calls.filter((c) => c.op === 'drawImage')).toHaveLength(all.filter(loaded).length)
+    expect(calls.filter((c) => c.op === 'stroke')).toHaveLength(all.filter((x) => !loaded(x)).length)
   })
 })
