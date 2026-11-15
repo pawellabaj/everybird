@@ -5,7 +5,9 @@
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'
-import { filterPlaceKeys, placeOptions, type Filter, type PlaceOption } from '@/lib/list/filters'
+import { filterKey, filterPlaceKeys, placeCounts, placeRows, withPlaces, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
+import type { ListEntry } from '@/lib/list/model'
+import type { SeenIndex } from '@/lib/list/seen'
 import { parentKey, parsePlaceKey, placeName, type PlaceLevel } from '@/lib/list/place-keys'
 import type { AppState } from '@/lib/list/store'
 import { searchKey } from '@/lib/species/name-search'
@@ -38,34 +40,61 @@ export const NO_MATCH: Record<PlaceLevel, string> = { country: 'No country match
 
 export const fmt = (x: number) => x.toLocaleString('en-US')
 
-/**
- * The rows of the level under `parent` (placeOptions), and, at 0, any place at that level they lack (another filter
- * left it no species) that is checked or holds a checked place: so every checked place can still be reached and
- * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills or opens.
- */
-export function usePlaceRows(state: AppState, parent: string | undefined, regions: Regions, species: SpeciesIndex): PlaceOption[] {
+// The last counts per list (list and seen keep their identities across filter changes, store.ts): every design and
+// every open group reads the same pass, made again only when the other filters, the list or seen-here change.
+const lastCounts = new WeakMap<ListEntry[], { key: string; species: SpeciesIndex; seen: SeenIndex; counts: PlaceCounts }>()
+
+/** Every Places level counted under the filter's other dimensions (placeCounts), once per change of those. */
+export function placeCountsFor(state: AppState, species: SpeciesIndex): PlaceCounts {
   const { list, filter, seen } = state
-  return useMemo(() => {
-    const label = (k: string) => placeName(k, regions)
-    const opts = placeOptions(list, filter, parent, species, label, seen)
-    // Each place at this level that is checked or holds a checked place -> the distinct ones one level under it.
-    const held = new Map<string, Set<string>>()
+  const others = withPlaces(filter, [])
+  const key = filterKey(others)
+  const hit = lastCounts.get(list)
+  if (hit && hit.key === key && hit.species === species && hit.seen === seen) return hit.counts
+  const counts = placeCounts(list, others, species, seen)
+  lastCounts.set(list, { key, species, seen, counts })
+  return counts
+}
+
+/**
+ * What a drilled level with no places says: the other filters (taxonomy, time) left it none, or, with none set, the
+ * list no longer has a bird seen there (a source was removed or replaced since the panel drilled in).
+ */
+export function emptyHere(f: Filter): string {
+  return f.order || f.family || f.year || f.from || f.to ? 'No places here under the other filters.' : 'No places here on your list now.'
+}
+
+/**
+ * The rows of the level under `parent` (placeRows over `counts`), and, at 0, any place at that level they lack (another
+ * filter left it no species) that is checked or holds a checked place: so every checked place can still be reached and
+ * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills or opens.
+ * A checkbox changes only the held rows: the counted rows stay as they were.
+ */
+export function usePlaceRows(counts: PlaceCounts, filter: Filter, parent: string | undefined, regions: Regions): PlaceOption[] {
+  const opts = useMemo(() => placeRows(counts, parent, (k) => placeName(k, regions)), [counts, parent, regions])
+  // Each place at this level that is checked or holds a checked place -> the distinct ones one level under it.
+  const held = useMemo(() => {
+    const out = new Map<string, Set<string>>()
     for (const key of filterPlaceKeys(filter)) {
       let child: string | undefined
       for (let k: string | undefined = key; k; child = k, k = parentKey(k)) {
         if (parentKey(k) !== parent) continue
-        const kids = held.get(k) ?? new Set<string>()
+        const kids = out.get(k) ?? new Set<string>()
         if (child) kids.add(child)
-        held.set(k, kids)
+        out.set(k, kids)
       }
     }
+    return out
+  }, [filter, parent])
+  return useMemo(() => {
+    if (!held.size) return opts
     const listed = opts.map((o) => (o.children === 0 && held.get(o.value)?.size ? { ...o, children: held.get(o.value)!.size } : o))
     const have = new Set(opts.map((o) => o.value))
     const zero = [...held]
       .filter(([k]) => !have.has(k))
-      .map(([k, kids]): PlaceOption => ({ value: k, label: label(k), count: 0, children: kids.size }))
+      .map(([k, kids]): PlaceOption => ({ value: k, label: placeName(k, regions), count: 0, children: kids.size }))
     return [...listed, ...zero]
-  }, [list, filter, parent, species, regions, seen])
+  }, [opts, held, regions])
 }
 
 /** The rows whose names hold every word of `q` as a word prefix, accent- and case-insensitive ("new z": New Zealand). */

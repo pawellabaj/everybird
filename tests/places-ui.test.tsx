@@ -5,11 +5,19 @@ import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 
+// The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
+vi.mock('@/lib/list/filters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/list/filters')>()
+  return { ...actual, placeCounts: vi.fn(actual.placeCounts) }
+})
+
 const { FilterDropdowns, SEARCH_FROM } = await import('@/components/filters/FilterDropdowns')
 const { initialState, makeReducer } = await import('@/lib/list/store')
 const { emptySaved } = await import('@/lib/list/storage')
 const { buildSpeciesIndex } = await import('@/lib/species/load')
 const { monthBins } = await import('@/lib/list/timeline')
+const { placeCounts } = await import('@/lib/list/filters')
+const counted = vi.mocked(placeCounts)
 type Panel = import('@/components/filters/FilterDropdowns').Panel
 type PlacesNote = import('@/components/filters/FilterDropdowns').PlacesNote
 
@@ -43,6 +51,13 @@ function seeded(variant: Variant = 'full') {
       ]
     : [{ code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' } }]
   return reduce(initialState(), { type: 'restore', saved })
+}
+
+/** Only the owl, seen in Ontario. */
+function seededOwl() {
+  const saved = emptySaved()
+  saved.records.ebird = [{ code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] }]
+  return makeReducer({ species, countryName: name })(initialState(), { type: 'restore', saved })
 }
 
 function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
@@ -307,9 +322,26 @@ describe('Places drills down: country, then state or province, then county', () 
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     // The owl was only ever seen in Ontario: nothing in British Columbia's counties is left.
     fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
-    expect(screen.getByText('No places here under the other filters.')).toBeInTheDocument()
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    const level = screen.getByRole('list', { name: 'Counties' })
+    expect(within(level).getByTestId('places-empty')).toHaveTextContent('No places here under the other filters.')
+    expect(screen.getByTestId('places-empty').tagName).toBe('LI')
+    // "All of British Columbia" stays, so the province itself can still be checked; nothing else.
+    expect(screen.queryAllByRole('checkbox')).toEqual([screen.getByTestId('place-all')])
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName('All of British Columbia, 0 species')
     expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
+  })
+
+  it('a drilled level the list itself no longer reaches says the list changed, not the other filters', async () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const { PlacesDrill } = await import('@/components/filters/PlacesDrill')
+    const full = seeded()
+    const { rerender } = render(<PlacesDrill state={full} species={species} regions={regions} onFilter={() => {}} />)
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    // The same panel, the list now only the owl (Ontario): no other filter is set.
+    rerender(<PlacesDrill state={seededOwl()} species={species} regions={regions} onFilter={() => {}} />)
+    expect(screen.getByTestId('places-empty')).toHaveTextContent('No places here on your list now.')
+    expect(screen.getByTestId('place-all')).toBeInTheDocument()
   })
 
   it('countries-only lists show no drill buttons and no breadcrumb', () => {
@@ -534,6 +566,27 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
     expect(screen.getByTestId('drill-s:CA-BC')).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeInTheDocument()
+  })
+
+  describe.each(['a', 'b'] as const)('variant %s counts the list once per change of the other filters', (v) => {
+    it('not again for a checkbox, a drill or an open group; again for an order', () => {
+      vi.stubGlobal('innerWidth', 1000)
+      withVariant(v)
+      render(<Harness />)
+      counted.mockClear()
+      fireEvent.click(placesBtn())
+      expect(counted).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByTestId('country-EG'))
+      fireEvent.click(screen.getByTestId('drill-c:CA'))
+      if (v === 'b') fireEvent.click(screen.getByTestId('drill-c:US'))
+      fireEvent.click(screen.getByTestId('place-s:CA-BC'))
+      fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+      fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+      expect(filterOf()).toEqual({ countries: ['EG'], counties: ['CA-BC|Capital'] })
+      expect(counted).toHaveBeenCalledTimes(1)
+      fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
+      expect(counted).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('without a ?v the panel is variant a', () => {

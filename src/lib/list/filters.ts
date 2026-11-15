@@ -1,7 +1,7 @@
 import type { SpeciesIndex } from '@/lib/species/load'
 import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
-import { childKey, childKeyOf, isWithin, parentKey, parsePlaceKey } from './place-keys'
+import { isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
 
 /**
@@ -243,11 +243,75 @@ export function togglePlace(f: Filter, key: string): Filter {
 
 export type PlaceOption = ChipOption & { children: number }
 
+/** A place's tally in one counting pass: species counted there (each once: `last` is the last entry counted). */
+type Tally = { n: number; last: number }
+type ProvinceTally = Tally & { counties: Set<string> }
+type CountryTally = Tally & { provinces: Map<string, ProvinceTally> }
+
+/**
+ * Every Places level's counts in one pass over the list, under the OTHER filters (whatever places are checked), so the
+ * panel counts once per change of the other filters and none per checkbox (placeRows reads a level from it). Built
+ * from each seen place's own fields: countries by code; a country's provinces counted from its own places; a
+ * province's counties counted from every place with that province code (as placeOptions always has).
+ */
+export type PlaceCounts = { countries: Map<string, CountryTally>; counties: Map<string, Map<string, Tally>> }
+
+/** The counts for every level (see PlaceCounts). `seen`: the seen-here index (else lifer places). */
+export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): PlaceCounts {
+  const m = matcher(f, species, new Set(SKIP.country), seen)
+  const countries = new Map<string, CountryTally>()
+  const counties = new Map<string, Map<string, Tally>>()
+  const tick = (t: Tally, i: number) => {
+    if (t.last !== i) { t.last = i; t.n++ }
+  }
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i]
+    if (!m(e)) continue
+    for (const p of seenOf(seen, e)) {
+      let c = countries.get(p.country)
+      if (!c) countries.set(p.country, (c = { n: 0, last: -1, provinces: new Map() }))
+      tick(c, i)
+      if (!p.sub1) continue
+      let s = c.provinces.get(p.sub1)
+      if (!s) c.provinces.set(p.sub1, (s = { n: 0, last: -1, counties: new Set() }))
+      tick(s, i)
+      if (!p.sub2) continue
+      s.counties.add(p.sub2)
+      let ks = counties.get(p.sub1)
+      if (!ks) counties.set(p.sub1, (ks = new Map()))
+      let k = ks.get(p.sub2)
+      if (!k) ks.set(p.sub2, (k = { n: 0, last: -1 }))
+      tick(k, i)
+    }
+  }
+  return { countries, counties }
+}
+
+/** The rows of the level under `parent` from counts already made (placeOptions without the pass over the list). */
+export function placeRows(counts: PlaceCounts, parent: string | undefined, label: (key: string) => string): PlaceOption[] {
+  const out: PlaceOption[] = []
+  const at = parent === undefined ? undefined : parsePlaceKey(parent)
+  // A place whose key doesn't parse (an odd code) is listed but never drills: nothing can be found under it.
+  const kids = (key: string, n: number) => (n && parsePlaceKey(key) ? n : 0)
+  if (parent === undefined) {
+    for (const [iso, c] of counts.countries) out.push({ value: `c:${iso}`, label: label(`c:${iso}`), count: c.n, children: kids(`c:${iso}`, c.provinces.size) })
+  } else if (at?.level === 'country') {
+    for (const [sub1, s] of counts.countries.get(at.country)?.provinces ?? []) out.push({ value: `s:${sub1}`, label: label(`s:${sub1}`), count: s.n, children: kids(`s:${sub1}`, s.counties.size) })
+  } else if (at?.level === 'province') {
+    for (const [name, k] of counts.counties.get(at.sub1!) ?? []) {
+      const value = `k:${at.sub1}|${name}`
+      out.push({ value, label: label(value), count: k.n, children: 0 })
+    }
+  }
+  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  return out
+}
+
 /**
  * The rows of the Places level under `parent` (undefined: countries; a country key: its provinces; a province key: its
  * counties): each place's key, its label, the species seen there (each once per row) under the OTHER filters but
  * whatever places are checked, and how many distinct places it holds one level down. Sorted by count, then label.
- * `seen`: the seen-here index (else lifer places).
+ * `seen`: the seen-here index (else lifer places). One level of placeCounts + placeRows.
  */
 export function placeOptions(
   list: ListEntry[],
@@ -257,30 +321,7 @@ export function placeOptions(
   label: (key: string) => string,
   seen?: SeenIndex,
 ): PlaceOption[] {
-  const m = matcher(f, species, new Set(SKIP.country), seen)
-  const counts = new Map<string, number>()
-  const kids = new Map<string, Set<string>>()
-  const here = new Set<string>()
-  const child = childKeyOf(parent)
-  for (const e of list) {
-    if (!m(e)) continue
-    here.clear()
-    for (const p of seenOf(seen, e)) {
-      const k = child(p)
-      if (!k) continue
-      here.add(k)
-      const kid = childKey(p, k)
-      if (kid) {
-        let s = kids.get(k)
-        if (!s) kids.set(k, (s = new Set()))
-        s.add(kid)
-      }
-    }
-    for (const k of here) counts.set(k, (counts.get(k) ?? 0) + 1)
-  }
-  const out = [...counts].map(([value, count]) => ({ value, label: label(value), count, children: kids.get(value)?.size ?? 0 }))
-  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
-  return out
+  return placeRows(placeCounts(list, f, species, seen), parent, label)
 }
 
 /** The filter with `iso` checked or unchecked in its countries (`togglePlace` on its country key). */

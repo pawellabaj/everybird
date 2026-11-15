@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { buildList } from '@/lib/list/build-list'
-import { applyFilter, filterKey, filterPlaceKeys, filterToShow, options, placeOptions, toggleCountry, togglePlace, withCountries, withPlaces } from '@/lib/list/filters'
+import { applyFilter, filterKey, filterPlaceKeys, filterToShow, options, placeCounts, placeOptions, placeRows, toggleCountry, togglePlace, withCountries, withPlaces } from '@/lib/list/filters'
 import { applyFilterValidity } from '@/lib/list/filters-validate'
 import { DEFAULT_RULES, EMPTY_EDITS, type SourceRecord } from '@/lib/list/model'
-import { buildSeen } from '@/lib/list/seen'
+import { buildSeen, seenOf, type SeenIndex } from '@/lib/list/seen'
+import { childKey } from '@/lib/list/place-keys'
+import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
 
 const row = (code: string, ord: string, fam: string, to: number) => ({ code, com: code, sci: code, ord, fam, famCom: fam, to }) as never
@@ -131,6 +133,33 @@ describe('provinces and counties', () => {
     const crow = list.find((e) => e.code === 'crow')!
     expect(filterToShow({ provinces: ['CA-BC'] }, crow, species, seen)).toEqual({ provinces: ['CA-BC'] })
     expect(filterToShow({ provinces: ['CA-ON'], counties: ['CA-BC|Capital'] }, crow, species, seen)).toEqual({})
+  })
+  it('one pass counts every level as placeOptions did level by level, odd codes too', () => {
+    // The level-by-level count placeOptions made before placeCounts (the other filters are left out here: none set).
+    const reference = (l: ListEntry[], parent: string | undefined, s: SeenIndex) => {
+      const counts = new Map<string, number>()
+      const kids = new Map<string, Set<string>>()
+      for (const e of l) {
+        const here = new Set<string>()
+        for (const p of seenOf(s, e)) {
+          const k = childKey(p, parent)
+          if (!k) continue
+          here.add(k)
+          const kid = childKey(p, k)
+          if (kid) kids.set(k, (kids.get(k) ?? new Set()).add(kid))
+        }
+        for (const k of here) counts.set(k, (counts.get(k) ?? 0) + 1)
+      }
+      return [...counts].map(([value, count]) => [value, count, kids.get(value)?.size ?? 0]).sort((a, b) => (b[1] as number) - (a[1] as number) || String(a[0]).localeCompare(String(b[0])))
+    }
+    const places = ['CA-BC|Capital', 'CA-BC|Okanagan', 'CA-ON', 'US-WA|King', 'EG', 'Xx-odd|Some county', 'zz', 'CA-BC']
+    const recs = Array.from({ length: 40 }, (_, i) => rec(`sp${i}`, { date: '2020-01-01', place: i % 7 ? { country: 'CA' } : { country: 'q', sub1: 'q_1', sub2: 'Odd' }, seen: i % 5 ? places.filter((_, j) => (i + j) % 3 === 0).map((p) => `2020-01-01|${p}`) : undefined }))
+    const l = buildList(recs, EMPTY_EDITS, DEFAULT_RULES)
+    const s = buildSeen(recs, EMPTY_EDITS, DEFAULT_RULES, l)
+    const pc = placeCounts(l, {}, species, s)
+    const parents = [undefined, ...new Set(placeRows(pc, undefined, (k) => k).flatMap((c) => [c.value, ...placeRows(pc, c.value, (k) => k).map((r) => r.value)]))]
+    expect(parents.length).toBeGreaterThan(8)
+    for (const parent of parents) expect(placeRows(pc, parent, (k) => k).map((o) => [o.value, o.count, o.children]), parent).toEqual(reference(l, parent, s))
   })
   it.skipIf(process.env.SKIP_PERF === '1')('5,000 species with 20 places each: every level in under 150 ms', () => {
     // 5 countries x 4 provinces x 5 counties = 100 counties; each species seen in 20 of them.

@@ -8,12 +8,13 @@
 // search ("Find a country") matches country rows only; an open group under a matching country stays shown.
 import { useId, useMemo, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
-import { filterPlaceKeys, hasPlaces, togglePlace, withPlaces, type PlaceOption } from '@/lib/list/filters'
+import { filterPlaceKeys, hasPlaces, togglePlace, withPlaces, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import { parentKey, parsePlaceKey } from '@/lib/list/place-keys'
-import { fmt, LEVEL_HEAD, matchRows, NO_MATCH, PlaceCheck, PlacesFind, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
+import { emptyHere, fmt, LEVEL_HEAD, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 // `spacer`: some country can open, so every row without a button keeps its room and all counts line up, at every depth.
-type TreeProps = PlacesBodyProps & { checked: Set<string>; open: Set<string>; onOpen: (key: string) => void; spacer: boolean }
+// `counts`: every level counted once (placeCountsFor), read by every open group.
+type TreeProps = PlacesBodyProps & { counts: PlaceCounts; checked: Set<string>; open: Set<string>; onOpen: (key: string) => void; spacer: boolean }
 
 export function PlacesTree(props: PlacesBodyProps) {
   const { state, species, regions, onFilter } = props
@@ -32,9 +33,10 @@ export function PlacesTree(props: PlacesBodyProps) {
       return next
     })
   const checked = useMemo(() => new Set(filterPlaceKeys(filter)), [filter])
-  const rows = usePlaceRows(state, undefined, regions, species)
+  const counts = placeCountsFor(state, species)
+  const rows = usePlaceRows(counts, filter, undefined, regions)
   const visible = rows.length > SEARCH_FROM ? matchRows(rows, q) : rows
-  const tree = { ...props, checked, open, onOpen: toggleOpen, spacer: rows.some((r) => r.children > 0) }
+  const tree = { ...props, counts, checked, open, onOpen: toggleOpen, spacer: rows.some((r) => r.children > 0) }
 
   return (
     <>
@@ -96,12 +98,12 @@ function TreeRow({ option, flag, ...tree }: TreeProps & { option: PlaceOption; f
   )
 }
 
-/** An open row's children, as a nested list; only open groups compute their rows. */
+/** An open row's children, as a nested list; only open groups read their rows (from the shared counts). */
 function TreeGroup({ parent, id, label, ...tree }: TreeProps & { parent: string; id: string; label: string }) {
-  const rows = usePlaceRows(tree.state, parent, tree.regions, tree.species)
+  const rows = usePlaceRows(tree.counts, tree.state.filter, parent, tree.regions)
   return (
     <ul id={id} className="eb-places-sub" aria-label={label}>
-      {rows.length === 0 ? <li className="eb-note eb-check-none">No places here under the other filters.</li> : <TreeRows {...tree} rows={rows} />}
+      {rows.length === 0 ? <li className="eb-note eb-check-none">{emptyHere(tree.state.filter)}</li> : <TreeRows {...tree} rows={rows} />}
     </ul>
   )
 }

@@ -7,25 +7,23 @@
 // level (DropPanel). The search field and its query are per level.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
-import { filterPlaceKeys, hasPlaces, placeOptions, togglePlace, withPlaces } from '@/lib/list/filters'
+import { filterPlaceKeys, hasPlaces, placeRows, togglePlace, withPlaces } from '@/lib/list/filters'
 import { parentKey, placeName } from '@/lib/list/place-keys'
-import { fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
+import { emptyHere, fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyProps) {
-  const { list, filter, seen } = state
+  const { filter } = state
   const [at, setAt] = useState<string | undefined>()
   const [q, setQ] = useState('')
   // Test ids to focus, first found wins, once the new level has rendered (set by the drill and breadcrumb handlers).
   const focusNext = useRef<string[] | null>(null)
   const headRef = useRef<HTMLDivElement>(null)
   const level = levelUnder(at)
-  const rows = usePlaceRows(state, at, regions, species)
+  const counts = placeCountsFor(state, species)
+  const rows = usePlaceRows(counts, filter, at, regions)
   const checked = useMemo(() => new Set(filterPlaceKeys(filter)), [filter])
-  // "All of <parent>": the parent's own count, as its row one level up shows it.
-  const allCount = useMemo(
-    () => (at ? (placeOptions(list, filter, parentKey(at), species, (k) => k, seen).find((o) => o.value === at)?.count ?? 0) : 0),
-    [at, list, filter, species, seen],
-  )
+  // "All of <parent>": the parent's own count, as its row one level up shows it (from the same counts).
+  const allCount = useMemo(() => (at ? (placeRows(counts, parentKey(at), (k) => k).find((o) => o.value === at)?.count ?? 0) : 0), [at, counts])
   const path = useMemo(() => {
     const out: string[] = []
     for (let k = at; k; k = parentKey(k)) out.unshift(k)
@@ -87,8 +85,8 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
         </p>
       )}
       {rows.length > SEARCH_FROM && <PlacesFind level={level} q={q} onQ={setQ} />}
-      {rows.length === 0 ? (
-        <p className="eb-note">{at ? 'No places here under the other filters.' : 'No places on this list.'}</p>
+      {rows.length === 0 && !at ? (
+        <p className="eb-note">No places on this list.</p>
       ) : (
         <ul key={at ?? ''} className="eb-checklist eb-places-level" aria-label={LEVEL_HEAD[level]}>
           {at && (
@@ -112,7 +110,9 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
               ) : gap}
             </li>
           ))}
-          {visible.length === 0 && <li className="eb-note eb-check-none">{NO_MATCH[level]}</li>}
+          {rows.length === 0 ? (
+            <li className="eb-note eb-check-none" data-testid="places-empty">{emptyHere(filter)}</li>
+          ) : visible.length === 0 && <li className="eb-note eb-check-none">{NO_MATCH[level]}</li>}
         </ul>
       )}
     </>
