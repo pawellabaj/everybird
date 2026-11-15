@@ -7,7 +7,7 @@ vi.mock('@/lib/species/resolve', async (importOriginal) => {
 })
 
 const { suggestName } = await import('@/lib/species/resolve')
-const { parseObsOrgObservations, parseObsOrgSpecies, SUGGEST_MAX } = await import('@/lib/import/obsorg')
+const { parseObsOrgObservations, parseObsOrgSpecies, resolveObsOrgName, SUGGEST_MAX } = await import('@/lib/import/obsorg')
 const { regions, taxonomy: t } = await import('./obsorg-helpers')
 const spy = vi.mocked(suggestName)
 
@@ -20,6 +20,10 @@ beforeEach(() => {
 })
 
 describe('observation.org suggestions are computed last, for few names', () => {
+  it('resolving never suggests (resolveName with suggest: false)', () => {
+    // The spy can't see resolveName's own internal suggest call, so pin the exact shape: no suggestion key at all.
+    expect(resolveObsOrgName(t, 'Neotis denhamii', 'species', {})).toEqual({ code: null, reason: 'no-match' })
+  })
   it('1,000 names in a dropped group never ask for a suggestion', () => {
     const plants = Array.from({ length: 1000 }, (_, i) => `Plant ${i},${invented(i)},Plants,2020-01-01,species`)
     const r = parseObsOrgSpecies(lifeList(plants), t, {})

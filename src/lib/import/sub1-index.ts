@@ -25,7 +25,7 @@ export const SUB1_ALIASES: Record<string, string[]> = {
   'ES-NC': ['Navarre', 'Navarra', 'Comunidad Foral de Navarra'],
   'ES-RI': ['La Rioja'],
   'ES-VC': ['Comunitat Valenciana', 'Comunidad Valenciana', 'Valencia'],
-  'FR-973': ['Guyane'],
+  'FR-973': ['French Guiana', 'Guyane'],
   'US-DC': ['District of Columbia'],
   'US-VI': ['Virgin Islands', 'United States Virgin Islands'],
   'US-WA': ['Washington'],

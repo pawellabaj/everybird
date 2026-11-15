@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { countryNameMap, makeObsOrgPlaces, OBSORG_COUNTRY_ALIASES, OBSORG_SUB1_ALIASES } from '@/lib/import/obsorg-places'
 import { regions } from './obsorg-helpers'
 const place = () => makeObsOrgPlaces(regions)
@@ -38,5 +38,20 @@ describe('observation.org country and division names', () => {
     const r = { v:1 as const, countries:{ AA:'Collision', BB:'Collision', CC:'Unique' }, sub1:{} }
     expect(countryNameMap(r, []).has('collision')).toBe(false)
     expect(countryNameMap(r, []).get('unique')).toBe('CC')
+  })
+  it('a language Intl.DisplayNames cannot build is skipped; English names still resolve', () => {
+    const Real = Intl.DisplayNames
+    const spy = vi.spyOn(Intl, 'DisplayNames').mockImplementation(function (this: unknown, langs?: string | string[], opts?: Intl.DisplayNamesOptions) {
+      if (String(langs) === 'nl') throw new RangeError('no data')
+      return new Real(langs, opts!)
+    } as never)
+    try {
+      const names = countryNameMap(regions)
+      expect(names.get('netherlands')).toBe('NL')
+      expect(names.get('belgique')).toBe('BE')
+      expect(names.has('nederland')).toBe(false)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
