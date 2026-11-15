@@ -1,7 +1,7 @@
 // Preview variants: `?v=<letter>` (every feature) or `?v=<key>:<letter>,…` picks a design to compare on local servers
 // and Vercel previews. Never on the production domain: there every feature is its first option. A `v` in the address
 // is remembered for the tab (sessionStorage) by rememberVariants (TopBar, on every page load), so it survives in-app
-// navigation; `?v=` clears it.
+// navigation; `?v=` clears it. Only page loads are captured: a `?v=` reached by client-side navigation isn't remembered.
 import { useSyncExternalStore } from 'react'
 import { SHARE_ORIGIN } from '@/lib/share/origin'
 
