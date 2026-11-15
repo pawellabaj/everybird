@@ -222,8 +222,8 @@ describe('painting in ranges (the poster strips)', () => {
     expect(tileInRange({ y: 610, h: 10 }, { y0: 0, y1: 608.5 })).toBe(false)
   })
 
-  it('paintCard over bands covering the card: each tile in exactly the bands it meets, all the text in every band', async () => {
-    // Synthetic birds, packed by hand in a ring so tiles spread over the card's height.
+  /** A1 print card of synthetic birds, packed by hand in a ring so tiles spread over the card's height. */
+  async function ringCard() {
     const codes = Array.from({ length: 10 }, (_, i) => `bird${i}`)
     const row = (code: string, i: number) => ({ code, com: `Bird ${i}`, sci: code, ord: 'Passeriformes', fam: 'X', famCom: 'X', to: i, g: 10 + i, gSrc: 'family', st: i !== 3, ar: 1, q: true }) as SpeciesRow
     const species = buildSpeciesIndex(codes.map(row))
@@ -233,7 +233,11 @@ describe('painting in ranges (the poster strips)', () => {
       return [c, [500 + 380 * Math.cos(a) - 50, 500 + 380 * Math.sin(a) - 50, 100, 100]] as [string, [number, number, number, number]]
     }))
     const pack: ImagePack = { W: 1000, H: 1000, boxes }
-    const card = await prepareCard({ format: 'print', printSize: 'A1', theme: 'light', entries, species, pack, name: 'A test list', filterLabel: 'Perching birds', now: new Date(2026, 10, 15) }, 3.248)
+    return prepareCard({ format: 'print', printSize: 'A1', theme: 'light', entries, species, pack, name: 'A test list', filterLabel: 'Perching birds', now: new Date(2026, 10, 15) }, 3.248)
+  }
+
+  it('paintCard over bands covering the card: each tile in exactly the bands it meets, all the text in every band', async () => {
+    const card = await ringCard()
     expect(card.lifer).not.toBeNull()
     // Half the stickers loaded, the rest (and bird3, which has none) drawn as outlines.
     const all = [...card.tiles, card.lifer!]
@@ -273,5 +277,40 @@ describe('painting in ranges (the poster strips)', () => {
     paintCard(ctx, card, imgs)
     expect(calls.filter((c) => c.op === 'drawImage')).toHaveLength(all.filter(loaded).length)
     expect(calls.filter((c) => c.op === 'stroke')).toHaveLength(all.filter((x) => !loaded(x)).length)
+  })
+
+  it('every band painted on ONE context (as the poster reuses one) measures and draws the same text', async () => {
+    const card = await ringCard()
+    const imgs = new Map<string, CanvasImageSource | null>()
+    const { ctx, calls } = fullRecorder()
+    // Record measureText too: fitText's shrinking depends on it, so a state left over from one band would show here.
+    const measure = ctx.measureText.bind(ctx)
+    ;(ctx as unknown as { measureText: (t: string) => TextMetrics }).measureText = (t: string) => {
+      calls.push({ op: 'measureText', args: [t, ctx.font, ctx.letterSpacing] })
+      return measure(t)
+    }
+    // And the state each text is drawn in, so nothing one band leaves on the context changes the next.
+    ;(ctx as unknown as { fillText: (...a: unknown[]) => void }).fillText = (...a: unknown[]) => {
+      calls.push({ op: 'fillText', args: [...a, ctx.font, ctx.letterSpacing, ctx.fillStyle, ctx.textAlign, ctx.textBaseline] })
+    }
+    const step = 211.7
+    const bands = Array.from({ length: Math.ceil(card.L.H / step) }, (_, i) => ({ y0: i * step, y1: Math.min(card.L.H, (i + 1) * step) }))
+    const per: { texts: unknown[][]; measures: unknown[][] }[] = []
+    for (const band of bands) {
+      const from = calls.length
+      paintCard(ctx, card, imgs, band)
+      const mine = calls.slice(from)
+      per.push({
+        texts: mine.filter((c) => c.op === 'fillText').map((c) => c.args),
+        measures: mine.filter((c) => c.op === 'measureText').map((c) => c.args),
+      })
+    }
+    expect(per.length).toBeGreaterThan(3)
+    expect(per[0].texts.length).toBeGreaterThan(4)
+    expect(per[0].measures.length).toBeGreaterThan(2)
+    for (const p of per.slice(1)) {
+      expect(p.texts).toEqual(per[0].texts)
+      expect(p.measures).toEqual(per[0].measures)
+    }
   })
 })

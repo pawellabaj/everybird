@@ -636,27 +636,31 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
 /**
  * A text measurer for the footer's placement: a scratch canvas's measureText (the same widths the card's own canvas
  * gets; measureText ignores the transform), else, without a DOM (Node tests), an estimate of `em` per character.
+ * Throws when there is a DOM but no 2D canvas, as drawing would.
  */
 function textMeasurer(): (font: string, px: number, text: string, em: number) => number {
-  let c: CanvasRenderingContext2D | null = null
-  if (typeof document !== 'undefined') {
-    try { c = document.createElement('canvas').getContext('2d') } catch { c = null }
-  }
-  if (c) {
-    const ctx = c
-    return (font, _px, text) => { ctx.font = font; return ctx.measureText(text).width }
-  }
-  return (_font, px, text, em) => text.length * em * px
+  if (typeof document === 'undefined') return (_font, px, text, em) => text.length * em * px
+  const ctx = document.createElement('canvas').getContext('2d')
+  if (!ctx) throw new Error('Canvas is not available')
+  return (font, _px, text) => { ctx.font = font; return ctx.measureText(text).width }
 }
 
-/** Wait for the fonts, then place the footer line (and so the rows above it that move with it). */
-async function finishCard(d: CardDraft, signal?: AbortSignal): Promise<PreparedCard> {
+/** Wait (at most 3 s) for every font the card draws with. */
+function cardFontsReady(d: CardDraft): Promise<void> {
   const { L, fonts: font, K, name, label, latest, footerLine } = d
-  await fontsReady(
+  return fontsReady(
     [font.name(L.name?.size ?? 60), font.filter(34), font.count(K.size), font.mono(K.labelSize), font.lifer(34), font.brand(30), font.footer(20)],
     `${name ?? ''}${label ?? ''}${K.number}${K.label}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
   )
-  if (signal?.aborted) throw abortError()
+}
+
+/**
+ * Place the footer line (and so the rows above it that move with it). Call it once the fonts have settled, and for a
+ * share image once the stickers have too (the moment the card was measured before the split), so it measures the faces
+ * the card is drawn with.
+ */
+function placeFooter(d: CardDraft): PreparedCard {
+  const { L, fonts: font, footerLine } = d
   // Footer, quiet: the wordmark, then one line on its baseline, the site, the sticker credit and the date stamp ("… ·
   // stickers by huashu · As of 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
   // own line under the wordmark at the bottom safe line, and the wordmark, the hairline and the latest lifer row move
@@ -676,11 +680,14 @@ async function finishCard(d: CardDraft, signal?: AbortSignal): Promise<PreparedC
  * design unit; it only picks the print's sticker tier (printStickerUrl). Throws an AbortError when `opts.signal` aborts.
  */
 export async function prepareCard(opts: ShareImageOpts, scale = 1): Promise<PreparedCard> {
-  return finishCard(await draftCard(opts, scale), opts.signal)
+  const draft = await draftCard(opts, scale)
+  await cardFontsReady(draft)
+  if (opts.signal?.aborted) throw abortError()
+  return placeFooter(draft)
 }
 
 /** The unique sticker URLs a card draws (tiles, then the latest lifer), in that order. Fallbacks are not included. */
-function cardUrls(card: Pick<PreparedCard, 'tiles' | 'lifer'>): string[] {
+export function cardUrls(card: Pick<PreparedCard, 'tiles' | 'lifer'>): string[] {
   return [...new Set([...card.tiles, ...(card.lifer ? [card.lifer] : [])].flatMap((t) => (t.url ? [t.url] : [])))]
 }
 
@@ -768,9 +775,10 @@ export function paintCard(ctx: CanvasRenderingContext2D, card: PreparedCard, img
 export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasElement> {
   const { signal } = opts
   const draft = await draftCard(opts, 1)
-  // The stickers load while the fonts do, as before the split.
-  const [imgs, card] = await Promise.all([loadStickers(cardUrls(draft), { signal }), finishCard(draft, signal)])
+  // The stickers load while the fonts do; the footer is measured once both have settled, as before the split.
+  const [imgs] = await Promise.all([loadStickers(cardUrls(draft), { signal }), cardFontsReady(draft)])
   if (signal?.aborted) throw abortError()
+  const card = placeFooter(draft)
 
   const canvas = document.createElement('canvas')
   canvas.width = card.L.W
