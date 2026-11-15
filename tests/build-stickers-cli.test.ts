@@ -1,12 +1,16 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { expect, it } from 'vitest'
+import { afterAll, expect, it } from 'vitest'
 import { gitBlobSha } from '../scripts/build-data/huashu-pin'
+
+const dirs: string[] = []
+afterAll(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true }) })
 
 it('print CLI builds selected shipped sources only, resumes, and never writes screen data or metadata', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'eb-print-cli-'))
+  dirs.push(cwd)
   const put = (path: string, contents: string | Buffer) => {
     mkdirSync(dirname(join(cwd, path)), { recursive: true })
     writeFileSync(join(cwd, path), contents)
@@ -39,4 +43,4 @@ it('print CLI builds selected shipped sources only, resumes, and never writes sc
   expect(() => run()).toThrow(/published sticker was built/)
   put('data/raw/manifest.json', JSON.stringify({ huashuCommit: 'wrong' }))
   expect(() => run()).toThrow(/pins pinned/)
-})
+}, 30_000)

@@ -46,7 +46,12 @@ async function trimmedRaw(input: Buffer | string) {
 
 /** Alpha-bbox trim, then long-side 128 and 384 webp. ar = width/height of the 384 variant. */
 export async function makeVariants(input: Buffer | string): Promise<Variants> {
-  const { data, info } = await trimmedRaw(input)
+  return variantsOf(await trimmedRaw(input))
+}
+
+type Trimmed = Awaited<ReturnType<typeof trimmedRaw>>
+
+async function variantsOf({ data, info }: Trimmed): Promise<Variants> {
   const variant = (size: number) =>
     sharp(data, { raw: info }).resize(size, size, { fit: 'inside', kernel: 'lanczos3' }).webp(WEBP).toBuffer()
   const [v128, v384] = await Promise.all([variant(128), variant(384)])
@@ -56,7 +61,10 @@ export async function makeVariants(input: Buffer | string): Promise<Variants> {
 
 /** Print never enlarges the original drawing. */
 export async function makePrintVariant(input: Buffer | string): Promise<Buffer> {
-  const { data, info } = await trimmedRaw(input)
+  return printOf(await trimmedRaw(input))
+}
+
+function printOf({ data, info }: Trimmed): Promise<Buffer> {
   return sharp(data, { raw: info })
     .resize(PRINT, PRINT, { fit: 'inside', kernel: 'lanczos3', withoutEnlargement: true }).webp(PRINT_WEBP).toBuffer()
 }
@@ -128,9 +136,11 @@ export async function updateStickers(o: {
     if (codes.has(row.code)) {
       const src = readFileSync(o.source(row.code))
       o.check?.(row.code, src)
-      const v = await makeVariants(src)
+      // One decode and trim feeds every tier.
+      const trimmed = await trimmedRaw(src)
+      const v = await variantsOf(trimmed)
       for (const size of new Set<StickerSize>(o.sizes ?? [SMALL, LARGE])) {
-        const buf = size === PRINT ? await makePrintVariant(src) : size === SMALL ? v.v128 : v.v384
+        const buf = size === PRINT ? await printOf(trimmed) : size === SMALL ? v.v128 : v.v384
         const rel = stickerPath(row.code, size, row.sv)
         mkdirSync(resolve(out, rel, '..'), { recursive: true })
         writeFileSync(resolve(out, rel), buf)
