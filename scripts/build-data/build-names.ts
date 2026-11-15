@@ -15,13 +15,24 @@ function sorted(entries: Iterable<[string, string]>): Record<string, string> {
   return Object.fromEntries([...entries].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
 }
 
-/** First translated name wins; an English fallback in a regional set never hides the base. */
+/** NFC, every whitespace run (NBSP included) to one space, trimmed. */
+export function normalizeName(name: string): string {
+  return name.normalize('NFC').replace(/[\s\u00a0\u202f]+/g, ' ').trim()
+}
+
+/** eBird fills a missing translation with the English name, in pt_BR/pt_PT in lower case: not a translation. */
+export function isTranslation(name: string, en: string): boolean {
+  return name !== '' && name.toLocaleLowerCase() !== normalizeName(en).toLocaleLowerCase()
+}
+
+/** First translated name wins; an English fallback in a regional set (any case) never hides the base. */
 export function mergeChain(english: Map<string, string>, chain: Map<string, string>[]): Record<string, string> {
   const names = new Map<string, string>()
   for (const [code, en] of english) {
     for (const set of chain) {
-      const name = set.get(code)
-      if (name?.trim() && name !== en) {
+      const raw = set.get(code)
+      const name = raw === undefined ? '' : normalizeName(raw)
+      if (isTranslation(name, en)) {
         names.set(code, name)
         break
       }
@@ -41,8 +52,9 @@ export function familyNames(groups: NameGroup[], species: Pick<SpeciesRow, 'fam'
   const byEnglish = new Map(groups.map((g) => [g.englishName, g.groupName]))
   const names = new Map<string, string>()
   for (const s of species) {
-    const name = hand[s.fam] ?? byEnglish.get(s.famCom)
-    if (name?.trim() && (Object.hasOwn(hand, s.fam) || name !== s.famCom)) names.set(s.fam, name)
+    const raw = hand[s.fam] ?? byEnglish.get(s.famCom)
+    const name = raw === undefined ? '' : normalizeName(raw)
+    if (name && (Object.hasOwn(hand, s.fam) || isTranslation(name, s.famCom))) names.set(s.fam, name)
   }
   return sorted(names)
 }
@@ -54,14 +66,14 @@ export function writeNames(): void {
   const read = <T>(file: string): T => JSON.parse(readFileSync(file, 'utf8')) as T
   const species = read<SpeciesFile>(resolve(root, 'public/data/species.v1.json'))
   const manifest = read<{ ebirdTaxonomy: string }>(resolve(raw, 'manifest.json'))
-  if (manifest.ebirdTaxonomy !== species.ebirdTaxonomy) throw new Error('names taxonomy does not match species.v1.json; fetch the pinned taxonomy first')
+  if (manifest.ebirdTaxonomy !== species.ebirdTaxonomy) throw new Error(`names taxonomy ${manifest.ebirdTaxonomy} does not match species.v1.json's ${species.ebirdTaxonomy}: run fetch-sources.ts --names-only (it pins species.v1.json's year), or for the yearly upgrade fetch-sources.ts --taxonomy <YYYY|latest> then npm run data`)
   const englishRows = read<RawTaxon[]>(resolve(raw, 'ebird-taxonomy.json'))
   const english = new Map(species.species.map((s) => [s.code, s.com]))
   const sets = new Map<NameLocale, Map<string, string>>()
   for (const locale of NAME_LOCALES) {
     const rows = read<RawTaxon[]>(resolve(raw, `ebird-taxonomy.${locale}.json`))
     assertSameSpeciesCodes(englishRows, rows, locale)
-    sets.set(locale, new Map(rows.map((r) => [r.speciesCode, NAME_BASE[locale] === 'pt_BR' ? capFirst(r.comName, 'pt-BR') : r.comName])))
+    sets.set(locale, new Map(rows.map((r) => [r.speciesCode, NAME_BASE[locale] === 'pt_BR' ? capFirst(normalizeName(r.comName), 'pt-BR') : r.comName])))
   }
   const englishGroups = new Map(read<RawGroup[]>(resolve(raw, 'ebird-groups.en.json')).map((g) => [g.groupOrder, g.groupName]))
   const families = new Map<string, Record<string, string>>()

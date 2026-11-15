@@ -1,10 +1,14 @@
 // Downloads the raw sources into data/raw/ (git-ignored) and writes data/raw/manifest.json.
-// Run: npx tsx scripts/build-data/fetch-sources.ts [--huashu-only | --names-only]
+// Run: npx tsx scripts/build-data/fetch-sources.ts [--huashu-only | --names-only] [--taxonomy <YYYY|latest>]
+// The eBird taxonomy year is public/data/species.v1.json's, else data/raw/manifest.json's; --taxonomy picks another
+// (the yearly upgrade: fetch with --taxonomy latest, then npm run data). --names-only overwrites
+// data/raw/ebird-taxonomy.json too, so names and species always read the same year.
 // huashu-bird-sticker is checked out at the commit data/huashu.lock.json pins (the state the committed data was synced
 // to; see scripts/sync/huashu-sync.ts), or at upstream HEAD when there is no lock. --huashu-only moves data/raw/huashu
 // to the pinned commit and updates the manifest's huashu entries, leaving the other downloads as they are (what
 // build-species and build-stickers ask for after a huashu sync PR is merged).
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -19,12 +23,16 @@ const NE = 'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/maste
 
 const ISO_URL = 'https://salsa.debian.org/iso-codes-team/iso-codes/-/raw/main/data/iso_3166-2.json'
 
-async function download(url: string, file: string) {
+const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex')
+
+/** Writes the download to data/raw/<file> and returns its sha256, recorded in the manifest. */
+async function download(url: string, file: string): Promise<string> {
   const res = await fetch(url)
   if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`)
   const buf = Buffer.from(await res.arrayBuffer())
   writeFileSync(resolve(RAW, file), buf)
   console.log(`${file}: ${(buf.length / 1e6).toFixed(1)} MB`)
+  return sha256(buf)
 }
 
 /** Use the same taxonomy year as English, including when the API's latest year changes. */
@@ -49,7 +57,7 @@ export function assertSameSpeciesCodes(english: CodeRow[], localized: CodeRow[],
   }
 }
 
-type Source = { name: string; url: string; date: string; version?: string }
+type Source = { name: string; url: string; date: string; version?: string; sha256?: string }
 async function fetchNames(version: string): Promise<Source[]> {
   const english = JSON.parse(readFileSync(resolve(RAW, 'ebird-taxonomy.json'), 'utf8')) as CodeRow[]
   const sources: Source[] = []
@@ -61,29 +69,47 @@ async function fetchNames(version: string): Promise<Source[]> {
     const rows = await res.json() as CodeRow[]
     assertSameSpeciesCodes(english, rows, locale)
     const file = `ebird-taxonomy.${locale}`
-    writeFileSync(resolve(RAW, `${file}.json`), JSON.stringify(rows))
-    sources.push({ name: file, url, date, version })
+    const body = JSON.stringify(rows)
+    writeFileSync(resolve(RAW, `${file}.json`), body)
+    sources.push({ name: file, url, date, version, sha256: sha256(body) })
     console.log(`${file}: ${rows.length} species`)
   }
   // English groups supply the exact famCom matching key, joined by groupOrder in build-names.
+  // sppgroup has no version: the endpoint ignores `version=` (checked 2026-11-15: 2026, 2019 and 1900 all return the
+  // same bytes), so these are today's groups; the sha256 records exactly which ones a build used.
   for (const [lang, locale] of [['en', 'en'], ['es', 'es'], ['pt', 'pt_BR'], ['nl', 'nl']] as const) {
     const url = `https://api.ebird.org/v2/ref/sppgroup/ebird?groupNameLocale=${locale}`
     const file = `ebird-groups.${lang}`
-    await download(url, `${file}.json`)
-    sources.push({ name: file, url, date })
+    sources.push({ name: file, url, date, sha256: await download(url, `${file}.json`) })
   }
   return sources
 }
 
-/** Existing raw pin wins; a fresh checkout uses the committed species taxonomy, never silently latest. */
-async function pinnedTaxonomy(): Promise<string> {
-  for (const file of [resolve(RAW, 'manifest.json'), resolve(process.cwd(), 'public/data/species.v1.json')]) {
-    if (existsSync(file)) {
-      const version = JSON.parse(readFileSync(file, 'utf8')).ebirdTaxonomy
-      if (typeof version === 'string' && /^\d{4}$/.test(version)) return version
+/** `--taxonomy <YYYY|latest>` from argv, or undefined. */
+export function taxonomyFlag(argv: string[]): string | undefined {
+  const i = argv.indexOf('--taxonomy')
+  if (i < 0) return undefined
+  const value = argv[i + 1]
+  if (!value || !/^(\d{4}|latest)$/.test(value)) throw new Error('--taxonomy takes a year (YYYY) or latest')
+  return value
+}
+
+/**
+ * The eBird taxonomy year to fetch: the --taxonomy flag, else the committed public/data/species.v1.json's year (what
+ * the published data was built from), else data/raw/manifest.json's. Never silently latest: `latest` must be asked for.
+ */
+export async function pinnedTaxonomy(flag: string | undefined, root = process.cwd(), fetchImpl: typeof fetch = fetch): Promise<string> {
+  if (flag && flag !== 'latest') return flag
+  if (!flag) {
+    for (const file of [resolve(root, 'public/data/species.v1.json'), resolve(root, 'data/raw/manifest.json')]) {
+      if (existsSync(file)) {
+        const version = JSON.parse(readFileSync(file, 'utf8')).ebirdTaxonomy
+        if (typeof version === 'string' && /^\d{4}$/.test(version)) return version
+      }
     }
+    throw new Error('No pinned eBird taxonomy year (species.v1.json or data/raw/manifest.json): pass --taxonomy <YYYY|latest>')
   }
-  const res = await fetch(EBIRD_VERSIONS_URL)
+  const res = await fetchImpl(EBIRD_VERSIONS_URL)
   if (!res.ok) throw new Error(`eBird taxonomy versions -> HTTP ${res.status}`)
   const versions = await res.json() as { authorityVer: number; latest: boolean }[]
   const version = versions.find((v) => v.latest)?.authorityVer
@@ -110,14 +136,14 @@ function lockedCommit(): string | undefined {
 async function main() {
   mkdirSync(RAW, { recursive: true })
   if (process.argv.includes('--names-only')) {
-    const ebirdTaxonomy = await pinnedTaxonomy()
+    const ebirdTaxonomy = await pinnedTaxonomy(taxonomyFlag(process.argv))
     const url = taxonomyUrl(ebirdTaxonomy)
-    await download(url, 'ebird-taxonomy.json')
+    const taxonomySha = await download(url, 'ebird-taxonomy.json')
     const sources = await fetchNames(ebirdTaxonomy)
     const path = resolve(RAW, 'manifest.json')
     const manifest = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
     const date = new Date().toISOString().slice(0, 10)
-    const additions = [{ name: 'ebird-taxonomy', url, date, version: ebirdTaxonomy }, ...sources]
+    const additions = [{ name: 'ebird-taxonomy', url, date, version: ebirdTaxonomy, sha256: taxonomySha }, ...sources]
     const replaced = new Set(additions.map((s) => s.name))
     manifest.ebirdTaxonomy = ebirdTaxonomy
     manifest.sources = [...(manifest.sources ?? []).filter((s: Source) => !replaced.has(s.name)), ...additions]
@@ -139,14 +165,14 @@ async function main() {
     return
   }
 
-  const ebirdTaxonomy = await pinnedTaxonomy()
+  const ebirdTaxonomy = await pinnedTaxonomy(taxonomyFlag(process.argv))
   const ebirdUrl = taxonomyUrl(ebirdTaxonomy)
 
-  await download(ebirdUrl, 'ebird-taxonomy.json')
+  const taxonomySha = await download(ebirdUrl, 'ebird-taxonomy.json')
   const namesSources = await fetchNames(ebirdTaxonomy)
-  await download(NE + 'ne_50m_admin_0_countries.geojson', 'ne_50m_admin_0_countries.geojson')
-  await download(NE + 'ne_10m_admin_1_states_provinces.geojson', 'ne_10m_admin_1_states_provinces.geojson')
-  await download(ISO_URL, 'iso_3166-2.json')
+  const ne0Sha = await download(NE + 'ne_50m_admin_0_countries.geojson', 'ne_50m_admin_0_countries.geojson')
+  const ne1Sha = await download(NE + 'ne_10m_admin_1_states_provinces.geojson', 'ne_10m_admin_1_states_provinces.geojson')
+  const isoSha = await download(ISO_URL, 'iso_3166-2.json')
 
   const date = new Date().toISOString().slice(0, 10)
   const manifest = {
@@ -155,11 +181,11 @@ async function main() {
     ebirdTaxonomy,
     sources: [
       { name: 'huashu-bird-sticker', url: HUASHU_URL, date, commit: huashuCommit },
-      { name: 'ebird-taxonomy', url: ebirdUrl, date, version: ebirdTaxonomy },
+      { name: 'ebird-taxonomy', url: ebirdUrl, date, version: ebirdTaxonomy, sha256: taxonomySha },
       ...namesSources,
-      { name: 'ne_50m_admin_0_countries', url: NE + 'ne_50m_admin_0_countries.geojson', date },
-      { name: 'ne_10m_admin_1_states_provinces', url: NE + 'ne_10m_admin_1_states_provinces.geojson', date },
-      { name: 'iso-codes iso_3166-2 (Debian iso-codes, LGPL-2.1)', url: ISO_URL, date, licence: 'LGPL-2.1' },
+      { name: 'ne_50m_admin_0_countries', url: NE + 'ne_50m_admin_0_countries.geojson', date, sha256: ne0Sha },
+      { name: 'ne_10m_admin_1_states_provinces', url: NE + 'ne_10m_admin_1_states_provinces.geojson', date, sha256: ne1Sha },
+      { name: 'iso-codes iso_3166-2 (Debian iso-codes, LGPL-2.1)', url: ISO_URL, date, licence: 'LGPL-2.1', sha256: isoSha },
     ],
   }
   writeFileSync(resolve(RAW, 'manifest.json'), JSON.stringify(manifest, null, 2))

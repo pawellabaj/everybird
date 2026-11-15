@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { capFirst, familyNames, mergeChain, writeNames } from '../scripts/build-data/build-names'
-import { assertSameSpeciesCodes, taxonomyUrl } from '../scripts/build-data/fetch-sources'
+import { capFirst, familyNames, mergeChain, normalizeName, writeNames } from '../scripts/build-data/build-names'
+import { assertSameSpeciesCodes, pinnedTaxonomy, taxonomyFlag, taxonomyUrl } from '../scripts/build-data/fetch-sources'
 import { DATA_FILE_NAMES } from '../scripts/build-data/data-files'
 import { DATA_FILES } from '../src/lib/data-files'
 import { familyLang, NAME_BASE, NAME_LOCALES, REGION_LOCALE } from '../src/lib/species/name-locales'
@@ -25,6 +25,20 @@ describe('names fallback chains', () => {
 
   it('a name equal to English is left out, as are blank names and unknown codes', () => {
     expect(mergeChain(english, [new Map([['kea', 'Kea'], ['amerob', ' '], ['extra', 'Otro']])])).toEqual({})
+  })
+
+  it('an English name in another case is not a translation: it falls through to the base, else English', () => {
+    const en = new Map([['soucas1', 'Southern Cassowary'], ['amerob', 'American Robin']])
+    const ptBR = new Map([['soucas1', capFirst('southern cassowary', 'pt-BR')], ['amerob', 'Tordo-americano']])
+    expect(mergeChain(en, [ptBR])).toEqual({ amerob: 'Tordo-americano' })
+    const ptPT = new Map([['soucas1', 'southern cassowary'], ['amerob', 'american robin']])
+    expect(mergeChain(en, [ptPT, ptBR])).toEqual({ amerob: 'Tordo-americano' })
+  })
+
+  it('names are normalised: NFC, NBSP and runs of spaces to one space, trimmed', () => {
+    expect(normalizeName('  Cari\u0301\u00a0de  monte ')).toBe('Carí de monte')
+    expect(mergeChain(new Map([['a', 'A bird']]), [new Map([['a', 'Ave\u00a0local ']])])).toEqual({ a: 'Ave local' })
+    expect(mergeChain(new Map([['a', 'A bird']]), [new Map([['a', 'a\u00a0BIRD']])])).toEqual({})
   })
 
   it('pt_PT falls back to pt_BR', () => {
@@ -79,6 +93,30 @@ describe('name locales and pinned source data', () => {
     expect(new URL(taxonomyUrl('2025', 'es_AR')).searchParams.get('version')).toBe('2025')
   })
 
+  it('pins the taxonomy year: --taxonomy, then species.v1.json, then the raw manifest; latest only on request', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'everybird-pin-'))
+    try {
+      mkdirSync(join(root, 'public/data'), { recursive: true })
+      mkdirSync(join(root, 'data/raw'), { recursive: true })
+      const noFetch = (() => { throw new Error('no network') }) as unknown as typeof fetch
+      await expect(pinnedTaxonomy(undefined, root, noFetch)).rejects.toThrow(/--taxonomy/)
+      writeFileSync(join(root, 'data/raw/manifest.json'), JSON.stringify({ ebirdTaxonomy: '2025' }))
+      expect(await pinnedTaxonomy(undefined, root, noFetch)).toBe('2025')
+      writeFileSync(join(root, 'public/data/species.v1.json'), JSON.stringify({ ebirdTaxonomy: '2026' }))
+      expect(await pinnedTaxonomy(undefined, root, noFetch)).toBe('2026')
+      expect(await pinnedTaxonomy('2027', root, noFetch)).toBe('2027')
+      const latest = (async () => new Response(JSON.stringify([{ authorityVer: 2026, latest: false }, { authorityVer: 2027, latest: true }]))) as unknown as typeof fetch
+      expect(await pinnedTaxonomy('latest', root, latest)).toBe('2027')
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
+    expect(taxonomyFlag(['x', '--names-only'])).toBeUndefined()
+    expect(taxonomyFlag(['--taxonomy', '2027'])).toBe('2027')
+    expect(taxonomyFlag(['--taxonomy', 'latest'])).toBe('latest')
+    expect(() => taxonomyFlag(['--taxonomy'])).toThrow(/YYYY/)
+    expect(() => taxonomyFlag(['--taxonomy', '27'])).toThrow(/YYYY/)
+  })
+
   it('refuses a locale whose species codes differ from English, including duplicates', () => {
     const en = [{ speciesCode: 'a', category: 'species' }, { speciesCode: 'b', category: 'species' }, { speciesCode: 'form', category: 'issf' }]
     expect(() => assertSameSpeciesCodes(en, en.slice(0, 2), 'es')).not.toThrow()
@@ -125,7 +163,7 @@ describe('writeNames with synthetic source files', () => {
 
   it('refuses a different taxonomy year before writing outputs', () => {
     write('data/raw/manifest.json', { ebirdTaxonomy: '2025' })
-    expect(() => writeNames()).toThrow(/taxonomy does not match/)
+    expect(() => writeNames()).toThrow(/taxonomy 2025 does not match.*--taxonomy/)
     expect(existsSync(join(root, 'public/data/names.es.v1.json'))).toBe(false)
   })
 })
@@ -141,15 +179,17 @@ describe('committed names files', () => {
       expect(file).toMatchObject({ v: 1, locale: l, taxonomy: species.ebirdTaxonomy })
       expect(Object.keys(file.names).sort()).toEqual(Object.keys(file.names))
       expect(Object.keys(file.fam).sort()).toEqual(Object.keys(file.fam))
-      for (const [code, name] of Object.entries(file.names)) {
+      for (const [code, name] of Object.entries(file.names) as [string, string][]) {
         expect(codes.has(code), `${l}: ${code}`).toBe(true)
         expect(typeof name).toBe('string')
-        expect(name).not.toBe(common.get(code))
+        expect(name.toLocaleLowerCase(), `${l}: ${code} is English`).not.toBe(common.get(code)!.toLocaleLowerCase())
+        expect(name, `${l}: ${code} not normalised`).toBe(normalizeName(name))
+        expect(name).not.toMatch(/\u00a0/)
       }
       expect(Object.keys(file.fam)).toEqual(families)
       if (l === 'es' || l === 'nl') expect(Object.keys(file.names).length).toBeGreaterThanOrEqual(11100)
     }
-    expect(gzipSync(read('names.es.v1.json'), { level: 9 }).length).toBeLessThan(110_000)
+    for (const l of ['es', 'pt_BR', 'nl']) expect(gzipSync(read(`names.${l}.v1.json`), { level: 9 }).length, l).toBeLessThan(110_000)
     // Live eBird 2026: es_AR's American Robin falls through to the Spanish base.
     expect(JSON.parse(read('names.es_AR.v1.json')).names.amerob).toBe('Zorzal americano')
     expect(JSON.parse(read('names.pt_BR.v1.json')).names.amerob).toBe('Tordo-americano')
