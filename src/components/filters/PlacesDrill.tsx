@@ -9,8 +9,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
 import { filterPlaceKeys, hasPlaces, placeOptions, togglePlace, withPlaces } from '@/lib/list/filters'
 import { parentKey, placeName } from '@/lib/list/place-keys'
-import { SEARCH_FROM } from './FilterDropdowns'
-import { fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, PlacesFind, placeTestId, usePlaceRows, type PlacesBodyProps } from './PlacesList'
+import { fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyProps) {
   const { list, filter, seen } = state
