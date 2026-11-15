@@ -27,6 +27,8 @@ test("/about says what Everybird is, what True size means, and credits the stick
   const credits = main.locator("#credits");
   await expect(credits.getByRole("link", { name: "Yusuf Taleb" })).toHaveAttribute("href", "https://www.yusuftaleb.com");
   await expect(credits.getByRole("link", { name: "life list on his site" })).toHaveAttribute("href", "https://www.yusuftaleb.com/lifelist");
+  await expect(credits.getByRole("link", { name: "buy Yusuf a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+  await expect(credits.getByText(/If you enjoy Everybird, you can buy Yusuf a coffee\./)).toBeVisible();
   await expect(credits.locator('a[href="https://github.com/alchaincyf/huashu-bird-sticker"]').first()).toBeVisible();
   await expect(credits.getByText("CC BY 4.0").first()).toBeVisible();
   await expect(credits.locator('a[href="https://theodore.net/projects/AvianVisitors/"]')).toBeVisible();
@@ -66,6 +68,10 @@ for (const [name, path] of [
     await expect(footer).not.toContainText("CC BY 4.0");
     await expect(footer.getByRole("link", { name: "All credits" })).toHaveAttribute("href", "/about#credits");
     await expect(footer.getByRole("link", { name: "Made by Yusuf Taleb" })).toHaveAttribute("href", "https://www.yusuftaleb.com");
+    const coffee = footer.getByRole("link", { name: "Buy me a coffee" });
+    await expect(coffee).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+    await expect(coffee).toHaveAttribute("target", "_blank");
+    await expect(coffee).toHaveAttribute("rel", "noopener noreferrer");
     // The code on GitHub, at the row's right edge, with a 44px press
     const gh = footer.getByRole("link", { name: "Everybird on GitHub" });
     await expect(gh).toHaveAttribute("href", "https://github.com/yusuftaleb/everybird");

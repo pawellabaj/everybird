@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
+import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ShareDialog from '@/components/share/ShareDialog'
@@ -156,5 +157,16 @@ describe('share dialog', () => {
     unmount()
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     expect(screen.getByRole('switch', { name: 'Show latest lifer' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('ends with a quiet Buy me a coffee link (a plain link, new tab), never part of the image', () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    const link = screen.getByRole('link', { name: 'Buy me a coffee' })
+    expect(link).toHaveAttribute('href', 'https://buymeacoffee.com/yusuftaleb')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(link.querySelector('img, svg')).toBeNull()
+    // Nothing draws it on the share images
+    expect(readFileSync('src/lib/share/image.ts', 'utf8')).not.toMatch(/coffee/i)
   })
 })

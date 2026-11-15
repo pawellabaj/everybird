@@ -9,6 +9,9 @@ export const ABOUT_TITLE = 'About · Everybird'
 export const ABOUT_DESCRIPTION =
   'What Everybird is, how it works, what True size means, and the data, stickers, fonts and code it is built from.'
 
+/** Buy Me a Coffee: a quiet way to support the maker (the footer, About#credits and the share dialog; never on the images). */
+export const COFFEE_URL = 'https://buymeacoffee.com/yusuftaleb'
+
 /** The only pages offered to search engines (app/sitemap.ts). */
 export const INDEXED_PATHS = ['/', '/about'] as const
 

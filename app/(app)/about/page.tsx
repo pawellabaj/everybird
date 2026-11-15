@@ -5,7 +5,7 @@ import Link from '@/components/app/IntentLink'
 import type { ReactNode } from 'react'
 import { HowItWorksDemo } from '@/components/about/HowItWorksDemo'
 import { PageHead } from '@/components/app/PageHead'
-import { ABOUT_DESCRIPTION, ABOUT_TITLE, pageSeo } from '@/lib/site-meta'
+import { ABOUT_DESCRIPTION, ABOUT_TITLE, COFFEE_URL, pageSeo } from '@/lib/site-meta'
 import '@/components/app/app.css'
 import './about.css'
 
@@ -92,6 +92,7 @@ export default function AboutPage() {
           Made by <A href="https://www.yusuftaleb.com">Yusuf Taleb</A>. It grew out of the{' '}
           <A href="https://www.yusuftaleb.com/lifelist">life list on his site</A>, and is built from other people&apos;s generous work.
         </p>
+        <p className="eb-prose">If you enjoy Everybird, you can <A href={COFFEE_URL}>buy Yusuf a coffee</A>.</p>
         <ul className="eb-credits">
           <Credit label="Stickers · CC BY 4.0" title={<A href={HUASHU_URL}>huashu-bird-sticker</A>}>
             Every bird sticker comes from huashu-bird-sticker by alchaincyf, licensed{' '}

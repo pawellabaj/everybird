@@ -1,7 +1,8 @@
 'use client'
 // The share dialog: story, post or square image with a live preview, Share image (the system share sheet when it takes
 // files, else a download), Download image, Copy link, the optional collage title (Saved.name, verbatim) and the "Show
-// latest lifer" switch (on at every open; off gives the row's room to the collage).
+// latest lifer" switch (on at every open; off gives the row's room to the collage), and last a quiet "Buy me a coffee" link
+// (never on the images).
 // The link encoder (and its ~111 KB species index) is a separate chunk, fetched when the dialog opens, so a Copy link
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
@@ -11,6 +12,7 @@ import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/c
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
 import { useVariant } from '@/lib/variants'
+import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
 import { stripBracket } from '@/lib/import/places'
 import { applyFilter, filterKey } from '@/lib/list/filters'
@@ -319,6 +321,9 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             )}
             <p className="eb-note">
               {fk ? 'The image shows the current filter. ' : ''}The link opens your whole collage, with first months and regions, never towns or coordinates.
+            </p>
+            <p className="eb-note eb-share-coffee">
+              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
             </p>
           </div>
         </div>
