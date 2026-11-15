@@ -1,8 +1,9 @@
 // Decodes every sticker in ${STICKERS_OUT:-../everybird-stickers}/v1/{128,384}/*.webp with sharp and lists the ones
 // that fail (truncated or corrupt files), so they can be rebuilt with build-stickers --codes <a,b,...>.
-// Also checks that both sizes exist for every code. Exit code 1 when anything is wrong.
+// Also decodes 1024 when present; --tier 1024 requires it for every 384 file.
+// Checks that both screen sizes exist for every code. Exit code 1 when anything is wrong.
 //   npx tsx scripts/build-data/check-stickers.ts
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import sharp from 'sharp'
@@ -10,11 +11,11 @@ import sharp from 'sharp'
 export type StickerCheck = { checked: number; failed: { file: string; error: string }[]; missing: string[] }
 
 /** Fully decodes each webp (raw pixels, not just the header), CONCURRENCY at a time. */
-export async function checkStickers(root: string, concurrency = 16): Promise<StickerCheck> {
-  const sizes = ['128', '384'] as const
-  const files = sizes.flatMap((s) => readdirSync(resolve(root, 'v1', s)).filter((f) => f.endsWith('.webp')).map((f) => `${s}/${f}`))
+export async function checkStickers(root: string, concurrency = 16, opts: { print?: boolean } = {}): Promise<StickerCheck> {
+  const sizes = ['128', '384', '1024'] as const
+  const files = sizes.flatMap((s) => (existsSync(resolve(root, 'v1', s)) ? readdirSync(resolve(root, 'v1', s)) : []).filter((f) => f.endsWith('.webp')).map((f) => `${s}/${f}`))
   const codes = sizes.map((s) => new Set(files.filter((f) => f.startsWith(`${s}/`)).map((f) => f.slice(s.length + 1, -5))))
-  const missing = [...new Set([...codes[0], ...codes[1]])].filter((c) => !codes[0].has(c) || !codes[1].has(c)).sort()
+  const missing = [...new Set([...codes[0], ...codes[1]])].filter((c) => !codes[0].has(c) || !codes[1].has(c) || (opts.print && !codes[2].has(c))).sort()
   const failed: StickerCheck['failed'] = []
   let next = 0
   const worker = async () => {
@@ -35,7 +36,9 @@ export async function checkStickers(root: string, concurrency = 16): Promise<Sti
 
 async function main() {
   const root = resolve(process.cwd(), process.env.STICKERS_OUT ?? '../everybird-stickers')
-  const r = await checkStickers(root)
+  const ti = process.argv.indexOf('--tier')
+  if (ti >= 0 && process.argv[ti + 1] !== '1024') throw new Error('--tier supports only 1024')
+  const r = await checkStickers(root, 16, { print: ti >= 0 })
   for (const f of r.failed) console.log(`FAIL ${f.file}: ${f.error}`)
   for (const c of r.missing) console.log(`MISSING one size: ${c}`)
   const codes = [...new Set([...r.failed.map((f) => f.file.split('/')[1].slice(0, -5)), ...r.missing])]

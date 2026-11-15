@@ -1,9 +1,12 @@
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import type { SpeciesRow } from '../src/lib/species/types'
+import { SMALL, LARGE, PRINT } from '../src/lib/sticker-url'
 import { describe, expect, it } from 'vitest'
 import sharp from 'sharp'
 import { MASK, decodeMask, maskCell, maskFromAlpha } from '../src/lib/layout/mask'
-import { makeVariants } from '../scripts/build-data/build-stickers'
+import { makeVariants, makePrintVariant, PRINT_WEBP, updateStickers, stickerCount } from '../scripts/build-data/build-stickers'
 
 // fixture: 300x160 transparent canvas with an opaque 100x100 square at x100..199, y30..129
 const fixture = readFileSync(resolve(__dirname, 'fixtures/build/sticker.png'))
@@ -69,4 +72,42 @@ describe('mask', () => {
     // 2x2 blocks of the diagonal stripe pattern average to 127.5 -> 128 > 40 -> every cell set
     expect(m.bits.every((b) => b === 0xff)).toBe(true)
   })
+})
+
+
+describe('print variants', () => {
+  it('trims, caps the long side at 1024 and never enlarges', async () => {
+    expect(PRINT_WEBP).toEqual({ quality: 80, effort: 4 })
+    for (const size of [2000, 600]) {
+      const src = await sharp({ create: { width: size, height: 400, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+        .composite([{ input: await sharp({ create: { width: size - 40, height: 200, channels: 4, background: 'red' } }).png().toBuffer(), left: 20, top: 100 }]).png().toBuffer()
+      const m = await sharp(await makePrintVariant(src)).metadata()
+      expect(Math.max(m.width!, m.height!)).toBe(Math.min(1024, size - 40))
+      expect(m.width! / m.height!).toBeCloseTo((size - 40) / 200, 1)
+    }
+  })
+  it('rejects a fully transparent print source', async () => {
+    const src = await sharp({ create: { width: 4, height: 4, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()
+    await expect(makePrintVariant(src)).rejects.toThrow('fully transparent')
+  })
+})
+
+it('updateStickers adds print only on request, keeping the 384 mask and aspect', async () => {
+  const run = async (sizes?: readonly (128 | 384 | 1024)[]) => {
+    const rows = [{ code: 'synthetic', st: true, ord: 'Test', sv: 'abc', ar: 0.5 } as SpeciesRow]
+    const masks = new Map()
+    const written = await updateStickers({ rows, masks, sizes, codes: new Set(['synthetic']),
+      source: () => resolve(__dirname, 'fixtures/build/sticker.png'), out: mkdtempSync(resolve(tmpdir(), 'eb-tier-')) })
+    return { rows, masks, written }
+  }
+  const standard = await run()
+  const print = await run([SMALL, LARGE, PRINT])
+  expect(standard.written).toEqual(['v1/128/synthetic.abc.webp', 'v1/384/synthetic.abc.webp'])
+  expect(print.written).toEqual(['v1/1024/synthetic.abc.webp', ...standard.written])
+  expect(print.rows).toEqual(standard.rows)
+  expect(print.masks).toEqual(standard.masks)
+})
+
+it('counts rebuilt codes by the 384 tier, independent of the other tiers', () => {
+  expect(stickerCount(['v1/128/a.webp', 'v1/384/a.webp', 'v1/1024/a.webp', 'v1/384/b.x.webp'])).toBe(2)
 })
