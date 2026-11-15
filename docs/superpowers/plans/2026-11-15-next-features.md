@@ -13,7 +13,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 - [x] 2. Share dialog: "Show latest lifer" switch and Buy Me a Coffee (shipped on feat/nf-2-share-switch; plan 2026-11-15-2-share-switch.md)
 - [ ] 3. Conservation status (IUCN)
 - [x] 4. Date stamp on share images (shipped on feat/nf-4-date-stamp; plan 2026-11-15-4-date-stamp.md)
-- [ ] 5. Smaller places (province/state, county)
+- [x] 5. Smaller places (province/state, county) (shipped on feat/nf-5-places; plan 2026-11-15-5-smaller-places.md; Places variants a/b kept for Yusuf)
 - [ ] 6. Print poster export (A1–A4)
 - [ ] 7. Portuguese (Brazilian)
 - [ ] 8. observation.org import (added 2026-11-15; brief `2026-11-15-8-observation-org-brief.md`; branch feat/nf-8-observation-org after item 6)
