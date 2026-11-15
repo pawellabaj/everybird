@@ -3,12 +3,15 @@ import type { TaxonomyIndex } from '@/lib/species/resolve'
 import type { ImportResult } from '@/lib/list/model'
 import { parseEbirdLifeList } from './ebird-lifelist'
 import { parseEbirdMyData } from './ebird-mydata'
+import { parseObsOrgSpecies, parseObsOrgObservations, type ObsOrgObservationsResult } from './obsorg'
+import type { Regions } from '@/lib/species/types'
 
-export type ParseKind = 'ebird-lifelist' | 'ebird-mydata'
-export type ParseRequest = { kind: ParseKind; file: File }
+export type ParseKind = 'ebird-lifelist' | 'ebird-mydata' | 'obsorg-species' | 'obsorg-observations'
+export type ParseRequest = { kind: ParseKind; file: File; synonyms?: Record<string, string>; regions?: Regions }
+export type ParseResult = ImportResult & { excluded?: ObsOrgObservationsResult['excluded'] }
 export type ParseResponse =
   | { type: 'progress'; rows: number }
-  | { type: 'done'; result: ImportResult }
+  | { type: 'done'; result: ParseResult }
   | { type: 'error'; message: string }
 
 const PROGRESS_MS = 100
@@ -32,10 +35,28 @@ export async function handleParseMessage(
         post({ type: 'progress', rows })
       }
     }
-    const result =
-      msg.kind === 'ebird-mydata'
-        ? await parseEbirdMyData(msg.file, t, onProgress)
-        : parseEbirdLifeList(await msg.file.text(), t)
+    let result: ParseResult | { error: 'no-birds' }
+    switch (msg.kind) {
+      case 'ebird-mydata':
+        result = await parseEbirdMyData(msg.file, t, onProgress)
+        break
+      case 'ebird-lifelist':
+        result = parseEbirdLifeList(await msg.file.text(), t)
+        break
+      case 'obsorg-species':
+        result = parseObsOrgSpecies(await msg.file.text(), t, msg.synonyms ?? {})
+        break
+      case 'obsorg-observations':
+        if (!msg.regions) throw new Error('observation.org regions are required.')
+        result = await parseObsOrgObservations(msg.file, t, msg.synonyms ?? {}, msg.regions, onProgress)
+        break
+      default:
+        throw new Error('Unsupported import kind.')
+    }
+    if ('error' in result) {
+      post({ type: 'error', message: result.error })
+      return
+    }
     post({ type: 'done', result })
   } catch (e) {
     post({ type: 'error', message: e instanceof Error ? e.message : String(e) })
