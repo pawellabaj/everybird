@@ -3,7 +3,7 @@
 // countries; a row with places under it ends in a drill button (the site's chevron turned to point in). Drilled,
 // the head names the level ("States and provinces · 8", "Counties · 14"), the breadcrumb "All countries / Canada /
 // British Columbia" steps back, and the first row, "All of Canada", is the parent's own checkbox. Drilling in
-// focuses "All of …"; a step back focuses the drill button of the row it came from; Esc closes the panel from any
+// focuses "All of …"; a step back focuses the drill button of the row it came from (scrolled into view); Esc closes the panel from any
 // level (DropPanel). The search field and its query are per level.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
@@ -55,6 +55,8 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
     const all = Array.from(root?.querySelectorAll<HTMLElement>('[data-testid]') ?? [])
     const target = ids.map((id) => all.find((el) => el.dataset.testid === id)).find(Boolean) ?? root?.closest<HTMLElement>('[role="dialog"]')
     target?.focus({ preventScroll: true })
+    // A step back to a row far down the level: scroll the body to it, so the focus is in view.
+    target?.scrollIntoView?.({ block: 'nearest' })
   }, [at])
 
   const visible = rows.length > SEARCH_FROM ? matchRows(rows, q) : rows

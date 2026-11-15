@@ -239,6 +239,22 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(screen.getByTestId('drill-c:CA')).toHaveFocus()
   })
 
+  it('a step back scrolls the drill button it focuses into view', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const scrolled: Element[] = []
+    const into = vi.fn(function (this: Element) { scrolled.push(this) })
+    Element.prototype.scrollIntoView = into
+    try {
+      render(<Harness />)
+      fireEvent.click(placesBtn())
+      fireEvent.click(screen.getByTestId('drill-c:CA'))
+      fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
+      expect(scrolled.at(-1)).toBe(screen.getByTestId('drill-c:CA'))
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView
+    }
+  })
+
   it('Clear clears every level', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
