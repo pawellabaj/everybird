@@ -31,16 +31,17 @@ function seeded(codes: string[]): AppState {
   return reduce(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'] }: { codes?: string[] }) {
+function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide }: { codes?: string[]; hide?: readonly Panel[] }) {
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(codes))
   const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
     <>
       <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} />
+        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} hide={hide} />
       </div>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Passeriformes', family: 'Turdidae' } })}>thrushes only</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
     </>
   )
@@ -115,6 +116,23 @@ describe('Status: a dropdown in the controls bar', () => {
     expect(screen.getByTestId('filter-tab-places')).toBeInTheDocument()
   })
 
+  it('hide may name status: no Status button on a list that has statuses', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness hide={['status']} />)
+    expect(screen.queryByTestId('filter-tab-status')).toBeNull()
+    expect(screen.getByTestId('filter-tab-time')).toBeInTheDocument()
+  })
+
+  it('under a filter that leaves no bird with a category, the panel says so', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'thrushes only' }))
+    fireEvent.click(statusBtn())
+    expect(screen.queryAllByRole('checkbox')).toEqual([])
+    expect(screen.getByText(/Categories · 0/)).toBeInTheDocument()
+    expect(screen.getByText('No categories here under the other filters.')).toBeInTheDocument()
+  })
+
   it('Esc closes the panel and focus returns to the Status button; at phone width it is the bottom sheet', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness />)
@@ -155,5 +173,14 @@ describe('IucnPill', () => {
     expect(pill).toHaveAttribute('aria-hidden', 'true')
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#d81e05')
     expect(pill.style.getPropertyValue('--iucn-text')).toBe('#ffffff')
+  })
+  it('the button form: a button named by the abbreviation and the full name', () => {
+    render(<IucnPill cat="VU" as="button" />)
+    const pill = screen.getByTestId('iucn-pill')
+    expect(pill.tagName).toBe('BUTTON')
+    expect(pill).toHaveAttribute('type', 'button')
+    expect(pill).toHaveAccessibleName('VU, Vulnerable (IUCN Red List)')
+    expect(pill).toHaveTextContent('VU')
+    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
   })
 })
