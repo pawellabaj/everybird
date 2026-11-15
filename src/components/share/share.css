@@ -6,8 +6,14 @@
    format leftward from a fixed right edge; stacked, the buttons under the area keep their place.
    It never scrolls sideways: the preview's size is bound by the window's width as well as its height. */
 .eb-share-scrim { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgb(0 0 0 / .28); display: grid; place-items: center; padding: 16px; }
-/* Stacked, the dialog keeps its top edge (a shorter preview never moves the format control above it). */
-@media (max-width: 719.98px) { .eb-share-scrim { align-items: start; } }
+/* Stacked, the dialog keeps its top edge (a shorter preview never moves the format control above it). The box never
+   outgrows its row: while a format change eases the width, the new shape's height (from aspect-ratio, which snaps)
+   would otherwise poke out over the format control and the title field (a post's 316px width at 9:16 is 562px). At
+   rest the box is never taller than --cap, so this only clamps that moment. */
+@media (max-width: 719.98px) {
+  .eb-share-scrim { align-items: start; }
+  .eb-share-preview { max-height: var(--cap); }
+}
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: 16px; padding: 18px 20px 22px;
