@@ -11,7 +11,7 @@
 // serve the one encode. Changing the size, title or switch, leaving print mode or closing the dialog cancels a make and
 // drops a finished poster. Nothing in print mode is counted. The entry is a preview variant (`?v=print:a|b|c`): a 4th
 // format (a), a quiet button in the actions (b) or a text line under them (c).
-import { ArrowLeft, DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon } from '@phosphor-icons/react'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
@@ -55,16 +55,19 @@ const PRINT_TEXT = {
   sizeLine: (s: PrintSize, w: number, h: number, pw: number, ph: number) => `${s} · ${w} × ${h} cm · ${pw} × ${ph} px at 150 dpi`,
   make: 'Make poster',
   making: 'Making the poster',
+  makingNote: 'Making the poster.',
+  again: 'Make again',
   cancel: 'Cancel',
   png: 'Download PNG',
   pdf: 'Download PDF',
   ready: (s: PrintSize) => `Your ${s} poster is ready.`,
   saved: (file: string) => `Saved ${file}.`,
   missing: (n: number) => (n === 1
-    ? "1 sticker didn't load and is drawn as an outline. Make the poster again to retry."
-    : `${n} stickers didn't load and are drawn as outlines. Make the poster again to retry.`),
+    ? '1 sticker didn’t load and is drawn as an outline. Make the poster again to retry.'
+    : `${n} stickers didn’t load and are drawn as outlines. Make the poster again to retry.`),
   soft: 'Some stickers come from smaller files for now, so the biggest birds may print a little soft.',
-  failed: "Couldn't make the poster. Try a smaller size.",
+  failedMemory: 'Couldn’t make the poster. Try a smaller size.', // the poster didn't fit in memory
+  failed: 'Couldn’t make the poster. Try again.', // any other failure
   entryButton: 'Print a poster', // variant b
   entryLine: 'Print a poster, A4 to A1', // variant c
   back: 'Share images',
@@ -152,12 +155,15 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const key = print ? `print|${size}|${trimmed}|${withLatest}` : `${format}|${trimmed}|${theme}|${withLatest}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
+  // What the render depends on: in print mode neither the share format nor the page theme, so switching either there
+  // never starts a needless render.
+  const cardFormat: CardFormat = print ? 'print' : format
+  const imageTheme: Theme = print ? 'light' : theme
   useEffect(() => {
     let live = true
     let cancel = () => {}
     const delay = first.current ? 0 : RENDER_DELAY_MS
     first.current = false
-    const cardFormat: CardFormat = print ? 'print' : format
     const job = new Promise<void>((resolve, reject) => {
       const t = setTimeout(resolve, delay)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
@@ -165,7 +171,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       .then(() => packFor(cardFormat, !!trimmed, withLatest))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
-        theme: print ? 'light' : theme, pack, latest: withLatest, signal: life.current?.signal,
+        theme: imageTheme, pack, latest: withLatest, signal: life.current?.signal,
       }))
     current.current = job
     job.then(
@@ -183,7 +189,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, print, size, format, trimmed, theme, withLatest, packFor, shown, species, label])
+  }, [key, print, size, cardFormat, trimmed, imageTheme, withLatest, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
@@ -255,7 +261,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     const ctl = new AbortController()
     makeCtl.current = ctl
     const forKey = posterKey
-    setNote(null)
+    setNote({ text: PRINT_TEXT.makingNote, print: true }) // announced; replaced when the make ends, cleared on a cancel
     setMaking({ key: forKey, done: 0, total: 0 })
     focusNext.current = 'cancel'
     try {
@@ -275,10 +281,11 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       focusNext.current = 'png'
     } catch (e) {
       if (ctl.signal.aborted || (e as Error)?.name === 'AbortError') return
-      if ((e as Error)?.message !== 'poster-memory') console.warn('Everybird poster failed:', e)
+      const memory = (e as Error)?.message === 'poster-memory'
+      if (!memory) console.warn('Everybird poster failed:', e)
       makeCtl.current = null
       setMaking(null)
-      setNote({ text: PRINT_TEXT.failed, error: true, print: true })
+      setNote({ text: memory ? PRINT_TEXT.failedMemory : PRINT_TEXT.failed, error: true, print: true })
       focusNext.current = 'make'
     }
   }
@@ -286,7 +293,19 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     makeCtl.current?.abort()
     makeCtl.current = null
     setMaking(null)
+    setNote((n) => (n?.print ? null : n))
     focusNext.current = 'make'
+  }
+  /** Drops the poster on screen (its encoder ends with it). */
+  const dropPoster = () => {
+    posterRef.current?.dispose()
+    posterRef.current = null
+    setPoster(null)
+  }
+  // Make again (shown when some stickers didn't load): a fresh make, which retries them.
+  const remake = () => {
+    dropPoster()
+    void makePoster()
   }
   const savePoster = async (kind: 'png' | 'pdf') => {
     const p = posterNow
@@ -297,7 +316,11 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       blob = await p.file(kind)
     } catch (e) {
       console.warn('Everybird poster file failed:', e)
-      if (posterRef.current === p) setNote({ text: PRINT_TEXT.failed, error: true, print: true })
+      if (posterRef.current !== p) return
+      // The poster can't give its files any more: drop it and bring Make poster back.
+      dropPoster()
+      setNote({ text: (e as Error)?.message === 'poster-memory' ? PRINT_TEXT.failedMemory : PRINT_TEXT.failed, error: true, print: true })
+      focusNext.current = 'make'
       return
     }
     if (posterRef.current !== p) return // dropped while the file was made: never a stale poster
@@ -350,14 +373,14 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const copyLink = async () => {
     setManual(null)
     const mod = (linkModule.current ??= loadLinkModule())
-    const making: Promise<LinkResult> = mod.then((m) => m.makeShareLink(list, regions, trimmed || undefined, window.location.origin))
+    const linking: Promise<LinkResult> = mod.then((m) => m.makeShareLink(list, regions, trimmed || undefined, window.location.origin))
     // Where the clipboard takes a promised item (Safari, Chromium), hand it over now, inside the click, and let the
     // link arrive later. Otherwise writeText after the (normally already loaded) module, then the manual field.
     let copied: Promise<boolean> = Promise.resolve(false)
     const clip = navigator.clipboard
     if (typeof ClipboardItem === 'function' && typeof clip?.write === 'function') {
       try {
-        const item = new ClipboardItem({ 'text/plain': making.then((l) => new Blob([l.url], { type: 'text/plain' })) })
+        const item = new ClipboardItem({ 'text/plain': linking.then((l) => new Blob([l.url], { type: 'text/plain' })) })
         copied = clip.write([item]).then(() => true, () => false)
       } catch {
         // An old ClipboardItem that refuses promises: fall through to writeText.
@@ -365,15 +388,15 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     }
     let link: LinkResult
     try {
-      link = await making
+      link = await linking
     } catch (e) {
       if ((e as Error)?.name === 'ShareTooLarge') return setNote({ text: 'This list is too large for a link. Share the image instead.', error: true })
       console.warn('Everybird share link failed:', e)
       return setNote({ text: 'Couldn’t make the link. Try again.', error: true })
     }
     const { url, level, dropped } = link
-    // Counted once the link exists, whether the clipboard takes it or the birder copies it by hand.
-    track('link_copied', { level })
+    // Counted once the link exists, whether the clipboard takes it or the birder copies it by hand; never in print mode.
+    if (!print) track('link_copied', { level })
     const missing = dropped ? ` ${dropped === 1 ? '1 bird is' : `${dropped} birds are`} too new for links and left out.` : ''
     let ok = await copied
     if (!ok && typeof clip?.writeText === 'function') ok = await clip.writeText(url).then(() => true, () => false)
@@ -405,6 +428,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       <div
         ref={ref}
         className="eb-share"
+        data-mode={mode}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -524,6 +548,12 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                       <DownloadSimple aria-hidden="true" focusable="false" />
                       {PRINT_TEXT.pdf}
                     </button>
+                    {posterNow.missing > 0 && (
+                      <button type="button" className="eb-btn eb-btn-quiet" onClick={remake}>
+                        <ArrowClockwise aria-hidden="true" focusable="false" />
+                        {PRINT_TEXT.again}
+                      </button>
+                    )}
                   </>
                 ) : (
                   <button ref={makeRef} type="button" className="eb-btn" onClick={() => void makePoster()}>

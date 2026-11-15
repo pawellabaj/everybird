@@ -13,6 +13,10 @@
 @media (max-width: 719.98px) {
   .eb-share-scrim { align-items: start; }
   .eb-share-preview { max-height: var(--cap); }
+  /* Print mode adds the size control (54px), its size line and their gaps above Make poster: about 100px more than
+     the 409px the share controls take (below), so the preview's row gives that back and Make poster stays on the
+     first screen. */
+  .eb-share[data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 509px, 600px)); }
 }
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
@@ -37,7 +41,9 @@
    above the preview's area, the controls under it, so neither moves when the preview changes shape), a grid from 720px
    (the preview on the left down both rows, the format control over the rest of the controls on the right). */
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
-.eb-share-formats { min-width: 0; container-type: inline-size; }
+/* At least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px), so print
+   mode's shorter "Share images" button in its place moves nothing below it. */
+.eb-share-formats { min-width: 0; min-height: 54px; container-type: inline-size; }
 
 /* The image's shape, from the format it shows. */
 .eb-share-preview { --ar: calc(9 / 16); }
@@ -203,4 +209,10 @@
   .eb-seg-4 .eb-seg-btn svg { display: none; }
 }
 @container (max-width: 359px) { .eb-seg-4 .eb-seg-btn .eb-share-hint { display: none; } }
+/* Narrower still (a 320px phone gives the column 248px, "Square" about 40px): 14px words (in px, as above), 2px gaps
+   and 4px side padding, so the four words never overlap; the buttons keep their 44px height. */
+@container (max-width: 299px) {
+  .eb-share-formats .eb-seg-4 { gap: 2px; }
+  .eb-share-formats .eb-seg-4 .eb-seg-btn { padding: 0 4px; font-size: 14px; }
+}
 @media (prefers-reduced-motion: reduce) { .eb-seg-btn { transition: none; } }

@@ -24,9 +24,10 @@ vi.mock('@/lib/share/image', async (orig) => ({
 // The poster is made by a promise the test settles; it records the progress callback, the signal and the opts.
 type FakePoster = { size: string; bytes: number; soft: number; missing: number; file: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }
 const makes: { opts: { size: string; signal?: AbortSignal; pack?: unknown }; onProgress: (d: number, t: number) => void; resolve: (p: FakePoster) => void; reject: (e: unknown) => void }[] = []
-vi.mock('@/lib/share/poster', () => ({
+const posterMock = () => ({
   makePoster: vi.fn((opts, onProgress) => new Promise((resolve, reject) => makes.push({ opts, onProgress, resolve, reject }))),
-}))
+})
+vi.mock('@/lib/share/poster', () => posterMock()) // called at the first import, once posterMock exists
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('@/lib/download', () => ({ downloadBlob: vi.fn() }))
 const fakePoster = (over: Partial<FakePoster> = {}): FakePoster => ({
@@ -392,23 +393,115 @@ describe('share dialog: print mode', () => {
     await act(async () => makes[0].resolve(fakePoster({ soft: 3, missing: 1 })))
     expect(screen.getByTestId('share-note').textContent).toBe(
       'Your A4 poster is ready. Some stickers come from smaller files for now, so the biggest birds may print a little soft. '
-      + "1 sticker didn't load and is drawn as an outline. Make the poster again to retry.")
+      + '1 sticker didn’t load and is drawn as an outline. Make the poster again to retry.')
 
     fireEvent.click(screen.getByRole('button', { name: 'A2' }))
     fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
     await waitFor(() => expect(makes).toHaveLength(2))
     await act(async () => makes[1].resolve(fakePoster({ size: 'A2', missing: 5 })))
     expect(screen.getByTestId('share-note').textContent).toBe(
-      "Your A2 poster is ready. 5 stickers didn't load and are drawn as outlines. Make the poster again to retry.")
+      'Your A2 poster is ready. 5 stickers didn’t load and are drawn as outlines. Make the poster again to retry.')
 
     fireEvent.click(screen.getByRole('button', { name: 'A1' }))
     fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
     await waitFor(() => expect(makes).toHaveLength(3))
     await act(async () => makes[2].reject(new Error('poster-memory')))
     const note = screen.getByTestId('share-note')
-    expect(note.textContent).toBe("Couldn't make the poster. Try a smaller size.")
+    expect(note.textContent).toBe('Couldn’t make the poster. Try a smaller size.')
     expect(note).toHaveClass('eb-error')
     expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+
+    // Any other failure says to try again.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(4))
+    await act(async () => makes[3].reject(new Error('worker died')))
+    expect(screen.getByTestId('share-note').textContent).toBe('Couldn’t make the poster. Try again.')
+    warn.mockRestore()
+  })
+
+  it('announces the make in the status note, and a cancel clears it', async () => {
+    open()
+    toPrint()
+    await startMake()
+    expect(screen.getByTestId('share-note').textContent).toBe('Making the poster.')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.getByTestId('share-note').textContent).toBe('')
+  })
+
+  it('a make that finishes after the dialog closed is disposed', async () => {
+    const view = open()
+    toPrint()
+    await startMake()
+    view.unmount()
+    const p = fakePoster()
+    await act(async () => makes[0].resolve(p))
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('a poster whose file fails is dropped: the error note and Make poster come back, focused', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    open()
+    toPrint()
+    await startMake()
+    const p = fakePoster({ file: vi.fn(async () => { throw new Error('encoder gone') }) })
+    await act(async () => makes[0].resolve(p))
+    fireEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
+    const note = screen.getByTestId('share-note')
+    expect(note.textContent).toBe('Couldn’t make the poster. Try again.')
+    expect(note).toHaveClass('eb-error')
+    expect(downloadBlob).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
+  it('Make again shows only when stickers are missing, and starts a new make', async () => {
+    open()
+    toPrint()
+    await startMake()
+    await act(async () => makes[0].resolve(fakePoster()))
+    expect(screen.queryByRole('button', { name: 'Make again' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'A3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(2))
+    const p = fakePoster({ size: 'A3', missing: 2 })
+    await act(async () => makes[1].resolve(p))
+    fireEvent.click(screen.getByRole('button', { name: 'Make again' }))
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(makes).toHaveLength(3))
+    expect(makes[2].opts.size).toBe('A3')
+    expect(screen.getByRole('progressbar', { name: 'Making the poster' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
+  })
+
+  it('Copy link in print mode sends nothing', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    open()
+    toPrint()
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }))
+    await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Link copied.'))
+    expect(track).not.toHaveBeenCalled()
+  })
+
+  it('in share mode Download image is still counted', async () => {
+    open()
+    await waitFor(() => expect(renders).toHaveLength(1))
+    await act(async () => renders[0].resolve(new Blob(['png'], { type: 'image/png' })))
+    const dl = screen.getByRole('button', { name: 'Download image' }) as HTMLButtonElement
+    await waitFor(() => expect(dl.disabled).toBe(false))
+    fireEvent.click(dl)
+    await waitFor(() => expect(track).toHaveBeenCalledWith('image_downloaded', { format: 'story' }))
+  })
+
+  it('print mode ignores the share format and the theme: switching to print renders once, light', async () => {
+    open()
+    await waitFor(() => expect(renders).toHaveLength(1))
+    toPrint()
+    await waitFor(() => expect(renders).toHaveLength(2))
+    expect(vi.mocked(image.renderShareImage).mock.calls[1][0]).toMatchObject({ format: 'print', theme: 'light' })
   })
 
   it('print mode sends no analytics', async () => {
@@ -421,5 +514,35 @@ describe('share dialog: print mode', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
     await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(2))
     expect(track).not.toHaveBeenCalled()
+  })
+})
+
+describe('share dialog: the poster module fails to load', () => {
+  it('a failed import of the poster module shows the error, and Make poster retries it', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    // The poster module fails twice, as a chunk that didn't load would: the load when print mode opens, then the one
+    // Make poster retries. A fresh dialog module picks the factory up.
+    const fail = { left: 2 }
+    vi.doMock('@/lib/share/poster', () => {
+      if (fail.left > 0) {
+        fail.left--
+        throw new Error('chunk failed to load')
+      }
+      return posterMock()
+    })
+    vi.resetModules()
+    const { default: FreshDialog } = await import('@/components/share/ShareDialog')
+    render(<FreshDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Print/ }))
+    await waitFor(() => expect(fail.left).toBe(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Couldn’t make the poster. Try again.'))
+    expect(makes).toHaveLength(0)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(1))
+    expect(screen.getByTestId('share-note').textContent).toBe('Making the poster.')
+    warn.mockRestore()
+    vi.doMock('@/lib/share/poster', posterMock)
   })
 })
