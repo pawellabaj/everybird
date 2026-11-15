@@ -52,7 +52,7 @@ export function toJson(s: Saved): string {
   return JSON.stringify(s)
 }
 
-const SOURCES: Source[] = ['ebird', 'inat', 'manual']
+const SOURCES: Source[] = ['ebird', 'inat', 'obsorg', 'manual']
 const isSlot = (k: unknown): k is Slot => SLOTS.includes(k as Slot)
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every((s) => typeof s === 'string')
@@ -60,14 +60,21 @@ const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every((s) 
 const optStr = (x: unknown) => x === undefined || typeof x === 'string'
 const optCount = (x: unknown) => x === undefined || (typeof x === 'number' && Number.isFinite(x) && x >= 0)
 const EBIRD_KINDS = ['full-export', 'life-list']
+const OBSORG_KIND: Record<string, string> = { 'obsorg-list': 'species-list', obsorg: 'observations' }
+const optExcluded = (x: unknown) => x === undefined || (isObj(x) && Object.keys(x).length === 2 && [x.escape, x.uncertain].every((n) => typeof n === 'number' && Number.isInteger(n) && n >= 0))
 
-/** v3 source details: eBird files (kind, file, rows, at) and the iNaturalist account (user, observations, at). */
+/**
+ * v3 source details: eBird files (kind, file, rows, at), the iNaturalist account (user, observations, at) and
+ * observation.org files (kind, file, rows, at; the observations export also `excluded`).
+ */
 function validSources(x: unknown): boolean {
   if (!isObj(x)) return false
   return Object.entries(x).every(([k, d]) => {
     if (!isObj(d) || !optStr(d.at)) return false
     if (k === 'ebird' || k === 'ebird-list') return EBIRD_KINDS.includes(d.kind as string) && optStr(d.file) && optCount(d.rows)
     if (k === 'inat') return optStr(d.user) && optCount(d.observations)
+    if (k === 'obsorg' || k === 'obsorg-list')
+      return d.kind === OBSORG_KIND[k] && optStr(d.file) && optCount(d.rows) && (k === 'obsorg' ? optExcluded(d.excluded) : d.excluded === undefined)
     return false
   })
 }
@@ -86,7 +93,8 @@ export function fromJson(text: string): Saved {
   if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4) throw new Error('Unsupported backup version.')
 
   if (!isObj(raw.records)) throw new Error('Backup has no records.')
-  // Backups made before the second eBird slot have no 'ebird-list'; it starts empty.
+  // Backups made before the second eBird slot have no 'ebird-list', those before observation.org no 'obsorg' or
+  // 'obsorg-list': they start empty.
   const records = { ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] } as Record<Slot, SourceRecord[]>
   for (const [k, v] of Object.entries(raw.records)) {
     if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen))))
