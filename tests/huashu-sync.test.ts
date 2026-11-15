@@ -66,6 +66,20 @@ describe('the huashu lock', () => {
     expect(text).toContain('\n  "whibir1": "stickers/Testiformes/Testidae/Avis_alba.webp"')
   })
 
+  it('digests the raw IUCN status only when present, after forms; unrelated conservation fields have no effect', () => {
+    const [a] = huashu
+    const d = recordDigest(a)
+    expect(recordDigest({ ...clone(a), conservation: {} })).toBe(d)
+    const vu = { ...clone(a), conservation: { iucn: 'VU' } }
+    expect(recordDigest(vu)).not.toBe(d)
+    expect(recordDigest({ ...clone(vu), conservation: { iucn: 'EN' } })).not.toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(vu), conservation: { iucn: 'VU', cites: 'II' } } as HuashuRecord)).toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(a), conservation: { iucn: 'CR (PE)' } }))
+      .not.toBe(recordDigest({ ...clone(a), conservation: { iucn: 'CR' } }))
+    const form = { taxon: 'Avis alba minor', formerSpecies: { scientificName: 'Avis minor' } }
+    expect(recordDigest({ ...clone(vu), forms: [form] })).not.toBe(recordDigest({ ...clone(a), forms: [form] }))
+  })
+
   it('throws when a code’s sticker file is missing from the tree', () => {
     const lock = lockFor(huashu, parseLsTree(lsTree))
     expect(() => diffStickers(lock, { files: {}, codes: lock.codes })).toThrow(UpstreamInconsistency)
@@ -129,6 +143,33 @@ describe('the huashu diff', () => {
     expect(diffRows(file.species, after.species)).toEqual([
       { code: 'whibir1', fields: ['mass 20 g (avonet) → 25 g (avonet)', 'quality bar met → not met'] },
     ])
+  })
+
+  it('row changes: a status change alone is a data change named in the PR body', () => {
+    const before = clone(huashu)
+    before[0].conservation = { iucn: 'LC' }
+    const after = clone(huashu)
+    after[0].conservation = { iucn: 'NT' }
+    after[1].conservation = { iucn: 'EN' }
+    const prevRows = buildSpecies(before, taxa, {}).file.species
+    const rows = buildSpecies(after, taxa, {}).file.species
+    const changes = diffRows(prevRows, rows)
+    expect(changes).toEqual([
+      { code: 'whibir1', fields: ['status LC → NT'] }, { code: 'blabir1', fields: ['status none → EN'] },
+    ])
+    expect(diffRows(rows, prevRows)).toEqual([
+      { code: 'whibir1', fields: ['status NT → LC'] }, { code: 'blabir1', fields: ['status EN → none'] },
+    ])
+    expect(diffRows(rows, rows)).toEqual([])
+    const prevLock = lockFor(before, tree)
+    const nextLock = lockFor(after, tree)
+    expect(diffStickers(prevLock, nextLock)).toEqual([])
+    const records = diffRecords(prevLock.records, nextLock.records)
+    expect(records.changed).toEqual(['Avis_alba', 'Avis_nigra'])
+    const summary = summarise({ from: 'a'.repeat(40), to: 'b'.repeat(40), stickers: [], rows: changes,
+      records, names: new Map(rows.map((r) => [r.code, r.com])), website: new Set(), files: ['public/data/species.v1.json'] })
+    expect(renderPrBody(summary)).toContain('status LC → NT')
+    expect(renderPrBody(summary)).toContain('status none → EN')
   })
 })
 

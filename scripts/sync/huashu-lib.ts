@@ -49,9 +49,9 @@ export function parseLsTree(text: string): Map<string, string> {
 }
 
 /**
- * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, and the forms the
- * crosswalk can match by their former species), as a digest. A record without forms digests as it did before forms
- * were read, so only records with forms changed digest when they were added.
+ * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, forms and raw
+ * IUCN status), as a digest. Optional forms and status are appended only when present, preserving older digests for
+ * records without them. Digest the raw status so a possibly-extinct flag change is build-relevant too.
  */
 export function recordDigest(h: HuashuRecord): string {
   const fields: unknown[] = [
@@ -62,6 +62,7 @@ export function recordDigest(h: HuashuRecord): string {
   if (h.forms?.length) {
     fields.push(h.forms.map((f) => [f.formerSpecies?.scientificName ?? null, f.sticker ? [f.sticker.file, !!f.sticker.meetsQualityBar] : null]))
   }
+  if (h.conservation?.iucn !== undefined) fields.push(['iucn', h.conservation.iucn])
   return createHash('sha256').update(JSON.stringify(fields)).digest('hex').slice(0, 12)
 }
 
@@ -208,8 +209,8 @@ export function nextVersions(prev: Record<string, string>, changes: readonly Sti
 }
 
 /**
- * Data changes other than the sticker itself, per code: mass (and its source), names, and the quality bar (unless the
- * sticker itself came or went, which the sticker change already says).
+ * Data changes other than the sticker itself, per code: mass (and its source), names, IUCN status, and the quality
+ * bar (unless the sticker itself came or went, which the sticker change already says).
  */
 export type RowChange = { code: string; fields: string[] }
 export function diffRows(prev: readonly SpeciesRow[], next: readonly SpeciesRow[]): RowChange[] {
@@ -222,6 +223,7 @@ export function diffRows(prev: readonly SpeciesRow[], next: readonly SpeciesRow[
     if (p.g !== r.g || p.gSrc !== r.gSrc) f.push(`mass ${fmtG(p.g)} (${p.gSrc}) → ${fmtG(r.g)} (${r.gSrc})`)
     if (p.q !== r.q && p.st === r.st) f.push(`quality bar ${p.q ? 'met' : 'not met'} → ${r.q ? 'met' : 'not met'}`)
     if (p.com !== r.com || p.sci !== r.sci) f.push(`name ${p.com} → ${r.com}`)
+    if (p.iu !== r.iu) f.push(`status ${p.iu ?? 'none'} → ${r.iu ?? 'none'}`)
     if (f.length) out.push({ code: r.code, fields: f })
   }
   return out
