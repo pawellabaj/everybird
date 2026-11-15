@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { SharePayload } from '@/lib/share/link'
 import { OG_CACHE_COMPLETE, OG_CACHE_DEGRADED, OG_DESCRIPTION, ogCacheControl, ogName, ogResponseOptions, ogTitle, pickOgBirds, shareTitle, pickOgStickers, tryDecodeShare } from '@/lib/share/og'
@@ -136,5 +138,13 @@ describe('the image route when every font and sticker fetch fails', () => {
       vi.unstubAllGlobals()
       vi.restoreAllMocks()
     }
+  })
+})
+
+describe('the link preview footer', () => {
+  it('link previews carry the footer line without the date stamp', () => {
+    const src = readFileSync(resolve('app/s/[token]/opengraph-image.tsx'), 'utf8')
+    expect(src).toContain('{FOOTER_LINE}')
+    expect(src).not.toMatch(/asOfDate|withStamp|share\/stamp/)
   })
 })

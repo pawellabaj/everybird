@@ -7,8 +7,9 @@
 //   middle  the collage, packed for the space left (layout worker 'image' message: packFrame, the count's hole at its
 //           centre); no sticker longer than 30% of the collage wide (36% up to 24 birds)
 //   bottom  a Hairline rule, "Latest lifer: Western Grebe · Sep 2026" (Satoshi 32px), then the footer: the Everybird
-//           wordmark and one quiet line beside it, the site and the sticker credit ("everybird.yusuftaleb.com · stickers
-//           by huashu", Geist Mono 20px, Muted). The full credit, with the licence, travels in the share text.
+//           wordmark and one quiet line beside it, the site, the sticker credit and the date the image was made
+//           ("everybird.yusuftaleb.com · stickers by huashu · As of 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
+//           The full credit, with the licence, travels in the share text.
 // The story keeps Instagram's safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
 // bottom 156px (the reply bar); the post and the square use 64px margins all round. The story's collage is tall (about 952 × 1284 with
 // a name and the latest lifer): packFrame packs it for that aspect (the spiral stretched to it, as the narrow layout's
@@ -21,6 +22,7 @@ import { SHARE_ORIGIN } from '@/lib/share/origin'
 import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
 import { stickerUrl } from '@/lib/sticker-url'
 import { formatDate } from '@/lib/format'
+import { asOfDate, withStamp } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
@@ -38,7 +40,10 @@ export const IMAGE_SIZE: Record<ImageFormat, [w: number, h: number]> = { story: 
 export const NAME_MAX_LEN = 40
 /** The footer's site name: the share origin's host ("everybird.yusuftaleb.com"). */
 export const SITE_LABEL = new URL(SHARE_ORIGIN).host
-/** The footer's one line beside the wordmark on share images and link previews: the site and the sticker credit. */
+/**
+ * The footer's one line beside the wordmark on share images and link previews: the site and the sticker credit. Share
+ * images end it with the date stamp (stamp.ts withStamp); link previews don't.
+ */
 export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`
 /** The full sticker credit (CC BY 4.0), for the share sheet's text: the image itself carries FOOTER_LINE. */
 export const SHARE_CREDIT = 'Stickers: huashu-bird-sticker (CC BY 4.0) github.com/alchaincyf/huashu-bird-sticker'
@@ -437,6 +442,8 @@ export type ShareImageOpts = {
   theme: 'light' | 'dark'
   /** A pack made earlier by packForImage for this format, these entries and name-or-not (the dialog keeps them). */
   pack?: ImagePack
+  /** When the image is made, for the footer's date stamp; default `new Date()`. */
+  now?: Date
   signal?: AbortSignal
 }
 
@@ -498,6 +505,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const latest = latestRow && latestText({ com: latestRow.com, date: latestE!.date })
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
+  const footerLine = withStamp(FOOTER_LINE, asOfDate(opts.now ?? new Date()))
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
   const L = cardLayout(format, content)
   const pack = opts.pack ?? (await packForImage(shown, species, packSpec(L), signal))
@@ -540,7 +548,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
     loadStickers([...new Set([...tiles, ...(lifer ? [lifer] : [])].flatMap((t) => (t.url ? [t.url] : [])))], { signal }),
     fontsReady(
       [font.name(L.name?.size ?? 60), font.filter(34), font.count(K.size), font.mono(K.labelSize), font.lifer(34), font.brand(30), font.footer(20)],
-      `${name ?? ''}${label ?? ''}${K.number}${K.label}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${FOOTER_LINE}`,
+      `${name ?? ''}${label ?? ''}${K.number}${K.label}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
     ),
   ])
   check()
@@ -593,13 +601,14 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   if (name && L.name) draw(name, font.name, L.name, 36, C.ink)
   if (label && L.filter) draw(label, font.filter, L.filter, 24, C.accent)
 
-  // Footer, quiet: the wordmark, then one line on its baseline, the site and the sticker credit ("… · stickers by
-  // huashu", never truncated). If it doesn't fit there at 17px or more, it takes its own line under the wordmark at the
-  // bottom safe line, and the wordmark, the hairline and the latest lifer row move up by that line.
+  // Footer, quiet: the wordmark, then one line on its baseline, the site, the sticker credit and the date stamp ("… ·
+  // stickers by huashu · As of 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
+  // own line under the wordmark at the bottom safe line, and the wordmark, the hairline and the latest lifer row move
+  // up by that line.
   ctx.textBaseline = 'alphabetic'
   ctx.font = font.brand(L.footer.size)
   const brandW = ctx.measureText('Everybird').width + 16
-  const credit = placeCredit((px) => { ctx.font = font.footer(px); return ctx.measureText(FOOTER_LINE).width },
+  const credit = placeCredit((px) => { ctx.font = font.footer(px); return ctx.measureText(footerLine).width },
     maxW - brandW, maxW, L.footer.credit)
   const shift = credit.below ? credit.size + 12 : 0
   const base = L.footer.y + L.footer.size * 0.8
@@ -627,6 +636,6 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   ctx.fillText('Everybird', M, base - shift)
   ctx.font = font.footer(credit.size)
   ctx.fillStyle = C.muted
-  ctx.fillText(FOOTER_LINE, credit.below ? M : M + brandW, base)
+  ctx.fillText(footerLine, credit.below ? M : M + brandW, base)
   return canvas
 }

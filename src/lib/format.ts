@@ -8,7 +8,8 @@ export function formatMass(g: number): string {
   return `${Math.round(g)} g`
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+/** The short month names, January first ('Sep 2026'; the share images' date stamp too). */
+export const MONTHS: readonly string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** 'YYYY-MM-DD' | 'YYYY-MM' -> "Sep 2026"; 'YYYY' -> "2026"; anything else -> "". */
 export function formatDate(d?: string): string {
