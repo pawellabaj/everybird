@@ -1,0 +1,27 @@
+// The UI languages. No imports: the config (rewrites), the server and the client all read this.
+// A new language is an entry here, its own messages/<lang>.ts and the steps in GLOSSARY.md.
+
+export const LANGS = ['en', 'es', 'pt', 'nl'] as const
+export type Lang = (typeof LANGS)[number]
+
+export function isLang(s: unknown): s is Lang {
+  return typeof s === 'string' && (LANGS as readonly string[]).includes(s)
+}
+
+/** `<html lang>` per language: Portuguese is Brazilian Portuguese. */
+export const HTML_LANG: Record<Lang, string> = { en: 'en', es: 'es', pt: 'pt-BR', nl: 'nl' }
+
+/** Each language's name in itself, for the language picker. */
+export const LANG_NAMES: Record<Lang, string> = { en: 'English', es: 'Español', pt: 'Português (Brasil)', nl: 'Nederlands' }
+
+/** A BCP 47 tag's primary subtag, lower-cased ("es-AR" -> "es", "pt_BR" -> "pt"), when it is 2 or 3 letters; else undefined. */
+export function primarySubtag(tag: string | undefined): string | undefined {
+  const p = tag?.split(/[-_]/)[0]?.toLowerCase()
+  return p && /^[a-z]{2,3}$/.test(p) ? p : undefined
+}
+
+/** The UI language for a browser tag: any Spanish -> es, any Portuguese -> pt, any Dutch (nl-NL, nl-BE) -> nl, else en. */
+export function langFromTag(tag: string): Lang {
+  const p = primarySubtag(tag)
+  return isLang(p) ? p : 'en'
+}
