@@ -1,7 +1,6 @@
 // "Seen here": every place each species was seen (country, province or state, county), each with the earliest date
 // there. It is kept beside the lifer, never instead of it: the lifer (first date and first place, ListEntry) still drives
-// the collage, the cards, the latest lifer, share images and links. The Places filter, its chip counts and the map use
-// seen-here.
+// the collage, the cards, the latest lifer, share images and links. The Places filter and its chip counts use seen-here.
 //
 // Stored per source record as `seen: string[]`, each entry "date|region" or "date|region|county": region is the
 // province's code ("CA-BC") or the country's ("KE"), date is as recorded (YYYY-MM-DD, or YYYY-MM / YYYY from older
@@ -14,11 +13,12 @@
 // the places of every record that still counts (an iNaturalist record counts when any of its observations is research
 // grade, as for the lifer).
 import type { Edits, ListEntry, Place, Rules, SourceRecord } from './model'
+import { keysOfPlace } from './place-keys'
 
 export type SeenPlace = { country: string; sub1?: string; sub2?: string; date?: string }
 export type SeenEntry = { places: SeenPlace[]; keys: Set<string> }
 /**
- * Per species on the list: its places and their filter keys ("c:CA").
+ * Per species on the list: its places and their filter keys ("c:CA", "s:CA-BC", "k:CA-BC|Capital").
  * `full`: some record carries seen-here (else every place is a lifer place: the Places panel says so). `sig` changes
  * whenever any species' places do.
  */
@@ -98,10 +98,10 @@ export class SeenAgg {
   }
 }
 
-/** The filter keys of a set of places: its countries ("c:CA"; the filter goes no deeper than countries). */
+/** The filter keys of a set of places, at every level each has ("c:CA", "s:CA-BC", "k:CA-BC|Capital"; place-keys.ts). */
 export function placeKeys(places: readonly SeenPlace[]): Set<string> {
   const out = new Set<string>()
-  for (const p of places) out.add(`c:${p.country}`)
+  for (const p of places) for (const k of keysOfPlace(p)) out.add(k)
   return out
 }
 
