@@ -72,8 +72,15 @@
   align-self: flex-start; opacity: 1; padding: 0; gap: 12px;
   font-size: 16px; font-weight: 500; white-space: normal; text-align: start;
 }
-/* Buy me a coffee: a plain text link in the note's muted colour, last in the column; never on the images. */
-.eb-share-coffee a { color: inherit; text-underline-offset: 3px; }
+/* Hover (it's always at full opacity, so .eb-switch's opacity cue is gone): off, the track's ring goes Line → Muted;
+   on, the track dims as .eb-btn does and keeps its Accent ring. */
+@media (hover: hover) and (pointer: fine) {
+  .eb-share .eb-share-switch[aria-checked=false]:hover .eb-track { box-shadow: inset 0 0 0 1px var(--muted); }
+  .eb-share .eb-share-switch[aria-checked=true]:hover .eb-track { opacity: .88; }
+}
+/* Buy me a coffee: a plain text link in the note's muted colour, last in the column; never on the images. It stands
+   alone, so its press is grown to 44px by padding that the negative margin takes back (nothing moves). */
+.eb-share-coffee a { display: inline-block; padding-block: 12px; margin-block: -12px; color: inherit; text-underline-offset: 3px; }
 .eb-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
