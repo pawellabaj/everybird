@@ -106,7 +106,7 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
     } catch {
       kind = 'unknown' as const
     }
-    if (kind === 'unknown') {
+    if (kind !== 'ebird-lifelist' && kind !== 'ebird-mydata') {
       setEbird({ ...IDLE_EBIRD, error: "Couldn't read this file. Use eBird's life list download or MyEBirdData.csv." })
       return
     }
