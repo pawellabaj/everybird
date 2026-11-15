@@ -351,6 +351,11 @@
   border-radius: calc(8px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-field { display: none; }
+/* "Show latest lifer" (.eb-share-switch), on: the dock's track and knob in the dock's on state. No room in the compact design. */
+.ebd .ebd-share-switch { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; height: 22px; font-size: 12px; font-weight: 500; }
+.ebd .ebd-share-switch[data-on] .ebd-track { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ebd .ebd-share-switch[data-on] .ebd-knob { transform: translateX(10px); background: var(--paper); }
+.ebd .ss-stage[data-layout="compact"] .ebd-share-switch { display: none; }
 .ebd .ebd-share-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-actions .ebd-btn { flex: 1 1 100%; height: 26px; }
 

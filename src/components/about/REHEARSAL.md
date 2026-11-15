@@ -34,7 +34,8 @@ What changed, and why each label is what it is:
   or on another bird, or if the chips stop adding up; e2e/about.spec.ts checks the drawn pixels against the count.
 - Share opens the share dialog in the window (both designs): the preview (one 4:5 box, the image letterboxed), Story /
   Post / Square with their ratios (icons and ratios dropped in the compact column, as the product does under 420 px),
-  the collage title field and the three actions. The image is the centre-count card without a name (the collage has no
+  the collage title field, the "Show latest lifer" switch (on, as the product opens; wide design only, like the title
+  field) and the three actions. The image is the centre-count card without a name (the collage has no
   title): stickers around "112 / SPECIES", "LATEST LIFER · OCT 2026" over Tricolored Heron, a hairline, the wordmark and
   "everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026" on one line (the demo's fixed date stamp, the
   day of its "Imported 6 Nov"; the product stamps the day the image is made). The old separate credit line is gone (the

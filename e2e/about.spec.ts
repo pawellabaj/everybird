@@ -302,6 +302,17 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)
   expect(formats).toEqual(["Story9:16", "Post4:5", "Square1:1"])
   expect(await scene.locator(".ebd-seg-btn").allTextContents()).toEqual(formats)
+  // The "Show latest lifer" switch, on (the product's default), between the title field and the actions
+  await expect(scene.locator(".ebd-share-switch")).toHaveText("Show latest lifer")
+  await expect(scene.locator(".ebd-share-switch")).toHaveAttribute("data-on", "")
+  expect(src("src/components/share/ShareDialog.tsx")).toContain("<span>Show latest lifer</span>")
+  await expect(page.locator('[data-poster="compact"] .ebd-share-switch')).toBeHidden() // no room in the compact design, as the title field
+  // The dialog still fits inside the stage
+  const fit = await scene.evaluate((s) => {
+    const d = s.querySelector(".ebd-share")!.getBoundingClientRect(), st = s.getBoundingClientRect()
+    return st.bottom - d.bottom
+  })
+  expect(fit).toBeGreaterThanOrEqual(0)
   // The footer line ends with the demo's fixed date stamp (its "Imported 6 Nov"), as the product's ends with the day's
   const LINE = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 10, 6)))
   expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
