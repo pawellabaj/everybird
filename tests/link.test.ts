@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import linkIndex from '../data/link-index.json'
 import { formatPlace } from '@/lib/import/places'
 import { decodeShare, encodeShare, ShareTooLarge, TOKEN_BUDGET, type ShareBird, type SharePayload } from '@/lib/share/link'
-import { payloadFromList } from '@/lib/share/convert'
+import { payloadFromList, payloadToRecords } from '@/lib/share/convert'
 import { makeShareLink } from '@/lib/share/make-link'
 import type { ListEntry } from '@/lib/list/model'
 
@@ -123,6 +123,19 @@ describe('share links', () => {
     const r = rng(5)
     const p: SharePayload = { v: 1, birds: sample(9000, 2).map((code) => ({ code, m: 1 + Math.floor(r() * 7) })) }
     expect(() => encodeShare(p)).toThrow(ShareTooLarge)
+  })
+
+  it('old links keep their place lines in the shared view', () => {
+    // Every frozen token decodes, and its places print exactly as the link carries them once split into province and county.
+    const regions = { v: 1 as const, countries: { CA: 'Canada', EG: 'Egypt' }, sub1: { 'CA-BC': 'British Columbia' } }
+    const tokens = readFileSync('tests/fixtures/share/v1-frozen.txt', 'utf8').split('\n').map((t) => t.trim()).filter(Boolean)
+    expect(tokens.length).toBeGreaterThan(0)
+    for (const token of tokens) {
+      const p = decodeShare(token)
+      const { records, regions: shown } = payloadToRecords(p, regions)
+      p.birds.forEach((b, i) => { if (b.p !== undefined) expect(formatPlace(records[i].place, shown)).toBe(p.places![b.p]) })
+      expect(records[0].place).toMatchObject({ country: 'CA', sub2: 'Okanagan-Similkameen' })
+    }
   })
 
   it('decodes the frozen v1 fixture', () => {

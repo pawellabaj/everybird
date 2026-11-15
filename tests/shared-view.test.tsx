@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SharedView, missingFilters } from '@/components/app/SharedView'
+import { formatPlace } from '@/lib/import/places'
 import { dateToYm, payloadToRecords, ymToDate } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
 
@@ -24,7 +25,28 @@ describe('shared view', () => {
     const { records, regions: shown } = payloadToRecords(p, regions)
     expect(records[0]).toMatchObject({ code: 'a', date: '2020-03', heard: true, media: true, place: { country: 'CA' } })
     expect(records[1].place).toEqual({ country: 'EG' })
-    expect(shown.sub1[records[0].place!.sub1!]).toBe('Okanagan, British Columbia')
+    expect(records[0].place!.sub2).toBe('Okanagan')
+    expect(shown.sub1[records[0].place!.sub1!]).toBe('British Columbia')
+  })
+
+  it('splits a shared place into a province and a county, one province key per name', () => {
+    const p: SharePayload = { v: 1, places: ['Okanagan, British Columbia, Canada', 'British Columbia, Canada', 'Sooke, Metchosin, British Columbia, Canada', 'Egypt'], countries: ['CA', 'CA', 'CA', 'EG'],
+      birds: [{ code: 'a', p: 0 }, { code: 'b', p: 1 }, { code: 'c', p: 2 }, { code: 'd', p: 3 }] }
+    const { records, regions: shown } = payloadToRecords(p, regions)
+    const k = records[0].place!.sub1!
+    expect(records[0].place).toEqual({ country: 'CA', sub1: k, sub2: 'Okanagan' })
+    expect(records[1].place).toEqual({ country: 'CA', sub1: k })
+    expect(records[2].place).toEqual({ country: 'CA', sub1: k, sub2: 'Sooke, Metchosin' })
+    expect(records[3].place).toEqual({ country: 'EG' })
+    expect(shown.sub1[k]).toBe('British Columbia')
+    p.places!.forEach((d, i) => expect(formatPlace(records[i].place, shown)).toBe(d))
+  })
+
+  it('keeps a place whole when the viewer does not know its country', () => {
+    const p: SharePayload = { v: 1, places: ['Okanagan, British Columbia, Narnia'], countries: ['ZZ'], birds: [{ code: 'a', p: 0 }] }
+    const { records, regions: shown } = payloadToRecords(p, regions)
+    expect(records[0].place).toEqual({ country: 'ZZ', sub1: records[0].place!.sub1 })
+    expect(shown.sub1[records[0].place!.sub1!]).toBe('Okanagan, British Columbia, Narnia')
   })
 
   it('knows which filters a link lacks', () => {
