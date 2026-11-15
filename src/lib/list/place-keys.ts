@@ -58,12 +58,16 @@ export function isWithin(key: string, ancestor: string): boolean {
  * county's under its own province; undefined when the place isn't in `parent` or has nothing at the next level.
  */
 export function childKey(p: PlaceLike, parent: string | undefined): string | undefined {
-  if (parent === undefined) return `c:${p.country}`
+  return childKeyOf(parent)(p)
+}
+
+/** `childKey` with `parent` parsed once, for a loop over many places under the same parent. */
+export function childKeyOf(parent: string | undefined): (p: PlaceLike) => string | undefined {
+  if (parent === undefined) return (p) => `c:${p.country}`
   const at = parsePlaceKey(parent)
-  if (!at) return undefined
-  if (at.level === 'country') return p.country === at.country && p.sub1 ? `s:${p.sub1}` : undefined
-  if (at.level === 'province') return p.sub1 === at.sub1 && p.sub2 ? `k:${p.sub1}|${p.sub2}` : undefined
-  return undefined
+  if (at?.level === 'country') return (p) => (p.country === at.country && p.sub1 ? `s:${p.sub1}` : undefined)
+  if (at?.level === 'province') return (p) => (p.sub1 === at.sub1 && p.sub2 ? `k:${p.sub1}|${p.sub2}` : undefined)
+  return () => undefined
 }
 
 type Names = Pick<Regions, 'countries' | 'sub1'>

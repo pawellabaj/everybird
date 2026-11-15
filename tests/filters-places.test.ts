@@ -94,6 +94,16 @@ describe('provinces and counties', () => {
     expect(rowsOf({ order: 'Strigiformes' }, 'c:CA')).toEqual([['s:CA-ON', 1, 0]])
     expect(rowsOf({ provinces: ['CA-ON'] }, 'c:CA')).toEqual(rowsOf({}, 'c:CA')) // whatever is checked
   })
+  it('a county seen without a province counts at its country only: no province or county option, no children', () => {
+    const recs = [rec('owl', { date: '2021-01-01', place: { country: 'KE' }, seen: ['2021-01-01|KE|Some county'] })]
+    const l = buildList(recs, EMPTY_EDITS, DEFAULT_RULES)
+    const s = buildSeen(recs, EMPTY_EDITS, DEFAULT_RULES, l)
+    const rowsOf = (parent?: string) => placeOptions(l, {}, parent, species, (k) => k, s).map((o) => [o.value, o.count, o.children])
+    expect(rowsOf()).toEqual([['c:KE', 1, 0]])
+    expect(rowsOf('c:KE')).toEqual([])
+    expect(applyFilter(l, { countries: ['KE'] }, species, s).map((e) => e.code)).toEqual(['owl'])
+    expect(applyFilter(l, { counties: ['KE|Some county'] }, species, s)).toEqual([])
+  })
   it('togglePlace narrows and widens; a selection never holds a place and its ancestor', () => {
     expect(togglePlace({ countries: ['CA'] }, 's:CA-BC')).toEqual({ provinces: ['CA-BC'] })
     expect(togglePlace({ provinces: ['CA-BC'] }, 'c:CA')).toEqual({ countries: ['CA'] })

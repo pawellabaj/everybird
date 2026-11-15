@@ -1,7 +1,7 @@
 import type { SpeciesIndex } from '@/lib/species/load'
 import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
-import { childKey, isWithin, parentKey, parsePlaceKey } from './place-keys'
+import { childKey, childKeyOf, isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
 
 /**
@@ -261,11 +261,12 @@ export function placeOptions(
   const counts = new Map<string, number>()
   const kids = new Map<string, Set<string>>()
   const here = new Set<string>()
+  const child = childKeyOf(parent)
   for (const e of list) {
     if (!m(e)) continue
     here.clear()
     for (const p of seenOf(seen, e)) {
-      const k = childKey(p, parent)
+      const k = child(p)
       if (!k) continue
       here.add(k)
       const kid = childKey(p, k)
