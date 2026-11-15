@@ -408,10 +408,18 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       expect(m.ih, `${format} at ${width}px: the image doesn't fill its box`).toBeGreaterThanOrEqual(m.bh - 1);
       // Beside the controls in an 800px-tall window, the story is the dialog's height: well over twice the old 400px box's area.
       if (width >= 1000 && format === "Story") expect(m.bh, `the story at ${width}px is short`).toBeGreaterThanOrEqual(600);
+      // No preview is wider than 560px, so the widest dialog stays close to a story's.
+      expect(m.bw, `${format} at ${width}px: the preview is wider than 560px`).toBeLessThanOrEqual(560.5);
       // Stacked on a phone, the tallest preview still leaves Share image on the dialog's first screen, with air under it.
       if (width < 720 && format === "Story") {
-        const gap = await dialog.evaluate((d) => { d.scrollTop = 0; return d.getBoundingClientRect().bottom - [...d.querySelectorAll("button")].find((b) => b.textContent!.includes("Share image"))!.getBoundingClientRect().bottom; });
-        expect(gap, `at ${width}px Share image is not on the first screen with air under it`).toBeGreaterThanOrEqual(8);
+        const g = await dialog.evaluate((d) => {
+          d.scrollTop = 0;
+          const bottom = d.getBoundingClientRect().bottom;
+          const btn = (t: string) => [...d.querySelectorAll("button")].find((b) => b.textContent!.includes(t))!.getBoundingClientRect();
+          return { air: bottom - btn("Share image").bottom, peek: bottom - btn("Download image").top };
+        });
+        expect(g.air, `at ${width}px Share image is not on the first screen with air under it`).toBeGreaterThanOrEqual(12);
+        expect(g.peek, `at ${width}px the Download row doesn't show its top as a scroll cue`).toBeGreaterThanOrEqual(width >= 390 ? 12 : 4);
       }
       seen.push({ format, col: m.col, icons: m.icons, segX: m.segX, segY: m.segY });
       if (shots) {
@@ -427,11 +435,10 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
     for (const s of seen.slice(1)) {
       expect(s.col, `${s.format} at ${width}px: the controls' column changed with the format`).toBeCloseTo(seen[0].col, 0);
       expect(s.icons, `${s.format} at ${width}px: the format icons came or went with the format`).toBe(seen[0].icons);
-      // The format control stays put: beside the preview the dialog grows leftward from a fixed right edge (a dialog
-      // whose height changes, where the window's width bounds the square, still re-centres vertically); stacked, the
-      // control sits above the preview and the dialog keeps its top.
+      // The format control stays put at every width: beside the preview the dialog grows leftward and downward from
+      // fixed right and top edges; stacked, the control sits above the preview and the dialog keeps its top.
       expect(s.segX, `${s.format} at ${width}px: the format control moved sideways`).toBeCloseTo(seen[0].segX, 0);
-      if (width < 720) expect(s.segY, `${s.format} at ${width}px: the format control moved up or down`).toBeCloseTo(seen[0].segY, 0);
+      expect(s.segY, `${s.format} at ${width}px: the format control moved up or down`).toBeCloseTo(seen[0].segY, 0);
     }
     // Wide windows have room for the icons beside the preview.
     if (width >= 1000) expect(seen[0].icons, `at ${width}px the format control has its icons`).toBe(true);
@@ -443,10 +450,16 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
     await page.evaluate((s) => { document.documentElement.style.fontSize = s; }, size);
     const m = await dialog.evaluate((d) => {
       const col = d.querySelector(".eb-share-controls")!.getBoundingClientRect();
-      return { sw: d.scrollWidth, cw: d.clientWidth, swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right };
+      const words = [...d.querySelectorAll(".eb-seg-label")].map((l) => l.getBoundingClientRect());
+      const btns = [...d.querySelectorAll(".eb-seg-btn")].map((l) => l.getBoundingClientRect());
+      return {
+        sw: d.scrollWidth, cw: d.clientWidth, swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
+        wordOver: Math.max(...words.map((w, i) => Math.max(btns[i].left - w.left, w.right - btns[i].right))),
+      };
     });
     expect(m.sw, `at 320px and ${size} text: the dialog scrolls sideways`).toBeLessThanOrEqual(m.cw);
     expect(m.swOver, `at 320px and ${size} text: "Show latest lifer" sticks out of its column`).toBeLessThanOrEqual(0.5);
+    expect(m.wordOver, `at 320px and ${size} text: a format's word sticks out of its button`).toBeLessThanOrEqual(0.5);
   }
   await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
 });

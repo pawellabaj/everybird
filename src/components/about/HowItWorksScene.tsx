@@ -449,7 +449,7 @@ const FORMATS: { id: Format; label: string; hint: string; icon: typeof Square }[
  * Surface around it. Wide: the box is the dialog's height (h) and the format's width, and the dialog narrows or widens
  * around it from a fixed right edge, as the product's does. Compact: the image fits a fixed w x h column, centred in it.
  */
-const PREVIEW = { wide: { w: 210, h: 210 }, compact: { w: 128, h: 160 } }
+const PREVIEW = { wide: { w: 202, h: 202 }, compact: { w: 128, h: 160 } }
 const IMG_AR: Record<Format, number> = { story: 9 / 16, post: 4 / 5, square: 1 }
 function previewBox(f: Format, wide: boolean): { w: number; h: number } {
   const { w, h } = PREVIEW[wide ? 'wide' : 'compact']

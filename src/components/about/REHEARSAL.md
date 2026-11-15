@@ -33,7 +33,7 @@ What changed, and why each label is what it is:
   product's. tests/howto-data.test.ts fails if the file drifts from the packer, if a sticker's mask paints on the count
   or on another bird, or if the chips stop adding up; e2e/about.spec.ts checks the drawn pixels against the count.
 - Share opens the share dialog in the window (both designs): the preview, its box the image's own shape (Hairline, 12px
-  corners, no Surface bands; wide: 210px tall, the dialog anchored by its right edge and narrowing for Story and Post as
+  corners, no Surface bands; wide: 202px tall, the dialog anchored 16px inside the window's visible right edge by its right edge and narrowing for Story and Post as
   the product's does, so the format control and the close button stay put; compact: the image fitted to a 128 x 160
   column), Story /
   Post / Square with their ratios (icons and ratios dropped in the compact column, as the product does under 420 px),

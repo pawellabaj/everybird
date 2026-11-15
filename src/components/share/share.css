@@ -50,11 +50,12 @@
 .eb-share-preview img { display: block; width: 100%; height: 100%; object-fit: contain; transition: opacity .2s cubic-bezier(.25, .8, .25, 1); }
 .eb-share-preview[aria-busy="true"] img { opacity: .55; }
 
-/* Stacked (phones): as tall as the screen allows while Share image stays on the first screen with about 12px of air
-   under it and the top of the next row of buttons showing (the head, the format control, the title field, the switch,
-   the button and that margin take about 404px with the dialog's padding and gaps), at most 62% of the screen and
-   600px, at least 240px; as wide as the dialog allows. */
-.eb-share-preview { --cap: max(240px, min(62dvh, 100dvh - 404px, 600px)); }
+/* Stacked (phones): as tall as the screen allows while Share image stays on the first screen, ending 26px above the
+   dialog's bottom edge with the top 18px of the Download / Copy link row showing under it as a cue to scroll (the head,
+   the format control, the title field, the switch, the button and that margin take 409px with the dialog's padding
+   and gaps; measured at 390 x 844 and 700), at most 62% of the screen and 600px, at least 240px; as wide as the dialog
+   allows. */
+.eb-share-preview { --cap: max(240px, min(62dvh, 100dvh - 409px, 600px)); }
 .eb-share[data-layout="a"] .eb-share-preview { width: min(100%, calc(var(--cap) * var(--ar))); aspect-ratio: var(--ar); }
 .eb-share[data-layout="b"] .eb-share-preview { width: 100%; height: var(--cap); }
 
@@ -62,14 +63,21 @@
    gap and 1px borders: 134px), at most 760px, and never wider than the window leaves beside the controls' column
    (--ctl: 300px, 420px from 1000px so the format control keeps its icons; 92px of padding and gap, 16px of slack for a
    scrollbar). The height is --pv-h, not --h, which collage.css registers as a number.
-   a: the dialog's width follows the format, so it is anchored by its right edge where the widest (square) dialog's
-   right edge would be when centred: the preview grows to the left, and the controls and the close button stay put. */
+   No preview is wider than 560px (--wide), so a square leaves the dialog only a little wider than a story's.
+   a: the dialog's size follows the format, so it is anchored by its right edge where the widest (square) dialog's
+   right edge would be when centred, and by its top edge where the tallest (story) dialog's would be (its preview plus
+   102px of chrome): the preview grows to the left, and the format control, the controls and the close button stay put
+   at every width (where the window's width bounds the square, its dialog is shorter than the story's). */
 @media (min-width: 720px) {
-  .eb-share-scrim { --ctl: 300px; --room: calc(100vw - var(--ctl) - 108px); --tall: min(100dvh - 134px, 760px); }
+  .eb-share-scrim {
+    --ctl: 300px; --wide: 560px; --room: min(100vw - var(--ctl) - 108px, var(--wide)); --tall: min(100dvh - 134px, 760px);
+  }
   .eb-share-scrim[data-layout="a"] {
-    justify-items: end;
+    --top: max(16px, (100dvh - (max(240px, min(var(--tall), var(--room) / (9 / 16))) + 102px)) / 2);
+    place-items: start end; padding-top: var(--top);
     padding-right: max(16px, (100% - (max(240px, min(var(--tall), var(--room))) + var(--ctl) + 62px)) / 2);
   }
+  .eb-share-scrim[data-layout="a"] .eb-share { max-height: calc(100dvh - var(--top) - 16px); }
   .eb-share { width: fit-content; max-width: 100%; }
   .eb-share-body { grid-template-columns: auto var(--ctl); grid-template-rows: auto 1fr; }
   .eb-share-preview { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
@@ -162,9 +170,14 @@
 .eb-seg-btn[aria-pressed="true"] { opacity: 1; background: var(--surface); }
 /* The control answers to its column's width (a container query), not the window's: where three formats with icons
    don't fit, the row spans the column and the icons go; narrower still, the ratios go too, the words stay. */
+/* The format words keep 16px (in px, as the switch's label does), so a reader's larger text size never pushes them
+   past the control on a small phone (at 320px and 200% they overlapped). */
+.eb-share .eb-seg-btn { font-size: 16px; }
+/* It spans its column: the formats share any room left over. */
+.eb-share-formats .eb-seg { display: flex; }
+.eb-share-formats .eb-seg-btn { flex: 1 1 auto; }
 @container (max-width: 419px) {
-  .eb-share-formats .eb-seg { display: flex; }
-  .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .eb-share-formats .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
   .eb-seg-btn svg { display: none; }
 }
 @container (max-width: 259px) { .eb-seg-btn .eb-share-hint { display: none; } }
