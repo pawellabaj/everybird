@@ -43,6 +43,8 @@
 .eb-share-preview { --ar: calc(9 / 16); }
 .eb-share-preview[data-format="post"] { --ar: calc(4 / 5); }
 .eb-share-preview[data-format="square"] { --ar: 1; }
+/* The poster's preview: an A size (1:√2, wider than 9:16), so it sits inside the story's area as a post does. */
+.eb-share-preview[data-format="print"] { --ar: calc(1240 / 1754); }
 .eb-share-preview {
   position: relative; justify-self: center; align-self: center; box-sizing: border-box; overflow: hidden;
   background: var(--surface); border: 1px solid var(--hairline);
@@ -137,6 +139,21 @@
 /* Buy me a coffee: a plain text link in the note's muted colour, last in the column; never on the images. It stands
    alone, so its press is grown to 44px by padding that the negative margin takes back (nothing moves). */
 .eb-share-coffee a { display: inline-block; padding-block: 12px; margin-block: -12px; color: inherit; text-underline-offset: 3px; }
+/* Variant c's "Print a poster, A4 to A1": the coffee line's look (a muted underlined line with a 44px press), as a
+   button since it changes the dialog's mode rather than going anywhere. */
+.eb-share-textlink {
+  display: inline-block; padding: 12px 0; margin-block: -12px; border: 0; background: none; cursor: pointer;
+  color: inherit; font: inherit; text-align: start; text-decoration: underline; text-underline-offset: 3px;
+}
+/* The poster's size choice spans the column, the sizes sharing it evenly. */
+.eb-share-sizes { display: flex; }
+.eb-share-sizes .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+/* While a poster is made: a thin bar (Hairline track, Accent fill) with the mono percentage and Cancel, on its own row
+   of the actions. */
+.eb-share-progress { display: flex; flex: 1 1 100%; align-items: center; gap: 12px; min-width: 0; }
+.eb-share-bar { flex: 1 1 auto; height: 4px; min-width: 0; overflow: hidden; background: var(--hairline); border-radius: 2px; }
+.eb-share-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .15s var(--ease-ui); }
+.eb-share-pct { flex: none; min-width: 4ch; text-align: end; font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .eb-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -145,9 +162,10 @@
   .eb-share-preview, .eb-share-preview[data-resizing], .eb-share-preview img { transition: none; }
   .eb-share-spin { animation: none; border-color: var(--accent); opacity: .5; }
   .eb-share .eb-share-switch, .eb-share-switch .eb-track, .eb-share-switch .eb-knob { transition: none; }
+  .eb-share-bar-fill { transition: none; }
 }
 
-/* The Story / Post / Square choice: a small segmented control in the dock's style. */
+/* The Story / Post / Square (/ Print) choice: a small segmented control in the dock's style. */
 .eb-seg {
   display: inline-flex; gap: 4px; padding: 4px;
   border: 1px solid var(--hairline);
@@ -179,4 +197,10 @@
   .eb-seg-btn svg { display: none; }
 }
 @container (max-width: 259px) { .eb-seg-btn .eb-share-hint { display: none; } }
+/* Four formats (preview variant a, with Print): the icons go under 460px, the ratios under 360px. */
+@container (max-width: 459px) {
+  .eb-share-formats .eb-seg-4 .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .eb-seg-4 .eb-seg-btn svg { display: none; }
+}
+@container (max-width: 359px) { .eb-seg-4 .eb-seg-btn .eb-share-hint { display: none; } }
 @media (prefers-reduced-motion: reduce) { .eb-seg-btn { transition: none; } }

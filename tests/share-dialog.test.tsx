@@ -4,6 +4,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ShareDialog from '@/components/share/ShareDialog'
 import * as image from '@/lib/share/image'
+import { track } from '@/lib/analytics'
+import { downloadBlob } from '@/lib/download'
 import type { ListEntry } from '@/lib/list/model'
 import { initialState } from '@/lib/list/store'
 import { decodeShare } from '@/lib/share/link'
@@ -19,6 +21,21 @@ vi.mock('@/lib/share/image', async (orig) => ({
   clearStickerCache: vi.fn(),
 }))
 
+// The poster is made by a promise the test settles; it records the progress callback, the signal and the opts.
+type FakePoster = { size: string; bytes: number; soft: number; missing: number; file: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }
+const makes: { opts: { size: string; signal?: AbortSignal; pack?: unknown }; onProgress: (d: number, t: number) => void; resolve: (p: FakePoster) => void; reject: (e: unknown) => void }[] = []
+vi.mock('@/lib/share/poster', () => ({
+  makePoster: vi.fn((opts, onProgress) => new Promise((resolve, reject) => makes.push({ opts, onProgress, resolve, reject }))),
+}))
+vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+vi.mock('@/lib/download', () => ({ downloadBlob: vi.fn() }))
+const fakePoster = (over: Partial<FakePoster> = {}): FakePoster => ({
+  size: 'A4', bytes: 1, soft: 0, missing: 0,
+  file: vi.fn(async (kind: string) => new Blob([kind], { type: kind === 'png' ? 'image/png' : 'application/pdf' })),
+  dispose: vi.fn(),
+  ...over,
+})
+
 const row = (code: string, to: number) => ({ code, com: code, sci: code, ord: 'Struthioniformes', fam: 'Struthionidae', famCom: 'Ostriches', to, g: 100000, gSrc: 'family', st: true, ar: 1, q: true }) as SpeciesRow
 const species = buildSpeciesIndex([row('ostric2', 1), row('emu1', 2)])
 const regions = { v: 1 as const, countries: { CA: 'Canada' }, sub1: {} }
@@ -27,12 +44,15 @@ const stateWith = (list: ListEntry[]) => ({ ...initialState(), list })
 
 beforeEach(() => {
   renders.length = 0
+  makes.length = 0
+  vi.mocked(track).mockClear()
+  vi.mocked(downloadBlob).mockClear()
   vi.mocked(image.packForImage).mockClear()
   vi.mocked(image.renderShareImage).mockClear()
   URL.createObjectURL = vi.fn(() => 'blob:x')
   URL.revokeObjectURL = vi.fn()
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); history.replaceState(null, '', '/') })
 
 describe('share dialog', () => {
   it('"Collage title" starts from Settings > Name your collage; editing it changes only this share, never the saved title', async () => {
@@ -185,5 +205,221 @@ describe('share dialog', () => {
     await waitFor(() => expect(renders).toHaveLength(2))
     await act(async () => renders[1].resolve(new Blob(['png'], { type: 'image/png' })))
     await waitFor(() => expect(box).toHaveAttribute('data-format', 'post'))
+  })
+})
+
+describe('share dialog: print mode', () => {
+  const open = () => render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+  const toPrint = () => fireEvent.click(screen.getByRole('button', { name: /^Print/ }))
+  const startMake = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(1))
+  }
+
+  it('variant a: Print is a 4th format; choosing it shows Poster size A4–A1, A4 pressed, and Make poster', async () => {
+    open()
+    const formats = screen.getByRole('group', { name: 'Image format' })
+    expect(formats).toHaveClass('eb-seg-4')
+    expect(formats.querySelectorAll('button')).toHaveLength(4)
+    expect(screen.getByRole('button', { name: /^Print/ }).textContent).toBe('PrintA4–A1')
+    expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
+    toPrint()
+    expect(screen.getByRole('button', { name: /^Print/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^Story/ })).toHaveAttribute('aria-pressed', 'false')
+    const sizes = screen.getByRole('group', { name: 'Poster size' })
+    expect([...sizes.querySelectorAll('button')].map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual(
+      [['A4', 'true'], ['A3', 'false'], ['A2', 'false'], ['A1', 'false']])
+    expect(screen.getByText('A4 · 21 × 29.7 cm · 1240 × 1754 px at 150 dpi')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share image' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Download image' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'A2' }))
+    expect(screen.getByText('A2 · 42 × 59.4 cm · 2480 × 3508 px at 150 dpi')).toBeInTheDocument()
+    // The preview is the poster's, always light, at the chosen size.
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)?.[0]).toMatchObject({ format: 'print', printSize: 'A2', theme: 'light' }))
+    await act(async () => renders.at(-1)!.resolve(new Blob(['png'], { type: 'image/png' })))
+    await waitFor(() => expect(screen.getByTestId('share-preview')).toHaveAttribute('data-format', 'print'))
+    const img = screen.getByAltText('Preview of the A2 poster')
+    expect(img).toHaveAttribute('width', '1080')
+    expect(img).toHaveAttribute('height', String(Math.round(1080 * 3508 / 2480)))
+    // A share format leaves print mode.
+    fireEvent.click(screen.getByRole('button', { name: /^Post/ }))
+    expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Share image' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['b', 'Print a poster'],
+    ['c', 'Print a poster, A4 to A1'],
+  ])('variant %s: a "%s" entry opens print mode; Share images goes back', async (v, label) => {
+    history.replaceState(null, '', `/?v=print:${v}`)
+    open()
+    const formats = screen.getByRole('group', { name: 'Image format' })
+    expect(formats).not.toHaveClass('eb-seg-4')
+    expect(formats.querySelectorAll('button')).toHaveLength(3)
+    fireEvent.click(screen.getByRole('button', { name: label }))
+    expect(screen.getByRole('group', { name: 'Poster size' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Image format' })).toBeNull()
+    const back = screen.getByRole('button', { name: 'Share images' })
+    await waitFor(() => expect(back).toHaveFocus())
+    expect(screen.queryByRole('button', { name: label })).toBeNull()
+    fireEvent.click(back)
+    expect(screen.getByRole('group', { name: 'Image format' })).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
+    await waitFor(() => expect(screen.getByRole('button', { name: label })).toHaveFocus())
+  })
+
+  it('Make poster shows a progressbar with Cancel; when done, Download PNG and Download PDF save everybird-a4.png/.pdf at once', async () => {
+    open()
+    toPrint()
+    await startMake()
+    expect(makes[0].opts.size).toBe('A4')
+    expect(makes[0].opts.pack).toEqual({ boxes: [] }) // the dialog's print pack, so makePoster doesn't pack again
+    const bar = screen.getByRole('progressbar', { name: 'Making the poster' })
+    expect(bar).toHaveAttribute('aria-valuemin', '0')
+    expect(bar).toHaveAttribute('aria-valuemax', '100')
+    expect(bar).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Make poster' })).toBeNull()
+    act(() => makes[0].onProgress(1, 4))
+    expect(bar).toHaveAttribute('aria-valuenow', '25')
+    expect(screen.getByText('25%')).toBeInTheDocument()
+    const p = fakePoster()
+    await act(async () => makes[0].resolve(p))
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.getByTestId('share-note').textContent).toBe('Your A4 poster is ready.')
+    const png = screen.getByRole('button', { name: 'Download PNG' }) as HTMLButtonElement
+    const pdf = screen.getByRole('button', { name: 'Download PDF' }) as HTMLButtonElement
+    expect(png.disabled).toBe(false)
+    expect(pdf.disabled).toBe(false)
+    fireEvent.click(png)
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('everybird-a4.png')
+    expect(screen.getByTestId('share-note').textContent).toBe('Saved everybird-a4.png.')
+    fireEvent.click(pdf)
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(downloadBlob).mock.calls[1][1]).toBe('everybird-a4.pdf')
+    expect(p.file.mock.calls.map((c) => c[0])).toEqual(['png', 'pdf'])
+  })
+
+  it('Cancel aborts the make and shows Make poster again', async () => {
+    open()
+    toPrint()
+    await startMake()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(makes[0].opts.signal?.aborted).toBe(true)
+    expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+    await act(async () => makes[0].reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })))
+    expect(screen.getByTestId('share-note').textContent).toBe('') // a cancel stays quiet
+  })
+
+  it('changing the size during a make aborts it (signal aborted) and shows Make poster again; no stale poster downloads', async () => {
+    open()
+    toPrint()
+    await startMake()
+    fireEvent.click(screen.getByRole('button', { name: 'A3' }))
+    expect(makes[0].opts.signal?.aborted).toBe(true)
+    expect(screen.queryByRole('progressbar')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+    // The old make finishing anyway is dropped, never offered.
+    const stale = fakePoster()
+    await act(async () => makes[0].resolve(stale))
+    expect(stale.dispose).toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
+    // A finished poster is dropped by a new title too.
+    await startMakeAgain()
+    const p = fakePoster({ size: 'A3' })
+    await act(async () => makes[1].resolve(p))
+    expect(screen.getByTestId('share-note').textContent).toBe('Your A3 poster is ready.')
+    fireEvent.change(screen.getByLabelText('Collage title'), { target: { value: 'Kenya' } })
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
+    expect(screen.getByTestId('share-note').textContent).toBe('')
+    expect(downloadBlob).not.toHaveBeenCalled()
+
+    async function startMakeAgain() {
+      fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+      await waitFor(() => expect(makes).toHaveLength(2))
+      expect(makes[1].opts.size).toBe('A3')
+    }
+  })
+
+  it('leaving print mode aborts a make (variant a) and drops a finished poster (variant b)', async () => {
+    const first = open()
+    toPrint()
+    await startMake()
+    fireEvent.click(screen.getByRole('button', { name: /^Post/ }))
+    expect(makes[0].opts.signal?.aborted).toBe(true)
+    first.unmount()
+
+    makes.length = 0
+    history.replaceState(null, '', '/?v=print:b')
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+    await startMake()
+    const p = fakePoster()
+    await act(async () => makes[0].resolve(p))
+    fireEvent.click(screen.getByRole('button', { name: 'Share images' }))
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+    expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
+  })
+
+  it('closing the dialog aborts the make and disposes the poster', async () => {
+    const first = open()
+    toPrint()
+    await startMake()
+    first.unmount()
+    expect(makes[0].opts.signal?.aborted).toBe(true)
+
+    makes.length = 0
+    const second = open()
+    toPrint()
+    await startMake()
+    const p = fakePoster()
+    await act(async () => makes[0].resolve(p))
+    expect(p.dispose).not.toHaveBeenCalled()
+    second.unmount()
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('soft > 0 shows the smaller-files note; missing > 0 the outlines note; a poster-memory error the try-a-smaller-size note', async () => {
+    open()
+    toPrint()
+    await startMake()
+    await act(async () => makes[0].resolve(fakePoster({ soft: 3, missing: 1 })))
+    expect(screen.getByTestId('share-note').textContent).toBe(
+      'Your A4 poster is ready. Some stickers come from smaller files for now, so the biggest birds may print a little soft. '
+      + "1 sticker didn't load and is drawn as an outline. Make the poster again to retry.")
+
+    fireEvent.click(screen.getByRole('button', { name: 'A2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(2))
+    await act(async () => makes[1].resolve(fakePoster({ size: 'A2', missing: 5 })))
+    expect(screen.getByTestId('share-note').textContent).toBe(
+      "Your A2 poster is ready. 5 stickers didn't load and are drawn as outlines. Make the poster again to retry.")
+
+    fireEvent.click(screen.getByRole('button', { name: 'A1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(3))
+    await act(async () => makes[2].reject(new Error('poster-memory')))
+    const note = screen.getByTestId('share-note')
+    expect(note.textContent).toBe("Couldn't make the poster. Try a smaller size.")
+    expect(note).toHaveClass('eb-error')
+    expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+  })
+
+  it('print mode sends no analytics', async () => {
+    open()
+    toPrint()
+    await startMake()
+    act(() => makes[0].onProgress(1, 1))
+    await act(async () => makes[0].resolve(fakePoster()))
+    fireEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(2))
+    expect(track).not.toHaveBeenCalled()
   })
 })
