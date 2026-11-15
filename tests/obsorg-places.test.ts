@@ -19,7 +19,7 @@ describe('observation.org country and division names', () => {
       ['België','Antwerpen','BE','BE-VAN'], ['België','Oost-Vlaanderen','BE','BE-VOV'],
       ['Nederland','Noord-Holland','NL','NL-NH'], ['Frankrijk','Pas-de-Calais (62)','FR','FR-62'],
       ['België','Limburg (B)','BE','BE-VLI'], ['Nederland','Limburg','NL','NL-LI'],
-      ['Peru','Cuzco','PE','PE-CUS'], ['Spanje','Murcia','ES','ES-MC'], ['Duitsland','Beieren','DE','DE-BY'],
+      ['Peru','Cuzco','PE','PE-CUS'], ['Spanje','Murcia','ES','ES-MC'], ['Duitsland','Beieren','DE','DE-BY'], ['Nederland','Fryslân','NL','NL-FR'],
     ]) expect(p(country,division)).toEqual({ country:iso, sub1 })
     expect(p('Nederland','Noord Holand')).toEqual({ country:'NL' })
     expect(p('Nederland','Antwerpen')).toEqual({ country:'NL' })

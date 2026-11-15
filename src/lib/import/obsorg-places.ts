@@ -1,7 +1,7 @@
 import type { Place } from '@/lib/list/model'
 import type { Regions } from '@/lib/species/types'
 import { foldName } from '@/lib/species/resolve'
-import { SUB1_ALIASES, sub1Names } from './inat'
+import { makeSub1Index, SUB1_ALIASES } from './sub1-index'
 
 export const OBSORG_NAME_LANGS = ['nl', 'en', 'fr', 'de', 'es'] as const
 
@@ -17,6 +17,7 @@ export const OBSORG_SUB1_ALIASES: Record<string, string[]> = {
   'NL-NH': ['Noord-Holland'],
   'NL-ZH': ['Zuid-Holland'],
   'NL-NB': ['Noord-Brabant'],
+  'NL-FR': ['Fryslân'],
   'BE-VAN': ['Antwerpen'],
   'BE-VBR': ['Vlaams-Brabant'],
   'BE-VOV': ['Oost-Vlaanderen'],
@@ -46,7 +47,13 @@ export function countryNameMap(regions: Regions, langs: readonly string[] = OBSO
   }
   for (const [code, name] of Object.entries(regions.countries)) add(name, code)
   for (const lang of langs) {
-    const displayNames = new Intl.DisplayNames([lang], { type: 'region' })
+    // An engine without this language's data (or without Intl.DisplayNames) keeps the English names and the aliases.
+    let displayNames: Intl.DisplayNames
+    try {
+      displayNames = new Intl.DisplayNames([lang], { type: 'region' })
+    } catch {
+      continue
+    }
     for (const code of Object.keys(regions.countries)) {
       const name = displayNames.of(code)
       if (name) add(name, code)
@@ -56,30 +63,13 @@ export function countryNameMap(regions: Regions, langs: readonly string[] = OBSO
   return names
 }
 
-const divisionName = (name: string) => foldName(name.replace(/\s*\([^()]*\)\s*$/, ''))
+// "Pas-de-Calais (62)", "Limburg (B)": one trailing parenthesis is dropped, on both sides of the match.
+const divisionKey = (folded: string) => folded.replace(/\s*\([^()]*\)\s*$/, '').trim()
 
 /** Resolve and cache raw pairs for one parse. Only ISO country/sub1 codes leave the resolver; no counties. */
 export function makeObsOrgPlaces(regions: Regions): (country: string, division: string) => Place | undefined {
   const countries = countryNameMap(regions)
-  const sub1 = new Map<string, string>()
-  for (const [code, name] of Object.entries(regions.sub1)) {
-    const country = code.split('-')[0]
-    for (const n of sub1Names(name)) {
-      const key = `${country}|${divisionName(n)}`
-      if (!sub1.has(key)) sub1.set(key, code)
-    }
-  }
-  for (const aliases of [SUB1_ALIASES, OBSORG_SUB1_ALIASES]) {
-    for (const [code, names] of Object.entries(aliases)) {
-      if (!regions.sub1[code]) continue
-      const country = code.split('-')[0]
-      for (const name of names) {
-        const key = `${country}|${divisionName(name)}`
-        // Explicit aliases select the intended administrative tier (Murcia: ES-MC, not ES-MU).
-        sub1.set(key, code)
-      }
-    }
-  }
+  const sub1Of = makeSub1Index(regions, [SUB1_ALIASES, OBSORG_SUB1_ALIASES], divisionKey)
   const cache = new Map<string, Place | undefined>()
   return (countryName, division) => {
     const key = `${countryName}\u0000${division}`
@@ -87,7 +77,7 @@ export function makeObsOrgPlaces(regions: Regions): (country: string, division: 
     const country = foldName(countryName) === 'world' ? undefined : countries.get(foldName(countryName))
     let place: Place | undefined
     if (country) {
-      const code = sub1.get(`${country}|${divisionName(division)}`)
+      const code = sub1Of(country, division)
       place = code ? { country, sub1: code } : { country }
     }
     cache.set(key, place)
