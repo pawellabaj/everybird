@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { restrictToShipped } from '../sync/huashu-lib'
 import { assertRawPinned, readLock } from './huashu-pin'
+import { parseIucn, type IucnCat } from '../../src/lib/species/iucn'
 import type {
   HuashuForm, HuashuRecord, Overrides, SpeciesFile, SpeciesRow, TaxonCategory, TaxonomyFile, TaxonRow,
 } from '../../src/lib/species/types'
@@ -48,12 +49,23 @@ const isSameTaxon = (p: { relation?: string }) => p.relation === undefined || SA
 
 /**
  * A match through a form: the parent record with the form's sticker in place of its own, and no traits (the mass is
- * the parent's taxon, not the form's, so the species keeps its family or order fallback). `form` names the taxon.
+ * the parent's taxon, not the form's, so the species keeps its family or order fallback). No conservation status
+ * either: the parent's category describes another taxon. `form` names the taxon.
  */
 export function formMatch(parent: HuashuRecord, f: HuashuForm): HuashuRecord {
   const rec: HuashuRecord = { ...parent, sticker: f.sticker, form: f.taxon }
   delete rec.traits
+  delete rec.conservation
   return rec
+}
+
+/** Only the species' own same-concept record can supply its global Red List category. */
+export function statusOf(rec: HuashuRecord | undefined): { iu?: IucnCat; why?: 'concept' | 'unknown' } {
+  const raw = rec?.conservation?.iucn
+  if (!rec || rec.form !== undefined || raw === undefined) return {}
+  if (rec.taxonConcept !== 'same') return { why: 'concept' }
+  const iu = parseIucn(raw)
+  return iu ? { iu } : { why: 'unknown' }
 }
 
 // Pure crosswalk: which huashu record (and so which sticker file) belongs to each eBird species. A record matches an
@@ -129,6 +141,7 @@ export function buildSpecies(
   const { matches, multi, sciFallback, viaOverride: overrideHuashu, lumped, viaForm } = matchHuashu(huashu, taxonomy, overrides)
   const species = taxonomy.filter((t) => t.cat === 'species').sort((a, b) => a.to - b.to)
   const noSticker: string[] = [], massFallback: string[] = []
+  const statusConcept: string[] = [], statusUnknown: string[] = []
 
   type Pre = { t: TaxonRow; rec?: HuashuRecord; g?: number; gSrc?: SpeciesRow['gSrc'] }
   const pre: Pre[] = species.map((t) => {
@@ -150,6 +163,9 @@ export function buildSpecies(
   }
 
   const rows: SpeciesRow[] = pre.map((p) => {
+    const { iu, why } = statusOf(p.rec)
+    if (why === 'concept') statusConcept.push(`${p.t.code} (${p.t.com}): ${p.rec!.taxonConcept}, ${p.rec!.conservation!.iucn}`)
+    if (why === 'unknown') statusUnknown.push(`${p.t.code} (${p.t.com}): ${p.rec!.conservation!.iucn}`)
     let { g, gSrc } = p
     if (g === undefined) {
       const f = fams.get(p.t.fam ?? ''), o = ords.get(p.t.ord ?? '')
@@ -163,6 +179,7 @@ export function buildSpecies(
       ord: p.t.ord ?? '', fam: p.t.fam ?? '', famCom: p.t.famCom ?? '', to: p.t.to,
       g: g!, gSrc: gSrc!,
       st: !!p.rec?.sticker, ar: 1, q: !!p.rec?.sticker?.meetsQualityBar,
+      ...(iu ? { iu } : {}),
     }
   })
 
@@ -189,6 +206,8 @@ export function buildSpecies(
     list('Override huashu records used', overrideHuashu),
     list('No sticker', noSticker),
     list('Mass fallbacks', massFallback),
+    list("No status: huashu's taxon is not eBird's", statusConcept),
+    list('Unrecognised IUCN values', statusUnknown),
     list('Huashu records matching no eBird species', orphans),
   ].join('\n')
 

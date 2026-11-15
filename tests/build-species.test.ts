@@ -2,12 +2,75 @@ import { describe, expect, it } from 'vitest'
 import huashu from './fixtures/build/huashu.json'
 import taxonomy from './fixtures/build/taxonomy.json'
 import overrides from './fixtures/build/overrides.json'
-import { buildSpecies, matchHuashu } from '../scripts/build-data/build-species'
+import { buildSpecies, formMatch, matchHuashu, statusOf } from '../scripts/build-data/build-species'
 import type { HuashuRecord, Overrides, TaxonRow } from '../src/lib/species/types'
 
 const run = (o: Overrides = overrides as Overrides) =>
   buildSpecies(huashu as HuashuRecord[], taxonomy as TaxonRow[], o)
 const row = (code: string, o?: Overrides) => run(o).file.species.find((s) => s.code === code)!
+
+describe('conservation status', () => {
+  const recs = (): HuashuRecord[] => (huashu as HuashuRecord[]).map((h) => ({
+    ...h,
+    ...(h.id === 'Aus_one' ? { conservation: { iucn: 'VU' } } : {}),
+    ...(h.id === 'Bus_old' ? { conservation: { iucn: 'CR (PE)' } } : {}),
+  }))
+  const built = (records = recs()) => buildSpecies(records, taxonomy as TaxonRow[], {})
+  const get = (code: string) => built().file.species.find((s) => s.code === code)!
+
+  it('the own record’s category; CR (PE) is CR; none without one', () => {
+    expect(get('one1').iu).toBe('VU')
+    expect(get('sciold').iu).toBe('CR')
+    expect('iu' in get('nost1')).toBe(false)
+    expect('iu' in get('scinew')).toBe(false)
+    expect(Object.keys(get('one1')).at(-1)).toBe('iu')
+  })
+
+  it.each(['broadened', 'narrowed', 'new', 'split', ''])('no status for concept %j; reported with code, name and raw value', (taxonConcept) => {
+    const records = recs()
+    records[0] = { ...records[0], taxonConcept }
+    expect(statusOf(records[0])).toEqual({ why: 'concept' })
+    const { file, report } = built(records)
+    expect(file.species.find((s) => s.code === 'one1')).not.toHaveProperty('iu')
+    expect(report).toContain("No status: huashu's taxon is not eBird's (1)")
+    expect(report).toContain(`one1 (Unique Bird): ${taxonConcept}, VU`)
+  })
+
+  it('an unknown value is no status and is reported', () => {
+    const records = recs()
+    records[0].conservation = { iucn: 'NE' }
+    expect(statusOf(records[0])).toEqual({ why: 'unknown' })
+    const { file, report } = built(records)
+    expect(file.species.find((s) => s.code === 'one1')).not.toHaveProperty('iu')
+    expect(report).toContain('Unrecognised IUCN values (1)')
+    expect(report).toContain('one1 (Unique Bird): NE')
+  })
+
+  it('missing statuses need no diagnostic; an empty supplied value is unknown', () => {
+    expect(statusOf(undefined)).toEqual({})
+    expect(statusOf((huashu as HuashuRecord[])[0])).toEqual({})
+    expect(statusOf({ ...recs()[0], conservation: {} })).toEqual({})
+    expect(statusOf({ ...recs()[0], conservation: { iucn: '' } })).toEqual({ why: 'unknown' })
+  })
+
+  it('never through a form, even when the parent has the same concept', () => {
+    const parent = recs()[0]
+    const form = { taxon: 'Aus one minor', formerSpecies: { scientificName: 'Aus minor' }, sticker: parent.sticker }
+    const matched = formMatch(parent, form)
+    expect(matched).not.toHaveProperty('conservation')
+    expect(parent.conservation).toEqual({ iucn: 'VU' })
+    expect(statusOf({ ...parent, form: form.taxon })).toEqual({})
+    const taxa: TaxonRow[] = [{ code: 'minor1', sci: 'Aus minor', com: 'Minor Bird', cat: 'species', to: 1,
+      ord: 'Ordo', fam: 'Famone', famCom: 'Family One' }]
+    const { file, report } = buildSpecies([{ ...parent, forms: [form] }], taxa, {})
+    expect(file.species[0]).not.toHaveProperty('iu')
+    expect(report).toContain('From huashu forms (a subspecies drawing of that very taxon): 1')
+  })
+
+  it('rows without a status keep their exact keys', () => {
+    expect(Object.keys(get('nost1'))).toEqual(['code', 'com', 'sci', 'ord', 'fam', 'famCom', 'to', 'g', 'gSrc', 'st', 'ar', 'q'])
+  })
+})
 
 describe('buildSpecies', () => {
   it('unique ebird code match uses that sticker and AVONET mass', () => {
