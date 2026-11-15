@@ -17,26 +17,36 @@ const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => 
   code, com: code, sci: `Avis ${code}`, ord, fam, famCom: fam, to, g: 100, gSrc: 'avonet', st: true, ar: 1, q: true,
 })
 const species = buildSpeciesIndex([row('duck1', 'Anseriformes', 'Anatidae', 1), row('crow1', 'Passeriformes', 'Corvidae', 3), row('owl1', 'Strigiformes', 'Strigidae', 5)])
-const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America' }, sub1: {} }
+const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America' }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
 const name = (c: string) => regions.countries[c] ?? c
 
-// duck1: lifer in Canada, also seen in the US. crow1: lifer in Egypt, also seen in Canada. owl1: Canada only.
-function seeded(full = true) {
+type Variant = 'full' | 'lifer' | 'countries'
+
+// full: duck1 lifer in Canada, also seen in the US (Capital, British Columbia and King, Washington); crow1 lifer in
+// Egypt, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
+// species with lifer countries only and no seen-here.
+function seeded(variant: Variant = 'full') {
   const reduce = makeReducer({ species, countryName: name })
   const saved = emptySaved()
-  saved.records.ebird = full
+  saved.records.ebird = variant === 'full'
     ? [
         { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King'] },
         { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'EG' }, seen: ['2019-01-01|EG', '2022-01-01|CA-BC'] },
         { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] },
       ]
+    : variant === 'countries'
+    ? [
+        { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA' } },
+        { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'EG' } },
+        { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'US' } },
+      ]
     : [{ code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' } }]
   return reduce(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ full = true, note }: { full?: boolean; note?: PlacesNote }) {
+function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
   const reduce = makeReducer({ species, countryName: name })
-  const [state, dispatch] = useReducer(reduce, undefined, () => seeded(full))
+  const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
@@ -45,6 +55,8 @@ function Harness({ full = true, note }: { full?: boolean; note?: PlacesNote }) {
         <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} time={time} />
       </div>
       <button type="button">elsewhere</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
     </>
   )
@@ -150,13 +162,175 @@ describe('Places and Time: dropdowns in the controls bar', () => {
 
   it('the lifer-only notice, inside Places: add files, or import MyEBirdData again for an old save', () => {
     vi.stubGlobal('innerWidth', 1000)
-    const { unmount } = render(<Harness full={false} note="add" />)
+    const { unmount } = render(<Harness variant="lifer" note="add" />)
     fireEvent.click(placesBtn())
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent('Showing each lifer\'s first place only. Add MyEBirdData or iNaturalist for full country lists.')
     unmount()
-    render(<Harness full={false} note="reimport" />)
+    render(<Harness variant="lifer" note="reimport" />)
     fireEvent.click(placesBtn())
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent('Showing each lifer\'s first place only. Import Download My Data again for full country lists.')
     expect(screen.getByRole('link', { name: 'Import Download My Data again' })).toHaveAttribute('href', '/settings')
+  })
+})
+
+describe('Places drills down: country, then state or province, then county', () => {
+  it('a country with provinces has a drill button; drilling shows its provinces under a breadcrumb, focus on "All of Canada"', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    expect(screen.queryByTestId('drill-c:EG')).toBeNull()
+    expect(screen.queryByTestId('places-path')).toBeNull()
+    expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Show states and provinces in Canada')
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada')
+    expect(within(screen.getByTestId('places-path')).getByText('Canada')).toHaveAttribute('aria-current', 'location')
+    expect(screen.getByText(/States and provinces · 2/)).toBeInTheDocument()
+    expect(screen.getByRole('list', { name: 'States and provinces' })).toBeInTheDocument()
+    expect(screen.getByTestId('place-all')).toHaveFocus()
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName('All of Canada, 3 species')
+    expect(screen.getByRole('checkbox', { name: 'British Columbia, 2 species' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Ontario, 1 species' })).toBeInTheDocument()
+    expect(screen.getByTestId('drill-s:CA-BC')).toHaveAccessibleName('Show counties in British Columbia')
+    expect(screen.queryByTestId('drill-s:CA-ON')).toBeNull()
+    // Flags on country rows only.
+    expect(screen.getByTestId('filter-panel-places').querySelector('img.eb-flag')).toBeNull()
+  })
+
+  it('checking a province narrows a checked country; the button counts and names it', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('country-CA'))
+    expect(filterOf()).toEqual({ countries: ['CA'] })
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    expect(screen.getByTestId('place-all')).toBeChecked()
+    fireEvent.click(screen.getByTestId('place-s:CA-BC'))
+    expect(filterOf()).toEqual({ provinces: ['CA-BC'] })
+    expect(screen.getByTestId('place-all')).not.toBeChecked()
+    expect(screen.getByTestId('place-s:CA-BC')).toBeChecked()
+    expect(placesBtn()).toHaveTextContent('Places · 1')
+    expect(placesBtn()).toHaveAccessibleName('Places: British Columbia, Canada')
+    // "All of Canada" checks the country again, which holds the province.
+    fireEvent.click(screen.getByTestId('place-all'))
+    expect(filterOf()).toEqual({ countries: ['CA'] })
+  })
+
+  it('counties: drill again, check one; the breadcrumb steps back and focus returns to the drill button', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
+    expect(screen.getByText(/Counties · 1/)).toBeInTheDocument()
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName('All of British Columbia, 2 species')
+    expect(screen.getByTestId('place-all')).toHaveFocus()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Capital, 1 species' }))
+    expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
+    expect(placesBtn()).toHaveAccessibleName('Places: Capital, British Columbia')
+    // One step back: Canada's provinces, focus on British Columbia's drill button.
+    fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'Canada' }))
+    expect(screen.getByText(/States and provinces · 2/)).toBeInTheDocument()
+    expect(screen.getByTestId('drill-s:CA-BC')).toHaveFocus()
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
+    expect(screen.queryByTestId('places-path')).toBeNull()
+    expect(screen.getByText(/Countries · 3/)).toBeInTheDocument()
+    expect(screen.getByTestId('drill-c:CA')).toHaveFocus()
+  })
+
+  it('Clear clears every level', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('country-EG'))
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('place-s:CA-ON'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+    expect(filterOf()).toEqual({ countries: ['EG'], provinces: ['CA-ON'], counties: ['CA-BC|Capital'] })
+    fireEvent.click(screen.getByTestId('places-clear'))
+    expect(filterOf()).toEqual({})
+    expect(screen.queryByTestId('places-clear')).toBeNull()
+  })
+
+  it('a province alone shows Clear, and Clear empties it', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    expect(screen.queryByTestId('places-clear')).toBeNull()
+    fireEvent.click(screen.getByTestId('place-s:CA-BC'))
+    fireEvent.click(screen.getByTestId('places-clear'))
+    expect(filterOf()).toEqual({})
+  })
+
+  it('a checked place that another filter empties stays listed at 0 so it can be unchecked', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('place-s:CA-ON'))
+    fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
+    expect(filterOf()).toEqual({ order: 'Anseriformes', provinces: ['CA-ON'] })
+    const ontario = screen.getByTestId('place-s:CA-ON')
+    expect(ontario).toBeChecked()
+    expect(ontario).toHaveAccessibleName('Ontario, 0 species')
+    fireEvent.click(ontario)
+    expect(filterOf()).toEqual({ order: 'Anseriformes' })
+  })
+
+  it('a drilled level with nothing left under the other filters says so, the breadcrumb kept', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    // The owl was only ever seen in Ontario: nothing in British Columbia's counties is left.
+    fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
+    expect(screen.getByText('No places here under the other filters.')).toBeInTheDocument()
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0)
+    expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
+  })
+
+  it('countries-only lists show no drill buttons and no breadcrumb', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="countries" />)
+    fireEvent.click(placesBtn())
+    expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+    expect(screen.queryAllByRole('button', { name: /^Show / })).toHaveLength(0)
+    expect(screen.queryByTestId('places-path')).toBeNull()
+  })
+
+  it('Esc closes the panel from a drilled level and focus returns to the Places button', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    placesBtn().focus()
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(placesBtn()).toHaveFocus()
+  })
+
+  it('at phone width the drilled sheet keeps Tab inside and its drill buttons are buttons', () => {
+    vi.stubGlobal('innerWidth', 390)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    const sheet = screen.getByRole('dialog', { name: 'Places' })
+    expect(sheet).toHaveAttribute('aria-modal', 'true')
+    const drill = within(sheet).getByTestId('drill-c:CA')
+    expect(drill.tagName).toBe('BUTTON')
+    expect(drill).toHaveAttribute('type', 'button')
+    fireEvent.click(drill)
+    expect(within(sheet).getByTestId('place-all')).toHaveFocus()
+    expect(within(sheet).getByTestId('drill-s:CA-BC').tagName).toBe('BUTTON')
+    // Tab from the last control wraps to the first (the sheet's close button); Shift+Tab from the first to the last.
+    const last = within(sheet).getByTestId('place-s:CA-ON') // British Columbia (2) and its drill button come first
+    last.focus()
+    fireEvent.keyDown(last, { key: 'Tab' })
+    expect(within(sheet).getByRole('button', { name: 'Close' })).toHaveFocus()
+    fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey: true })
+    expect(last).toHaveFocus()
   })
 })

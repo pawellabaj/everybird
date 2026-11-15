@@ -107,11 +107,29 @@
 .eb-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .eb-check[data-checked] .eb-check-name { font-weight: 600; }
 .eb-check-none { padding: 8px; }
+/* Drilling down (PlacesDrill.tsx): a level's list rises in as the taxonomy's levels do; a row with places under it
+   ends in a drill button beside its label (never inside it), the site's chevron turned to point in. The breadcrumb
+   is the taxonomy's .eb-path, its steps given a 44px press. */
+.eb-places-level { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; }
+.eb-places-row { display: flex; align-items: center; }
+.eb-places-row .eb-check { flex: 1; min-width: 0; }
+.eb-drill {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none;
+  color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .15s ease;
+}
+.eb-drill-space { flex: none; width: 44px; }
+.eb-drill svg { width: 18px; height: 18px; transform: rotate(-90deg); }
+.eb-drill:focus-visible { color: var(--ink); }
+.eb-places-path { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; } /* the sheet sits outside .eb-view */
+.eb-places-path button { position: relative; }
+.eb-places-path button::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100% + 8px, 44px); height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) and (pointer: fine) {
   .eb-check:hover { background: var(--surface); }
+  .eb-drill:hover { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .eb-chip, .eb-check input::after { transition: none; }
   .eb-drop { animation: none; }
-  .eb-sheet, .eb-path, .eb-path + .eb-level, .eb-path + .eb-pick { animation-name: eb-fade-in; }
+  .eb-sheet, .eb-path, .eb-path + .eb-level, .eb-path + .eb-pick, .eb-places-level { animation-name: eb-fade-in; }
+  .eb-drill { transition: none; }
 }

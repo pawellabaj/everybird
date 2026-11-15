@@ -4,26 +4,24 @@
 // taxonomy sits under the bar (wrapped chips; the "Choose an order" picker on phones). A button opens its panel (one at a time; a second tap, Esc or a press outside
 // closes it and focus returns to the button): a popover under the bar on wider screens, a bottom sheet on phones.
 // Filters apply live.
-//  - Places: a checklist of countries (flag, name, species seen there), sorted by count; several may be checked (the
-//    collage keeps species seen in ANY of them); Clear; a search field once there are more than SEARCH_FROM countries.
-//    A list whose places are all lifer places says so (PlacesNote).
+//  - Places (PlacesList.tsx): checklists of places, one level at a time: countries (flag, name, species seen there),
+//    then a country's states and provinces, then a province's counties, each sorted by count; several places at any
+//    levels may be checked (the collage keeps species seen in ANY of them); Clear clears every level; a search field
+//    once a level has more than SEARCH_FROM rows. A list whose places are all lifer places says so (PlacesNote).
 //  - Time: the timeline (Timeline.tsx): month bars, a year axis, a range of months; Clear.
 import { CalendarBlank, CaretDown, GlobeHemisphereWest } from '@phosphor-icons/react'
-import Link from '@/components/app/IntentLink'
 import { createPortal } from 'react-dom'
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CloseIcon, SearchIcon } from '@/components/collage/icons'
-import { Flag } from '@/components/Flag'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { CloseIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
-import { stripBracket } from '@/lib/import/places'
 import { placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
-import { options, toggleCountry, withCountries, type ChipOption, type Filter } from '@/lib/list/filters'
+import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
 import type { Month } from '@/lib/list/timeline'
-import { searchKey } from '@/lib/species/name-search'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
+import { PlacesList } from './PlacesList'
 import { Timeline } from './Timeline'
 import './filters.css'
 
@@ -34,7 +32,7 @@ export type Panel = 'places' | 'time'
  */
 export type PlacesNote = 'add' | 'reimport'
 
-/** More countries than this, and the Places panel gets a "Find a country" field (from 9). */
+/** More rows than this at a level, and the Places panel gets its search field ("Find a country", from 9). */
 export const SEARCH_FROM = 8
 
 type Props = {
@@ -64,7 +62,6 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
   const sheet = useIsSheet()
   const { filter } = state
   const buttons = useRef<Partial<Record<Panel, HTMLButtonElement | null>>>({})
-  const countryName = useMemo(() => (iso: string) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso), [regions])
   const shown = PANELS.filter((p) => !hide?.includes(p.id))
   const current = shown.find((p) => p.id === open)
   if (!shown.length) return null
@@ -114,7 +111,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
           onClose={() => onOpen(null)}
         >
           {current.id === 'places' ? (
-            <PlacesList state={state} species={species} name={countryName} note={placesNote} onFilter={onFilter} />
+            <PlacesList state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
           ) : (
             <Timeline
               entries={time.entries}
@@ -182,85 +179,4 @@ function DropPanel({ id, kind, title, sheet, button, onClose, children }: PanelP
   return sheet
     ? createPortal(<div className="eb-sheet-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>{body}</div>, document.body)
     : body
-}
-
-/** "Showing each lifer's first place only", and how to get every country a species is on the list for. */
-function PlacesNoteLine({ note }: { note: PlacesNote }) {
-  return (
-    <p className="eb-note eb-places-note" data-testid="places-lifer-only">
-      Showing each lifer&apos;s first place only.{' '}
-      {note === 'reimport' ? (
-        <><Link href="/settings">Import Download My Data again</Link> for full country lists.</>
-      ) : (
-        <><Link href="/settings">Add MyEBirdData or iNaturalist</Link> for full country lists.</>
-      )}
-    </p>
-  )
-}
-
-function PlacesList({ state, species, name, note, onFilter }: { state: AppState; species: SpeciesIndex; name: (iso: string) => string; note?: PlacesNote; onFilter: (f: Filter) => void }) {
-  const { list, filter, seen } = state
-  const [q, setQ] = useState('')
-  const checked = useMemo(() => new Set(filter.countries ?? []), [filter.countries])
-  // Every country with a species under the other filters, and any checked one that has none now (so it can be unchecked).
-  const rows = useMemo(() => {
-    const opts = options(list, filter, 'country', species, name, seen)
-    const missing: ChipOption[] = [...checked].filter((c) => !opts.some((o) => o.value === c)).map((c) => ({ value: c, label: name(c), count: 0 }))
-    return [...opts, ...missing]
-  }, [list, filter, species, name, seen, checked])
-  const searchable = rows.length > SEARCH_FROM
-  // Word prefixes, accent- and case-insensitive (as the bird search): "new z" finds New Zealand.
-  const key = searchable ? searchKey(q) : ''
-  const visible = key ? rows.filter((r) => { const ws = searchKey(r.label).split(' '); return key.split(' ').every((t) => ws.some((w) => w.startsWith(t))) }) : rows
-  const n = (x: number) => x.toLocaleString('en-US')
-
-  return (
-    <div className="eb-places">
-      <div className="eb-places-head">
-        <span className="eb-mono">Countries · {n(rows.length)}</span>
-        {checked.size > 0 && (
-          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(withCountries(filter, []))}>Clear</button>
-        )}
-      </div>
-      {note && <PlacesNoteLine note={note} />}
-      {searchable && (
-        // The app's one field style (globals.css .eb-input), with the site's lens.
-        <div className="eb-input-wrap">
-          <SearchIcon className="eb-input-icon" />
-          <input
-            type="search"
-            className="eb-input eb-input-search"
-            placeholder="Find a country"
-            aria-label="Find a country"
-            autoComplete="off"
-            spellCheck={false}
-            enterKeyHint="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            data-testid="places-find"
-          />
-        </div>
-      )}
-      {rows.length === 0 ? (
-        <p className="eb-note">No places on this list.</p>
-      ) : (
-        <ul className="eb-checklist" aria-label="Countries">
-          {visible.map((r) => {
-            return (
-              <li key={r.value}>
-                <label className="eb-check" data-checked={checked.has(r.value) ? '' : undefined}>
-                  <input type="checkbox" checked={checked.has(r.value)} onChange={() => onFilter(toggleCountry(filter, r.value))} data-testid={`country-${r.value}`} />
-                  <Flag iso={r.value} />
-                  <span className="eb-check-name">{r.label}</span>
-                  <span className="eb-count" aria-hidden="true">{n(r.count)}</span>
-                  <span className="eb-sr">, {n(r.count)} species</span>
-                </label>
-              </li>
-            )
-          })}
-          {visible.length === 0 && <li className="eb-note eb-check-none">No country matches.</li>}
-        </ul>
-      )}
-    </div>
-  )
 }
