@@ -1,0 +1,294 @@
+// The print poster, made strip by strip. prepareCard lays it out once, in design units. Each strip of whole device
+// rows is painted into one reused canvas under setTransform(k, 0, 0, k, 0, -y), read back, and its pixels are
+// transferred to the print worker, which deflates them into one zlib stream for both the PNG and the PDF.
+//
+// Stickers: each URL is fetched once, for the first strip that draws it, and released right after the last strip that
+// draws it, both decided by tileInRange (the test paintCard culls with), so no tile is drawn without its image and no
+// URL is released with a get still pending. At most 12 gets run at once, and only for the current and the next strip,
+// so a long list never holds every bitmap at once.
+//
+// Never a canvas over IOS_CANVAS_AREA: the strip canvas is width × rows, capped by it.
+import { abortError, paintCard, prepareCard, tileInRange, type PaintRange, type ShareImageOpts, type Tile } from './image'
+import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, STRIP_AREA, printScale, stripRanges, type PrintSize } from './print'
+import { createPrintStickers, type PrintStickers } from './print-stickers'
+import type { PrintWorkerReply, PrintWorkerRequest } from './print.worker'
+
+export type PosterOpts = Omit<ShareImageOpts, 'format' | 'theme' | 'printSize' | 'signal'> & { size: PrintSize; signal?: AbortSignal }
+
+export type Poster = {
+  size: PrintSize
+  /** The compressed image data, without either file's wrapper. */
+  bytes: number
+  /** Stickers drawn from their 384 file because the 1024 one failed. */
+  soft: number
+  /** Stickers drawn as the outline because every attempt failed. */
+  missing: number
+  /** The file, asked of the encoder once per kind, as a main-thread copy (it survives dispose). */
+  file(kind: 'png' | 'pdf'): Promise<Blob>
+  /** Terminates the encoder. Files already returned stay valid. */
+  dispose(): void
+}
+
+export type EncoderPort = {
+  begin(width: number, height: number): void
+  /** Transfers the buffer; resolves once at most 1 strip is unacknowledged (so at most 2 are ever in flight). */
+  strip(rgba: Uint8ClampedArray, rows: number): Promise<void>
+  /** Resolves with the encoded bytes. */
+  end(): Promise<number>
+  file(kind: 'png' | 'pdf', page: readonly [number, number]): Promise<Blob>
+  dispose(): void
+}
+
+export type PosterStrip = { ctx: CanvasRenderingContext2D; read(rows: number): Uint8ClampedArray }
+
+export type PosterDeps = {
+  strip(width: number, rows: number): PosterStrip
+  encoder(): EncoderPort
+  stickers: PrintStickers
+  frame(): Promise<void>
+  /** Rows per strip, instead of STRIP_AREA / width (tests). */
+  rows: number | undefined
+}
+
+const GETS_IN_FLIGHT = 12
+const FONTS_WAIT_MS = 5_000
+const FRAME_WAIT_MS = 100
+
+const memoryError = () => new Error('poster-memory')
+
+/** One `<canvas>` for every strip, read back with getImageData. A null context or a failed read is poster-memory. */
+export function canvasStrip(width: number, rows: number): PosterStrip {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = rows
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) { canvas.width = 1; canvas.height = 1; throw memoryError() }
+  return {
+    ctx,
+    read(n) {
+      try { return ctx.getImageData(0, 0, width, n).data }
+      catch { throw memoryError() }
+    },
+  }
+}
+
+/** The next animation frame, or 100 ms, whichever comes first (a background tab runs no frames). */
+export function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    let raf: number | undefined
+    const done = () => {
+      clearTimeout(timer)
+      if (raf !== undefined && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(raf)
+      resolve()
+    }
+    const timer = setTimeout(done, FRAME_WAIT_MS)
+    if (typeof requestAnimationFrame === 'function') raf = requestAnimationFrame(done)
+  })
+}
+
+/** The part of a Worker the encoder uses (a test passes a fake). */
+export type WorkerLike = {
+  postMessage(message: PrintWorkerRequest, transfer: Transferable[]): void
+  terminate(): void
+  onmessage: ((e: MessageEvent<PrintWorkerReply>) => void) | null
+  onerror: ((e: ErrorEvent) => void) | null
+}
+
+/**
+ * The print worker as an EncoderPort. Its first `error` reply (or onerror) is fatal: every pending and later call
+ * rejects with it and the worker is terminated, never reused.
+ */
+export function workerEncoder(
+  create: () => WorkerLike = () => new Worker(new URL('./print.worker.ts', import.meta.url), { type: 'module' }),
+): EncoderPort {
+  const worker = create()
+  let failure: Error | null = null
+  let unacked = 0
+  type Waiter<T> = { resolve: (v: T) => void; reject: (e: Error) => void }
+  const stripWaiters: Waiter<void>[] = []
+  const endWaiters: Waiter<number>[] = []
+  const fileWaiters: Waiter<Blob>[] = []
+  const send = (msg: PrintWorkerRequest, transfer: Transferable[] = []) => worker.postMessage(msg, transfer)
+
+  function fail(error: Error) {
+    if (failure) return
+    failure = error
+    worker.onmessage = null
+    worker.onerror = null
+    worker.terminate()
+    for (const w of [...stripWaiters.splice(0), ...endWaiters.splice(0), ...fileWaiters.splice(0)]) w.reject(error)
+  }
+  // Only the strip currently being sent waits, and only until at most 1 strip is unacknowledged.
+  const releaseStrips = () => { while (unacked <= 1 && stripWaiters.length) stripWaiters.shift()!.resolve() }
+
+  worker.onmessage = ({ data }) => {
+    switch (data.type) {
+      case 'took': unacked--; releaseStrips(); break
+      case 'encoded': endWaiters.shift()?.resolve(data.bytes); break
+      case 'file': fileWaiters.shift()?.resolve(data.blob); break
+      case 'error': fail(new Error(data.message)); break
+    }
+  }
+  worker.onerror = (e) => { e.preventDefault?.(); fail(new Error(e.message || 'print worker failed')) }
+
+  return {
+    begin(width, height) {
+      if (failure) throw failure
+      send({ type: 'begin', width, height })
+    },
+    strip(rgba, rows) {
+      if (failure) return Promise.reject(failure)
+      // The worker reads the whole buffer, so send exactly this view's bytes.
+      const whole = rgba.byteOffset === 0 && rgba.byteLength === rgba.buffer.byteLength
+      const buffer = (whole ? rgba.buffer : rgba.slice().buffer) as ArrayBuffer
+      unacked++
+      send({ type: 'strip', rgba: buffer, rows }, [buffer])
+      return new Promise((resolve, reject) => { stripWaiters.push({ resolve, reject }); releaseStrips() })
+    },
+    end() {
+      if (failure) return Promise.reject(failure)
+      send({ type: 'end' })
+      return new Promise((resolve, reject) => endWaiters.push({ resolve, reject }))
+    },
+    file(kind, page) {
+      if (failure) return Promise.reject(failure)
+      send({ type: 'file', kind, page: [page[0], page[1]] })
+      return new Promise((resolve, reject) => fileWaiters.push({ resolve, reject }))
+    },
+    dispose() { fail(new Error('print encoder disposed')) },
+  }
+}
+
+/** Wait for the page's fonts (at most 5 s), so no face changes between strips. */
+async function fontsSettled(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    await Promise.race([document.fonts.ready.then(() => undefined, () => undefined), new Promise<void>((r) => { timer = setTimeout(r, FONTS_WAIT_MS) })])
+  } finally { clearTimeout(timer) }
+}
+
+/** For each sticker URL, the tile to load it with and the first and last strip that draw it. */
+export function stickerSpans(tiles: Tile[], ranges: PaintRange[]): Map<string, { tile: Tile; first: number; last: number }> {
+  const spans = new Map<string, { tile: Tile; first: number; last: number }>()
+  for (const t of tiles) {
+    if (!t.url) continue
+    for (let i = 0; i < ranges.length; i++) {
+      if (!tileInRange(t, ranges[i])) continue
+      const s = spans.get(t.url)
+      if (!s) spans.set(t.url, { tile: t, first: i, last: i })
+      else { s.first = Math.min(s.first, i); s.last = Math.max(s.last, i) }
+    }
+  }
+  return spans
+}
+
+/**
+ * Make a poster: lay it out, paint it strip by strip, encode it. `onProgress(done, total)` after each strip. Rejects
+ * with an AbortError when `opts.signal` aborts, and with Error('poster-memory') when the canvas can't be made or read.
+ */
+export async function makePoster(
+  opts: PosterOpts, onProgress: (done: number, total: number) => void, deps: Partial<PosterDeps> = {},
+): Promise<Poster> {
+  const { size, signal, ...rest } = opts
+  const check = () => { if (signal?.aborted) throw abortError() }
+  const stickers = deps.stickers ?? createPrintStickers()
+  const frame = deps.frame ?? nextFrame
+  let encoder: EncoderPort | null = null
+  let strip: PosterStrip | null = null
+  try {
+    check()
+    const k = printScale(size)
+    const [width, height] = PRINT_PX[size]
+    const card = await prepareCard({ ...rest, format: 'print', theme: 'light', printSize: size, signal }, k)
+    check()
+    await fontsSettled()
+    check()
+
+    const cap = Math.max(1, Math.floor(IOS_CANVAS_AREA / width))
+    const strips = stripRanges(width, height, Math.min(deps.rows ?? Math.floor(STRIP_AREA / width), cap))
+    const ranges = strips.map(({ y, rows }) => ({ y0: y / k, y1: (y + rows) / k }))
+    const spans = stickerSpans([...card.tiles, ...(card.lifer ? [card.lifer] : [])], ranges)
+    const byFirst = strips.map(() => [] as string[])
+    const byLast = strips.map(() => [] as string[])
+    for (const [url, s] of spans) { byFirst[s.first].push(url); byLast[s.last].push(url) }
+
+    // Gets, at most GETS_IN_FLIGHT at once, first in first out. Each promise has a no-op catch so a prefetch that
+    // fails after an abort or an earlier error is never an unhandled rejection; it is still awaited where it is drawn.
+    const loads = new Map<string, Promise<ImageBitmap | null>>()
+    const queue: (() => void)[] = []
+    let active = 0
+    const pump = () => { while (active < GETS_IN_FLIGHT && queue.length) { active++; queue.shift()!() } }
+    const load = (url: string) => {
+      const { tile } = spans.get(url)!
+      const p = new Promise<ImageBitmap | null>((resolve, reject) => {
+        queue.push(() => {
+          stickers.get({ url, fallback: tile.fallback ?? null }, signal)
+            .then(resolve, reject)
+            .finally(() => { active--; pump() })
+        })
+      })
+      p.catch(() => {})
+      loads.set(url, p)
+      pump()
+    }
+    const startStrip = (i: number) => { if (i < strips.length) for (const url of byFirst[i]) load(url) }
+
+    strip = (deps.strip ?? canvasStrip)(width, strips[0].rows)
+    if (!strip?.ctx) throw memoryError()
+    const { ctx } = strip
+    encoder = (deps.encoder ?? workerEncoder)()
+    encoder.begin(width, height)
+
+    const imgs = new Map<string, CanvasImageSource | null>()
+    startStrip(0)
+    for (let i = 0; i < strips.length; i++) {
+      const { y, rows } = strips[i]
+      startStrip(i + 1)
+      for (const url of byFirst[i]) imgs.set(url, await loads.get(url)!)
+      check()
+
+      // Paper over the whole strip in device px (it covers the last row, which the card's fractional height may not).
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.fillStyle = card.colors.paper
+      ctx.fillRect(0, 0, width, rows)
+      ctx.setTransform(k, 0, 0, k, 0, -y)
+      paintCard(ctx, card, imgs, ranges[i])
+      const rgba = strip.read(rows)
+      for (const url of byLast[i]) { imgs.delete(url); loads.delete(url); stickers.release(url) }
+      await encoder.strip(rgba, rows)
+      check()
+      onProgress(i + 1, strips.length)
+      await frame()
+      check()
+    }
+    const bytes = await encoder.end()
+    check()
+    const { soft, missing } = stickers.stats()
+
+    const done = encoder
+    const files = new Map<'png' | 'pdf', Promise<Blob>>()
+    return {
+      size, bytes, soft, missing,
+      file(kind) {
+        let p = files.get(kind)
+        if (!p) {
+          p = done.file(kind, PRINT_PT[size]).then(async (blob) => new Blob([await blob.arrayBuffer()], { type: blob.type }))
+          p.catch(() => files.delete(kind))
+          files.set(kind, p)
+        }
+        return p
+      },
+      dispose: () => done.dispose(),
+    }
+  } catch (error) {
+    encoder?.dispose()
+    // A sticker released with a get pending is a bug, never a cancel.
+    if (signal?.aborted && !(error instanceof Error && error.name === 'StickerReleased')) throw abortError()
+    throw error
+  } finally {
+    stickers.dispose()
+    const canvas = strip?.ctx?.canvas
+    if (canvas) { canvas.width = 1; canvas.height = 1 }
+  }
+}
