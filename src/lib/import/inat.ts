@@ -203,7 +203,7 @@ export const SUB1_ALIASES: Record<string, string[]> = {
 }
 
 /** Names a sub1 entry answers to: "Wales [Cymru GB-CYM]" -> "wales"; "Catalunya [Cataluña]" -> "catalunya", "cataluna". */
-function sub1Names(name: string): string[] {
+export function sub1Names(name: string): string[] {
   const out = [foldName(stripBracket(name))]
   const inner = /\[([^\]]*)\]\s*$/.exec(name)?.[1]?.replace(/\s+[A-Z]{2}-[A-Z0-9]+$/, '').trim()
   if (inner) out.push(foldName(inner))
