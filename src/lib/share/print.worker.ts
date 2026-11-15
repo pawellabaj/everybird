@@ -1,4 +1,9 @@
 // Transferred RGBA strips are acknowledged only after deflate accepts them. All messages run in arrival order.
+//
+// Errors: replies carry no sequence number, so an `error` cannot be matched to the request that caused it, and the
+// messages queued behind it still run against an encoder that may have failed. The first `error` is therefore fatal:
+// the client must stop sending, terminate this worker and start a new one for the next poster. A `begin` while a
+// poster is still open is refused (an error) rather than silently dropping the open one.
 import { PosterEncoder } from './poster-encoder'
 
 export type PrintWorkerRequest =
@@ -22,6 +27,7 @@ let queue: Promise<void> = Promise.resolve()
 scope.onmessage = ({ data }) => {
   queue = queue.then(async () => {
     if (data.type === 'begin') {
+      if (encoder?.open) throw new Error('a poster is already open: end it, or terminate the worker')
       encoder = new PosterEncoder(data.width, data.height)
       return
     }

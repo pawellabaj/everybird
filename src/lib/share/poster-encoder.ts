@@ -8,6 +8,8 @@ export class PosterEncoder {
   private tail: Promise<void> = Promise.resolve()
   private state: 'open' | 'ending' | 'done' | 'failed' = 'open'
   private chunks: Uint8Array[] | null = null
+  /** The PNG's parts, built once: its chunk CRCs run over the whole payload, so repeat downloads reuse them. */
+  private png: Uint8Array[] | null = null
 
   constructor(private readonly width: number, private readonly height: number, opts?: { native?: boolean }) {
     if (!Number.isSafeInteger(width) || width <= 0 || !Number.isSafeInteger(height) || height <= 0) throw new Error('invalid poster dimensions')
@@ -41,6 +43,9 @@ export class PosterEncoder {
     } catch (e) { this.state = 'failed'; throw e }
   }
 
+  /** True from construction until end() resolves or anything fails. */
+  get open(): boolean { return this.state === 'open' || this.state === 'ending' }
+
   /** Compressed zlib payload bytes, excluding either file format's wrapper. */
   get bytes(): number {
     if (this.state !== 'done' || !this.chunks) throw new Error('poster must end before bytes are ready')
@@ -49,7 +54,7 @@ export class PosterEncoder {
 
   file(kind: 'png' | 'pdf', page: readonly [number, number]): Blob {
     if (this.state !== 'done' || !this.chunks) throw new Error('poster must end before a file is ready')
-    const parts = kind === 'png' ? pngParts(this.width, this.height, this.chunks) : pdfParts(this.width, this.height, page, this.chunks)
+    const parts = kind === 'png' ? (this.png ??= pngParts(this.width, this.height, this.chunks)) : pdfParts(this.width, this.height, page, this.chunks)
     // Both compressors and the wrappers allocate ordinary ArrayBuffers, never SharedArrayBuffers.
     return new Blob(parts as Uint8Array<ArrayBuffer>[], { type: kind === 'png' ? 'image/png' : 'application/pdf' })
   }

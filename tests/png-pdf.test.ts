@@ -63,11 +63,12 @@ for (const native of [true, false]) describe(native ? 'CompressionStream' : 'ffl
       types.push(type)
       expect(png.readUInt32BE(p + 8 + n)).toBe(crc32(png.subarray(p + 4, p + 8 + n)))
       if (type === 'IHDR') expect([...png.subarray(p + 16, p + 21)]).toEqual([8, 2, 0, 0, 0])
+      if (type === 'sRGB') expect([n, png[p + 8]]).toEqual([1, 0])
       if (type === 'pHYs') expect([...png.subarray(p + 8, p + 17)]).toEqual([0, 0, 23, 18, 0, 0, 23, 18, 1])
       if (type === 'IDAT') idat.push(png.subarray(p + 8, p + 8 + n))
       p += 12 + n
     }
-    expect(types).toEqual(['IHDR', 'pHYs', ...chunks.map(() => 'IDAT'), 'IEND'])
+    expect(types).toEqual(['IHDR', 'sRGB', 'pHYs', ...chunks.map(() => 'IDAT'), 'IEND'])
     expect(Buffer.concat(idat)).toEqual(Buffer.concat(chunks))
   })
 

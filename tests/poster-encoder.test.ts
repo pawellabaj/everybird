@@ -2,6 +2,11 @@ import { inflateSync } from 'node:zlib'
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PosterEncoder } from '../src/lib/share/poster-encoder'
+import { pngParts } from '../src/lib/share/png-pdf'
+vi.mock('../src/lib/share/png-pdf', async (original) => {
+  const m = await original<typeof import('../src/lib/share/png-pdf')>()
+  return { ...m, pngParts: vi.fn(m.pngParts) }
+})
 import type { PrintWorkerReply, PrintWorkerRequest } from '../src/lib/share/print.worker'
 
 const width = 7, height = 5
@@ -49,7 +54,9 @@ for (const native of [true, false]) describe(native ? 'native' : 'fallback', () 
     const pixels = await sharp(Buffer.from(await png.arrayBuffer())).raw().toBuffer()
     expect(pixels).toEqual(rgb)
     expect(pdfImage(Buffer.from(await pdf.arrayBuffer()))).toEqual(pixels)
+    vi.mocked(pngParts).mockClear()
     expect(Buffer.from(await encoder.file('png', [595.28, 841.89]).arrayBuffer())).toEqual(Buffer.from(await png.arrayBuffer()))
+    expect(pngParts).not.toHaveBeenCalled() // the PNG's parts (and their CRCs) are built once
     await expect(encoder.strip(rgba, height)).rejects.toThrow(/end|closed/)
   })
 })
@@ -85,4 +92,34 @@ it('worker queues strips before end and returns took, encoded, PNG and PDF, with
   send({ type: 'strip', rgba: rgba.slice().buffer, rows: height })
   await vi.waitFor(() => expect(replies).toHaveLength(7))
   expect(replies[6]).toMatchObject({ type: 'error' })
+})
+
+it('worker refuses a second begin while a poster is open, and allows one after it ends', async () => {
+  const replies: PrintWorkerReply[] = []
+  const scope: { onmessage?: (e: { data: PrintWorkerRequest }) => void; postMessage(r: PrintWorkerReply): void } = {
+    postMessage: (r) => replies.push(r),
+  }
+  vi.stubGlobal('self', scope)
+  vi.resetModules()
+  await import('../src/lib/share/print.worker')
+  const send = (data: PrintWorkerRequest) => scope.onmessage!({ data })
+  send({ type: 'begin', width, height })
+  send({ type: 'strip', rgba: rgba.slice(0, width * 2 * 4).buffer, rows: 2 })
+  send({ type: 'begin', width: 1, height: 1 })
+  await vi.waitFor(() => expect(replies).toHaveLength(2))
+  expect(replies[0]).toEqual({ type: 'took', rows: 2 })
+  expect(replies[1]).toMatchObject({ type: 'error', message: expect.stringMatching(/already open/) })
+  // The open poster was kept: it still takes its remaining rows and ends.
+  send({ type: 'strip', rgba: rgba.slice(width * 2 * 4).buffer, rows: 3 })
+  send({ type: 'end' })
+  send({ type: 'file', kind: 'png', page: [1, 1] })
+  await vi.waitFor(() => expect(replies).toHaveLength(5))
+  expect(replies.slice(2).map((r) => r.type)).toEqual(['took', 'encoded', 'file'])
+  const png = replies[4]
+  if (png.type !== 'file') throw new Error('wrong protocol')
+  expect(await sharp(Buffer.from(await png.blob.arrayBuffer())).raw().toBuffer()).toEqual(rgb)
+  send({ type: 'begin', width: 1, height: 1 })
+  send({ type: 'strip', rgba: new Uint8ClampedArray(4).buffer, rows: 1 })
+  await vi.waitFor(() => expect(replies).toHaveLength(6))
+  expect(replies[5]).toEqual({ type: 'took', rows: 1 })
 })

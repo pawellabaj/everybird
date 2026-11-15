@@ -112,7 +112,8 @@ export function pngParts(width: number, height: number, zlib: Uint8Array[], dpi 
   ihdr.set(u32(width)); ihdr.set(u32(height), 4); ihdr.set([8, 2, 0, 0, 0], 8)
   const phys = new Uint8Array(9), ppm = Math.round(dpi / 0.0254)
   phys.set(u32(ppm)); phys.set(u32(ppm), 4); phys[8] = 1
-  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), ...chunk('IHDR', ihdr), ...chunk('pHYs', phys)]
+  // sRGB with rendering intent 0 (perceptual): the canvas pixels are sRGB, so viewers and print shops need not guess.
+  const parts = [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), ...chunk('IHDR', ihdr), ...chunk('sRGB', new Uint8Array([0])), ...chunk('pHYs', phys)]
   for (const b of zlib) parts.push(...chunk('IDAT', b))
   parts.push(...chunk('IEND', new Uint8Array(0)))
   return parts
@@ -134,6 +135,8 @@ export function pdfParts(width: number, height: number, page: readonly [number, 
   object(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`)
   offsets[4] = position
   const length = zlib.reduce((n, b) => n + b.length, 0)
+  // DeviceRGB, not an ICC-based sRGB space: embedding a profile would add ~3 KB and an extra object for a value
+  // every common viewer already assumes for untagged RGB. The PNG carries an explicit sRGB chunk instead.
   text(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /DecodeParms << /Predictor 15 /Colors 3 /BitsPerComponent 8 /Columns ${width} >> /Length ${length} >>\nstream\n`)
   for (const b of zlib) add(b)
   text('\nendstream\nendobj\n')
