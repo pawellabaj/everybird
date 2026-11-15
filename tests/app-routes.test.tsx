@@ -234,6 +234,16 @@ describe('when the bird data fails to load', () => {
 })
 
 describe('Settings and the collage', () => {
+  it("a MyEBirdData import saved before seen-here: Settings says what the Places panel says, with the same words", async () => {
+    await mount({ path: '/settings', stored: (s) => { s.records.ebird = [{ code: 'snogoo', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC', sub2: 'Capital' } }] } })
+    // Counties, but no seen-here: placesNoteFor says 'reimport', and so does Settings (counties used to hide it).
+    expect(await screen.findByTestId('ebird-detail')).toHaveTextContent('Places only knows where each bird was first seen. Import MyEBirdData again to filter by every place you saw each bird.')
+  })
+  it('a MyEBirdData import with seen-here: no reimport line', async () => {
+    await mount({ path: '/settings', stored: (s) => { s.records.ebird = [{ code: 'snogoo', source: 'ebird', date: '2020-01-01', place: { country: 'CA' }, seen: ['2020-01-01|CA'] }] } })
+    expect(await screen.findByTestId('source-ebird')).toBeInTheDocument()
+    expect(screen.queryByTestId('ebird-detail')).toBeNull()
+  })
   it('dropping a life list download adds its species, says what it lacks, and "See my collage" opens the collage', async () => {
     const { storage, analytics } = await mount()
     await drop(csv(...ROWS))

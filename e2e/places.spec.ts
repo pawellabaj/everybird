@@ -165,12 +165,13 @@ const drilledSaved = () =>
     ...Array<string>(3).fill("CA-ON"), ...Array<string>(2).fill("US-WA|King"), ...Array<string>(2).fill("EG"),
   ]);
 
-/** Neither the page, the dock nor the panel's body scrolls sideways. */
+/** Neither the page, the dock nor the panel's body scrolls sideways. `body` is null with no panel open, so a check of
+ * it where the panel should be open fails (toBeLessThanOrEqual needs a number) instead of passing on a silent 0. */
 const sideways = (page: Page) =>
   page.evaluate(() => {
     const d = document.querySelector(".eb-dock")!;
     const b = document.querySelector<HTMLElement>(".eb-drop-body");
-    return { dock: d.scrollWidth - d.clientWidth, body: b ? b.scrollWidth - b.clientWidth : 0, page: document.documentElement.scrollWidth - innerWidth };
+    return { dock: d.scrollWidth - d.clientWidth, body: b ? b.scrollWidth - b.clientWidth : null, page: document.documentElement.scrollWidth - innerWidth };
   });
 /** Every control is a 44px press (pressAreas), and every checklist row in the panel, the checkbox's target, too. */
 async function pressable(page: Page, panel: Locator, where: string) {
@@ -346,4 +347,7 @@ test("the lifer-only note opens MyEBirdData's Add panel on Settings, or focuses 
   await page.getByTestId("places-lifer-only").getByRole("link", { name: "Import MyEBirdData again" }).click();
   await expect(page).toHaveURL(/\/settings#add-mydata$/);
   await expect(page.getByTestId("source-ebird").getByRole("button", { name: /^Replace/ })).toBeFocused();
+  // And the reason beside it, in the Places panel's words.
+  await expect(page.getByTestId("ebird-detail")).toBeVisible();
+  await expect(page.getByTestId("ebird-detail")).toContainText("Import MyEBirdData again");
 });

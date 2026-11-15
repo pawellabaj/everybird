@@ -8,6 +8,7 @@ import { MatchReport } from '@/components/import/MatchReport'
 import { RulesSwitches } from '@/components/import/RulesSwitches'
 import { downloadText, today } from '@/lib/download'
 import { toCsv, toJson } from '@/lib/list/export'
+import { placesNoteFor } from '@/lib/list/filter-summary'
 import { sourceCounts, summaryLine } from '@/lib/list/source-counts'
 import { NAME_MAX, type Saved } from '@/lib/list/storage'
 import { useEverybirdContext } from './EverybirdProvider'
@@ -78,6 +79,7 @@ export function SettingsPage() {
           jobs={jobs}
           onList={onList}
           counts={counts}
+          placesNote={placesNoteFor(saved, count, state.seen.full)}
           summary={line && (
             <p className="eb-summary" role="status" data-testid="see-collage">
               {line}

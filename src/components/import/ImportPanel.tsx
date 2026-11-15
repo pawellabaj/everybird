@@ -29,6 +29,8 @@ type Props = {
   counts: SourceCounts
   /** Instead of the section's note, when the list has species: the summary line (Settings' see-collage line). */
   summary?: ReactNode
+  /** The Places panel's lifer-only note (placesNoteFor), so the eBird rows say the same. */
+  placesNote?: 'add' | 'reimport'
 }
 
 const reducedMotion = () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -72,7 +74,7 @@ function Group({ id, label, children }: { id: string; label: string; children: R
  * (its guidance and how-to inside) under the row. They combine into one list; each import replaces only its own
  * slot. `children` follow the rows (the match report).
  */
-export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species, regions, jobs, disabled, children, onList, counts, summary }: Props) {
+export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species, regions, jobs, disabled, children, onList, counts, summary, placesNote }: Props) {
   const tick = useDisclosure()
   const ebirdConnected: EbirdConnected[] = (['ebird', 'ebird-list'] as const)
     .filter((slot) => (saved.records[slot]?.length ?? 0) > 0 || saved.unmatched.some((u) => (u.slot ?? u.source) === slot))
@@ -108,11 +110,8 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
             onRemove={remove}
             saved={saved}
             counts={counts}
-            loaded={{
-              full: speciesIn(saved.records.ebird),
-              quick: speciesIn(saved.records['ebird-list'] ?? []),
-              fullCounty: saved.records.ebird.some((r) => !!r.place?.sub2),
-            }}
+            loaded={{ full: speciesIn(saved.records.ebird), quick: speciesIn(saved.records['ebird-list'] ?? []) }}
+            placesNote={placesNote}
           />
         </Group>
         <Group id="way-inat" label="iNaturalist">

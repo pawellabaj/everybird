@@ -71,11 +71,12 @@ export function timeSpoken(f: Filter): string | undefined {
 
 /**
  * What the lifer-only notes say about the file that knows every place each bird was seen: its Add link's and its
- * import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
+ * name, its import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
  * reads it). One source today (MyEBirdData); another plugs in as another of these.
  */
-export type FullPlacesSource = { add: string; again: string; reach: string; anchor: string }
+export type FullPlacesSource = { name: string; add: string; again: string; reach: string; anchor: string }
 export const MYEBIRDDATA_PLACES: FullPlacesSource = {
+  name: 'MyEBirdData',
   add: 'Add MyEBirdData',
   again: 'Import MyEBirdData again',
   reach: 'down to the county',

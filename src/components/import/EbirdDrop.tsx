@@ -16,9 +16,10 @@ type Props = {
   /** Reads the file (use-import-jobs.ts: kind detected from the header, parsed in a worker, imported into its slot). */
   onFile: (file: File) => void
   disabled?: boolean
-  /** Species already imported from each eBird file (the full MyEBirdData export and the quick life list download),
-   *  and whether any full-export record names a region (county). */
-  loaded: { full: number; quick: number; fullCounty?: boolean }
+  /** Species already imported from each eBird file (the full MyEBirdData export and the quick life list download). */
+  loaded: { full: number; quick: number }
+  /** The Places panel's lifer-only note (placesNoteFor): 'reimport' adds the same import-again line here. */
+  placesNote?: 'add' | 'reimport'
   /** The eBird files on the list, each with Replace and, in its ⋯ menu, Remove. */
   connected?: EbirdConnected[]
   onRemove?: (slot: EbirdConnected['slot']) => void
@@ -67,7 +68,7 @@ const ROWS: Row[] = [
  * place, with "Add MyEBirdData"; that button and arrival at /settings#add-mydata (the Places panel's note) open
  * MyEBirdData's Add panel and focus its picker (MyEBirdData already on the list: its Replace).
  */
-export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRemove, saved, counts }: Props) {
+export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts }: Props) {
   const id = useId()
   const [over, setOver] = useState(false)
   const [adding, setAdding] = useState<EbirdConnected['slot'] | null>(null)
@@ -99,15 +100,21 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
   }
   const off = disabled || busy
   const pick = () => input.current?.click()
-  // Only the life list download: the full export would add counties. An old full-export slot without counties
-  // (saved before the two eBird slots) should be imported again.
+  // Only the life list download: the full export would add every place, down to the county. A MyEBirdData import saved
+  // before seen-here should be imported again: the same case, and words, as the Places panel's note.
   const quickOnly = !!loaded.quick && !loaded.full
-  const reimport = !!loaded.full && loaded.fullCounty === false
+  const reimport = placesNote === 'reimport'
   const fullOn = connected.some((c) => c.slot === 'ebird')
+  const P = MYEBIRDDATA_PLACES
+  // An arrival at #add-mydata while a file is being read (the buttons are disabled): taken up once the read is done.
+  const pendingFull = useRef<boolean | null>(null)
 
   // MyEBirdData's Add panel, opened and its picker focused; with MyEBirdData on the list, its Replace focused.
   const toFull = (scroll: boolean) => {
-    if (off) return
+    if (off) {
+      pendingFull.current = scroll
+      return
+    }
     if (fullOn) replaceFull.current?.focus()
     else {
       setAdding('ebird')
@@ -121,6 +128,12 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
   }, [toPicker])
   const toFullRef = useRef(toFull)
   useEffect(() => { toFullRef.current = toFull })
+  useEffect(() => {
+    if (off || pendingFull.current === null) return
+    const scroll = pendingFull.current
+    pendingFull.current = null
+    toFullRef.current(scroll)
+  }, [off])
   useEffect(() => {
     const onHash = () => { if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(true) }
     // The Places panel's link is a client navigation: the router writes the new URL after this mounts, and a router
@@ -207,10 +220,18 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
       {quickOnly && (
         <div className="eb-src-status eb-lifer-note" data-testid="places-lifer-note">
           <p className="eb-note">
-            Your eBird life list only says where each bird was first seen, so Places filters by those first places. MyEBirdData has every place you saw each bird, down to the county.
+            Your eBird life list only says where each bird was first seen, so Places filters by those first places. {P.name} has every place you saw each bird, {P.reach}.
           </p>
-          <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" data-testid="places-lifer-add" disabled={off} onClick={() => toFull(false)}>
-            {MYEBIRDDATA_PLACES.add}
+          <button
+            type="button"
+            className="eb-btn eb-btn-quiet eb-btn-sm"
+            data-testid="places-lifer-add"
+            disabled={off}
+            aria-label={`${P.add} for every place`}
+            aria-controls={fullOn ? undefined : `${id}-ebird`}
+            onClick={() => toFull(false)}
+          >
+            {P.add}
           </button>
         </div>
       )}
@@ -218,7 +239,11 @@ export function EbirdDrop({ job, onFile, disabled, loaded, connected = [], onRem
         {busy ? (rows ? `Reading your file… ${rows.toLocaleString('en-US')} rows` : 'Reading your file…') : ''}
       </p>
       {error && <p className="eb-error eb-src-status" role="alert">{error}</p>}
-      {reimport && <p className="eb-note eb-src-status" data-testid="ebird-detail">No regions (counties) in your eBird file yet: import “Download My Data” again to add them.</p>}
+      {reimport && (
+        <p className="eb-note eb-src-status" data-testid="ebird-detail">
+          Places only knows where each bird was first seen. {P.again} to filter by every place you saw each bird.
+        </p>
+      )}
     </div>
   )
 }
