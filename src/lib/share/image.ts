@@ -22,7 +22,7 @@ import { SHARE_ORIGIN } from '@/lib/share/origin'
 import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
 import { stickerUrl } from '@/lib/sticker-url'
 import { formatDate } from '@/lib/format'
-import { asOfDate, withStamp } from '@/lib/share/stamp'
+import { asOfDate, stampedFooter, type StampAt } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
@@ -40,11 +40,14 @@ export const IMAGE_SIZE: Record<ImageFormat, [w: number, h: number]> = { story: 
 export const NAME_MAX_LEN = 40
 /** The footer's site name: the share origin's host ("everybird.yusuftaleb.com"). */
 export const SITE_LABEL = new URL(SHARE_ORIGIN).host
+/** The footer line's short sticker credit. */
+const FOOTER_CREDIT = 'stickers by huashu'
 /**
  * The footer's one line beside the wordmark on share images and link previews: the site and the sticker credit. Share
- * images end it with the date stamp (stamp.ts withStamp); link previews don't.
+ * images add the date stamp (stamp.ts stampedFooter: at the end, or beside the address in preview variant b); link
+ * previews don't.
  */
-export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`
+export const FOOTER_LINE = `${SITE_LABEL} · ${FOOTER_CREDIT}`
 /** The full sticker credit (CC BY 4.0), for the share sheet's text: the image itself carries FOOTER_LINE. */
 export const SHARE_CREDIT = 'Stickers: huashu-bird-sticker (CC BY 4.0) github.com/alchaincyf/huashu-bird-sticker'
 
@@ -444,6 +447,8 @@ export type ShareImageOpts = {
   pack?: ImagePack
   /** When the image is made, for the footer's date stamp; default `new Date()`. */
   now?: Date
+  /** Where the date stamp sits in the footer line (the `stamp` preview variant); default 'end'. */
+  stampAt?: StampAt
   signal?: AbortSignal
 }
 
@@ -505,7 +510,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const latest = latestRow && latestText({ com: latestRow.com, date: latestE!.date })
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
-  const footerLine = withStamp(FOOTER_LINE, asOfDate(opts.now ?? new Date()))
+  const footerLine = stampedFooter(SITE_LABEL, FOOTER_CREDIT, asOfDate(opts.now ?? new Date()), opts.stampAt)
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
   const L = cardLayout(format, content)
   const pack = opts.pack ?? (await packForImage(shown, species, packSpec(L), signal))

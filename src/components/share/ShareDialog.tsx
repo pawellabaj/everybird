@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
+import { useVariant } from '@/lib/variants'
 import { downloadBlob } from '@/lib/download'
 import { stripBracket } from '@/lib/import/places'
 import { applyFilter, filterKey } from '@/lib/list/filters'
@@ -58,6 +59,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const [format, setFormat] = useState<ImageFormat>('story')
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const theme = useTheme()
+  // Preview variant `stamp` (?v=stamp:b): the date stamp beside the address instead of at the end of the footer line.
+  const stampAt = useVariant('stamp', ['a', 'b'] as const) === 'b' ? 'address' : 'end'
 
   // What the image shows: the current view (the filter applied), and the filter in words.
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
@@ -102,7 +105,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${format}|${trimmed}|${theme}`
+  const key = `${format}|${trimmed}|${theme}|${stampAt}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   useEffect(() => {
@@ -115,7 +118,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
       .then(() => packFor(format, !!trimmed))
-      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, signal: life.current?.signal }))
+      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, stampAt, signal: life.current?.signal }))
     current.current = job
     job.then(
       (blob) => {
@@ -132,7 +135,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, format, trimmed, theme, packFor, shown, species, label])
+  }, [key, format, trimmed, theme, stampAt, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).

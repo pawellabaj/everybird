@@ -16,13 +16,15 @@ const backup = JSON.stringify({
 });
 const OUT = process.env.SHARE_PNG_DIR;
 
-async function openShare(page: Page) {
+/** `search` (e.g. "?v=stamp:b") goes into the collage's address before Share opens (no reload: the list saves on a debounce). */
+async function openShare(page: Page, search?: string) {
   await page.goto("/settings");
   await expect(page.getByTestId("ebird-drop")).toBeVisible();
   // Restore from backup on Settings opens the collage (/).
   await page.locator('input[type="file"][accept*="json"]').first().setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("region", { name: "Your collage" })).toBeVisible();
+  if (search) await page.evaluate((q) => history.replaceState(history.state, "", `/${q}`), search);
   await page.getByRole("button", { name: "Share", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Share your collage" });
   await expect(dialog).toBeVisible();
@@ -129,8 +131,8 @@ test("story image is 1080×1920 PNG, post is 1080×1350 and square is 1080×1080
 test.describe("date stamp", () => {
   test.use({ timezoneId: "Pacific/Auckland" });
 
-  test("every format's footer line ends with the device's local date: As of 15 Nov 2026", async ({ page }) => {
-    test.setTimeout(90_000);
+  /** 12:30 UTC on 14 Nov 2026 (15 Nov in Auckland), and every canvas fillText recorded in window.__fillTexts. */
+  async function stampClock(page: Page) {
     await page.clock.setFixedTime(new Date("2026-11-14T12:30:00Z"));
     await page.addInitScript(() => {
       const w = window as unknown as { __fillTexts: string[] };
@@ -141,6 +143,11 @@ test.describe("date stamp", () => {
         return real.call(this, text, ...rest);
       };
     });
+  }
+
+  test("every format's footer line ends with the device's local date: As of 15 Nov 2026", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stampClock(page);
     const dialog = await openShare(page);
     const preview = dialog.getByTestId("share-preview");
     const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
@@ -157,6 +164,18 @@ test.describe("date stamp", () => {
       expect(drawn, `${format}: the footer line`).toContain(line);
       expect(drawn.join("\n"), `${format}: never the UTC day`).not.toContain("14 Nov 2026");
     }
+  });
+
+  test("preview variant b (?v=stamp:b) puts the stamp beside the address", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stampClock(page);
+    const dialog = await openShare(page, "?v=stamp:b");
+    const preview = dialog.getByTestId("share-preview");
+    await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
+    await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+    const drawn = await page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+    expect(drawn).toContain("everybird.yusuftaleb.com · As of 15 Nov 2026 · stickers by huashu");
+    expect(drawn).not.toContain("everybird.yusuftaleb.com · stickers by huashu · As of 15 Nov 2026");
   });
 });
 
