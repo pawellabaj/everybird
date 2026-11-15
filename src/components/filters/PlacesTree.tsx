@@ -12,7 +12,7 @@ import { filterPlaceKeys, hasPlaces, togglePlace, withPlaces, type PlaceOption }
 import { parentKey, parsePlaceKey } from '@/lib/list/place-keys'
 import { fmt, LEVEL_HEAD, matchRows, NO_MATCH, PlaceCheck, PlacesFind, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
-// `spacer`: some country opens, so every row without a button keeps its room and all counts line up, at every depth.
+// `spacer`: some country can open, so every row without a button keeps its room and all counts line up, at every depth.
 type TreeProps = PlacesBodyProps & { checked: Set<string>; open: Set<string>; onOpen: (key: string) => void; spacer: boolean }
 
 export function PlacesTree(props: PlacesBodyProps) {

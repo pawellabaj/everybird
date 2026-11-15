@@ -136,3 +136,55 @@ for (const theme of ["light", "dark"] as const) {
     await expect(page.getByTestId("filter-panel-places").getByRole("checkbox")).toHaveCount(1);
   });
 }
+
+// Down to a county, in each design of the panel (`?v=places:<letter>`: a drills in place, b expands rows inline). Seen-
+// here places: Canada (British Columbia's Capital and Greater Vancouver, Ontario) and Egypt.
+function provincesSaved() {
+  const species = (JSON.parse(readFileSync(resolve(__dirname, "../public/data/species.v1.json"), "utf8")) as { species: Row[] }).species;
+  const where = ["CA-BC|Capital", "CA-BC|Capital", "CA-BC|Greater Vancouver", "CA-ON", "CA-ON", "EG"];
+  const records = where.map((w, i) => {
+    const [sub, county] = w.split("|");
+    const country = sub.slice(0, 2);
+    return {
+      code: species[i * 5].code, source: "ebird", date: `2022-0${1 + i}-10`,
+      place: { country, ...(sub.includes("-") ? { sub1: sub } : {}) }, seen: [`2022-0${1 + i}-10|${sub}${county ? `|${county}` : ""}`],
+    };
+  });
+  return {
+    v: 1, records: { ebird: records, inat: [], manual: [] }, unmatched: [],
+    edits: { removed: [], added: [], marks: {}, fixes: {} }, rules: { hideHeard: false, hideDead: false, researchOnly: false },
+    savedAt: new Date().toISOString(),
+  };
+}
+for (const v of ["a", "b"] as const) {
+  test(`?v=places:${v}: a province, then a county`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await seed(page, provincesSaved());
+    await page.goto(`/?v=places:${v}`);
+    await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
+    const places = page.getByTestId("filter-tab-places");
+    await places.click();
+    const panel = page.getByTestId("filter-panel-places");
+    const canada = panel.getByTestId("drill-c:CA");
+    await canada.click();
+    if (v === "b") {
+      await expect(canada).toHaveAttribute("aria-expanded", "true");
+      await expect(panel.getByTestId("country-EG")).toBeVisible(); // one checklist: the countries stay
+    } else {
+      await expect(panel.getByTestId("places-path")).toContainText("Canada");
+    }
+    await panel.getByTestId("place-s:CA-BC").check();
+    await expect(places).toHaveAttribute("aria-label", "Places: British Columbia, Canada");
+    await expect(page.getByTestId("collage-stats")).toContainText("3 of 6 species");
+    await panel.getByTestId("drill-s:CA-BC").click();
+    await panel.getByTestId("place-k:CA-BC|Capital").check();
+    await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
+    await expect(page.getByTestId("collage-stats")).toContainText("2 of 6 species");
+    const m = await page.evaluate(() => {
+      const b = document.querySelector<HTMLElement>(".eb-drop-body")!;
+      return { body: b.scrollWidth - b.clientWidth, page: document.documentElement.scrollWidth - innerWidth };
+    });
+    expect(m.body).toBeLessThanOrEqual(0);
+    expect(m.page).toBeLessThanOrEqual(0);
+  });
+}

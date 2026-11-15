@@ -17,10 +17,11 @@ const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => 
   code, com: code, sci: `Avis ${code}`, ord, fam, famCom: fam, to, g: 100, gSrc: 'avonet', st: true, ar: 1, q: true,
 })
 const species = buildSpeciesIndex([row('duck1', 'Anseriformes', 'Anatidae', 1), row('crow1', 'Passeriformes', 'Corvidae', 3), row('owl1', 'Strigiformes', 'Strigidae', 5)])
-const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America' }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
+const MORE = { FR: 'France', DE: 'Germany', JP: 'Japan', KE: 'Kenya', PE: 'Peru', MX: 'Mexico', AU: 'Australia' }
+const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
 const name = (c: string) => regions.countries[c] ?? c
 
-type Variant = 'full' | 'lifer' | 'countries'
+type Variant = 'full' | 'lifer' | 'countries' | 'many'
 
 // full: duck1 lifer in Canada, also seen in the US (Capital, British Columbia and King, Washington); crow1 lifer in
 // Egypt, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
@@ -28,9 +29,9 @@ type Variant = 'full' | 'lifer' | 'countries'
 function seeded(variant: Variant = 'full') {
   const reduce = makeReducer({ species, countryName: name })
   const saved = emptySaved()
-  saved.records.ebird = variant === 'full'
+  saved.records.ebird = variant === 'full' || variant === 'many'
     ? [
-        { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King'] },
+        { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King', ...(variant === 'many' ? Object.keys(MORE).map((c) => `2023-01-01|${c}`) : [])] },
         { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'EG' }, seen: ['2019-01-01|EG', '2022-01-01|CA-BC'] },
         { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] },
       ]
@@ -57,6 +58,7 @@ function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesN
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Passeriformes' } })}>crows only</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
     </>
   )
@@ -359,7 +361,37 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     sessionStorage.removeItem('everybird:variants')
   })
 
+  // The same steps in both designs (the test ids are shared): these check that each design reaches and writes the same
+  // filter, not which design is on screen; the variant b tests below tell the designs apart.
   describe.each(['a', 'b'] as const)('variant %s', (v) => {
+    it.each([
+      ['k:US-WA|King', 'c:US', ['c:US', 's:US-WA'], 'United States of America, 0 species'],
+      ['k:CA-BC|Capital', 's:CA-BC', ['c:CA', 's:CA-BC'], 'British Columbia, 0 species'],
+    ])('a checked %s stays reachable when another filter empties its ancestor %s', (county, ancestor, path, spoken) => {
+      vi.stubGlobal('innerWidth', 1000)
+      withVariant(v)
+      render(<Harness />)
+      fireEvent.click(placesBtn())
+      for (const k of path) fireEvent.click(screen.getByTestId(`drill-${k}`))
+      fireEvent.click(screen.getByTestId(`place-${county}`))
+      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+      // The owl was only ever seen in Ontario.
+      fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
+      // Reopened, variant a starts at the countries (drill down) and b with every ancestor of the county open. The
+      // emptied ancestor is listed at 0 and still drills or opens.
+      fireEvent.click(placesBtn())
+      for (const k of path) {
+        const btn = screen.getByTestId(`drill-${k}`)
+        if (k === ancestor) expect(screen.getByRole('checkbox', { name: spoken })).not.toBeChecked()
+        if (v === 'a') fireEvent.click(btn)
+        else expect(btn).toHaveAttribute('aria-expanded', 'true')
+      }
+      const box = screen.getByTestId(`place-${county}`)
+      expect(box).toBeChecked()
+      fireEvent.click(box)
+      expect(filterOf()).toEqual({ order: 'Strigiformes' })
+    })
+
     it('selects a province, then a county, through the same filter', () => {
       vi.stubGlobal('innerWidth', 1000)
       withVariant(v)
@@ -440,6 +472,43 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     expect(filterOf()).toEqual({ countries: ['EG'], provinces: ['US-WA'] })
     fireEvent.click(screen.getByTestId('places-clear'))
     expect(filterOf()).toEqual({})
+  })
+
+  it('variant b: the search matches countries only; an open group under a matching country stays shown', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    withVariant('b')
+    render(<Harness variant="many" />)
+    fireEvent.click(placesBtn())
+    expect(screen.getByText(/Countries · 10/)).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    const find = screen.getByTestId('places-find')
+    fireEvent.change(find, { target: { value: 'can' } })
+    expect(screen.getByTestId('country-CA')).toBeInTheDocument()
+    expect(screen.getByTestId('place-s:CA-BC')).toBeInTheDocument()
+    expect(screen.queryByTestId('country-EG')).toBeNull()
+    // A province's name doesn't match a country search.
+    fireEvent.change(find, { target: { value: 'british' } })
+    expect(screen.queryByTestId('place-s:CA-BC')).toBeNull()
+    expect(screen.getByText('No country matches.')).toBeInTheDocument()
+  })
+
+  it('variant b: a group whose places another filter empties folds away with its button, and comes back open', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    withVariant('b')
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    // The crow was seen in British Columbia, but in no county there: a row's children come from the same filtered
+    // sightings as its group, so the group can't be open and empty (variant a's "No places here" has no b twin).
+    fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
+    expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).toBeInTheDocument()
+    expect(screen.queryByTestId('drill-s:CA-BC')).toBeNull()
+    expect(screen.queryByRole('list', { name: 'Counties in British Columbia' })).toBeNull()
+    expect(screen.queryByText('No places here under the other filters.')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
+    expect(screen.getByTestId('drill-s:CA-BC')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeInTheDocument()
   })
 
   it('without a ?v the panel is variant a', () => {

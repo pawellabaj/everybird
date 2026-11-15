@@ -39,8 +39,9 @@ export const NO_MATCH: Record<PlaceLevel, string> = { country: 'No country match
 export const fmt = (x: number) => x.toLocaleString('en-US')
 
 /**
- * The rows of the level under `parent` (placeOptions), and any checked place at that level they lack (another filter
- * left it no species), at 0, so it can still be unchecked.
+ * The rows of the level under `parent` (placeOptions), and, at 0, any place at that level they lack (another filter
+ * left it no species) that is checked or holds a checked place: so every checked place can still be reached and
+ * unchecked. A row that only holds checked places has them as its children, so it drills or opens.
  */
 export function usePlaceRows(state: AppState, parent: string | undefined, regions: Regions, species: SpeciesIndex): PlaceOption[] {
   const { list, filter, seen } = state
@@ -48,10 +49,19 @@ export function usePlaceRows(state: AppState, parent: string | undefined, region
     const label = (k: string) => placeName(k, regions)
     const opts = placeOptions(list, filter, parent, species, label, seen)
     const have = new Set(opts.map((o) => o.value))
-    const missing = filterPlaceKeys(filter)
-      .filter((k) => parentKey(k) === parent && !have.has(k))
-      .map((k): PlaceOption => ({ value: k, label: label(k), count: 0, children: 0 }))
-    return [...opts, ...missing]
+    // Missing row -> the distinct checked places (or their ancestors) one level under it.
+    const missing = new Map<string, Set<string>>()
+    for (const key of filterPlaceKeys(filter)) {
+      let child: string | undefined
+      for (let k: string | undefined = key; k; child = k, k = parentKey(k)) {
+        if (parentKey(k) !== parent || have.has(k)) continue
+        const kids = missing.get(k) ?? new Set<string>()
+        if (child) kids.add(child)
+        missing.set(k, kids)
+      }
+    }
+    const zero = [...missing].map(([k, kids]): PlaceOption => ({ value: k, label: label(k), count: 0, children: kids.size }))
+    return [...opts, ...zero]
   }, [list, filter, parent, species, regions, seen])
 }
 
