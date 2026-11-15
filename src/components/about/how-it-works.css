@@ -326,9 +326,9 @@
 .ebd .ebd-share-close svg { width: 14px; height: 14px; }
 .ebd .ebd-share-body { display: flex; gap: 16px; align-items: flex-start; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-body { gap: 12px; }
-/* The box takes the shown image's own shape (share.css, layout a): a Hairline and 12px corners round the image, no
-   Surface bands. Wide, it is the dialog's height and the dialog fits around it from a fixed right edge, so the format
-   control and the close button stay put; compact, the image fits a fixed column, centred. */
+/* The box takes the shown image's own shape (share.css): a Hairline and 12px corners round the image, no Surface
+   bands. Wide, it is the dialog's height and the dialog fits around it from a fixed right edge, so the format control
+   and the close button stay put; compact, the image fits a fixed area, centred in it both ways. */
 .ebd .ebd-share-preview {
   position: relative; flex: none; overflow: hidden; background: var(--paper);
   border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);

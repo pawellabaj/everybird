@@ -11,7 +11,6 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncEx
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
-import { useVariant } from '@/lib/variants'
 import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
 import { stripBracket } from '@/lib/import/places'
@@ -64,10 +63,6 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
   const theme = useTheme()
-  // Preview variant `sharepv` (share.css): a = the preview box takes the image's own shape at the dialog's full height and
-  // the dialog fits around it; b = one square stage for every format (the image centred in it, no box), so the controls
-  // never move.
-  const layout = useVariant('sharepv', ['a', 'b'] as const)
 
   // What the image shows: the current view (the filter applied), and the filter in words.
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
@@ -252,11 +247,10 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     return () => clearTimeout(t)
   }, [shownFormat])
   return (
-    <div className="eb-share-scrim" data-layout={layout} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="eb-share-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
         ref={ref}
         className="eb-share"
-        data-layout={layout}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -286,7 +280,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             </div>
           </div>
 
-          {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it. */}
+          {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits
+              centred in an area the story's size, so the controls keep their place in every format. */}
           <div ref={previewBox} className="eb-share-preview" data-format={preview?.format ?? format} aria-busy={busy} data-testid="share-preview">
             {preview && (
               // A blob URL of the rendered PNG: next/image has nothing to optimise here.

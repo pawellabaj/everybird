@@ -1,11 +1,9 @@
 /* The share dialog: a modal, preview beside the controls from 720px, stacked below. The preview is as large
-   as the window allows (Yusuf, 2026-11-15: no narrow story between grey bands), in one of two layouts (preview variant
-   `sharepv`, the dialog's data-layout):
-   a (default): the preview box takes the shown image's own shape (data-format: 9:16, 4:5 or 1:1) at the dialog's full
-     height, and the dialog fits around it and the controls, so nothing is letterboxed; switching format changes the
-     dialog's width leftward from a fixed right edge (the controls, their width and place, stay put).
-   b: one square stage at the same height for every format, the image centred in it with its own hairline and nothing
-     drawn around it, so the dialog and the controls never move.
+   as the window allows (Yusuf, 2026-11-15: no narrow story between grey bands): its box takes the shown image's own
+   shape (data-format: 9:16, 4:5 or 1:1), so nothing is letterboxed, and it sits centred in an area as large as the
+   story's box (the tallest), which the story fills and a post or square sits in the middle of (Yusuf, 2026-11-15).
+   The area keeps its height in every format, so the controls never move: beside them the dialog's width follows the
+   format leftward from a fixed right edge; stacked, the buttons under the area keep their place.
    It never scrolls sideways: the preview's size is bound by the window's width as well as its height. */
 .eb-share-scrim { position: fixed; inset: 0; z-index: var(--z-dialog-scrim); background: rgb(0 0 0 / .28); display: grid; place-items: center; padding: 16px; }
 /* Stacked, the dialog keeps its top edge (a shorter preview never moves the format control above it). */
@@ -30,8 +28,8 @@
 .eb-share-close svg { width: 18px; height: 18px; }
 
 /* The body: the format control, the preview, then the rest of the controls; stacked on phones (the format control
-   above the preview, so it never moves when the preview changes shape), a grid from 720px (the preview on the left
-   down both rows, the format control over the rest of the controls on the right). */
+   above the preview's area, the controls under it, so neither moves when the preview changes shape), a grid from 720px
+   (the preview on the left down both rows, the format control over the rest of the controls on the right). */
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
 .eb-share-formats { min-width: 0; container-type: inline-size; }
 
@@ -40,7 +38,7 @@
 .eb-share-preview[data-format="post"] { --ar: calc(4 / 5); }
 .eb-share-preview[data-format="square"] { --ar: 1; }
 .eb-share-preview {
-  position: relative; justify-self: center; box-sizing: border-box; overflow: hidden;
+  position: relative; justify-self: center; align-self: center; box-sizing: border-box; overflow: hidden;
   background: var(--surface); border: 1px solid var(--hairline);
   border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
@@ -50,55 +48,49 @@
 .eb-share-preview img { display: block; width: 100%; height: 100%; object-fit: contain; transition: opacity .2s cubic-bezier(.25, .8, .25, 1); }
 .eb-share-preview[aria-busy="true"] img { opacity: .55; }
 
-/* Stacked (phones): as tall as the screen allows while Share image stays on the first screen, ending 26px above the
-   dialog's bottom edge with the top 18px of the Download / Copy link row showing under it as a cue to scroll (the head,
-   the format control, the title field, the switch, the button and that margin take 409px with the dialog's padding
-   and gaps; measured at 390 x 844 and 700), at most 62% of the screen and 600px, at least 240px; as wide as the dialog
-   allows. */
-.eb-share-preview { --cap: max(240px, min(62dvh, 100dvh - 409px, 600px)); }
-.eb-share[data-layout="a"] .eb-share-preview { width: min(100%, calc(var(--cap) * var(--ar))); aspect-ratio: var(--ar); }
-.eb-share[data-layout="b"] .eb-share-preview { width: 100%; height: var(--cap); }
+/* Stacked (phones): the preview's area (the body's middle row) is --cap tall in every format: as tall as the screen
+   allows while Share image stays on the first screen, ending 26px above the dialog's bottom edge with the top 18px of
+   the Download / Copy link row showing under it as a cue to scroll (the head, the format control, the title field, the
+   switch, the button and that margin take 409px with the dialog's padding and gaps; measured at 390 x 844 and 700), at
+   most 62% of the screen and 600px, at least 240px. The box is at most --cap tall and as wide as the dialog allows,
+   centred in the row both ways: the story fills its height, a post or square leaves equal bands above and below. */
+.eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 409px, 600px)); grid-template-rows: auto var(--cap) auto; }
+.eb-share-preview { width: min(100%, calc(var(--cap) * var(--ar))); aspect-ratio: var(--ar); }
 
 /* Beside the controls: the window's height minus the chrome (16px scrim padding twice, the dialog's padding, head,
    gap and 1px borders: 134px), at most 760px, and never wider than the window leaves beside the controls' column
    (--ctl: 300px, 420px from 1000px so the format control keeps its icons; 92px of padding and gap, 16px of slack for a
    scrollbar). The height is --pv-h, not --h, which collage.css registers as a number.
    No preview is wider than 560px (--wide), so a square leaves the dialog only a little wider than a story's.
-   a: the dialog's size follows the format, so it is anchored by its right edge where the widest (square) dialog's
-   right edge would be when centred, and by its top edge where the tallest (story) dialog's would be (its preview plus
-   102px of chrome): the preview grows to the left, and the format control, the controls and the close button stay put
-   at every width (where the window's width bounds the square, its dialog is shorter than the story's). */
+   Each format's box is --pv-h tall; the story's, --story-h, is the tallest (room / ar is largest for the narrowest
+   shape), and the body is at least that tall in every format (min-height: the controls' row, 1fr, takes the rest), so
+   the box, spanning both rows and centred, sits in the middle of the story's height: the story fills it, a post or
+   square leaves equal bands above and below. Column 1 is the box's own width (the dialog's width follows the format),
+   so it is centred across too. The dialog's height is then the same in every format, and it is anchored by its right
+   edge where the widest (square) dialog's right edge would be when centred, and by its top edge where the story's
+   dialog would start (its box plus 102px of chrome, centred): the preview grows to the left, and the format control,
+   the controls and the close button stay put at every width. */
 @media (min-width: 720px) {
   .eb-share-scrim {
     --ctl: 300px; --wide: 560px; --room: min(100vw - var(--ctl) - 108px, var(--wide)); --tall: min(100dvh - 134px, 760px);
-  }
-  .eb-share-scrim[data-layout="a"] {
-    --top: max(16px, (100dvh - (max(240px, min(var(--tall), var(--room) / (9 / 16))) + 102px)) / 2);
+    --story-h: max(240px, min(var(--tall), var(--room) / (9 / 16)));
+    --top: max(16px, (100dvh - (var(--story-h) + 102px)) / 2);
     place-items: start end; padding-top: var(--top);
     padding-right: max(16px, (100% - (max(240px, min(var(--tall), var(--room))) + var(--ctl) + 62px)) / 2);
   }
-  .eb-share-scrim[data-layout="a"] .eb-share { max-height: calc(100dvh - var(--top) - 16px); }
+  .eb-share-scrim .eb-share { max-height: calc(100dvh - var(--top) - 16px); }
   .eb-share { width: fit-content; max-width: 100%; }
-  .eb-share-body { grid-template-columns: auto var(--ctl); grid-template-rows: auto 1fr; }
-  .eb-share-preview { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
+  .eb-share-body { grid-template-columns: auto var(--ctl); grid-template-rows: auto 1fr; min-height: var(--story-h); }
+  .eb-share-preview { grid-column: 1; grid-row: 1 / span 2; }
   .eb-share-formats, .eb-share-controls { grid-column: 2; }
   .eb-share-formats { grid-row: 1; }
   .eb-share-controls { grid-row: 2; align-self: start; }
-  .eb-share[data-layout="a"] .eb-share-preview {
+  .eb-share-preview {
     --pv-h: max(240px, min(var(--tall), var(--room) / var(--ar)));
     height: var(--pv-h); width: calc(var(--pv-h) * var(--ar)); aspect-ratio: auto;
   }
-  .eb-share[data-layout="b"] .eb-share-preview { --pv-h: max(240px, min(var(--tall), var(--room))); height: var(--pv-h); width: var(--pv-h); }
 }
 @media (min-width: 1000px) { .eb-share-scrim { --ctl: 420px; } }
-
-/* b: the stage is invisible; the image carries the hairline and the corners, at its own shape inside it. */
-.eb-share[data-layout="b"] .eb-share-preview { display: flex; align-items: center; justify-content: center; background: none; border: 0; border-radius: 0; }
-.eb-share[data-layout="b"] .eb-share-preview:not(:has(img)) { background: var(--surface); border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); }
-.eb-share[data-layout="b"] .eb-share-preview img {
-  width: auto; height: auto; max-width: 100%; max-height: 100%; box-sizing: border-box;
-  border: 1px solid var(--hairline); border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
-}
 .eb-share-spin {
   position: absolute; left: 50%; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px;
   border: 3px solid var(--hairline); border-top-color: var(--accent); border-radius: 50%;
