@@ -78,7 +78,7 @@ describe('the two eBird slots', () => {
 /** A list saved before the second eBird slot existed. */
 const oldSaved = () => ({
   v: 1,
-  records: { obsorg: [], 'obsorg-list': [], ebird: [rec('a')], inat: [], manual: [] },
+  records: { ebird: [rec('a')], inat: [], manual: [] },
   unmatched: [{ source: 'ebird', row: 4, reason: 'no-match' }],
   edits: { removed: [], added: [], marks: {}, fixes: { 'ebird:4': 'a' } },
   rules: { ...DEFAULT_RULES },
@@ -95,6 +95,8 @@ describe('older lists and backups keep loading', () => {
   it('migrateSaved adds the empty life-list slot and keeps everything else', () => {
     const m = migrateSaved(oldSaved() as never)
     expect(m.records['ebird-list']).toEqual([])
+    expect(m.records.obsorg).toEqual([])
+    expect(m.records['obsorg-list']).toEqual([])
     expect(m.records.ebird).toEqual([rec('a')])
     expect(m.edits.fixes).toEqual({ 'ebird:4': 'a' })
     expect(unmatchedKey(m.unmatched[0])).toBe('ebird:4')

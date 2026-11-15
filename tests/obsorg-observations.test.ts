@@ -79,4 +79,16 @@ describe('observation.org observations export', () => {
     expect(await parseObsOrgObservations('scientific name,species type,is escape\nColaptes auratus,species,True',t,{},regions)).toEqual({error:'no-birds'})
     expect((await parse('scientific name,species type\nAvis inventa,species\nAves indet.,aggregate')).unmatched).toHaveLength(2)
   })
+  it('counts a row once in excluded (an escape first) and counts undated rows', async () => {
+    const head = 'date,scientific name,species type,country,country division,is certain,is escape'
+    const r = await parse([head, '2020-01-01,Colaptes auratus,soort,Nederland,Utrecht,False,True', '2020-01-01,Colaptes auratus,soort,Nederland,Utrecht,False,False', '03-04-2020,Colaptes auratus,soort,Nederland,Utrecht,True,False', ',Colaptes auratus,soort,Nederland,Utrecht,True,False'].join('\r\n'))
+    expect(r.excluded).toEqual({ escape: 1, uncertain: 1 })
+    expect(r.undated).toBe(2)
+    expect(r.records[0].date).toBeUndefined()
+  })
+  it('reads quoted fields with commas, escaped quotes and line breaks as one row', async () => {
+    expect(csv).toContain('""quoted""')
+    expect(csv).toContain('\r\n')
+    expect((await parse()).rows).toBe(12)
+  })
 })

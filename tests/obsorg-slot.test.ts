@@ -33,10 +33,10 @@ const withBoth = (): Saved => {
 
 describe('the observation.org slots', () => {
   it('a v4 list without obsorg gains empty slots and stays v4', () => {
-    const old = emptySaved() as Saved & { records: Partial<Saved['records']> }
-    delete old.records.obsorg
-    delete old.records['obsorg-list']
-    const m = migrateSaved(old as Saved)
+    const old = emptySaved()
+    Reflect.deleteProperty(old.records, 'obsorg')
+    Reflect.deleteProperty(old.records, 'obsorg-list')
+    const m = migrateSaved(old)
     expect(m.records.obsorg).toEqual([])
     expect(m.records['obsorg-list']).toEqual([])
     expect(m.v).toBe(4)

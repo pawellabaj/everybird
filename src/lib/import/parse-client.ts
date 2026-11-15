@@ -1,11 +1,18 @@
-import type { Regions } from '@/lib/species/types'
-import type { ParseKind, ParseResponse, ParseResult } from './parse.worker'
+import type { ParseKind, ParseRequest, ParseResponse, ParseResult } from './parse.worker'
+
+/** What a kind's parse needs beside the file: observation.org needs the synonyms, its observations the regions too. */
+export type ParseOptions<K extends ParseKind> = Omit<Extract<ParseRequest, { kind: K }>, 'kind' | 'file'> & {
+  onProgress?: (rows: number) => void
+}
 
 /** Parse a supported export in a module worker; resolves with the ImportResult, reports row progress. */
-export function parseInWorker(
-  kind: ParseKind, file: File, onProgress?: (rows: number) => void,
-  synonyms?: Record<string, string>, regions?: Regions,
+export function parseInWorker<K extends ParseKind>(
+  kind: K,
+  file: File,
+  // Optional only when every option is (eBird's kinds).
+  ...[opts]: Partial<ParseOptions<K>> extends ParseOptions<K> ? [opts?: ParseOptions<K>] : [opts: ParseOptions<K>]
 ): Promise<ParseResult> {
+  const { onProgress, ...extra } = (opts ?? {}) as ParseOptions<K>
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./parse.worker.ts', import.meta.url), { type: 'module' })
     const done = () => worker.terminate()
@@ -24,6 +31,6 @@ export function parseInWorker(
       done()
       reject(new Error(e.message || 'Import worker failed'))
     }
-    worker.postMessage({ kind, file, synonyms, regions })
+    worker.postMessage({ kind, file, ...extra })
   })
 }

@@ -56,4 +56,10 @@ describe('observation.org suggestions are computed last, for few names', () => {
     await parseObsOrgObservations([head, ...Array(500).fill(row('Colaptes auratus'))].join('\r\n'), t, {}, regions)
     expect(spy).not.toHaveBeenCalled()
   })
+  it('a malformed row stops the observations parse: nothing is resolved or suggested after it', async () => {
+    const head = 'date,scientific name,species type,country,country division,is certain,is escape'
+    const text = [head, '2020-01-01,Avis inventa,soort,Nederland,Utrecht,True,False', '2020-01-01,"Avis broken,soort'].join('\r\n')
+    await expect(parseObsOrgObservations(text, t, {}, regions)).rejects.toThrow('Malformed observation.org CSV.')
+    expect(spy).not.toHaveBeenCalled()
+  })
 })

@@ -46,8 +46,8 @@ vi.mock('@/lib/import/parse-client', async () => {
   const { parseEbirdLifeList } = await import('@/lib/import/ebird-lifelist')
   const { buildTaxonomyIndex } = await import('@/lib/species/load')
   return {
-    parseInWorker: vi.fn(async (_kind: string, file: File, onProgress?: (rows: number) => void) => {
-      onProgress?.(4)
+    parseInWorker: vi.fn(async (_kind: string, file: File, opts?: { onProgress?: (rows: number) => void }) => {
+      opts?.onProgress?.(4)
       return parseEbirdLifeList(await file.text(), buildTaxonomyIndex(fx.taxa as never))
     }),
   }

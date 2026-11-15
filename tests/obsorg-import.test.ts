@@ -14,7 +14,7 @@ describe('observation.org worker dispatch', () => {
   })
   it('reports no-birds as an error', async () => {
     const posts: ParseResponse[] = []
-    await handleParseMessage({kind:'obsorg-species',file:new File([''],'empty.csv')},m => posts.push(m),async () => t)
+    await handleParseMessage({kind:'obsorg-species',file:new File([''],'empty.csv'),synonyms:{}},m => posts.push(m),async () => t)
     expect(posts).toEqual([{type:'error',message:'no-birds'}])
   })
   it('parses observations with supplied regions and preserves exclusion details', async () => {
@@ -26,8 +26,15 @@ describe('observation.org worker dispatch', () => {
   })
   it('refuses observations without regions rather than losing every place', async () => {
     const posts: ParseResponse[] = []
-    await handleParseMessage({kind:'obsorg-observations',file:file('observations-nl')},m => posts.push(m),async () => t)
-    expect(posts.at(-1)?.type).toBe('error')
+    await handleParseMessage({kind:'obsorg-observations',file:file('observations-nl'),synonyms:{}} as never,m => posts.push(m),async () => t)
+    expect(posts.at(-1)).toEqual({type:'error',message:'observation.org regions are required.'})
+  })
+  it('refuses observation.org files without the synonyms', async () => {
+    for (const kind of ['obsorg-species','obsorg-observations'] as const) {
+      const posts: ParseResponse[] = []
+      await handleParseMessage({kind,file:file(),regions} as never,m => posts.push(m),async () => t)
+      expect(posts.at(-1)).toEqual({type:'error',message:'observation.org synonyms are required.'})
+    }
   })
 })
 
@@ -46,7 +53,7 @@ describe('parse client', () => {
     const clientRegions = {v:1 as const,countries:{NL:'Netherlands'},sub1:{'NL-NH':'North Holland'}}
     const f = file('observations-nl'), synonyms = { 'Avis inventa':'gilfli' }
     const progress = vi.fn()
-    const result = parseInWorker('obsorg-observations',f,progress,synonyms,clientRegions)
+    const result = parseInWorker('obsorg-observations',f,{onProgress:progress,synonyms,regions:clientRegions})
     expect(postMessage).toHaveBeenCalledWith({kind:'obsorg-observations',file:f,synonyms,regions:clientRegions})
     instances[0].onmessage!({data:{type:'progress',rows:5000}})
     const parsed = {records:[],unmatched:[],skipped:0,excluded:{escape:1,uncertain:1}}

@@ -7,8 +7,13 @@ import { parseObsOrgSpecies, parseObsOrgObservations, type ObsOrgObservationsRes
 import type { Regions } from '@/lib/species/types'
 
 export type ParseKind = 'ebird-lifelist' | 'ebird-mydata' | 'obsorg-species' | 'obsorg-observations'
-export type ParseRequest = { kind: ParseKind; file: File; synonyms?: Record<string, string>; regions?: Regions }
-export type ParseResult = ImportResult & { excluded?: ObsOrgObservationsResult['excluded'] }
+/** observation.org's kinds need the iNaturalist synonyms (and the observations the regions); eBird's need neither. */
+export type ParseRequest =
+  | { kind: 'ebird-lifelist'; file: File }
+  | { kind: 'ebird-mydata'; file: File }
+  | { kind: 'obsorg-species'; file: File; synonyms: Record<string, string> }
+  | { kind: 'obsorg-observations'; file: File; synonyms: Record<string, string>; regions: Regions }
+export type ParseResult = ImportResult & { excluded?: ObsOrgObservationsResult['excluded']; undated?: number }
 export type ParseResponse =
   | { type: 'progress'; rows: number }
   | { type: 'done'; result: ParseResult }
@@ -44,11 +49,13 @@ export async function handleParseMessage(
         result = parseEbirdLifeList(await msg.file.text(), t)
         break
       case 'obsorg-species':
-        result = parseObsOrgSpecies(await msg.file.text(), t, msg.synonyms ?? {})
+        if (!msg.synonyms) throw new Error('observation.org synonyms are required.')
+        result = parseObsOrgSpecies(await msg.file.text(), t, msg.synonyms)
         break
       case 'obsorg-observations':
+        if (!msg.synonyms) throw new Error('observation.org synonyms are required.')
         if (!msg.regions) throw new Error('observation.org regions are required.')
-        result = await parseObsOrgObservations(msg.file, t, msg.synonyms ?? {}, msg.regions, onProgress)
+        result = await parseObsOrgObservations(msg.file, t, msg.synonyms, msg.regions, onProgress)
         break
       default:
         throw new Error('Unsupported import kind.')

@@ -113,7 +113,7 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
     busyEbird.current = true
     setEbird({ busy: true, rows: 0, error: null })
     try {
-      const result = await parseInWorker(kind, file, (rows) => { if (live.current) setEbird((j) => ({ ...j, rows })) })
+      const result = await parseInWorker(kind, file, { onProgress: (rows) => { if (live.current) setEbird((j) => ({ ...j, rows })) } })
       const lifeList = kind === 'ebird-lifelist'
       const details: EbirdDetails = { kind: lifeList ? 'life-list' : 'full-export', at: new Date().toISOString() }
       if (file.name) details.file = file.name

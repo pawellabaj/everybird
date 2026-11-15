@@ -82,4 +82,15 @@ describe('observation.org species export', () => {
       expect(species.has(code)).toBe(true)
     }
   })
+  it('NFC-normalises the type, rejects a malformed CSV, and counts undated species rows', () => {
+    expect(rowKind('variëteit'.normalize('NFD'), 'Anas platyrhynchos domesticus')).toBe('skip')
+    expect(() => parseObsOrgSpecies('scientific name,species type\nColumba livia,"species', t, {})).toThrow('Malformed observation.org CSV.')
+    expect(() => parseObsOrgSpecies('scientific name,species type\nColumba livia,species,extra', t, {})).toThrow('Malformed observation.org CSV.')
+    // Dates are ISO only: a day-month-year date is not guessed at; the bird counts, undated.
+    const r = parseObsOrgSpecies('scientific name,species type,date first observed\nColumba livia,species,03-04-2020\nColaptes auratus,species,\nGyps rueppelli,species,2020-01-01', t, {})
+    if ('error' in r) throw new Error(r.error)
+    expect(r.records).toHaveLength(3)
+    expect(r.undated).toBe(2)
+    expect(parse().undated).toBe(0)
+  })
 })
