@@ -90,7 +90,6 @@
 .eb-checklist { list-style: none; margin: 0 -8px; padding: 0; display: flex; flex-direction: column; }
 .eb-check {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; cursor: pointer;
-  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   -webkit-tap-highlight-color: transparent;
 }
 .eb-check input {
@@ -111,7 +110,11 @@
    ends in a drill button beside its label (never inside it), the site's chevron turned to point in. The breadcrumb
    is the taxonomy's .eb-path, its steps given a 44px press. */
 .eb-places-level { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; }
-.eb-places-row { display: flex; align-items: center; }
+/* The row (checkbox label and drill button) is one hover target: its Surface reaches the chevron. */
+.eb-places-row {
+  display: flex; align-items: center;
+  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+}
 .eb-places-row .eb-check { flex: 1; min-width: 0; }
 .eb-drill {
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none;
@@ -122,19 +125,21 @@
 .eb-drill:focus-visible { color: var(--ink); }
 .eb-places-path { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; } /* the sheet sits outside .eb-view */
 /* Expandable rows (PlacesTree.tsx, ?v=places:b): the drill button is a disclosure, its chevron pointing right when
-   closed and down when open; an open row's children are a nested list under it, indented one checkbox and its gap
-   per level (16px on the narrowest phones), rising in as a drilled level does. */
+   closed and down when open; an open row's children are a nested list under it, rising in as a drilled level does,
+   indented so each child's checkbox lines up under its parent's name: a country's provinces by its checkbox, flag and
+   their gaps (56px), a province's counties by its checkbox and gap (28px); 16px a level on the narrowest phones. */
 .eb-drill[aria-expanded] svg { transition: transform .2s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)); }
 .eb-drill[aria-expanded="true"] svg { transform: none; }
 .eb-places-sub {
   list-style: none; margin: 0; padding: 0 0 0 28px; display: flex; flex-direction: column;
   animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both;
 }
-@media (max-width: 359px) { .eb-places-sub { padding-left: 16px; } }
+.eb-places-tree > li > .eb-places-sub { padding-left: 56px; }
+@media (max-width: 359px) { .eb-places-sub, .eb-places-tree > li > .eb-places-sub { padding-left: 16px; } }
 .eb-places-path button { position: relative; }
 .eb-places-path button::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100% + 8px, 44px); height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) and (pointer: fine) {
-  .eb-check:hover { background: var(--surface); }
+  .eb-places-row:hover { background: var(--surface); }
   .eb-drill:hover { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) {
