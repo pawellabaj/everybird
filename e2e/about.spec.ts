@@ -277,6 +277,24 @@ for (const { layout, width, height } of SIZES) {
   })
 }
 
+// The scene's share preview mirrors the product's: its box is the image's own shape (no letterbox), in both designs.
+test("How it works: the share dialog's preview box has the image's own shape", async ({ page }) => {
+  const ratio = { story: 9 / 16, post: 4 / 5, square: 1 } as Record<string, number>;
+  // Each design shows at its own width (the slot's container query picks one).
+  for (const [layout, width] of [["wide", 1280], ["compact", 390]] as const) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/about");
+    const m = await page.locator(`[data-poster="${layout}"] .ebd-share-preview`).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const img = el.querySelector<HTMLElement>(`.ebd-img[data-format="${(el as HTMLElement).dataset.format}"]`)!.getBoundingClientRect();
+      return { format: (el as HTMLElement).dataset.format!, w: r.width, h: r.height, iw: img.width, ih: img.height };
+    });
+    expect(m.w / m.h, `${layout}: the preview box isn't the ${m.format} image's shape`).toBeCloseTo(ratio[m.format], 2);
+    expect(Math.abs(m.iw - m.w), `${layout}: the image doesn't fill its box`).toBeLessThan(1);
+    expect(Math.abs(m.ih - m.h), `${layout}: the image doesn't fill its box`).toBeLessThan(1);
+  }
+});
+
 test("How it works: the scene's labels are the product's (Settings rows, summary, page head, share formats, image footer)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto("/about")

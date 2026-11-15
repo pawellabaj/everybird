@@ -197,6 +197,18 @@ test("preview variant b (?v=sharepv:b): the stage and the controls keep their pl
   }
   expect(new Set(boxes.map((b) => b.stage)).size).toBe(1);
   expect(new Set(boxes.map((b) => b.col)).size).toBe(1);
+  // On a phone the image stays inside the stage in every format.
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const format of ["Story", "Post", "Square"]) {
+    await dialog.getByRole("button", { name: new RegExp(`^${format}`) }).click();
+    await expect(dialog.getByTestId("share-preview")).toHaveAttribute("data-format", format.toLowerCase(), { timeout: 30_000 });
+    await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+    const m = await dialog.getByTestId("share-preview").evaluate((el) => {
+      const s = el.getBoundingClientRect(), i = el.querySelector("img")!.getBoundingClientRect();
+      return { l: i.left - s.left, t: i.top - s.top, r: s.right - i.right, b: s.bottom - i.bottom };
+    });
+    for (const [side, v] of Object.entries(m)) expect(v, `${format} at 390px: the image leaves the stage (${side})`).toBeGreaterThanOrEqual(-0.5);
+  }
 });
 
 // "Show latest lifer" (on at every open): off, the image draws no latest lifer row (its room goes to the collage), and
@@ -356,7 +368,7 @@ test("Share image counts `shared` when the share sheet resolves, nothing when it
 // The dialog never scrolls sideways, whatever the format, the window width or the name's length: the format control
 // fits its column (Square was added later and pushed it out once). The preview (layout a, the default) takes the shown
 // image's own shape, so nothing is letterboxed (Yusuf, 2026-11-15: no story between grey bands), at the dialog's full
-// height beside the controls; the controls' column keeps its width whatever the format.
+// height beside the controls; the controls' column keeps its width and the format control its place whatever the format.
 // SHOT_DIR (optional) saves each width and format, light and dark, there.
 test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in every format, nor at 320px with large text; the preview hugs the image", async ({ page }, info) => {
   test.setTimeout(240_000);
@@ -366,20 +378,22 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
   const aspect: Record<string, number> = { Story: 9 / 16, Post: 4 / 5, Square: 1 };
   for (const width of [1440, 1280, 1000, 768, 440, 390, 320]) {
     await page.setViewportSize({ width, height: 800 });
-    const seen: { format: string; col: number; icons: boolean }[] = [];
+    const seen: { format: string; col: number; icons: boolean; segX: number; segY: number }[] = [];
     for (const format of ["Story", "Post", "Square"]) {
       await dialog.getByRole("button", { name: new RegExp(`^${format}`) }).click();
       await expect(dialog.getByTestId("share-preview")).toHaveAttribute("data-format", format.toLowerCase(), { timeout: 30_000 });
       await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
       await page.waitForTimeout(350); // the box's width transition
       const m = await dialog.evaluate((d) => {
+        d.scrollTop = 0;
         const seg = d.querySelector(".eb-seg")!.getBoundingClientRect();
+        const formats = d.querySelector(".eb-share-formats")!.getBoundingClientRect();
         const col = d.querySelector(".eb-share-controls")!.getBoundingClientRect();
         const icon = d.querySelector(".eb-seg-btn svg")!;
         const box = d.querySelector('[data-testid="share-preview"]')!;
         const img = box.querySelector("img")!;
         return {
-          sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - col.right, col: col.width,
+          sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - formats.right, col: col.width, segX: seg.x, segY: seg.y,
           swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
           bw: box.clientWidth, bh: box.clientHeight, iw: img.getBoundingClientRect().width, ih: img.getBoundingClientRect().height,
           icons: getComputedStyle(icon).display !== "none",
@@ -394,12 +408,12 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       expect(m.ih, `${format} at ${width}px: the image doesn't fill its box`).toBeGreaterThanOrEqual(m.bh - 1);
       // Beside the controls in an 800px-tall window, the story is the dialog's height: well over twice the old 400px box's area.
       if (width >= 1000 && format === "Story") expect(m.bh, `the story at ${width}px is short`).toBeGreaterThanOrEqual(600);
-      // Stacked on a phone, the tallest preview still leaves Share image on the dialog's first screen.
+      // Stacked on a phone, the tallest preview still leaves Share image on the dialog's first screen, with air under it.
       if (width < 720 && format === "Story") {
-        const bottom = await dialog.evaluate((d) => { d.scrollTop = 0; return [...d.querySelectorAll("button")].find((b) => b.textContent!.includes("Share image"))!.getBoundingClientRect().bottom; });
-        expect(bottom, `at ${width}px Share image is below the first screen`).toBeLessThanOrEqual(800);
+        const gap = await dialog.evaluate((d) => { d.scrollTop = 0; return d.getBoundingClientRect().bottom - [...d.querySelectorAll("button")].find((b) => b.textContent!.includes("Share image"))!.getBoundingClientRect().bottom; });
+        expect(gap, `at ${width}px Share image is not on the first screen with air under it`).toBeGreaterThanOrEqual(8);
       }
-      seen.push({ format, col: m.col, icons: m.icons });
+      seen.push({ format, col: m.col, icons: m.icons, segX: m.segX, segY: m.segY });
       if (shots) {
         for (const theme of ["light", "dark"]) {
           await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
@@ -413,6 +427,11 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
     for (const s of seen.slice(1)) {
       expect(s.col, `${s.format} at ${width}px: the controls' column changed with the format`).toBeCloseTo(seen[0].col, 0);
       expect(s.icons, `${s.format} at ${width}px: the format icons came or went with the format`).toBe(seen[0].icons);
+      // The format control stays put: beside the preview the dialog grows leftward from a fixed right edge (a dialog
+      // whose height changes, where the window's width bounds the square, still re-centres vertically); stacked, the
+      // control sits above the preview and the dialog keeps its top.
+      expect(s.segX, `${s.format} at ${width}px: the format control moved sideways`).toBeCloseTo(seen[0].segX, 0);
+      if (width < 720) expect(s.segY, `${s.format} at ${width}px: the format control moved up or down`).toBeCloseTo(seen[0].segY, 0);
     }
     // Wide windows have room for the icons beside the preview.
     if (width >= 1000) expect(seen[0].icons, `at ${width}px the format control has its icons`).toBe(true);

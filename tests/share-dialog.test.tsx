@@ -167,7 +167,7 @@ describe('share dialog', () => {
     expect(link.querySelector('img, svg')).toBeNull()
   })
 
-  it('has no note about what the link carries (About explains it)', async () => {
+  it('has no note about what the link carries (About explains it)', () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     expect(screen.queryByText(/The link opens your whole collage/)).toBeNull()
     expect(screen.queryByText(/never towns or coordinates/)).toBeNull()

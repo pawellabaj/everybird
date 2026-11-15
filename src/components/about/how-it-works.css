@@ -306,16 +306,18 @@
 .ebd .ebd-sheet-x { width: 14px; height: 14px; margin-left: auto; color: var(--muted); }
 .ebd .ebd-sheet-chips { display: flex; flex-wrap: wrap; gap: 6px 5px; }
 
-/* ---- The share dialog (.eb-share) over the window, on its scrim ---- */
+/* ---- The share dialog (.eb-share) over the window, on its scrim. Wide: anchored by its right edge (104px from the
+   window's, which runs past the stage) so the square dialog (210px preview + 284px controls) starts 16px inside the
+   window's visible part and the narrower story and post dialogs grow leftward from the same edge, as the product's. ---- */
 .ebd .ebd-share {
-  position: absolute; z-index: 7; left: 30px; top: 16px; width: 496px; box-sizing: border-box; padding: 12px 14px 14px;
+  position: absolute; z-index: 7; right: 104px; top: 16px; box-sizing: border-box; padding: 12px 14px 14px;
   background: var(--paper); border: 1px solid var(--hairline); box-shadow: var(--ss-shadow-satellite);
   border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   opacity: 0; transform: translateY(10px) scale(.98); will-change: transform, opacity;
   transition: opacity .2s ease, transform .3s cubic-bezier(.4, 0, 1, 1);
 }
 .ebd .ebd-share[data-show] { opacity: 1; transform: none; transition: opacity .25s ease, transform .5s var(--eb-arrive); }
-.ebd .ss-stage[data-layout="compact"] .ebd-share { left: 8px; top: 10px; width: 326px; padding: 10px 12px 12px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share { right: auto; left: 8px; top: 10px; width: 326px; padding: 10px 12px 12px; }
 .ebd .ebd-share-head { display: flex; align-items: center; justify-content: space-between; height: 26px; margin-bottom: 10px; }
 .ebd .ebd-share-title { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-title { font-size: 15px; }
@@ -324,12 +326,17 @@
 .ebd .ebd-share-close svg { width: 14px; height: 14px; }
 .ebd .ebd-share-body { display: flex; gap: 16px; align-items: flex-start; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-body { gap: 12px; }
-/* One 4:5 box for every format, the image letterboxed in it on Surface (share.css). */
+/* The box takes the shown image's own shape (share.css, layout a): a Hairline and 12px corners round the image, no
+   Surface bands. Wide, it is the dialog's height and the dialog fits around it from a fixed right edge, so the format
+   control and the close button stay put; compact, the image fits a fixed column, centred. */
 .ebd .ebd-share-preview {
-  position: relative; flex: none; overflow: hidden; background: var(--surface);
-  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+  position: relative; flex: none; overflow: hidden; background: var(--paper);
+  border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+  transition: width .3s var(--eb-ui), height .3s var(--eb-ui), margin .3s var(--eb-ui);
 }
-.ebd .ebd-share-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: 1; }
+.ebd .ebd-share-preview::after { content: ''; position: absolute; inset: 0; z-index: 1; border: 1px solid var(--hairline); border-radius: inherit; pointer-events: none; }
+.ebd .ebd-share-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: none; width: 284px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share-controls { flex: 1; width: auto; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-controls { gap: 9px; }
 /* Story / Post / Square (.eb-seg): label and ratio on one line, the pressed one on Surface. */
 .ebd .ebd-seg { display: flex; gap: 3px; padding: 3px; align-self: flex-start; border: 1px solid var(--hairline); border-radius: 11px; }

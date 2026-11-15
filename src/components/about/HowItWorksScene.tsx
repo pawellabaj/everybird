@@ -444,12 +444,24 @@ const FORMATS: { id: Format; label: string; hint: string; icon: typeof Square }[
   { id: 'post', label: 'Post', hint: '4:5', icon: FrameCorners },
   { id: 'square', label: 'Square', hint: '1:1', icon: Square },
 ]
-/** The share preview's box: one 4:5 box for every format (share.css), the image letterboxed in it. */
-const PREVIEW = { wide: { w: 168, h: 210 }, compact: { w: 128, h: 160 } }
+/**
+ * The share preview's box takes the image's own shape (share.css, layout a), with a Hairline and 12px corners and no
+ * Surface around it. Wide: the box is the dialog's height (h) and the format's width, and the dialog narrows or widens
+ * around it from a fixed right edge, as the product's does. Compact: the image fits a fixed w x h column, centred in it.
+ */
+const PREVIEW = { wide: { w: 210, h: 210 }, compact: { w: 128, h: 160 } }
+const IMG_AR: Record<Format, number> = { story: 9 / 16, post: 4 / 5, square: 1 }
+function previewBox(f: Format, wide: boolean): { w: number; h: number } {
+  const { w, h } = PREVIEW[wide ? 'wide' : 'compact']
+  if (wide) return { w: h * IMG_AR[f], h }
+  const k = Math.min(w / IMG_AR[f], h)
+  return { w: k * IMG_AR[f], h: k }
+}
 
 /** The share dialog (ShareDialog.tsx) over the window, on the share dialog's scrim. */
 function ShareDialog({ format, show, wide }: { format: Format; show: boolean; wide: boolean }) {
-  const box = PREVIEW[wide ? 'wide' : 'compact']
+  const box = previewBox(format, wide)
+  const col = PREVIEW[wide ? 'wide' : 'compact'].w
   return (
     <div className="ebd-share" data-show={show || undefined}>
       <div className="ebd-share-head">
@@ -457,8 +469,8 @@ function ShareDialog({ format, show, wide }: { format: Format; show: boolean; wi
         <span className="ebd-share-close" data-target="share-close"><X weight="bold" /></span>
       </div>
       <div className="ebd-share-body">
-        <div className="ebd-share-preview" style={{ width: box.w, height: box.h }}>
-          {FORMATS.map((f) => <ShareImage key={f.id} format={f.id} box={box} show={format === f.id} />)}
+        <div className="ebd-share-preview" data-format={format} style={{ width: box.w, height: box.h, marginInline: wide ? 0 : (col - box.w) / 2 }}>
+          {FORMATS.map((f) => <ShareImage key={f.id} format={f.id} box={previewBox(f.id, wide)} show={format === f.id} />)}
         </div>
         <div className="ebd-share-controls">
           <div className="ebd-seg">
@@ -502,7 +514,7 @@ function ShareImage({ format, box, show }: { format: Format; box: { w: number; h
   const ar = AR[LATEST.code] ?? 1
   const icon = L.latest.icon * k
   return (
-    <div className="ebd-img" data-show={show || undefined} data-format={format} style={{ width: w, height: h, left: (box.w - w) / 2, top: (box.h - h) / 2 }}>
+    <div className="ebd-img" data-show={show || undefined} data-format={format} style={{ width: w, height: h, left: 0, top: 0 }}>
       {Object.entries(L.tiles).map(([code, [x, y, tw, th]]) => (
         <span key={code} className="ebd-img-bird" style={{ left: x * k, top: y * k, width: tw * k, height: th * k }}><Sticker code={code} /></span>
       ))}

@@ -7,7 +7,7 @@
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
 import { DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, ShareNetwork, Square, X, type Icon } from '@phosphor-icons/react'
-import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
@@ -240,8 +240,21 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   }
 
   const [w, h] = IMAGE_SIZE[preview?.format ?? format]
+  // The box eases to a new format's shape (data-resizing, share.css), but follows a window resize at once.
+  const previewBox = useRef<HTMLDivElement>(null)
+  const shownFormat = preview?.format
+  const lastShown = useRef(shownFormat)
+  useLayoutEffect(() => {
+    const el = previewBox.current
+    const was = lastShown.current
+    lastShown.current = shownFormat
+    if (!el || !was || was === shownFormat) return
+    el.dataset.resizing = ''
+    const t = setTimeout(() => { delete el.dataset.resizing }, 400)
+    return () => clearTimeout(t)
+  }, [shownFormat])
   return (
-    <div className="eb-share-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="eb-share-scrim" data-layout={layout} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
         ref={ref}
         className="eb-share"
@@ -260,18 +273,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
         </div>
 
         <div className="eb-share-body">
-          {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it. */}
-          <div className="eb-share-preview" data-format={preview?.format ?? format} aria-busy={busy} data-testid="share-preview">
-            {preview && (
-              // A blob URL of the rendered PNG: next/image has nothing to optimise here.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview.url} width={w} height={h} alt={`Preview of the ${preview.format} image`} />
-            )}
-            {busy && <span className="eb-share-spin" aria-hidden="true" />}
-            {failed && !busy && <p className="eb-error eb-share-failed">Couldn&apos;t make the image.</p>}
-          </div>
-
-          <div className="eb-share-controls">
+          {/* Its own column on top of the controls beside the preview; above the preview on phones (share.css). */}
+          <div className="eb-share-formats">
             <div className="eb-seg" role="group" aria-label="Image format">
               {FORMATS.map(({ id, label: text, hint, icon: Glyph }) => (
                 <button key={id} type="button" className="eb-seg-btn" aria-pressed={format === id} onClick={() => setFormat(id)}>
@@ -283,7 +286,20 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                 </button>
               ))}
             </div>
+          </div>
 
+          {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it. */}
+          <div ref={previewBox} className="eb-share-preview" data-format={preview?.format ?? format} aria-busy={busy} data-testid="share-preview">
+            {preview && (
+              // A blob URL of the rendered PNG: next/image has nothing to optimise here.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview.url} width={w} height={h} alt={`Preview of the ${preview.format} image`} />
+            )}
+            {busy && <span className="eb-share-spin" aria-hidden="true" />}
+            {failed && !busy && <p className="eb-error eb-share-failed">Couldn&apos;t make the image.</p>}
+          </div>
+
+          <div className="eb-share-controls">
             <div className="eb-share-field">
               <label htmlFor={nameId} className="eb-share-label">Collage title</label>
               <input
