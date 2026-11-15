@@ -1,6 +1,7 @@
 'use client'
 // The share dialog: story, post or square image with a live preview, Share image (the system share sheet when it takes
-// files, else a download), Download image, Copy link and the optional collage title (Saved.name, verbatim).
+// files, else a download), Download image, Copy link, the optional collage title (Saved.name, verbatim) and the "Show
+// latest lifer" switch (on at every open; off gives the row's room to the collage).
 // The link encoder (and its ~111 KB species index) is a separate chunk, fetched when the dialog opens, so a Copy link
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
@@ -22,6 +23,7 @@ import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
 import '@/components/app/app.css'
+import '@/components/collage/collage.css'
 import './share.css'
 
 type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesIndex; regions: Regions; onClose: () => void }
@@ -58,6 +60,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const { list, filter, saved, seen } = state
   const [format, setFormat] = useState<ImageFormat>('story')
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
+  const [showLatest, setShowLatest] = useState(true)
   const theme = useTheme()
   // Preview variant `stamp` (?v=stamp:b): the date stamp beside the address instead of at the end of the footer line.
   const stampAt = useVariant('stamp', ['a', 'b'] as const) === 'b' ? 'address' : 'end'
@@ -71,9 +74,11 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     [filter, species, regions],
   )
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
+  const withLatest = hasLatest && showLatest
 
-  // One pack per format and name-or-not while the dialog is open (the view can't change underneath it; a name takes a
-  // line off the collage, so it gets its own pack); workers end on close.
+  // One pack per format, name-or-not and lifer-or-not while the dialog is open (the view can't change underneath it; a
+  // name takes a line off the collage and the latest lifer row gives one back, so each gets its own pack); workers end
+  // on close.
   const life = useRef<AbortController | null>(null)
   useEffect(() => {
     const c = new AbortController()
@@ -82,20 +87,20 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   }, [])
   const packFor = useMemo(() => {
     const packs = new Map<string, Promise<ImagePack>>()
-    return (f: ImageFormat, named: boolean) => {
-      const k = `${f}|${named}`
+    return (f: ImageFormat, named: boolean, lifer: boolean) => {
+      const k = `${f}|${named}|${lifer}`
       let p = packs.get(k)
       if (!p) {
-        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: hasLatest, count: shown.length })
+        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: lifer, count: shown.length })
         p = packForImage(shown, species, spec, life.current?.signal)
         packs.set(k, p)
         p.catch(() => packs.delete(k))
       }
       return p
     }
-  }, [shown, species, label, hasLatest])
+  }, [shown, species, label])
 
-  // The image: re-rendered (debounced) when the format, name or theme changes. `current` is the newest render;
+  // The image: re-rendered (debounced) when the format, name, theme or the latest lifer switch changes. `current` is the newest render;
   // a render superseded before it starts rejects with an AbortError.
   const [preview, setPreview] = useState<{ url: string; format: ImageFormat; key: string } | null>(null)
   const [failedKey, setFailedKey] = useState<string | null>(null)
@@ -105,7 +110,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${format}|${trimmed}|${theme}|${stampAt}`
+  const key = `${format}|${trimmed}|${theme}|${stampAt}|${withLatest}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   useEffect(() => {
@@ -117,8 +122,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       const t = setTimeout(resolve, delay)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
-      .then(() => packFor(format, !!trimmed))
-      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, stampAt, signal: life.current?.signal }))
+      .then(() => packFor(format, !!trimmed, withLatest))
+      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, stampAt, latest: withLatest, signal: life.current?.signal }))
     current.current = job
     job.then(
       (blob) => {
@@ -135,7 +140,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, format, trimmed, theme, stampAt, packFor, shown, species, label])
+  }, [key, format, trimmed, theme, stampAt, withLatest, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
@@ -285,6 +290,13 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                 onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
               />
             </div>
+
+            {hasLatest && (
+              <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
+                <span>Show latest lifer</span>
+                <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+              </button>
+            )}
 
             <div className="eb-share-actions">
               <button type="button" className="eb-btn" disabled={busy} onClick={() => void share()}>

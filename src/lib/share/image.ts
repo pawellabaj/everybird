@@ -6,8 +6,9 @@
 //           filtered view, the filter in words (Satoshi 500 32px, Accent)
 //   middle  the collage, packed for the space left (layout worker 'image' message: packFrame, the count's hole at its
 //           centre); no sticker longer than 30% of the collage wide (36% up to 24 birds)
-//   bottom  a Hairline rule, "Latest lifer: Western Grebe · Sep 2026" (Satoshi 32px), then the footer: the Everybird
-//           wordmark and one quiet line beside it, the site, the sticker credit and the date the image was made
+//   bottom  a Hairline rule, "Latest lifer: Western Grebe · Sep 2026" (Satoshi 32px; unless the dialog's "Show latest
+//           lifer" switch is off, when the collage takes its room), then the footer: the Everybird wordmark and one
+//           quiet line beside it, the site, the sticker credit and the date the image was made
 //           ("everybird.yusuftaleb.com · stickers by huashu · As of 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
 //           The full credit, with the licence, travels in the share text.
 // The story keeps Instagram's safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
@@ -273,7 +274,7 @@ export const abortError = (message = 'share image cancelled') => {
 
 /**
  * What to pack for a format and a view: the collage frame (with or without the name, the filter line and the latest
- * lifer) and the count's hole. The dialog packs once per format and name-or-not; the drawing maps the pack onto
+ * lifer) and the count's hole. The dialog packs once per format, name-or-not and lifer-or-not; the drawing maps the pack onto
  * whatever frame it gets.
  */
 export function imagePackSpec(format: ImageFormat, c: CardContent): PackSpec {
@@ -443,12 +444,14 @@ export type ShareImageOpts = {
   filterLabel?: string
   name?: string
   theme: 'light' | 'dark'
-  /** A pack made earlier by packForImage for this format, these entries and name-or-not (the dialog keeps them). */
+  /** A pack made earlier by packForImage for this format, these entries, name-or-not and lifer-or-not (the dialog keeps them). */
   pack?: ImagePack
   /** When the image is made, for the footer's date stamp; default `new Date()`. */
   now?: Date
   /** Where the date stamp sits in the footer line (the `stamp` preview variant); default 'end'. */
   stampAt?: StampAt
+  /** The latest lifer row; default true. False leaves it out and gives its room to the collage (cardLayout's `latest: false`). */
+  latest?: boolean
   signal?: AbortSignal
 }
 
@@ -507,7 +510,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const shown = entries.filter((e) => species.byCode.has(e.code))
   const latestE = latestLifer(shown, (c) => species.byCode.get(c)?.to ?? Number.MAX_SAFE_INTEGER)
   const latestRow = latestE && species.byCode.get(latestE.code)!
-  const latest = latestRow && latestText({ com: latestRow.com, date: latestE!.date })
+  const latest = opts.latest !== false && latestRow ? latestText({ com: latestRow.com, date: latestE!.date }) : undefined
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
   const footerLine = stampedFooter(SITE_LABEL, FOOTER_CREDIT, asOfDate(opts.now ?? new Date()), opts.stampAt)

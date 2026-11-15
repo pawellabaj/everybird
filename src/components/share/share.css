@@ -63,6 +63,9 @@
   border-radius: calc(8px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
 .eb-share-input::placeholder { color: var(--muted); opacity: 1; }
+/* "Show latest lifer": the site's switch (collage.css), at full strength off too, flush with the column's left edge
+   (scoped to .eb-share so it wins over .eb-switch whatever order the stylesheets load in). */
+.eb-share .eb-share-switch { align-self: flex-start; opacity: 1; padding: 0; gap: 12px; font-weight: 500; }
 .eb-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -70,6 +73,7 @@
   .eb-share { animation: none; }
   .eb-share-preview img { transition: none; }
   .eb-share-spin { animation: none; border-color: var(--accent); opacity: .5; }
+  .eb-share .eb-share-switch, .eb-share-switch .eb-track, .eb-share-switch .eb-knob { transition: none; }
 }
 
 /* The Story / Post / Square choice: a small segmented control in the dock's style. */

@@ -180,6 +180,43 @@ test.describe("date stamp", () => {
   });
 });
 
+// "Show latest lifer" (on at every open): off, the image draws no latest lifer row (its room goes to the collage), and
+// the footer with the sticker credit stays; on again, the row is back. The same fillText recorder as the date stamp's.
+test("Show latest lifer: on by default; off draws no latest lifer row, on draws it again", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __fillTexts: string[] };
+    w.__fillTexts = [];
+    const real = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+      w.__fillTexts.push(String(text));
+      return real.call(this, text, ...rest);
+    };
+  });
+  const dialog = await openShare(page);
+  const preview = dialog.getByTestId("share-preview");
+  const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+  const clear = () => page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
+  const sw = dialog.getByRole("switch", { name: "Show latest lifer" });
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  expect((await texts()).some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+  await clear();
+  await sw.click();
+  await expect(sw).toHaveAttribute("aria-checked", "false");
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  const off = await texts();
+  expect(off.length).toBeGreaterThan(0); // a new image was drawn
+  expect(off.some((t) => t.startsWith("LATEST LIFER"))).toBe(false);
+  expect(off.some((t) => t.startsWith("everybird.yusuftaleb.com · stickers by huashu"))).toBe(true); // the footer and credit stay
+  await clear();
+  await sw.click();
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  expect((await texts()).some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+});
+
 test("copy link puts a /s/1… URL under 2000 chars on the clipboard", async ({ page, context, baseURL, browserName }) => {
   chromiumOnly(browserName);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
@@ -312,12 +349,14 @@ test("the dialog never scrolls sideways at 390, 768, 1000 and 1280px, with a lon
         const icon = d.querySelector(".eb-seg-btn svg")!;
         return {
           sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - col.right, col: col.width,
+          swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
           preview: d.querySelector('[data-testid="share-preview"]')!.getBoundingClientRect().width,
           icons: getComputedStyle(icon).display !== "none",
         };
       });
       expect(m.sw, `${format} at ${width}px: the dialog scrolls sideways`).toBeLessThanOrEqual(m.cw);
       expect(m.over, `${format} at ${width}px: the format control sticks out of its column`).toBeLessThanOrEqual(0.5);
+      expect(m.swOver, `${format} at ${width}px: "Show latest lifer" sticks out of its column`).toBeLessThanOrEqual(0.5);
       seen.push({ format, col: m.col, preview: m.preview, icons: m.icons });
       if (shots) {
         await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });

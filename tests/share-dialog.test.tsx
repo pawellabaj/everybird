@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ShareDialog from '@/components/share/ShareDialog'
+import * as image from '@/lib/share/image'
 import type { ListEntry } from '@/lib/list/model'
 import { initialState } from '@/lib/list/store'
 import { decodeShare } from '@/lib/share/link'
@@ -25,6 +27,8 @@ const stateWith = (list: ListEntry[]) => ({ ...initialState(), list })
 
 beforeEach(() => {
   renders.length = 0
+  vi.mocked(image.packForImage).mockClear()
+  vi.mocked(image.renderShareImage).mockClear()
   URL.createObjectURL = vi.fn(() => 'blob:x')
   URL.revokeObjectURL = vi.fn()
 })
@@ -111,5 +115,47 @@ describe('share dialog', () => {
     expect(await blob.text()).toMatch(/\/s\/1/)
     await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Link copied.'))
     expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('"Show latest lifer" is a switch, on by default; off re-renders without the row, packed for the taller collage', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    const sw = screen.getByRole('switch', { name: 'Show latest lifer' })
+    expect(sw).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(renders).toHaveLength(1))
+    expect(vi.mocked(image.renderShareImage).mock.calls[0][0].latest).toBe(true)
+    await act(async () => renders[0].resolve(new Blob(['on'], { type: 'image/png' })))
+    const dl = screen.getByRole('button', { name: 'Download image' }) as HTMLButtonElement
+    await waitFor(() => expect(dl.disabled).toBe(false))
+    fireEvent.click(sw)
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    expect(dl.disabled).toBe(true) // the old image is never downloaded for the new state
+    await waitFor(() => expect(renders).toHaveLength(2))
+    expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0].latest).toBe(false)
+    expect(vi.mocked(image.packForImage).mock.calls.at(-1)![2]).toEqual(
+      image.imagePackSpec('story', { name: false, filter: false, latest: false, count: 1 }))
+  })
+
+  it('turning the switch back on reuses the first pack', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    await waitFor(() => expect(renders).toHaveLength(1))
+    const sw = screen.getByRole('switch', { name: 'Show latest lifer' })
+    fireEvent.click(sw)
+    await waitFor(() => expect(renders).toHaveLength(2))
+    fireEvent.click(sw)
+    await waitFor(() => expect(renders).toHaveLength(3))
+    expect(vi.mocked(image.packForImage)).toHaveBeenCalledTimes(2)
+  })
+
+  it('with no dated bird in view there is no latest lifer, so no switch', () => {
+    render(<ShareDialog state={stateWith([{ ...entry('ostric2'), date: undefined }])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.queryByRole('switch', { name: 'Show latest lifer' })).toBeNull()
+  })
+
+  it('each open starts with the switch on', () => {
+    const { unmount } = render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('switch', { name: 'Show latest lifer' }))
+    unmount()
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.getByRole('switch', { name: 'Show latest lifer' })).toHaveAttribute('aria-checked', 'true')
   })
 })

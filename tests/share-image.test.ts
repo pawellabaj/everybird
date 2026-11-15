@@ -66,6 +66,17 @@ describe('share image constants', () => {
 })
 
 describe('cardLayout', () => {
+  it('without the latest lifer row, the collage reaches down to the hairline gap (the row\'s room goes to the birds)', () => {
+    for (const format of ['story', 'post', 'square'] as const) {
+      const on = cardLayout(format, { name: true, filter: false, latest: true, count: 197 })
+      const off = cardLayout(format, { name: true, filter: false, latest: false, count: 197 })
+      expect(off.collage.y).toBe(on.collage.y)
+      expect(off.rule.y).toBe(on.rule.y)
+      expect(off.collage.h - on.collage.h).toBe(on.rule.y - on.latest!.y) // the row's icon and its gap to the rule
+      expect(packSpec(off).aspect).toBeLessThan(packSpec(on).aspect) // taller frame, so a new pack
+    }
+  })
+
   const SAFE = { story: { top: 160, bottom: 156 }, post: { top: 64, bottom: 64 }, square: { top: 64, bottom: 64 } } as const
   const inside = (a: { y: number }, b: { y: number; h: number }) => a.y >= b.y && a.y <= b.y + b.h
   for (const format of ['story', 'post', 'square'] as const) {
