@@ -15,7 +15,6 @@ import { pathToFileURL } from 'node:url'
 import { NAME_LOCALES } from '../../src/lib/species/name-locales'
 import type { NameLocale } from '../../src/lib/species/name-locales'
 
-const RAW = resolve(process.cwd(), 'data/raw')
 const HUASHU_URL = 'https://github.com/alchaincyf/huashu-bird-sticker'
 const EBIRD_URL = 'https://api.ebird.org/v2/ref/taxonomy/ebird?fmt=json'
 const EBIRD_VERSIONS_URL = 'https://api.ebird.org/v2/ref/taxonomy/versions'
@@ -25,14 +24,40 @@ const ISO_URL = 'https://salsa.debian.org/iso-codes-team/iso-codes/-/raw/main/da
 
 const sha256 = (data: Buffer | string) => createHash('sha256').update(data).digest('hex')
 
-/** Writes the download to data/raw/<file> and returns its sha256, recorded in the manifest. */
-async function download(url: string, file: string): Promise<string> {
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`)
-  const buf = Buffer.from(await res.arrayBuffer())
-  writeFileSync(resolve(RAW, file), buf)
-  console.log(`${file}: ${(buf.length / 1e6).toFixed(1)} MB`)
-  return sha256(buf)
+export type FetchDeps = { fetch?: typeof fetch; sleep?: (ms: number) => Promise<void> }
+const wait = (ms: number) => new Promise<void>((done) => setTimeout(done, ms))
+
+/** GETs `url` with a 60 s timeout per try, 3 tries with backoff (1 s, 2 s); throws the last failure. */
+export async function fetchBytes(url: string, deps: FetchDeps = {}, tries = 3): Promise<Buffer> {
+  const get = deps.fetch ?? fetch
+  const sleep = deps.sleep ?? wait
+  let last: unknown
+  for (let attempt = 1; attempt <= tries; attempt++) {
+    try {
+      const res = await get(url, { signal: AbortSignal.timeout(60_000) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return Buffer.from(await res.arrayBuffer())
+    } catch (e) {
+      last = e
+      if (attempt < tries) await sleep(1000 * 2 ** (attempt - 1))
+    }
+  }
+  throw new Error(`${url} -> ${last instanceof Error ? last.message : String(last)} (after ${tries} tries)`)
+}
+
+/** A download held in memory until every request has succeeded. */
+type RawFile = { file: string; body: Buffer }
+
+async function download(url: string, file: string, files: RawFile[], deps: FetchDeps): Promise<string> {
+  const body = await fetchBytes(url, deps)
+  files.push({ file, body })
+  console.log(`${file}: ${(body.length / 1e6).toFixed(1)} MB`)
+  return sha256(body)
+}
+
+function writeRawFiles(raw: string, files: RawFile[]): void {
+  mkdirSync(raw, { recursive: true })
+  for (const { file, body } of files) writeFileSync(resolve(raw, file), body)
 }
 
 /** Use the same taxonomy year as English, including when the API's latest year changes. */
@@ -58,19 +83,25 @@ export function assertSameSpeciesCodes(english: CodeRow[], localized: CodeRow[],
 }
 
 type Source = { name: string; url: string; date: string; version?: string; sha256?: string }
-async function fetchNames(version: string): Promise<Source[]> {
-  const english = JSON.parse(readFileSync(resolve(RAW, 'ebird-taxonomy.json'), 'utf8')) as CodeRow[]
+
+/**
+ * The pinned English taxonomy, the 19 name sets (each checked against that English) and the four group sets, all in
+ * memory: nothing is written unless every request succeeds.
+ */
+export async function fetchNameSources(version: string, deps: FetchDeps = {}): Promise<{ files: RawFile[]; sources: Source[] }> {
+  const files: RawFile[] = []
   const sources: Source[] = []
   const date = new Date().toISOString().slice(0, 10)
+  const englishUrl = taxonomyUrl(version)
+  sources.push({ name: 'ebird-taxonomy', url: englishUrl, date, version, sha256: await download(englishUrl, 'ebird-taxonomy.json', files, deps) })
+  const english = JSON.parse(files[0].body.toString('utf8')) as CodeRow[]
   for (const locale of NAME_LOCALES) {
     const url = taxonomyUrl(version, locale)
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`${url} -> HTTP ${res.status}`)
-    const rows = await res.json() as CodeRow[]
+    const body = await fetchBytes(url, deps)
+    const rows = JSON.parse(body.toString('utf8')) as CodeRow[]
     assertSameSpeciesCodes(english, rows, locale)
     const file = `ebird-taxonomy.${locale}`
-    const body = JSON.stringify(rows)
-    writeFileSync(resolve(RAW, `${file}.json`), body)
+    files.push({ file: `${file}.json`, body })
     sources.push({ name: file, url, date, version, sha256: sha256(body) })
     console.log(`${file}: ${rows.length} species`)
   }
@@ -80,13 +111,33 @@ async function fetchNames(version: string): Promise<Source[]> {
   for (const [lang, locale] of [['en', 'en'], ['es', 'es'], ['pt', 'pt_BR'], ['nl', 'nl']] as const) {
     const url = `https://api.ebird.org/v2/ref/sppgroup/ebird?groupNameLocale=${locale}`
     const file = `ebird-groups.${lang}`
-    sources.push({ name: file, url, date, sha256: await download(url, `${file}.json`) })
+    sources.push({ name: file, url, date, sha256: await download(url, `${file}.json`, files, deps) })
   }
-  return sources
+  return { files, sources }
+}
+
+/**
+ * `--names-only`: fetches the pinned taxonomy, names and groups into memory, then writes them and merges their
+ * entries into data/raw/manifest.json. A failed request leaves data/raw exactly as it was.
+ */
+export async function fetchNamesOnly(root: string, argv: string[], deps: FetchDeps = {}): Promise<string> {
+  const raw = resolve(root, 'data/raw')
+  const ebirdTaxonomy = await pinnedTaxonomy(taxonomyFlag(argv), root, deps.fetch)
+  const { files, sources } = await fetchNameSources(ebirdTaxonomy, deps)
+  const path = resolve(raw, 'manifest.json')
+  const manifest = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
+  const replaced = new Set(sources.map((s) => s.name))
+  manifest.ebirdTaxonomy = ebirdTaxonomy
+  manifest.sources = [...(manifest.sources ?? []).filter((s: Source) => !replaced.has(s.name)), ...sources]
+  writeRawFiles(raw, files)
+  writeFileSync(path, JSON.stringify(manifest, null, 2))
+  return ebirdTaxonomy
 }
 
 /** `--taxonomy <YYYY|latest>` from argv, or undefined. */
 export function taxonomyFlag(argv: string[]): string | undefined {
+  const joined = argv.find((a) => a.startsWith('--taxonomy='))
+  if (joined) throw new Error(`${joined}: write --taxonomy <YYYY|latest> (a space, not =)`)
   const i = argv.indexOf('--taxonomy')
   if (i < 0) return undefined
   const value = argv[i + 1]
@@ -134,28 +185,19 @@ function lockedCommit(): string | undefined {
 }
 
 async function main() {
-  mkdirSync(RAW, { recursive: true })
+  const root = process.cwd()
+  const raw = resolve(root, 'data/raw')
+  mkdirSync(raw, { recursive: true })
   if (process.argv.includes('--names-only')) {
-    const ebirdTaxonomy = await pinnedTaxonomy(taxonomyFlag(process.argv))
-    const url = taxonomyUrl(ebirdTaxonomy)
-    const taxonomySha = await download(url, 'ebird-taxonomy.json')
-    const sources = await fetchNames(ebirdTaxonomy)
-    const path = resolve(RAW, 'manifest.json')
-    const manifest = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {}
-    const date = new Date().toISOString().slice(0, 10)
-    const additions = [{ name: 'ebird-taxonomy', url, date, version: ebirdTaxonomy, sha256: taxonomySha }, ...sources]
-    const replaced = new Set(additions.map((s) => s.name))
-    manifest.ebirdTaxonomy = ebirdTaxonomy
-    manifest.sources = [...(manifest.sources ?? []).filter((s: Source) => !replaced.has(s.name)), ...additions]
-    writeFileSync(path, JSON.stringify(manifest, null, 2))
+    const ebirdTaxonomy = await fetchNamesOnly(root, process.argv)
     console.log('names sources written; eBird taxonomy', ebirdTaxonomy)
     return
   }
-  const huashuDir = resolve(RAW, 'huashu')
+  const huashuDir = resolve(raw, 'huashu')
   const huashuCommit = checkoutHuashu(huashuDir, lockedCommit())
 
   if (process.argv.includes('--huashu-only')) {
-    const path = resolve(RAW, 'manifest.json')
+    const path = resolve(raw, 'manifest.json')
     if (!existsSync(path)) throw new Error('no data/raw/manifest.json yet: run fetch-sources.ts without --huashu-only first')
     const m = JSON.parse(readFileSync(path, 'utf8'))
     m.huashuCommit = huashuCommit
@@ -166,13 +208,12 @@ async function main() {
   }
 
   const ebirdTaxonomy = await pinnedTaxonomy(taxonomyFlag(process.argv))
-  const ebirdUrl = taxonomyUrl(ebirdTaxonomy)
-
-  const taxonomySha = await download(ebirdUrl, 'ebird-taxonomy.json')
-  const namesSources = await fetchNames(ebirdTaxonomy)
-  const ne0Sha = await download(NE + 'ne_50m_admin_0_countries.geojson', 'ne_50m_admin_0_countries.geojson')
-  const ne1Sha = await download(NE + 'ne_10m_admin_1_states_provinces.geojson', 'ne_10m_admin_1_states_provinces.geojson')
-  const isoSha = await download(ISO_URL, 'iso_3166-2.json')
+  // Everything is fetched into memory first; data/raw changes only once every download has succeeded.
+  const names = await fetchNameSources(ebirdTaxonomy)
+  const files = [...names.files]
+  const ne0Sha = await download(NE + 'ne_50m_admin_0_countries.geojson', 'ne_50m_admin_0_countries.geojson', files, {})
+  const ne1Sha = await download(NE + 'ne_10m_admin_1_states_provinces.geojson', 'ne_10m_admin_1_states_provinces.geojson', files, {})
+  const isoSha = await download(ISO_URL, 'iso_3166-2.json', files, {})
 
   const date = new Date().toISOString().slice(0, 10)
   const manifest = {
@@ -181,14 +222,14 @@ async function main() {
     ebirdTaxonomy,
     sources: [
       { name: 'huashu-bird-sticker', url: HUASHU_URL, date, commit: huashuCommit },
-      { name: 'ebird-taxonomy', url: ebirdUrl, date, version: ebirdTaxonomy, sha256: taxonomySha },
-      ...namesSources,
+      ...names.sources,
       { name: 'ne_50m_admin_0_countries', url: NE + 'ne_50m_admin_0_countries.geojson', date, sha256: ne0Sha },
       { name: 'ne_10m_admin_1_states_provinces', url: NE + 'ne_10m_admin_1_states_provinces.geojson', date, sha256: ne1Sha },
       { name: 'iso-codes iso_3166-2 (Debian iso-codes, LGPL-2.1)', url: ISO_URL, date, licence: 'LGPL-2.1', sha256: isoSha },
     ],
   }
-  writeFileSync(resolve(RAW, 'manifest.json'), JSON.stringify(manifest, null, 2))
+  writeRawFiles(raw, files)
+  writeFileSync(resolve(raw, 'manifest.json'), JSON.stringify(manifest, null, 2))
   console.log('manifest written; huashu', huashuCommit, 'eBird taxonomy', ebirdTaxonomy)
 }
 
