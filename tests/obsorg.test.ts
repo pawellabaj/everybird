@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { detectFile, slotOfKind } from '@/lib/import/detect'
-import { OBSORG_SYNONYMS, parseObsOrgSpecies, resolveObsOrgName, rowKind } from '@/lib/import/obsorg'
+import { DamagedCsvError, OBSORG_SYNONYMS, parseObsOrgSpecies, resolveObsOrgName, rowKind } from '@/lib/import/obsorg'
 import { resolveName } from '@/lib/species/resolve'
 import { buildTaxonomyIndex } from '@/lib/species/load'
 import { REGION_RULES } from '@/lib/import/inat-rules'
 import { fixture, taxonomy as t } from './obsorg-helpers'
+const publicT = buildTaxonomyIndex(JSON.parse(readFileSync('public/data/taxonomy.v1.json', 'utf8')).taxa)
 const parse = (csv = fixture('species-observed-nl')) => {
   const result = parseObsOrgSpecies(csv, t, {})
   if ('error' in result) throw new Error(result.error)
@@ -82,15 +83,39 @@ describe('observation.org species export', () => {
       expect(species.has(code)).toBe(true)
     }
   })
-  it('NFC-normalises the type, rejects a malformed CSV, and counts undated species rows', () => {
+  it('NFC-normalises the type, rejects a damaged CSV, reads a short or long row, and counts undated species', () => {
     expect(rowKind('variëteit'.normalize('NFD'), 'Anas platyrhynchos domesticus')).toBe('skip')
-    expect(() => parseObsOrgSpecies('scientific name,species type\nColumba livia,"species', t, {})).toThrow('Malformed observation.org CSV.')
-    expect(() => parseObsOrgSpecies('scientific name,species type\nColumba livia,species,extra', t, {})).toThrow('Malformed observation.org CSV.')
+    expect(() => parseObsOrgSpecies('scientific name,species type\nColumba livia,"species', t, {})).toThrow(DamagedCsvError)
+    expect(() => parseObsOrgSpecies('naam,soort\nColumba livia,soort', t, {})).toThrow('Malformed observation.org CSV.')
+    // One row with an extra field, one cut short (a trailing partial line): both read, the file kept.
+    const ragged = parse('scientific name,species type,date first observed\nColumba livia,species,2020-01-01,SENTINEL\nGyps rueppelli,species,2021-01-01\nColaptes auratus')
+    expect(ragged.records.map(x => [x.code, x.date])).toEqual([['rocpig','2020-01-01'],['rupgri','2021-01-01'],['norfli',undefined]])
+    expect(JSON.stringify(ragged)).not.toContain('SENTINEL')
     // Dates are ISO only: a day-month-year date is not guessed at; the bird counts, undated.
     const r = parseObsOrgSpecies('scientific name,species type,date first observed\nColumba livia,species,03-04-2020\nColaptes auratus,species,\nGyps rueppelli,species,2020-01-01', t, {})
     if ('error' in r) throw new Error(r.error)
     expect(r.records).toHaveLength(3)
     expect(r.undated).toBe(2)
     expect(parse().undated).toBe(0)
+    // Species, not rows: two undated rows of one bird are one; a dated row of it anywhere dates it.
+    expect(parse('scientific name,species type,date first observed\nColumba livia,species,\nColumba livia,species,\nGyps rueppelli,species,\nGyps rueppelli,species,2020-01-01').undated).toBe(1)
+  })
+  it('a subspecies of a regional split takes its epithet’s eBird species; the species name its exact match', () => {
+    const r = parseObsOrgSpecies(['scientific name,species type,date first observed', 'Muscicapa striata tyrrhenica,ondersoort,2020-06-01', 'Tringa semipalmata inornata,ondersoort,2020-06-01', 'Myophonus caeruleus flavirostris,ondersoort,2020-06-01', 'Muscicapa striata,soort,2020-06-01'].join('\n'), publicT, {})
+    if ('error' in r) throw new Error(r.error)
+    expect(r.records.map(x => x.code)).toEqual(['spofly3','willet3','bluwht2','spofly2'])
+    expect(resolveObsOrgName(publicT, 'Muscicapa striata', 'species', {})).toEqual({ code: 'spofly2', via: 'sci' })
+    // An epithet the rule doesn't list reduces as any subspecies does; a species row never reads the rule.
+    expect(resolveObsOrgName(publicT, 'Muscicapa striata constructor', 'subspecies', {}).code).toBe('spofly2')
+    expect(resolveObsOrgName(publicT, 'Tringa semipalmata', 'species', {}).code).toBe('willet2')
+  })
+  it('forms and varieties are skipped as not species although their names alone would resolve', () => {
+    const r = parse()
+    for (const row of [11, 12]) {
+      const u = r.unmatched.find(x => x.row === row)!
+      expect(u.reason).toBe('not-species')
+      expect(resolveName(t, { sci: u.sci! }).code, u.sci).not.toBeNull()
+    }
+    expect(r.unmatched.filter(x => x.row >= 11 && x.row <= 12).map(x => x.sci)).toEqual(['Columba livia (domestica)', 'Anas platyrhynchos (domesticus)'])
   })
 })

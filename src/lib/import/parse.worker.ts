@@ -3,7 +3,7 @@ import type { TaxonomyIndex } from '@/lib/species/resolve'
 import type { ImportResult } from '@/lib/list/model'
 import { parseEbirdLifeList } from './ebird-lifelist'
 import { parseEbirdMyData } from './ebird-mydata'
-import { parseObsOrgSpecies, parseObsOrgObservations, type ObsOrgObservationsResult } from './obsorg'
+import { DamagedCsvError, parseObsOrgSpecies, parseObsOrgObservations, type ObsOrgObservationsResult } from './obsorg'
 import type { Regions } from '@/lib/species/types'
 
 export type ParseKind = 'ebird-lifelist' | 'ebird-mydata' | 'obsorg-species' | 'obsorg-observations'
@@ -14,10 +14,20 @@ export type ParseRequest =
   | { kind: 'obsorg-species'; file: File; synonyms: Record<string, string> }
   | { kind: 'obsorg-observations'; file: File; synonyms: Record<string, string>; regions: Regions }
 export type ParseResult = ImportResult & { excluded?: ObsOrgObservationsResult['excluded']; undated?: number }
+/**
+ * Why a parse failed, for the UI to switch on: 'no-birds' (a readable file without a bird), 'damaged' (not readable as
+ * the CSV it claims to be), 'missing-options' (a caller bug: observation.org without its synonyms or regions). Other
+ * failures (the taxonomy didn't load, an unsupported kind, a read error) carry no code.
+ */
+export type ParseErrorCode = 'no-birds' | 'damaged' | 'missing-options'
 export type ParseResponse =
   | { type: 'progress'; rows: number }
   | { type: 'done'; result: ParseResult }
-  | { type: 'error'; message: string }
+  | { type: 'error'; code?: ParseErrorCode; message: string }
+
+class MissingOptionError extends Error {
+  readonly code = 'missing-options'
+}
 
 const PROGRESS_MS = 100
 const PROGRESS_ROWS = 5000
@@ -29,6 +39,11 @@ export async function handleParseMessage(
   load: () => Promise<TaxonomyIndex> = loadTaxonomy,
 ): Promise<void> {
   try {
+    // Checked before the taxonomy loads: a caller bug shouldn't wait on a download.
+    if (msg.kind === 'obsorg-species' || msg.kind === 'obsorg-observations') {
+      if (!msg.synonyms) throw new MissingOptionError('observation.org synonyms are required.')
+      if (msg.kind === 'obsorg-observations' && !msg.regions) throw new MissingOptionError('observation.org regions are required.')
+    }
     const t = await load()
     let last = 0
     let lastRows = 0
@@ -49,24 +64,24 @@ export async function handleParseMessage(
         result = parseEbirdLifeList(await msg.file.text(), t)
         break
       case 'obsorg-species':
-        if (!msg.synonyms) throw new Error('observation.org synonyms are required.')
         result = parseObsOrgSpecies(await msg.file.text(), t, msg.synonyms)
         break
       case 'obsorg-observations':
-        if (!msg.synonyms) throw new Error('observation.org synonyms are required.')
-        if (!msg.regions) throw new Error('observation.org regions are required.')
         result = await parseObsOrgObservations(msg.file, t, msg.synonyms, msg.regions, onProgress)
         break
       default:
         throw new Error('Unsupported import kind.')
     }
     if ('error' in result) {
-      post({ type: 'error', message: result.error })
+      post({ type: 'error', code: 'no-birds', message: result.error })
       return
     }
     post({ type: 'done', result })
   } catch (e) {
-    post({ type: 'error', message: e instanceof Error ? e.message : String(e) })
+    const message = e instanceof Error ? e.message : String(e)
+    const code: ParseErrorCode | undefined =
+      e instanceof DamagedCsvError ? 'damaged' : e instanceof MissingOptionError ? 'missing-options' : undefined
+    post(code ? { type: 'error', code, message } : { type: 'error', message })
   }
 }
 

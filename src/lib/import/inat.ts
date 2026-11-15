@@ -189,7 +189,8 @@ export { SUB1_ALIASES, sub1Names } from './sub1-index'
 /** Exported for tests. */
 export function makePlaceResolver(regions: Regions, byId: Map<number, ApiPlace>) {
   const countries = invertCountries(regions)
-  const sub1Of = makeSub1Index(regions)
+  // A name two codes share keeps the first, as this import always has; the aliases settle the known ones first.
+  const sub1Of = makeSub1Index(regions, undefined, undefined, { onClash: 'first' })
   return (placeIds: number[]): Place | undefined => {
     let countryName: string | undefined
     let sub1Name: string | undefined

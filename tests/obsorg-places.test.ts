@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { countryNameMap, makeObsOrgPlaces, OBSORG_COUNTRY_ALIASES, OBSORG_SUB1_ALIASES } from '@/lib/import/obsorg-places'
+import { SUB1_PARENT } from '@/lib/import/sub1-parents'
+import { sub1Parents } from '../scripts/build-data/build-sub1-parents'
 import { regions } from './obsorg-helpers'
 const place = () => makeObsOrgPlaces(regions)
 
@@ -16,9 +18,10 @@ describe('observation.org country and division names', () => {
   it('maps divisions within the country, dropping one trailing parenthesis and never matching fuzzily', () => {
     const p = place()
     for (const [country, division, iso, sub1] of [
-      ['België','Antwerpen','BE','BE-VAN'], ['België','Oost-Vlaanderen','BE','BE-VOV'],
-      ['Nederland','Noord-Holland','NL','NL-NH'], ['Frankrijk','Pas-de-Calais (62)','FR','FR-62'],
-      ['België','Limburg (B)','BE','BE-VLI'], ['Nederland','Limburg','NL','NL-LI'],
+      // Belgian provinces and French departments roll up to their regions (eBird's subnational1).
+      ['België','Antwerpen','BE','BE-VLG'], ['België','Oost-Vlaanderen','BE','BE-VLG'], ['België','Henegouwen','BE','BE-WAL'],
+      ['Nederland','Noord-Holland','NL','NL-NH'], ['Frankrijk','Pas-de-Calais (62)','FR','FR-HDF'],
+      ['België','Limburg (B)','BE','BE-VLG'], ['Nederland','Limburg','NL','NL-LI'], ['België','Brussel','BE','BE-BRU'],
       ['Peru','Cuzco','PE','PE-CUS'], ['Spanje','Murcia','ES','ES-MC'], ['Duitsland','Beieren','DE','DE-BY'], ['Nederland','Fryslân','NL','NL-FR'],
     ]) expect(p(country,division)).toEqual({ country:iso, sub1 })
     expect(p('Nederland','Noord Holand')).toEqual({ country:'NL' })
@@ -31,7 +34,8 @@ describe('observation.org country and division names', () => {
       ['Oostenrijk','Wien','AT','AT-9'], ['Denemarken','Nordjylland','DK','DK-81'], ['Finland','Varsinais-Suomi','FI','FI-19'],
       ['Kroatië','Splitsko-dalmatinska','HR','HR-17'], ['Kroatië','Grad Zagreb','HR','HR-21'], ['Portugal','Açores','PT','PT-20'],
       ['Peru','Provincia Constitucional del Callao','PE','PE-CAL'], ['België','Brussel / Bruxelles','BE','BE-BRU'],
-      ['Frankrijk','Paris','FR','FR-75'],
+      ['Frankrijk','Paris','FR','FR-IDF'], ['Spanje','Alicante','ES','ES-VC'], ['Italië','Sassari','IT','IT-88'],
+      ['Verenigd Koninkrijk','Cumbria','GB','GB-ENG'],
       ['Verenigd Koninkrijk','England - Kent','GB','GB-ENG'], ['Verenigd Koninkrijk','Wales - Gwynedd','GB','GB-WLS'],
     ]) expect(p(country,division)).toEqual({ country:iso, sub1 })
     // Only the UK's divisions split at the dash; elsewhere the whole name must match.
@@ -44,6 +48,29 @@ describe('observation.org country and division names', () => {
     expect(p('Nederland','')).toEqual({ country:'NL' })
     expect(p('Nederland','Atlantis')).toEqual({ country:'NL' })
     expect(p('Nederland','Atlantis')).toBe(p('Nederland','Atlantis'))
+  })
+  it('rolls up only BE, FR, ES, IT and GB, to a top-level code in regions.sub1', () => {
+    const countries = new Set(['BE','FR','ES','IT','GB'])
+    for (const [child, top] of Object.entries(SUB1_PARENT)) {
+      expect(regions.sub1[child], child).toBeDefined()
+      expect(regions.sub1[top], top).toBeDefined()
+      expect(SUB1_PARENT[top], top).toBeUndefined()
+      expect(countries.has(child.split('-')[0]), child).toBe(true)
+      expect(top.split('-')[0]).toBe(child.split('-')[0])
+    }
+    expect(Object.keys(SUB1_PARENT)).toEqual([...Object.keys(SUB1_PARENT)].sort())
+    for (const [child, top] of Object.entries({ 'BE-VAN':'BE-VLG', 'BE-WHT':'BE-WAL', 'FR-62':'FR-HDF', 'FR-75':'FR-IDF', 'FR-2A':'FR-20R', 'FR-2B':'FR-20R', 'FR-67':'FR-GES', 'ES-A':'ES-VC', 'GB-CMA':'GB-ENG', 'IT-SS':'IT-88' })) expect(SUB1_PARENT[child], child).toBe(top)
+    for (const top of ['BE-BRU','BE-VLG','FR-20R','FR-973','ES-IB','ES-MC','IT-88','GB-ENG']) expect(SUB1_PARENT[top], top).toBeUndefined()
+    // The Mediterranean Flycatcher's islands are top-level codes, so rolled-up places still name them.
+    for (const code of ['ES-IB','FR-20R','IT-88']) expect(SUB1_PARENT[code]).toBeUndefined()
+  })
+  it('the generator walks the parent chain, reads bare-suffix parents, and keeps to the five countries', () => {
+    const iso = [
+      { code:'FR-GES', name:'Grand Est' }, { code:'FR-6AE', name:'Alsace', parent:'FR-GES' }, { code:'FR-67', name:'Bas-Rhin', parent:'FR-6AE' },
+      { code:'BE-VLG', name:'Vlaanderen' }, { code:'BE-VAN', name:'Antwerpen', parent:'VLG' }, { code:'NL-UT', name:'Utrecht', parent:'NL-XX' },
+    ]
+    const sub1 = { 'FR-GES':'Grand Est', 'FR-67':'Bas-Rhin', 'FR-75':'Paris', 'FR-IDF':'Île-de-France', 'BE-VLG':'Flanders', 'BE-VAN':'Antwerp', 'NL-UT':'Utrecht' }
+    expect(sub1Parents(iso, sub1)).toEqual({ 'BE-VAN':'BE-VLG', 'FR-67':'FR-GES', 'FR-75':'FR-IDF' })
   })
   it('every alias points to a real code', () => {
     for (const code of Object.keys(OBSORG_SUB1_ALIASES)) expect(regions.sub1[code]).toBeDefined()

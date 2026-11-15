@@ -2,6 +2,7 @@ import type { Place } from '@/lib/list/model'
 import type { Regions } from '@/lib/species/types'
 import { foldName } from '@/lib/species/resolve'
 import { makeSub1Index, SUB1_ALIASES } from './sub1-index'
+import { SUB1_PARENT } from './sub1-parents'
 
 export const OBSORG_NAME_LANGS = ['nl', 'en', 'fr', 'de', 'es'] as const
 
@@ -137,10 +138,19 @@ export function countryNameMap(regions: Regions, langs: readonly string[] = OBSO
 // "Pas-de-Calais (62)", "Limburg (B)": one trailing parenthesis is dropped, on both sides of the match.
 const divisionKey = (folded: string) => folded.replace(/\s*\([^()]*\)\s*$/, '').trim()
 
-/** Resolve and cache raw pairs for one parse. Only ISO country/sub1 codes leave the resolver; no counties. */
+/**
+ * Resolve and cache raw pairs for one parse. Only ISO country/sub1 codes leave the resolver; no counties. A lower-tier
+ * code (a Belgian province, a French department, a Spanish or Italian province, an English county) rolls up to its
+ * top-level region, eBird's subnational1 (SUB1_PARENT, for BE, FR, ES, IT and GB only).
+ */
 export function makeObsOrgPlaces(regions: Regions): (country: string, division: string) => Place | undefined {
   const countries = countryNameMap(regions)
-  const sub1Of = makeSub1Index(regions, [SUB1_ALIASES, OBSORG_SUB1_ALIASES], divisionKey)
+  const index = makeSub1Index(regions, [SUB1_ALIASES, OBSORG_SUB1_ALIASES], divisionKey, { onClash: 'none' })
+  const sub1Of = (country: string, name: string) => {
+    const code = index(country, name)
+    const top = code && Object.hasOwn(SUB1_PARENT, code) ? SUB1_PARENT[code] : undefined
+    return top && regions.sub1[top] ? top : code
+  }
   const cache = new Map<string, Place | undefined>()
   return (countryName, division) => {
     const key = `${countryName}\u0000${division}`

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleParseMessage, type ParseResponse } from '@/lib/import/parse.worker'
-import { parseInWorker } from '@/lib/import/parse-client'
+import { ParseError, parseErrorCode, parseInWorker } from '@/lib/import/parse-client'
 import { fixture, regions, taxonomy as t } from './obsorg-helpers'
 const file = (kind = 'species-observed-nl') => new File([fixture(kind)], 'synthetic.csv')
 
@@ -15,26 +15,37 @@ describe('observation.org worker dispatch', () => {
   it('reports no-birds as an error', async () => {
     const posts: ParseResponse[] = []
     await handleParseMessage({kind:'obsorg-species',file:new File([''],'empty.csv'),synonyms:{}},m => posts.push(m),async () => t)
-    expect(posts).toEqual([{type:'error',message:'no-birds'}])
+    expect(posts).toEqual([{type:'error',code:'no-birds',message:'no-birds'}])
   })
   it('parses observations with supplied regions and preserves exclusion details', async () => {
     const posts: ParseResponse[] = []
     await handleParseMessage({kind:'obsorg-observations',file:file('observations-nl'),synonyms:{},regions},m => posts.push(m),async () => t)
     const done = posts.at(-1) as Extract<ParseResponse,{type:'done'}>
     expect(done).toMatchObject({type:'done',result:{excluded:{escape:1,uncertain:1}}})
-    expect(done.result.records.find(x => x.code === 'norfli')?.place).toEqual({country:'BE',sub1:'BE-VAN'})
+    expect(done.result.records.find(x => x.code === 'norfli')?.place).toEqual({country:'BE',sub1:'BE-VLG'})
   })
   it('refuses observations without regions rather than losing every place', async () => {
     const posts: ParseResponse[] = []
     await handleParseMessage({kind:'obsorg-observations',file:file('observations-nl'),synonyms:{}} as never,m => posts.push(m),async () => t)
-    expect(posts.at(-1)).toEqual({type:'error',message:'observation.org regions are required.'})
+    expect(posts.at(-1)).toEqual({type:'error',code:'missing-options',message:'observation.org regions are required.'})
   })
   it('refuses observation.org files without the synonyms', async () => {
     for (const kind of ['obsorg-species','obsorg-observations'] as const) {
       const posts: ParseResponse[] = []
       await handleParseMessage({kind,file:file(),regions} as never,m => posts.push(m),async () => t)
-      expect(posts.at(-1)).toEqual({type:'error',message:'observation.org synonyms are required.'})
+      expect(posts.at(-1)).toEqual({type:'error',code:'missing-options',message:'observation.org synonyms are required.'})
     }
+  })
+  it('a damaged file has the code damaged; other failures carry none', async () => {
+    for (const kind of ['obsorg-species','obsorg-observations'] as const) {
+      const posts: ParseResponse[] = []
+      const damaged = new File(['scientific name,species type\nColumba livia,"species'],'synthetic.csv')
+      await handleParseMessage({kind,file:damaged,synonyms:{},regions},m => posts.push(m),async () => t)
+      expect(posts.at(-1)).toEqual({type:'error',code:'damaged',message:'Malformed observation.org CSV.'})
+    }
+    const posts: ParseResponse[] = []
+    await handleParseMessage({kind:'obsorg-species',file:file(),synonyms:{}},m => posts.push(m),async () => { throw new Error('offline') })
+    expect(posts).toEqual([{type:'error',message:'offline'}])
   })
 })
 
@@ -61,5 +72,27 @@ describe('parse client', () => {
     expect(await result).toEqual(parsed)
     expect(progress).toHaveBeenCalledWith(5000)
     expect(terminate).toHaveBeenCalledOnce()
+  })
+  it('rejects with a ParseError carrying the worker’s code', async () => {
+    const instances: { onmessage?: (e:{data:ParseResponse}) => void; onerror?: (e:{message:string}) => void }[] = []
+    class FakeWorker {
+      onmessage?: (e:{data:ParseResponse}) => void
+      onerror?: (e:{message:string}) => void
+      postMessage = vi.fn()
+      terminate = vi.fn()
+      constructor() { instances.push(this) }
+    }
+    vi.stubGlobal('Worker', FakeWorker)
+    const noBirds = parseInWorker('obsorg-species',file(),{synonyms:{}})
+    instances[0].onmessage!({data:{type:'error',code:'no-birds',message:'no-birds'}})
+    const e = await noBirds.catch((x: unknown) => x)
+    expect(e).toBeInstanceOf(ParseError)
+    expect(parseErrorCode(e)).toBe('no-birds')
+    const crashed = parseInWorker('ebird-mydata',file())
+    instances[1].onerror!({message:''})
+    const e2 = await crashed.catch((x: unknown) => x)
+    expect(e2).toBeInstanceOf(ParseError)
+    expect(parseErrorCode(e2)).toBeUndefined()
+    expect(parseErrorCode(new Error('x'))).toBeUndefined()
   })
 })

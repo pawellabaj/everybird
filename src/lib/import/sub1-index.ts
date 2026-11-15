@@ -51,15 +51,22 @@ export function sub1Names(name: string): string[] {
 export type Sub1Index = (country: string, name: string) => string | undefined
 
 /**
+ * What a real regions.v1.json name that two or more codes in one country share (and no alias settles) resolves to:
+ * 'none', nothing, so the place stays the country, never a wrong province (observation.org); 'first', the first such
+ * code in regions.sub1 order, as iNaturalist's import always did (kept so its places don't change).
+ */
+export type Sub1Clash = 'first' | 'none'
+
+/**
  * Province and state names to sub1 codes, within one country. Precedence: the alias tables first (earlier tables win),
- * then a real regions.v1.json name that only one code in its country answers to. A real name two or more codes claim
- * (and no alias settles) resolves to nothing, so the place stays the country: never a wrong province. `key` further
- * normalises folded names on both sides (observation.org drops a trailing " (62)").
+ * then a real regions.v1.json name, a shared one by `onClash`. `key` further normalises folded names on both sides
+ * (observation.org drops a trailing " (62)").
  */
 export function makeSub1Index(
   regions: Regions,
   aliasTables: readonly Record<string, string[]>[] = [SUB1_ALIASES],
   key: (folded: string) => string = (s) => s,
+  { onClash = 'none' }: { onClash?: Sub1Clash } = {},
 ): Sub1Index {
   const byKey = new Map<string, string>()
   const real = new Map<string, string>()
@@ -71,7 +78,7 @@ export function makeSub1Index(
       if (!n || dead.has(k)) continue
       const previous = real.get(k)
       if (previous === undefined) real.set(k, code)
-      else if (previous !== code) {
+      else if (previous !== code && onClash === 'none') {
         real.delete(k)
         dead.add(k)
       }

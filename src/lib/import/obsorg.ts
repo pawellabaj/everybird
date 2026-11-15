@@ -1,9 +1,10 @@
 import Papa from 'papaparse'
-import type { ImportResult, SourceRecord, Unmatched } from '@/lib/list/model'
+import type { ImportResult, Place, SourceRecord, Unmatched } from '@/lib/list/model'
 import { resolveName, suggestName, type Resolution, type TaxonomyIndex } from '@/lib/species/resolve'
 import type { Regions } from '@/lib/species/types'
 import { SeenAgg } from '@/lib/list/seen'
 import { makeObsOrgPlaces } from './obsorg-places'
+import { REGION_RULES } from './inat-rules'
 
 export type ObsOrgRowKind = 'species' | 'subspecies' | 'synonym' | 'skip'
 
@@ -31,7 +32,10 @@ export function rowKind(type: string | undefined, sci: string): ObsOrgRowKind {
 const binomialOf = (sci: string) => sci.trim().split(/\s+/).slice(0, 2).join(' ')
 
 /**
- * Scientific names only; exact taxonomy, then local and iNaturalist synonyms; only subspecies reduce. Never suggests
+ * Scientific names only; exact taxonomy, then local and iNaturalist synonyms; only subspecies reduce. A subspecies of
+ * a name iNaturalist lumps but eBird splits (REGION_RULES) takes the code its epithet names before reducing
+ * ("Muscicapa striata tyrrhenica" is Mediterranean Flycatcher); never the rules' place or default guesses, so a plain
+ * species name keeps the birder's own identification. Never suggests
  * (a suggestion scans the whole taxonomy): the parsers call `obsOrgSuggester` for the few names left unmatched.
  */
 export function resolveObsOrgName(
@@ -48,6 +52,9 @@ export function resolveObsOrgName(
   const result = resolve(sci.trim())
   if (result.code !== null || kind !== 'subspecies') return result
   const binomial = binomialOf(sci)
+  const rule = Object.hasOwn(REGION_RULES, binomial) ? REGION_RULES[binomial] : undefined
+  const ssp = sci.trim().split(/\s+/)[2]
+  if (rule && ssp && Object.hasOwn(rule.subspecies, ssp)) return { code: rule.subspecies[ssp], via: 'sci' }
   return binomial === sci.trim() ? result : resolve(binomial)
 }
 
@@ -76,32 +83,46 @@ const isoDate = (value: string | undefined): string | undefined => {
   return date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined
 }
 const earlier = (date: string | undefined, previous: string | undefined) => !!date && (!previous || date < previous)
-const MALFORMED = 'Malformed observation.org CSV.'
-/** A quoting error or a row whose field count differs from the header's: the file isn't the CSV it claims to be. */
-const malformed = (errors: readonly Papa.ParseError[]) => errors.some((e) => e.type === 'Quotes' || e.type === 'FieldMismatch')
+/** How precise a place is, as buildList ranks it: a province over a country only over none. */
+const detail = (p: Place | undefined) => (p?.sub1 ? 2 : p?.country ? 1 : 0)
+/** Thrown when the file can't be read as an observation.org CSV; the worker reports it as 'damaged'. */
+export class DamagedCsvError extends Error {
+  readonly code = 'damaged'
+  constructor() {
+    super('Malformed observation.org CSV.')
+    this.name = 'DamagedCsvError'
+  }
+}
+/**
+ * A quoting error breaks the file's structure (an unclosed quote swallows every row after it): the file is damaged.
+ * A row with too few or too many fields is read as it is, like eBird's parser does, so one short row never loses a file.
+ */
+const broken = (errors: readonly Papa.ParseError[]) => errors.some((e) => e.type === 'Quotes')
+/** Without a scientific name column there is nothing to read (an empty file has no columns: no birds). */
+const missingColumns = (fields: readonly string[] | undefined) => !!fields?.length && !fields.includes('scientific name')
 const PARSE = { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim().toLowerCase() } as const
 
 /**
- * `undated`: counted rows (resolved to a species, in a kept group) without an ISO `YYYY-MM-DD` date. Dates are read
- * as ISO only (observation.org writes them so); any other form is not guessed at, and the bird counts undated.
+ * `undated`: counted species (codes) without any ISO `YYYY-MM-DD` date on any of their rows. Dates are read as ISO
+ * only (observation.org writes them so); any other form is not guessed at, and the bird counts undated.
  */
 export type ObsOrgSpeciesResult = ImportResult & { undated: number }
 
 /**
  * Observed species: dates and names only, with whole nonbird groups dropped. No places or marks are inferred. Every
  * name is resolved exactly first and the group rule applied; only then do the unmatched rows of kept groups get
- * suggestions (`obsOrgSuggester`). Throws on a malformed CSV.
+ * suggestions (`obsOrgSuggester`). Throws DamagedCsvError on a quoting error or without a scientific name column.
  */
 export function parseObsOrgSpecies(csv: string, t: TaxonomyIndex, synonyms: Record<string, string>): ObsOrgSpeciesResult | { error: 'no-birds' } {
   const parsed = Papa.parse<Row>(csv.replace(/^﻿/, ''), PARSE)
-  if (malformed(parsed.errors)) throw new Error(MALFORMED)
+  if (broken(parsed.errors) || missingColumns(parsed.meta.fields)) throw new DamagedCsvError()
   type Miss = { u: Unmatched; sci: string; kind: Exclude<ObsOrgRowKind, 'skip'> | null }
-  type Group = { records: Map<string, SourceRecord>; unmatched: Miss[]; undated: number }
+  type Group = { records: Map<string, SourceRecord>; unmatched: Miss[] }
   const groups = new Map<string, Group>()
   parsed.data.forEach((r, i) => {
     const group = r.group ?? ''
     let g = groups.get(group)
-    if (!g) groups.set(group, (g = { records: new Map(), unmatched: [], undated: 0 }))
+    if (!g) groups.set(group, (g = { records: new Map(), unmatched: [] }))
     const sci = r['scientific name']?.trim() ?? ''
     const com = r.name?.trim() || undefined
     const kind = rowKind(r['species type'], sci)
@@ -114,18 +135,15 @@ export function parseObsOrgSpecies(csv: string, t: TaxonomyIndex, synonyms: Reco
       if (date) u.date = date
       g.unmatched.push({ u, sci, kind: kind === 'skip' ? null : kind })
     } else {
-      if (!date) g.undated++
       const previous = g.records.get(result.code)
       if (!previous || earlier(date, previous.date)) g.records.set(result.code, { code: result.code, source: 'obsorg', ...(date ? { date } : {}) })
     }
   })
   const byCode = new Map<string, SourceRecord>()
   const misses: Miss[] = []
-  let undated = 0
   for (const g of groups.values()) {
     if (!g.records.size) continue
     misses.push(...g.unmatched)
-    undated += g.undated
     for (const r of g.records.values()) {
       const previous = byCode.get(r.code)
       if (!previous || earlier(r.date, previous.date)) byCode.set(r.code, r)
@@ -139,18 +157,21 @@ export function parseObsOrgSpecies(csv: string, t: TaxonomyIndex, synonyms: Reco
     const suggestion = suggest(m.sci, m.kind)
     if (suggestion) m.u.suggestion = suggestion
   }
-  return { records: [...byCode.values()], unmatched: misses.map((m) => m.u), skipped: 0, rows: parsed.data.length, undated }
+  const records = [...byCode.values()]
+  return { records, unmatched: misses.map((m) => m.u), skipped: 0, rows: parsed.data.length, undated: records.filter((r) => !r.date).length }
 }
 
 export type ObsOrgObservationsResult = ImportResult & {
   /** Rows left out, each counted once: an escape first, else an uncertain record. */
   excluded: { escape: number; uncertain: number }
-  /** Counted rows without an ISO date (as ObsOrgSpeciesResult's). */
+  /** Counted species without any ISO date (as ObsOrgSpeciesResult's). */
   undated: number
 }
 
 /**
- * Observations, row by row (papaparse `step`) over the file's text, retaining only per-name/species/place aggregates.
+ * Observations, row by row (papaparse `step`; a File streams in chunks where FileReader exists, as eBird's parser
+ * does), retaining only per-name/species/place aggregates. Per species the earliest dated row gives the date and
+ * place; on equal dates the row with more place detail wins, as in buildList.
  * The seven column lookups below are the complete allowlist: raw location names, coordinates, notes, ids, links and
  * validator details are never inspected. Names are resolved exactly, once per distinct name; suggestions are computed
  * at the end, for unmatched names only (`obsOrgSuggester`).
@@ -168,7 +189,6 @@ export async function parseObsOrgObservations(
   const seenUnmatched = new SeenAgg()
   const excluded = { escape: 0, uncertain: 0 }
   let rows = 0
-  let undated = 0
 
   const onRow = (r: Row) => {
     rows++
@@ -207,10 +227,10 @@ export async function parseObsOrgObservations(
         })
       }
     } else {
-      if (!date) undated++
       seen.add(result.code, place, date)
       const previous = byCode.get(result.code)
-      if (!previous || earlier(date, previous.date)) {
+      const tie = !!date && date === previous?.date && detail(place) > detail(previous.place)
+      if (!previous || earlier(date, previous.date) || tie) {
         // Replace the whole lifer so an earlier unplaced row cannot inherit a later row's place.
         byCode.set(result.code, { code: result.code, source: 'obsorg', ...(date ? { date } : {}), ...(place ? { place } : {}) })
       }
@@ -229,32 +249,42 @@ export async function parseObsOrgObservations(
       const suggestion = suggest(u.sci!, kinds.get(u.sci!) ?? 'species')
       if (suggestion) u.suggestion = suggestion
     }
-    return { records, unmatched: list, skipped: 0, rows, excluded, undated }
+    return { records, unmatched: list, skipped: 0, rows, excluded, undated: records.filter((r) => !r.date).length }
   }
 
-  // The whole text, then step: one code path for the browser, the worker and the tests.
-  const text = (typeof csv === 'string' ? csv : await csv.text()).replace(/^﻿/, '')
-  return new Promise((resolve, reject) => {
-    let failed = false
-    Papa.parse<Row>(text, {
-      ...PARSE,
-      step: (result, parser) => {
-        if (failed) return
-        if (malformed(result.errors)) {
-          failed = true
-          reject(new Error(MALFORMED))
-          parser.abort()
-          return
-        }
-        onRow(result.data)
-      },
-      complete: () => {
-        if (!failed) resolve(finish())
-      },
-      error: () => {
+  const run = (input: string | File) =>
+    new Promise<ObsOrgObservationsResult | { error: 'no-birds' }>((resolve, reject) => {
+      let failed = false
+      let checked = false
+      const fail = (parser: Papa.Parser, error: Error) => {
         failed = true
-        reject(new Error('Could not read observation.org CSV.'))
-      },
+        reject(error)
+        parser.abort()
+      }
+      Papa.parse<Row>(input as never, {
+        ...PARSE,
+        step: (result: Papa.ParseStepResult<Row>, parser: Papa.Parser) => {
+          if (failed) return
+          if (!checked) {
+            checked = true
+            if (missingColumns(result.meta?.fields)) return fail(parser, new DamagedCsvError())
+          }
+          if (broken(result.errors)) return fail(parser, new DamagedCsvError())
+          onRow(result.data)
+        },
+        complete: () => {
+          if (!failed) resolve(finish())
+        },
+        error: () => {
+          if (failed) return
+          failed = true
+          reject(new Error('Could not read observation.org CSV.'))
+        },
+      })
     })
-  })
+
+  if (typeof csv === 'string') return run(csv.replace(/^\ufeff/, ''))
+  // Browsers and workers stream a File through FileReader; Node has no FileReader, so read it as text there.
+  if (typeof FileReader === 'undefined') return run((await csv.text()).replace(/^\ufeff/, ''))
+  return run(csv)
 }
