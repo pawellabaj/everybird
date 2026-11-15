@@ -6,11 +6,20 @@
 
 **Architecture:** One shared vocabulary module (`src/lib/species/iucn.ts`: the eight categories, their names, the Red List colours, the parser) is used by the build and the app. `build-species` writes `iu` on a row only from the species' own same-concept huashu record (never a form's parent, never a broader or narrower taxon). The huashu sync digests the raw status and reports `iu` changes, and the lock is regenerated in the same change. In the app, `Filter.statuses` is one more dimension of the existing matcher (`filterKey` part `i:`). It reads `species.byCode.get(code).iu`, so the collage, the landing sample and the shared view all get it with no worker or link change. The Status panel copies the Places checklist. The pill and the threatened count each have preview variants (item 4's `useVariant`).
 
-**Tech Stack:** Next.js app router, React 19, TypeScript, Phosphor icons, Vitest + Testing Library (jsdom), Playwright (Chromium, WebKit, Firefox), tsx build scripts.
+**Tech Stack:** Next.js app router, React 19, TypeScript, Phosphor icons, Vitest + Testing Library (jsdom), tsx build scripts. Playwright specs are written or updated but never run by agents (Round 4).
+
+**Status (2026-11-15):** Tasks 1–4 are **done**. They were built on `feat/nf-3a-iucn-data`, Opus-reviewed, and cherry-picked onto `feat/nf-3-iucn` as `252404b..e616655`. Read these files before Task 5; their names are what the later tasks use:
+- `src/lib/species/iucn.ts`: `IUCN_CATS`, `IucnCat`, `THREATENED`, `IUCN_NAMES`, `IUCN_COLORS` (`{ fill, text }`, the text fixed at `#1e1e24` or `#ffffff`, never a theme token), `IUCN_SOURCE` (`'BirdLife v10 via AviList v2026'`), `parseIucn(raw: unknown)` (a non-string gives `undefined`), `isIucnCat`.
+- `src/lib/species/types.ts`: `SpeciesRow.iu?: IucnCat`; `HuashuRecord.conservation?: { iucn?: string; sources?: { iucn?: string } }`.
+- `scripts/build-data/build-species.ts`: `statusOf`, `formMatch` drops `conservation`, `borrowedWhy` (no status through a hand-named override or a record that several eBird codes match), `iucnSources`, `creditMatchesSources`. The crosswalk report gains the status sections and the credit check.
+- `scripts/sync/huashu-lib.ts`: `recordDigest` digests `conservation.iucn`; `diffRows` reports "status A → B"; `implausible` has `LIMITS.statusLost` (0.2); the PR body says "Other data (mass, names, quality bar, status)".
+- Regenerated data (`6d208ff`): `species.v1.json` (10,100 `iu`), the sample pack, `data-files.ts`, the lock.
+
+**Round 4 (Yusuf, binding; `docs/superpowers/plans/2026-11-15-delegation.md`):** agents do no front-end testing: no Playwright or e2e runs, no screenshots, no design review by screenshot. Every task ends with the code checks: `npm run lint && npx next typegen && npx tsc --noEmit`, the task's related unit tests, then one full `npx vitest run --maxWorkers=1`. E2E specs may be written or updated, and say so in the commit, but they are not run. Yusuf tests the UI and picks the variants on the preview.
 
 **Spec:** `docs/superpowers/plans/2026-11-15-next-features.md`, item "3. Conservation status (IUCN)" (approved by Yusuf), plus `docs/superpowers/plans/2026-11-15-next-features-update.md` (design fit, variants, pushing). Research, verified: `.superpowers/research/iucn.md`. Read `AGENTS.md` (data pipeline, huashu sync, "Data files on R2", the no-stand-ins rule, TopBar's narrow-width paragraph), `DESIGN.md` (Colors, Dock, Places and Time dropdowns, Cards and tooltip, Accessibility) and `PRODUCT.md` first.
 
-**Stacking:** branch `feat/nf-3-iucn` on top of item 5 (`feat/nf-5-smaller-places`), which sits on items 2 and 4. Build on their end state: item 5 moved `PlacesList` into `src/components/filters/PlacesList.tsx`, added `provinces`/`counties` to `Filter`, used `s:` and `k:` in `filterKey`, and gave `filterLabel`'s ctx a `regions`. Item 4 added `src/lib/variants.ts`. **Before Task 1:** check that `src/lib/variants.ts` exports `useVariant` and `readVariant`. If it doesn't, stop and rebase onto item 4's final commit. Never write a second switch. Cite symbols, not line numbers (the earlier items moved code).
+**Stacking:** branch `feat/nf-3-iucn` on top of item 5 (`feat/nf-5-smaller-places`), which sits on items 2 and 4. Build on their end state: item 5 moved `PlacesList` into `src/components/filters/PlacesList.tsx`, added `provinces`/`counties` to `Filter`, used `s:` and `k:` in `filterKey`, and gave `filterLabel`'s ctx a `regions`. Item 4 added `src/lib/variants.ts`. **Before Task 5:** check that `src/lib/variants.ts` exports `useVariant` and `readVariant`. If it doesn't, stop and rebase onto item 4's final commit. Never write a second switch. Cite symbols, not line numbers (the earlier items moved code).
 
 ## Global Constraints
 
@@ -26,7 +35,8 @@
 - Design fit (update, rule 4): DESIGN.md, `.impeccable/design.json` and the existing components. Same tokens, type, spacing, radii, motion and voice; no new visual language. The Red List colours are the one deliberate exception, recorded in DESIGN.md (Task 13).
 - Copy (DESIGN.md "Voice and copy"): sentence case, plain words, no em dashes, no exclamation marks.
 - 44px press targets; works at 320px, at 195/260 CSS px (Safari aA) and with 200% text; both themes.
-- Ports: e2e uses 3100/3200/4100 only. R2 uploads, deploys and posting are Yusuf's. Pushing `feat/nf-*` is allowed once the branch is green (update, rules 1–2).
+- Pill colours: the pill's text is always `IUCN_COLORS[cat].text`, never `var(--ink)` (dark Ink is white). Every pill has a 1px Line ring, which keeps EX and EW visible on dark Paper.
+- No front-end test runs (Round 4); ports for anyone who does run e2e: 3100/3200/4100. R2 uploads, deploys and posting are Yusuf's. Pushing `feat/nf-*` is allowed once the branch is green (update, rules 1–2).
 
 **Builder's decisions (made here):**
 - Field: `iu?: IucnCat` on `SpeciesRow`, left out when there is none. 10,100 rows get one (LC 7,966, NT 906, VU 640, EN 356, CR 188, EW 5, EX 4, DD 35). That makes 1,184 threatened: about +100 KB raw, +6 KB brotli.
@@ -42,7 +52,7 @@
 - List view, DockSearch, link previews, the share link format: unchanged.
 - About's version text is a constant (`IUCN_SOURCE`), not a `species.v1.json` head field. A head field would break `initLock`'s whole-file check, and the sync's `{ ...repo.species }` would never refresh it. AGENTS.md says to update it with AviList's yearly release.
 
-**Preview variants** (item 4's `useVariant`; `a` is this plan's design; unit tests and e2e pin `a`):
+**Preview variants** (item 4's `useVariant`; `a` is this plan's design; unit tests cover each option, and Yusuf picks on the preview):
 
 | Key | Option | Looks like |
 |---|---|---|
@@ -55,14 +65,16 @@
 ## Review Focus
 
 1. A list where no species has a status (synthetic codes, an unusual import), and the shared view of one: there is no Status button, no threatened part, and the bar's rows look as before. On a list that has statuses but where some birds lack one (871 species upstream, American Robin among them), the pill is absent and a status filter leaves those birds out (Task 5 test, Task 7 test).
-2. The three-button second row at 320/390/430/440 and at 195/260 CSS px (Safari aA): resting labels never truncate; no control sits alone; nothing scrolls sideways (Task 8 e2e).
-3. The bar between the old 820px break and the new one. Three dropdowns inline must never push the magnifier or overflow, so the sweep runs to 1100px and the filter buttons always share one top (Task 8 e2e).
-4. Dark theme: the EX (black) and EW pills on dark Paper `#1e1e24`, and the VU, NT and DD pills on light Paper, need a visible edge. The Line ring meets 3:1 against Paper in both themes (Task 1 contrast test, Task 9 screenshots).
+2. The three-button second row at 320/390/430/440 and at 195/260 CSS px (Safari aA): resting labels never truncate; no control sits alone; nothing scrolls sideways. Task 8 derives the CSS from the dock's own sizes and pins it with a CSS-text unit test; the e2e specs are updated but Yusuf checks them on the preview.
+3. The bar between the old 820px break and the new one. Three dropdowns inline must never push the magnifier or overflow. Task 8's arithmetic sets the break with margin, and `dock-sweep.spec.ts` (updated, not run) sweeps to 1100px.
+4. Dark theme: the EX (black) and EW pills on dark Paper `#1e1e24`, and the VU, NT and DD pills on light Paper, need a visible edge. The Line ring meets 3:1 against Paper in both themes (Task 1 contrast test; Task 9's CSS-text test asserts the ring and the fixed text colour).
 5. A huashu sync where only statuses changed: it must open a PR whose body says "status LC → NT", not exit quietly. A regenerated lock must not show about 10k changed records in the next PR (Task 3 test, Task 4 check).
 
 ---
 
-### Task 1: The status vocabulary
+### Task 1: The status vocabulary (DONE)
+
+**Done:** `252404b`. Kept for reference; don't redo it.
 
 **Files:**
 - Create: `src/lib/species/iucn.ts`
@@ -78,7 +90,7 @@
   - `export function parseIucn(raw: string | undefined): IucnCat | undefined`: `/^(LC|NT|VU|EN|CR|EW|EX|DD)(?: \([A-Z]+\))?$/` on the trimmed string; anything else is undefined.
   - `export function isIucnCat(x: unknown): x is IucnCat`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 it('parses the eight categories and the possibly-extinct CRs; nothing else', () => {
@@ -102,14 +114,16 @@ it('the pill ring (Line) meets 3:1 against Paper in both themes', () => {
 
 (`contrast` is copied from `tests/tokens.test.ts`, or exported from a small `tests/contrast.ts` that both import.)
 
-- [ ] **Step 2: Run it to see it fail.** `npx vitest run tests/iucn.test.ts`. Expected: FAIL (module not found).
-- [ ] **Step 3: Implement `iucn.ts`.**
-- [ ] **Step 4: Run it to see it pass.** Same command. Expected: PASS.
-- [ ] **Step 5: Commit.** `git commit -m "feat(iucn): the Red List categories, names, colours and parser"`
+- [x] **Step 2: Run it to see it fail.** `npx vitest run tests/iucn.test.ts`. Expected: FAIL (module not found).
+- [x] **Step 3: Implement `iucn.ts`.**
+- [x] **Step 4: Run it to see it pass.** Same command. Expected: PASS.
+- [x] **Step 5: Commit.** `git commit -m "feat(iucn): the Red List categories, names, colours and parser"`
 
 ---
 
-### Task 2: Species rows carry their own status
+### Task 2: Species rows carry their own status (DONE)
+
+**Done:** `c175db5`, with `e616655` (no status through an override or a shared record). Kept for reference; don't redo it.
 
 **Files:**
 - Modify: `src/lib/species/types.ts` (`SpeciesRow.iu?: IucnCat`, `HuashuRecord.conservation?: { iucn?: string }`), `scripts/build-data/build-species.ts` (`formMatch`, new `statusOf`, the row literal in `buildSpecies`, two report lists)
@@ -119,7 +133,7 @@ it('the pill ring (Line) meets 3:1 against Paper in both themes', () => {
 - Consumes: Task 1's `parseIucn`, `IucnCat`.
 - Produces: `export function statusOf(rec: HuashuRecord | undefined): { iu?: IucnCat; why?: 'concept' | 'unknown' }`. It returns `iu` when `rec` has no `form`, `rec.taxonConcept === 'same'` and `parseIucn` accepts `rec.conservation?.iucn`. It returns `why: 'concept'` when a status is present but the concept isn't `same`, and `why: 'unknown'` when the string doesn't parse. `formMatch` also deletes `conservation`. The row literal gets `...(iu ? { iu } : {})` right after `q`, so keys stay `code … q, iu` and `sv` follows. New report sections: "No status: huashu's taxon is not eBird's (N)" (code, com, concept, raw value) and "Unrecognised IUCN values (N)".
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 describe('conservation status', () => {
@@ -137,14 +151,16 @@ describe('conservation status', () => {
 })
 ```
 
-- [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/build-species.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement** `statusOf`, the `formMatch` delete, the row field and the report lists.
-- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/build-species.test.ts tests/huashu-sync.test.ts`. Expected: PASS. (`tests/huashu-sync.test.ts`'s "the committed lock" still passes: it checks `st` and the commit only.)
-- [ ] **Step 5: Commit.** `git commit -m "feat(data): species rows carry their own IUCN status, never a form's or a broader taxon's"`
+- [x] **Step 2: Run them to see them fail.** `npx vitest run tests/build-species.test.ts`. Expected: FAIL.
+- [x] **Step 3: Implement** `statusOf`, the `formMatch` delete, the row field and the report lists.
+- [x] **Step 4: Run them to see them pass.** `npx vitest run tests/build-species.test.ts tests/huashu-sync.test.ts`. Expected: PASS. (`tests/huashu-sync.test.ts`'s "the committed lock" still passes: it checks `st` and the commit only.)
+- [x] **Step 5: Commit.** `git commit -m "feat(data): species rows carry their own IUCN status, never a form's or a broader taxon's"`
 
 ---
 
-### Task 3: The huashu sync sees status changes
+### Task 3: The huashu sync sees status changes (DONE)
+
+**Done:** `3e7f8ed`, with `e616655` (`LIMITS.statusLost`; the PR body says "status"). Kept for reference; don't redo it.
 
 **Files:**
 - Modify: `scripts/sync/huashu-lib.ts` (`recordDigest` and its doc comment, `diffRows` and its doc comment)
@@ -153,7 +169,7 @@ describe('conservation status', () => {
 **Interfaces:**
 - Produces: `recordDigest` pushes `['iucn', h.conservation.iucn]` (the raw string, so a `CR` → `CR (PE)` change counts) only when it is present, after the forms entry. A record without a status digests exactly as before, so the synthetic fixture's digests don't move. `diffRows` adds `status ${p.iu ?? 'none'} → ${r.iu ?? 'none'}` when `p.iu !== r.iu`.
 
-- [ ] **Step 1: Write the failing tests** (beside "digests only the fields the build reads" and the row-changes test)
+- [x] **Step 1: Write the failing tests** (beside "digests only the fields the build reads" and the row-changes test)
 
 ```ts
 it('digests the IUCN status only when there is one', () => {
@@ -174,21 +190,23 @@ it('row changes: a status change alone is a data change', () => {
 
 (The fixture records carry `taxonConcept: 'same'`; check this and set it in the test if not.)
 
-- [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/huashu-sync.test.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them to see them pass.** Same command. Expected: PASS.
-- [ ] **Step 5: Commit.** `git commit -m "feat(sync): huashu status changes are build-relevant and named in the PR"`
+- [x] **Step 2: Run them to see them fail.** `npx vitest run tests/huashu-sync.test.ts`. Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run them to see them pass.** Same command. Expected: PASS.
+- [x] **Step 5: Commit.** `git commit -m "feat(sync): huashu status changes are build-relevant and named in the PR"`
 
 ---
 
-### Task 4: Regenerate the committed data
+### Task 4: Regenerate the committed data (DONE)
+
+**Done:** `6d208ff`. Kept for reference; don't redo it.
 
 `data/raw` is a symlink to the main checkout's `data/raw`. It was verified on 2026-11-15: `assertRawPinned` passes, `data/raw/huashu` is clean at the lock's `442341a`, and rebuilding from `data/raw/ebird-taxonomy.json` reproduces today's `species.v1.json` and `taxonomy.v1.json` byte for byte. Run `build-species.ts` alone. Never run `npm run data` here: it needs the stickers dir and rebuilds geo and masks.
 
 **Files:**
 - Modify (generated): `public/data/species.v1.json`, `data/build/crosswalk-report.md`, `public/data/sample-pack.v1.json`, `src/lib/data-files.ts`, `data/huashu.lock.json`
 
-- [ ] **Step 1: Rebuild in order**
+- [x] **Step 1: Rebuild in order**
 
 ```bash
 npx tsx scripts/build-data/build-species.ts
@@ -199,9 +217,9 @@ npx tsx scripts/sync/huashu-sync.ts --init-lock --huashu-dir data/raw/huashu
 
 Expected: `--init-lock` prints "(verified against the tree and species.v1.json)". It fails if `buildSpecies` doesn't reproduce the new file exactly.
 
-- [ ] **Step 2: Check that only `iu` changed.** Write a throwaway `/private/tmp/claude-501/iucn-diff.mts` that loads `git show HEAD:public/data/species.v1.json` and the new file, deletes `iu` from every new row, and compares them with `JSON.stringify`. Expected: equal. Its counts print `10100` rows with `iu` and `1184` threatened. Also run `git diff --quiet public/data/taxonomy.v1.json public/data/masks public/data/masks.v2.json data/sticker-versions.json`, which must exit 0. In the lock diff, only `records` values change (none of `commit`, `files`, `codes` or `shipped`).
-- [ ] **Step 3: Run the data tests.** `npx vitest run tests/data-files.test.ts tests/sample-pack.test.ts tests/huashu-sync.test.ts tests/build-species.test.ts tests/howto-data.test.ts`. Expected: PASS.
-- [ ] **Step 4: Commit** the five files together with nothing else: `git commit -m "data: IUCN status on 10,100 species (AviList v2026, BirdLife v10); lock regenerated"`
+- [x] **Step 2: Check that only `iu` changed.** Write a throwaway `/private/tmp/claude-501/iucn-diff.mts` that loads `git show HEAD:public/data/species.v1.json` and the new file, deletes `iu` from every new row, and compares them with `JSON.stringify`. Expected: equal. Its counts print `10100` rows with `iu` and `1184` threatened. Also run `git diff --quiet public/data/taxonomy.v1.json public/data/masks public/data/masks.v2.json data/sticker-versions.json`, which must exit 0. In the lock diff, only `records` values change (none of `commit`, `files`, `codes` or `shipped`).
+- [x] **Step 3: Run the data tests.** `npx vitest run tests/data-files.test.ts tests/sample-pack.test.ts tests/huashu-sync.test.ts tests/build-species.test.ts tests/howto-data.test.ts`. Expected: PASS.
+- [x] **Step 4: Commit** the five files together with nothing else: `git commit -m "data: IUCN status on 10,100 species (AviList v2026, BirdLife v10); lock regenerated"`
 
 ---
 
@@ -256,7 +274,7 @@ it('validity: bad values go; after a list change, categories no species has go',
 
 - [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/filters-status.test.ts`. Expected: FAIL (not exported).
 - [ ] **Step 3: Implement.** The matcher's status test: `const set = statuses && new Set(statuses)`, then `if (set && !(row?.iu && set.has(row.iu))) return false`. Fetch the row once per entry, shared with the order/family branch.
-- [ ] **Step 4: Run them to see them pass, then the filter suites.** `npx vitest run tests/filters-status.test.ts tests/filters.test.ts tests/filters-places.test.ts tests/store.test.ts tests/collage-layout-hook.test.tsx`. Expected: PASS.
+- [ ] **Step 4: Run them to see them pass, then the filter suites.** `npx vitest run tests/filters-status.test.ts tests/filters.test.ts tests/filters-places.test.ts tests/store.test.ts tests/collage-layout-hook.test.tsx`. Expected: PASS. Then the code checks: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
 - [ ] **Step 5: Commit.** `git commit -m "feat(status): Filter.statuses, counted per category; threatenedCount"`
 
 ---
@@ -284,7 +302,7 @@ expect(filterLabel({ order: 'Pelecaniformes', family: 'Ardeidae', statuses: ['VU
 
 - [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/filter-summary.test.ts tests/share-image.test.ts`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them to see them pass.** Same command, plus `tests/share-dialog.test.tsx`. Expected: PASS.
+- [ ] **Step 4: Run them to see them pass.** Same command, plus `tests/share-dialog.test.tsx`. Expected: PASS. Then the code checks: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
 - [ ] **Step 5: Commit.** `git commit -m "feat(status): the Status button's summary and the share image's label"`
 
 ---
@@ -326,7 +344,7 @@ it('Esc closes the panel and focus returns to the Status button; at phone width 
 
 - [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/status-ui.test.tsx`. Expected: FAIL.
 - [ ] **Step 3: Implement** `StatusList` on `PlacesList`'s structure (`.eb-places-head`, `.eb-checklist`, `.eb-check`, `.eb-count`, `.eb-sr`; no search field: at most 8 rows). Each label holds the checkbox, the span pill, the full name and the count.
-- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/status-ui.test.tsx tests/places-ui.test.tsx tests/timeline-ui.test.tsx tests/collage-controls.test.tsx tests/shared-view.test.tsx`. Expected: PASS.
+- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/status-ui.test.tsx tests/places-ui.test.tsx tests/timeline-ui.test.tsx tests/collage-controls.test.tsx tests/shared-view.test.tsx`. Expected: PASS. Then the code checks: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
 - [ ] **Step 5: Commit.** `git commit -m "feat(status): the Status dropdown in the controls bar"`
 
 ---
@@ -334,22 +352,41 @@ it('Esc closes the panel and focus returns to the Status button; at phone width 
 ### Task 8: Three dropdowns in the controls bar
 
 **Files:**
-- Modify: `src/components/app/app.css` (the dock's container rules), `e2e/dock-sweep.spec.ts`, `e2e/responsive.spec.ts`, `e2e/text-size.spec.ts`
+- Modify: `src/components/app/app.css` (the dock's container rules), `e2e/dock-sweep.spec.ts`, `e2e/responsive.spec.ts`, `e2e/text-size.spec.ts` (updated, **not run**: Round 4)
+- Test: `tests/dock-css.test.ts` (new; reads `app.css` as text), `tests/status-ui.test.tsx` (button order)
 
-Two numbers have to be measured, not guessed. In Chromium, on a seeded list with statuses, set `.eb-dockwrap`'s width as `dock-sweep` does. Put the longest summaries on the buttons ("Places · 12", "Time · 2022–2024", "Status · 3"):
-- **W (one-row break):** the smallest bar width where tabs (with words), tools, all three dropdowns and the magnifier fit on one row with 8px to spare, rounded up to the next 20px. Replace the `@container (max-width: 819px)` rule (and its comment, and `.eb-find`'s line inside it) with `max-width: W-1px`. The estimate is about 940.
-- **G (glyphs drop):** the bar width below which a resting label ("Places", "Time", "Status") would be cut in the three-way row. Add `@container (max-width: G-1px) { .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px } .eb-dock-filters .eb-dock-drop svg { display: none } }`, the rule the `max-width: 299px` media query already applies. The estimate is about 330. Summaries may still ellipsis, as "Time · 2022–2024" does at 320 today; the accessible name stays whole.
+No browser measurement (Round 4). Derive the numbers from the dock's own CSS and write the derivation in a comment above each rule. Make the layout robust where the arithmetic is uncertain: a label can shrink, so it can never push the magnifier. Inputs, all in `app.css`: the dock has a 1px border, 4px padding, a 4px gap, and 8px margins between groups. A tab is `14 + 20 (icon) + 8 + text + 16`. A switch is `14 + text + 10 + 34 + 12`. A drop is `12 + 18 + 8 + text + 8 + 14 (caret) + 10`. The magnifier is 44. For Satoshi 500 at 15px, use 7.5px per character for these words (an over-estimate, so it leaves margin). Check the base against today's 820 break: tabs, tools, Places, Time and the magnifier come to about 790, which matches that break.
+- **Robustness first.** Move `.eb-drop-label { min-width: 0; overflow: hidden; text-overflow: ellipsis }` out of the 819px rule so it applies at every width. Give `.eb-dock-filters` `min-width: 0` and its drops `flex: 0 1 auto`. A long summary ("Time · 2022–2024") then truncates its own label instead of overflowing; the accessible name stays whole.
+- **W (one-row break):** today's sum plus the Status drop (about 115) plus 40px for summaries, rounded up to 20: about **960**. Replace `@container (max-width: 819px)` (its comment and `.eb-find`'s line inside it) with `max-width: 959px`, or the derived W − 1.
+- **G (glyphs drop, three-way row under 600px of bar):** each button is `(bar − 2 − 8 − 8) / 3`. A resting "Places" with its glyph needs about `10 + 18 + 8 + 45 + 10 ≈ 91`, so the glyphs must go below about `3 × 91 + 18 ≈ 291`. Allow 30px of margin: **G = 320**. Add `@container (max-width: 319px) { .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px } .eb-dock-filters .eb-dock-drop svg { display: none } }`, the same as the `max-width: 299px` media rule already applies.
+- **Under 300px of page** (Safari aA; the `299px` and `239px` media rules): the grid keeps its areas, but equal thirds don't fit. At 195 the bar is about 153px inside, about 36px of text per third against "Places" at about 45px. At 260 the cell beside the magnifier is about 166px. In both rules the drops become content-sized (`flex: 0 1 auto`, the group `justify-content: space-between`, padding `0 4px`); under 240px also `font-size: 14px` on `.eb-drop-label`. Resting labels fit at 260 (about 123 + 24 + 8 ≤ 166). At 195 they may ellipsis. Never wrap the row: no control may sit alone.
 
-- **Under 300px of page (Safari aA, the `max-width: 299px` and `239px` media rules)**, the grid keeps its areas, but equal thirds don't fit. At 195 the bar is about 153px inside, so each third leaves about 36px of text against "Places" at about 45px. At 260 the row two cell beside the magnifier is about 166px. In both rules the filter buttons become content-sized (`flex: 0 1 auto`, the group `justify-content: space-between`). Then apply the fallbacks in this order until the resting labels fit: padding `0 4px`, then the label at 14px, then (195 only) an ellipsis. The acceptance below states what is guaranteed: uncut resting labels at 260, and at 195 only one shared row and no overflow.
+- [ ] **Step 1: Write the failing CSS-text test** (`tests/dock-css.test.ts`, on `tests/tokens.test.ts`'s `block()` helper)
 
-- [ ] **Step 1: Update the specs first**
-  - `dock-sweep.spec.ts`: sweep `280..1100`. In `sweep`, also push `${w}:filters split` when the `.eb-dock-drop` buttons' rounded tops differ, and `${w}:label cut` when a button's `.eb-drop-label` has `scrollWidth > clientWidth` while it has no summary. Seed a list with statuses (the landing sample has NT birds, so the Status button shows there; assert `filter-tab-status` is visible first).
-  - `responsive.spec.ts`: `expect(m.rows[1]).toEqual([/^Places/, /^Time/, /^Status/])` (as `stringMatching`). `dockGaps` is unchanged.
-  - `text-size.spec.ts`: the 195/260 controls-bar test also asserts that the three `.eb-dock-drop` buttons share one top and end inside the bar. At 260 it also asserts that each resting label is uncut.
-- [ ] **Step 2: Run them to see them fail.** `STICKERS_DIR=/Users/yusuf/orca/projects/everybird-stickers npx playwright test e2e/dock-sweep.spec.ts e2e/responsive.spec.ts --project=chromium`. Expected: FAIL (overflow between 820 and W; three buttons where the spec expects them).
-- [ ] **Step 3: Measure W and G, and write the CSS.**
-- [ ] **Step 4: Run them in both engines.** `STICKERS_DIR=/Users/yusuf/orca/projects/everybird-stickers npx playwright test e2e/dock-sweep.spec.ts e2e/responsive.spec.ts e2e/text-size.spec.ts --project=chromium --project=webkit`. Expected: PASS.
-- [ ] **Step 5: Commit.** `git commit -m "feat(status): three dropdowns in the controls bar, one row from W px, glyphs off under G"`
+```ts
+it('one row from W: no 819px rule is left, and the one-row break is the derived W', () => {
+  expect(css).not.toMatch(/max-width:\s*819px/)
+  expect(css).toMatch(/@container \(max-width: 959px\)/) // or the W the comment derives
+})
+it('a drop label can always shrink (outside every rule): it never pushes the magnifier', () => {
+  expect(topLevelRule(css, '.eb-drop-label')).toMatch(/min-width:\s*0/); expect(topLevelRule(css, '.eb-drop-label')).toMatch(/text-overflow:\s*ellipsis/)
+})
+it('the glyphs drop under G, and under 300px the three drops are content-sized', () => {
+  expect(block(css, /@container \(max-width: 319px\)/)).toMatch(/\.eb-dock-filters \.eb-dock-drop svg\s*\{\s*display:\s*none/)
+  for (const q of [/@media \(max-width: 299px\)/, /@media \(max-width: 239px\)/]) expect(block(css, q)).toMatch(/flex:\s*0 1 auto/)
+})
+```
+
+In `tests/status-ui.test.tsx`: the three buttons are in one `.eb-dock-filters` group in the order Places, Time, Status.
+
+- [ ] **Step 2: Run it to see it fail.** `npx vitest run tests/dock-css.test.ts`. Expected: FAIL.
+- [ ] **Step 3: Write the CSS and its derivation comments.**
+- [ ] **Step 4: Update the e2e specs; don't run them.**
+  - `dock-sweep.spec.ts`: sweep `280..1100`. Push `${w}:filters split` when the drops' rounded tops differ. Assert `filter-tab-status` is visible first (the landing sample has NT birds).
+  - `responsive.spec.ts`: `m.rows[1]` is `[/^Places/, /^Time/, /^Status/]` (as `stringMatching`).
+  - `text-size.spec.ts`: at 195/260, the three drops share one top and end inside the bar; at 260, every resting label is uncut.
+- [ ] **Step 5: Run it to see it pass, then the code checks.** `npx vitest run tests/dock-css.test.ts tests/status-ui.test.tsx tests/tokens.test.ts`, then `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
+- [ ] **Step 6: Commit.** `git commit -m "feat(status): three dropdowns in the controls bar (one row from 960px, glyphs off under 320px); e2e specs updated, not run"`
 
 ---
 
@@ -357,7 +394,7 @@ Two numbers have to be measured, not guessed. In Chromium, on a seeded list with
 
 **Files:**
 - Modify: `src/components/collage/IucnPill.tsx` (the `button` form and its toggletip), `src/components/collage/BirdCard.tsx` (`BirdFacts` gains `status?: boolean`; `BirdCard` passes it; `useVariant('pill', ['a', 'b'] as const)`), `src/components/collage/card-list.css` (`.eb-card-meta`, `.eb-iucn-tip`, the `::after` press area)
-- Test: `tests/card-list.test.tsx`
+- Test: `tests/card-list.test.tsx`, `tests/iucn-css.test.ts` (new)
 
 **Interfaces:**
 - Consumes: item 4's `useVariant`; Task 7's `IucnPill`.
@@ -386,12 +423,16 @@ it('no pill for a species without a status, and never in the hover tooltip', () 
   render(<BirdFacts entry={entry} row={{ ...row, iu: 'EN' }} regions={regions} heading={false} />)
   expect(screen.queryByTestId('iucn-pill')).toBeNull()
 })
-it('CR, EW and EX have white text', () => { /* renderCard({ iu: 'CR' }): style --iucn-text is #ffffff */ })
+it('the pill text is IUCN_COLORS’ fixed colour, never a theme token', () => {
+  for (const cat of ['VU', 'CR', 'EW', 'EX'] as const) { cleanup(); renderCard({ iu: cat }); expect(screen.getByTestId('iucn-pill').style.getPropertyValue('--iucn-text')).toBe(IUCN_COLORS[cat].text) }
+})
+// tests/iucn-css.test.ts (reads card-list.css as text): the .eb-iucn rule has `color: var(--iucn-text)` and
+// `box-shadow: inset 0 0 0 1px var(--line)`, and no .eb-iucn* rule mentions var(--ink) or var(--paper).
 ```
 
 - [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/card-list.test.tsx`. Expected: FAIL.
 - [ ] **Step 3: Implement both variants.**
-- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/card-list.test.tsx tests/bird-tip.test.ts tests/collage-controls.test.tsx`. Expected: PASS.
+- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/card-list.test.tsx tests/bird-tip.test.ts tests/collage-controls.test.tsx tests/iucn-css.test.ts`. Expected: PASS. Then the code checks: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
 - [ ] **Step 5: Commit.** `git commit -m "feat(status): the Red List pill in the bird card, a toggletip with the full name (variants pill a/b)"`
 
 ---
@@ -419,17 +460,22 @@ expect(statsLine(noStatus, noStatus, species)).not.toContain('threatened') // hi
 
 - [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/collage-controls.test.tsx tests/status-ui.test.tsx`. Expected: FAIL.
 - [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run them to see them pass.** Same command, plus `tests/app-routes.test.tsx tests/shared-view.test.tsx`. Expected: PASS.
+- [ ] **Step 4: Run them to see them pass.** Same command, plus `tests/app-routes.test.tsx tests/shared-view.test.tsx`. Expected: PASS. Then the code checks: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
 - [ ] **Step 5: Commit.** `git commit -m "feat(status): the threatened count on the stats line (variants threat a/b/c)"`
 
 ---
 
-### Task 11: About and the How it works scene
+### Task 11: About, its credit check in the weekly sync, and the How it works scene
 
 **Files:**
-- Modify: `app/(app)/about/page.tsx`, `scripts/build-data/build-howto.ts` (writes `THREATENED`), `src/components/about/how-it-works-data.ts` (generated), `src/components/about/HowItWorksScene.tsx` (`Dock`: a third drop "Status" with `Leaf`; the stats line), `src/components/about/how-it-works.css` (only if the three drops need it)
-- Test: `e2e/about.spec.ts`, `tests/howto-data.test.ts`
+- Modify: `app/(app)/about/page.tsx`, `scripts/build-data/build-species.ts` (`creditMatchesSources`, `borrowedWhy`), `scripts/sync/huashu-lib.ts` (`recordDigest`, `renderPrBody` and `Summary`), `scripts/sync/huashu-sync.ts` (passes the cited sources into the summary), `data/huashu.lock.json` (regenerated), `scripts/build-data/build-howto.ts` (writes `THREATENED`), `src/components/about/how-it-works-data.ts` (generated), `src/components/about/HowItWorksScene.tsx` (`Dock`: a third drop "Status" with `Leaf`; the stats line), `src/components/about/how-it-works.css` (only if the three drops need it), `e2e/about.spec.ts` (updated, **not run**)
+- Test: `tests/build-species.test.ts`, `tests/huashu-sync.test.ts`, `tests/about.test.tsx` (new, jsdom: render `AboutPage()`), `tests/howto-data.test.ts`
 
+Review findings from Tasks 1–4, fixed here:
+- `creditMatchesSources(sources, credit)`: version tokens match on word boundaries, so `v10` matches neither `v100` nor `v10.1`. Escape the token and require `(?![\d.])` after it. An empty `sources` list is **not** a match.
+- `recordDigest` also pushes `['iucnSource', h.conservation.sources.iucn]` when present, so a new BirdLife or AviList version upstream counts as a build-relevant change and a sync runs. Regenerate the lock afterwards: `npx tsx scripts/sync/huashu-sync.ts --init-lock --huashu-dir data/raw/huashu`. Expected: "verified". Only `records` values change.
+- The weekly sync's PR body surfaces the credit check. `Summary` gains `iucnCredit: { sources: [string, number][]; ok: boolean }` (from `iucnSources` and `creditMatchesSources` on the new huashu). `renderPrBody` adds a line: `- About's Red List credit ("BirdLife v10 via AviList v2026"): matches huashu's sources` or `**does not match** huashu's sources (…): update IUCN_SOURCE and About`, listing each cited source and its count.
+- An override A→X (code A hand-named to record X) refuses **A's** status. It no longer strips the status of B, the species whose own record X is. In `borrowedWhy`, the "also matched by" check ignores codes that reached the record through an override (`overrides[c]?.huashu`); A itself still gets the override reason.
 
 About copy (exact):
 - In "What it is", "Filter it by group, place or year" becomes "Filter it by group, place, year or conservation status".
@@ -438,32 +484,57 @@ About copy (exact):
 
 Scene: `build-howto.ts` exports `THREATENED` (the demo's VU/EN/CR count from `species.v1.json`'s `iu`; 1 today, `lesyel` VU). The scene's stats line reads `` `${TOTAL} species · ${ORDERS.length} orders · ${FAMILIES} families · ${THREATENED} threatened · since ${SINCE}` `` when `THREATENED > 0`, mirroring variant `a`. Its `Dock` gets the Status drop after Time in both designs. Rerun `npx tsx scripts/build-data/build-howto.ts`; `tests/howto-data.test.ts` must pass.
 
-- [ ] **Step 1: Write the failing assertions.** In `about.spec.ts`'s first test: the "Conservation status" heading, the sentence matching `/global, not regional/`, the credit link `https://doi.org/10.2173/avilist.v2026` and the text "Red List categories · CC BY 4.0". In "the scene's labels are the product's": the scene's dock has three `.ebd-drop`s, the last reading "Status".
-- [ ] **Step 2: Run them to see them fail.** `STICKERS_DIR=/Users/yusuf/orca/projects/everybird-stickers npx playwright test e2e/about.spec.ts --project=chromium`. Expected: FAIL.
-- [ ] **Step 3: Implement the About copy, the build-howto export and the scene; rerun build-howto.**
-- [ ] **Step 4: Run them to see them pass.** `npx vitest run tests/howto-data.test.ts`, then the same Playwright command with `--project=webkit --project=firefox` added. Expected: PASS.
-- [ ] **Step 5: Commit.** `git commit -m "feat(about): conservation status note and AviList credit; the scene's Status drop"`
+- [ ] **Step 1: Write the failing tests**
+
+```ts
+// build-species.test.ts
+expect(creditMatchesSources(['AviList v2026（BirdLife v10）'])).toBe(true)
+expect(creditMatchesSources(['AviList v2026（BirdLife v100）'])).toBe(false)
+expect(creditMatchesSources(['AviList v2026（BirdLife v10.1）'])).toBe(false)
+expect(creditMatchesSources([])).toBe(false)
+it('an override A→X refuses A’s status, not that of X’s own species B', () => { /* overrides { a1: { huashu: 'X', source } }; X matched by b1 via ids.ebird with iucn 'VU': row b1.iu 'VU'; row a1 has no iu and the report lists a1 under the override reason */ })
+// huashu-sync.test.ts
+expect(recordDigest({ ...vu, conservation: { iucn: 'VU', sources: { iucn: 'AviList v2027（BirdLife v11）' } } } as HuashuRecord)).not.toBe(recordDigest(vu))
+expect(renderPrBody(summaryWith({ iucnCredit: { sources: [['AviList v2027（BirdLife v11）', 10]], ok: false } }))).toContain('does not match')
+// about.test.tsx
+render(await AboutPage()) /* or render(AboutPage()) if synchronous */
+expect(screen.getByRole('heading', { name: 'Conservation status' })).toBeInTheDocument()
+expect(screen.getByText(/global, not regional/)).toBeInTheDocument()
+expect(screen.getByRole('link', { name: 'AviList' })).toHaveAttribute('href', 'https://doi.org/10.2173/avilist.v2026')
+expect(screen.getByText('Red List categories · CC BY 4.0')).toBeInTheDocument()
+// howto-data.test.ts: THREATENED equals the demo's VU/EN/CR count in species.v1.json (1)
+```
+
+`e2e/about.spec.ts` gets the same About assertions, plus: the scene's dock has three `.ebd-drop`s, the last reading "Status". These are written, not run.
+
+- [ ] **Step 2: Run them to see them fail.** `npx vitest run tests/build-species.test.ts tests/huashu-sync.test.ts tests/about.test.tsx tests/howto-data.test.ts`. Expected: FAIL.
+- [ ] **Step 3: Implement.** Then `npx tsx scripts/build-data/build-species.ts`: the species file must not change (`git diff --quiet public/data/species.v1.json`, unless the override fix moves a status, which no override does today). Run `--init-lock` and `npx tsx scripts/build-data/build-howto.ts`.
+- [ ] **Step 4: Run them to see them pass, then the code checks.** Same command, then `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean.
+- [ ] **Step 5: Commit.** `git commit -m "feat(about): conservation status note and AviList credit; the sync checks the credit and digests the source; the scene's Status drop"`
 
 ---
 
-### Task 12: End to end
+### Task 12: End to end, written not run, and jsdom coverage
 
 **Files:**
-- Create: `e2e/status.spec.ts`
-- Modify: `playwright.config.ts` (add `status` to the webkit and firefox `testMatch`)
+- Create: `e2e/status.spec.ts` (**not run**: Round 4)
+- Modify: `playwright.config.ts` (add `status` to the webkit and firefox `testMatch`), `tests/shared-view.test.tsx`, `tests/app-routes.test.tsx`
 
-`e2e/status.spec.ts` (Chromium, WebKit, Firefox). It seeds as `places.spec.ts` does, picking codes from `public/data/species.v1.json` by `iu`: one LC, NT, VU, EN, two CR, one EW, EX and DD, all with `st`, plus two rows without `iu`. Desktop (1280) and phone (390, `hasTouch`) tests:
+`e2e/status.spec.ts`, for whoever runs e2e later. It seeds as `places.spec.ts` does, picking codes from `public/data/species.v1.json` by `iu`: one LC, NT, VU, EN, two CR, one EW, EX and DD, all with `st`, plus two rows without `iu`. Desktop (1280) and phone (390, `hasTouch`):
 - the stats line contains "· 4 threatened ·";
-- Status opens and lists eight categories; checking VU, EN and CR gives "4 of 11 species" and the button "Status · 3", and the stage shows 4 birds (`collage-stage` `[data-code]:not([data-off])`); Clear restores 11;
-- a bird's card shows the pill: on desktop, hover shows "Vulnerable"; on the phone, a tap shows it and a second tap hides it; the press is at least 44×44 and doesn't overlap the close button;
+- Status lists eight categories. Checking VU, EN and CR gives "4 of 11 species", the button "Status · 3" and 4 birds on the stage (`collage-stage` `[data-code]:not([data-off])`); Clear restores 11;
+- the card's pill: on desktop, hover shows "Vulnerable"; on the phone, a tap shows it and a second tap hides it; its press is at least 44×44;
 - a species without a status has no pill;
-- the shared view: copy the link from the share dialog (as `share-link.spec.ts` does) and open it. Status is there and filters, and the card has the pill;
-- dark theme (`seed(..., 'dark')`): the EX pill's ring is visible (computed `box-shadow` contains the dark Line `rgb(118, 118, 127)`).
+- on the shared view (the copied link), Status filters and the card has the pill;
+- in the dark theme, the EX pill's `box-shadow` contains the dark Line `rgb(118, 118, 127)`.
 
-With `PILL_SHOTS=<dir>` the spec saves card and bar screenshots for `?v=pill:a`, `?v=pill:b`, `?v=threat:a|b|c` in light and dark at 390 and 1280. Those are for Yusuf's pick and the design reviewer (update, rules 4–5). Keep the directory outside the repo.
-- [ ] **Step 1: Write the spec and add it to the config.**
-- [ ] **Step 2: Run it.** `STICKERS_DIR=/Users/yusuf/orca/projects/everybird-stickers npx playwright test e2e/status.spec.ts --project=chromium --project=webkit --project=firefox`. Expected: PASS. If a test fails, the owning task (7–10) gets the fix.
-- [ ] **Step 3: Commit.** `git commit -m "test(e2e): the Status filter, the card's pill and the threatened count, on the collage and the shared view"`
+The jsdom coverage that does run:
+- `shared-view.test.tsx`: a payload whose species include `iu` rows shows `filter-tab-status`. Checking VU narrows `collage-stats` to the VU species. A payload of species without `iu` has no Status button.
+- `app-routes.test.tsx`: on `/` with a stored list, the stats line includes "threatened" when a VU/EN/CR species is on it. Applying the filter through the Status panel updates `collage-stats`, and `applyFilter` (the layout's `resolve`) returns the same codes.
+
+- [ ] **Step 1: Write the jsdom tests and the e2e spec; add the spec to the config.**
+- [ ] **Step 2: Run the jsdom tests and the code checks.** `npx vitest run tests/shared-view.test.tsx tests/app-routes.test.tsx`, then `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`. Expected: clean. (`tsc` type-checks the e2e spec too.)
+- [ ] **Step 3: Commit.** `git commit -m "test(status): jsdom coverage on the collage and the shared view; e2e/status.spec.ts written, not run"`
 
 ---
 
@@ -474,26 +545,22 @@ With `PILL_SHOTS=<dir>` the spec saves card and bar screenshots for `?v=pill:a`,
 
 Items 4, 2 and 5 edited AGENTS.md and DESIGN.md on this stack: edit the current text, and don't bring back older lines.
 
-- `AGENTS.md`: Data pipeline (the `iu` field and its rules: own record, `same` concept, no forms, CR (PE) → CR, unknown values reported; regenerate with build-species → sample pack → data-files → `--init-lock`; update `IUCN_SOURCE` and About's note on AviList's yearly release). huashu sync (the digest includes the raw status; `diffRows` names "status A → B"). Structure (`iucn.ts`, `StatusList.tsx`, `IucnPill.tsx`, `Filter.statuses` and `i:`, the Status button and its hide rule, the stats line's threatened part, the card's toggletip, the new W and G breakpoints replacing "820"). The `responsive.spec.ts`/`dock-sweep.spec.ts`/`text-size.spec.ts` descriptions (three buttons, the sweep to 1100). `e2e/status.spec.ts` and `PILL_SHOTS`. The "Preview variants" paragraph: `pill` `a` (under the mass) / `b` (beside the mass); `threat` `a` ("N threatened") / `b` ("N globally threatened") / `c` (in the Status panel only).
+- `AGENTS.md`: Data pipeline (the `iu` field and its rules: own record, `same` concept, no forms, CR (PE) → CR, unknown values reported; regenerate with build-species → sample pack → data-files → `--init-lock`; update `IUCN_SOURCE` and About's note on AviList's yearly release). huashu sync (the digest includes the raw status; `diffRows` names "status A → B"). Structure (`iucn.ts`, `StatusList.tsx`, `IucnPill.tsx`, `Filter.statuses` and `i:`, the Status button and its hide rule, the stats line's threatened part, the card's toggletip, the new W and G breakpoints replacing "820"). The `responsive.spec.ts`/`dock-sweep.spec.ts`/`text-size.spec.ts` descriptions (three buttons, the sweep to 1100) and `e2e/status.spec.ts`, noting that agents don't run e2e (Round 4). The sync's PR body credit line, and the digest of `conservation.sources.iucn`. The "Preview variants" paragraph: `pill` `a` (under the mass) / `b` (beside the mass); `threat` `a` ("N threatened") / `b` ("N globally threatened") / `c` (in the Status panel only).
 - `DESIGN.md`: under Colors, a rule after the One Voice Rule:
 
   **The Red List Exception.** The seven tokens are the interface's only colours, except the IUCN Red List chart's eight category colours (LC #60C659, NT #CCE226, VU #F9E814, EN #FC7F3F, CR #D81E05, EW #542344, EX #000000, DD #D1D1C6). They are data, not voice, and appear only in the status pill (the bird card and the Status panel's rows). They never appear on the collage, the share images or the chips, or as decoration. They are the same in both themes. The text is `#1e1e24`, or `#ffffff` on CR, EW and EX (AA on every fill, `tests/iucn.test.ts`). A 1px Line ring keeps the edge at 3:1 on Paper in both themes. Accent is still the only interface accent.
 
   Also: "Places and Time dropdowns" becomes "Places, Time and Status dropdowns", with the Status panel; the Dock line uses the new break (W) and lists Status; Cards and tooltip adds the pill and toggletip; Shapes notes the pill's full rounding as the switch track's; Accessibility adds the pill's name, `aria-expanded` and the checkboxes "Vulnerable, 12 species".
 - `.impeccable/design.json`: add a `redList` entry beside `colorMeta` (the eight fills, "data only: the status pill") and a "Status Pill" component snippet.
+- `AGENTS.md`, Round 4: if the branch's AGENTS.md still asks agents to run e2e or take screenshots, change it to the rule (code checks only; e2e specs stay in the repo but agents don't run them; Yusuf tests on the preview).
 - The spec's "Changes after approval": a "Conservation status (2026-11-15)" entry. Tick item 3 in `2026-11-15-next-features.md`.
 
 
 - [ ] **Step 1: Update the docs.**
-- [ ] **Step 2: Verify**
+- [ ] **Step 2: Verify (code checks only, Round 4)**
 
-Run: `npm run lint && npx next typegen && npx tsc --noEmit && npm test`
-Expected: no errors; all Vitest tests pass.
-
-Run: `STICKERS_DIR=/Users/yusuf/orca/projects/everybird-stickers npx playwright test e2e/status.spec.ts e2e/flows.spec.ts e2e/places.spec.ts e2e/responsive.spec.ts e2e/dock-sweep.spec.ts e2e/text-size.spec.ts e2e/about.spec.ts e2e/share-link.spec.ts e2e/import.spec.ts e2e/timeline.spec.ts --project=chromium --project=webkit --project=firefox`
-Expected: PASS (each project runs only the specs in its `testMatch`).
-
-Run once by hand: open `?v=pill:b`, `?v=threat:b` and `?v=threat:c` on `localhost:3100` and save the `PILL_SHOTS` screenshots. Have a high-effort design reviewer compare them with the current screens, light and dark, phone and desktop (update, rule 4), and list the variants with screenshots in the report.
+Run: `npm run lint && npx next typegen && npx tsc --noEmit && npx vitest run --maxWorkers=1`
+Expected: no errors; all Vitest tests pass. No Playwright, no screenshots. Push for Yusuf's preview once green (update, rules 1–2). The report lists the variant keys and options (`?v=pill:b`, `?v=threat:b`, `?v=threat:c`) for him to try.
 
 - [ ] **Step 3: Commit.** `git commit -m "docs: conservation status (data rules, Status dropdown, pill, Red List colour exception, variants)"`
 
