@@ -122,6 +122,44 @@ test("story image is 1080×1920 PNG, post is 1080×1350 and square is 1080×1080
   expect(errors).toEqual([]);
 });
 
+// The footer line ends with the day the image was made, on the device's clock and in its time zone: at 12:30 UTC on
+// 14 Nov it is already 01:30 on 15 Nov in Auckland, so the stamp says 15 Nov and never the UTC day. A wrapper around
+// fillText records every text the main-thread canvas draws (the share image is drawn there), cleared between formats
+// so each format proves its own line.
+test.describe("date stamp", () => {
+  test.use({ timezoneId: "Pacific/Auckland" });
+
+  test("every format's footer line ends with the device's local date: As of 15 Nov 2026", async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.clock.setFixedTime(new Date("2026-11-14T12:30:00Z"));
+    await page.addInitScript(() => {
+      const w = window as unknown as { __fillTexts: string[] };
+      w.__fillTexts = [];
+      const real = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+        w.__fillTexts.push(String(text));
+        return real.call(this, text, ...rest);
+      };
+    });
+    const dialog = await openShare(page);
+    const preview = dialog.getByTestId("share-preview");
+    const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+    const line = "everybird.yusuftaleb.com · stickers by huashu · As of 15 Nov 2026";
+    for (const format of ["Story", "Post", "Square"]) {
+      // The story is drawn as the dialog opens; the others on their click, after the previous format's texts are gone.
+      if (format !== "Story") {
+        await page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
+        await dialog.getByRole("button", { name: new RegExp(`^${format}`) }).click();
+      }
+      await expect(preview.getByRole("img", { name: `Preview of the ${format.toLowerCase()} image` })).toBeVisible({ timeout: 30_000 });
+      await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+      const drawn = await texts();
+      expect(drawn, `${format}: the footer line`).toContain(line);
+      expect(drawn.join("\n"), `${format}: never the UTC day`).not.toContain("14 Nov 2026");
+    }
+  });
+});
+
 test("copy link puts a /s/1… URL under 2000 chars on the clipboard", async ({ page, context, baseURL, browserName }) => {
   chromiumOnly(browserName);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
