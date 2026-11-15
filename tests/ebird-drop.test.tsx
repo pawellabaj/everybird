@@ -55,6 +55,28 @@ describe('EbirdDrop: what each eBird file brings', () => {
     rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
     expect(screen.getByRole('button', { name: /^Replace/ })).toHaveFocus()
   })
+  it('#add-mydata during a read that lands a file: the panel opens once the file is in; MyEBirdData landing focuses its Replace', () => {
+    const { rerender } = render(<EbirdDrop job={{ ...idle, busy: true }} onFile={() => {}} loaded={{ full: 0, quick: 0 }} />)
+    history.replaceState(null, '', '#add-mydata')
+    fireEvent(window, new HashChangeEvent('hashchange'))
+    // The life list download lands and the read ends in one render (use-import-jobs batches them).
+    rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
+    expect(screen.getByRole('group', { name: 'Add MyEBirdData' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Choose your eBird file' })).toHaveFocus()
+    cleanup()
+    const second = render(<EbirdDrop job={{ ...idle, busy: true }} onFile={() => {}} loaded={{ full: 0, quick: 0 }} />)
+    fireEvent(window, new HashChangeEvent('hashchange'))
+    second.rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} connected={[{ slot: 'ebird' }]} />)
+    expect(screen.getByRole('button', { name: /^Replace/ })).toHaveFocus()
+  })
+  it('#add-mydata during a read, then another anchor: nothing moves when the read ends', () => {
+    const { rerender } = render(<EbirdDrop job={{ ...idle, busy: true }} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
+    history.replaceState(null, '', '#add-mydata')
+    fireEvent(window, new HashChangeEvent('hashchange'))
+    history.replaceState(null, '', '#match')
+    rerender(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 0, quick: 3 }} connected={[{ slot: 'ebird-list' }]} />)
+    expect(screen.queryByRole('group', { name: 'Add MyEBirdData' })).toBeNull()
+  })
   it('#add-mydata with MyEBirdData already on the list (saved before seen-here): focuses its Replace, the reason beside it', () => {
     history.replaceState(null, '', '#add-mydata')
     render(<EbirdDrop job={idle} onFile={() => {}} loaded={{ full: 3, quick: 0 }} placesNote="reimport" connected={[{ slot: 'ebird' }]} />)

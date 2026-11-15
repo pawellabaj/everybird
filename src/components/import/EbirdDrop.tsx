@@ -132,7 +132,9 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
     if (off || pendingFull.current === null) return
     const scroll = pendingFull.current
     pendingFull.current = null
-    toFullRef.current(scroll)
+    // Not if the birder has since gone elsewhere on the page (#match, #tick). use-import-jobs lands the file and goes
+    // idle in one batch, so the rows have already folded their panels when this runs.
+    if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(scroll)
   }, [off])
   useEffect(() => {
     const onHash = () => { if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(true) }

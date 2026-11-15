@@ -228,6 +228,7 @@ for (const width of [1280, 390]) {
       await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
       await pressable(page, panel, "counties");
       let m = await sideways(page);
+      expect(m.body).not.toBeNull();
       expect(m.body).toBeLessThanOrEqual(0);
 
       await press(panel.getByTestId("places-path").getByRole("button", { name: "All countries" }));
@@ -260,6 +261,7 @@ for (const width of [1280, 390]) {
       await expect(stats).toContainText("10 of 21 species");
       await pressable(page, panel, "variant b, both groups open");
       const m = await sideways(page);
+      expect(m.body).not.toBeNull();
       expect(m.body).toBeLessThanOrEqual(0);
       expect(m.page).toBeLessThanOrEqual(0);
     });
@@ -282,6 +284,7 @@ test.describe("Places variant b at 260px", () => {
     await row(panel, "place-k:CA-BC|Capital").tap();
     await expect(page.getByTestId("collage-stats")).toContainText("10 of 21 species");
     const m = await sideways(page);
+    expect(m.body).not.toBeNull();
     expect(m.body).toBeLessThanOrEqual(0);
     expect(m.page).toBeLessThanOrEqual(0);
   });
