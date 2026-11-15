@@ -70,6 +70,19 @@ export function timeSpoken(f: Filter): string | undefined {
 }
 
 /**
+ * What the lifer-only notes say about the file that knows every place each bird was seen: its Add link's and its
+ * import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
+ * reads it). One source today (MyEBirdData); another plugs in as another of these.
+ */
+export type FullPlacesSource = { add: string; again: string; reach: string; anchor: string }
+export const MYEBIRDDATA_PLACES: FullPlacesSource = {
+  add: 'Add MyEBirdData',
+  again: 'Import MyEBirdData again',
+  reach: 'down to the county',
+  anchor: 'add-mydata',
+}
+
+/**
  * Whether the Places dropdown says its places are only lifer places, and what to do: undefined for an empty list or
  * one with seen-here (some record knows every place a species was seen); 'reimport' when the MyEBirdData slot holds
  * records but none carries seen-here (an import saved before seen-here existed: importing the file again fills it);

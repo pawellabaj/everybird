@@ -188,3 +188,26 @@ for (const v of ["a", "b"] as const) {
     expect(m.page).toBeLessThanOrEqual(0);
   });
 }
+
+// The lifer-only note's link is a client navigation to /settings#add-mydata: MyEBirdData's Add panel opens there with
+// its picker focused and in view; with MyEBirdData already on the list (saved before seen-here), its Replace is focused.
+test("the lifer-only note opens MyEBirdData's Add panel on Settings, or focuses its Replace", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const life = syntheticSaved() as ReturnType<typeof syntheticSaved> & { records: Record<string, object[]> };
+  const lifeList = { ...life, v: 2, records: { ebird: [], "ebird-list": life.records.ebird.map((r) => ({ ...r, source: "ebird" })), inat: [], manual: [] } };
+  await seed(page, lifeList);
+  await page.getByTestId("filter-tab-places").click();
+  await page.getByTestId("places-lifer-only").getByRole("link", { name: "Add MyEBirdData" }).click();
+  await expect(page).toHaveURL(/\/settings#add-mydata$/);
+  await expect(page.getByTestId("places-lifer-note")).toBeVisible();
+  await expect(page.getByRole("group", { name: "Add MyEBirdData" })).toBeVisible();
+  const choose = page.getByRole("group", { name: "Add MyEBirdData" }).getByRole("button", { name: "Choose your eBird file" });
+  await expect(choose).toBeFocused();
+  await expect(choose).toBeInViewport();
+
+  await seed(page);
+  await page.getByTestId("filter-tab-places").click();
+  await page.getByTestId("places-lifer-only").getByRole("link", { name: "Import MyEBirdData again" }).click();
+  await expect(page).toHaveURL(/\/settings#add-mydata$/);
+  await expect(page.getByTestId("source-ebird").getByRole("button", { name: /^Replace/ })).toBeFocused();
+});

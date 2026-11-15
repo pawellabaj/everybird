@@ -6,6 +6,7 @@
 // filter only through togglePlace / withPlaces (filters.ts) and keeps the same test ids: `country-<ISO2>` and
 // `place-<key>` checkboxes, `drill-<key>` buttons.
 import Link from '@/components/app/IntentLink'
+import { MYEBIRDDATA_PLACES, type FullPlacesSource } from '@/lib/list/filter-summary'
 import { useVariant } from '@/lib/variants'
 import type { PlacesBodyProps, PlacesNote } from './places-shared'
 import { PlacesDrill } from './PlacesDrill'
@@ -24,16 +25,14 @@ export function PlacesList({ note, ...body }: PlacesBodyProps & { note?: PlacesN
   )
 }
 
-/** "Showing each lifer's first place only", and how to get every place a species is on the list for. */
-export function PlacesNoteLine({ note }: { note: PlacesNote }) {
+/** Places only knows each bird's first place, and a link to the Add panel of the file that knows every place. */
+export function PlacesNoteLine({ note, source = MYEBIRDDATA_PLACES }: { note: PlacesNote; source?: FullPlacesSource }) {
+  const again = note === 'reimport'
   return (
     <p className="eb-note eb-places-note" data-testid="places-lifer-only">
-      Showing each lifer&apos;s first place only.{' '}
-      {note === 'reimport' ? (
-        <><Link href="/settings">Import Download My Data again</Link> for full country lists.</>
-      ) : (
-        <><Link href="/settings">Add MyEBirdData or iNaturalist</Link> for full country lists.</>
-      )}
+      Places only knows where each bird was first seen.{' '}
+      <Link href={`/settings#${source.anchor}`}>{again ? source.again : source.add}</Link>
+      {' '}to filter by every place you saw each bird{again ? '' : `, ${source.reach}`}.
     </p>
   )
 }

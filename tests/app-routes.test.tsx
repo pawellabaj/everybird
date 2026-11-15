@@ -252,7 +252,7 @@ describe('Settings and the collage', () => {
     expect(why).toHaveAttribute('aria-controls', notCounted.id)
     expect(notCounted).toBeVisible()
     expect(notCounted).toHaveTextContent(/^1 entry isn't a species: birds only identified to a group \(like “duck sp\.”\), either\/or IDs/)
-    expect(screen.getByTestId('ebird-detail')).toHaveTextContent(/state or province.*Download My Data.*region \(county\)/)
+    expect(screen.getByTestId('places-lifer-note')).toHaveTextContent(/only says where each bird was first seen.*MyEBirdData has every place you saw each bird, down to the county/)
     await waitFor(async () => expect((await storage.load())?.records['ebird-list']).toHaveLength(3), { timeout: 2000 })
     expect((await storage.load())?.records.ebird).toEqual([])
     expect((await storage.load())?.skipped).toEqual({ 'ebird-list': 1 })

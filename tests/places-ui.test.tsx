@@ -162,16 +162,17 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     expect(timeBtn()).toHaveAccessibleName('Time: from January 2020')
   })
 
-  it('the lifer-only notice, inside Places: add files, or import MyEBirdData again for an old save', () => {
+  it('the lifer-only notice, inside Places: add MyEBirdData, or import it again for an old save; both link to its Add panel', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness variant="lifer" note="add" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent('Showing each lifer\'s first place only. Add MyEBirdData or iNaturalist for full country lists.')
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird was first seen\. Add MyEBirdData to filter by every place you saw each bird, down to the county\.$/)
+    expect(screen.getByRole('link', { name: 'Add MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
     unmount()
     render(<Harness variant="lifer" note="reimport" />)
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent('Showing each lifer\'s first place only. Import Download My Data again for full country lists.')
-    expect(screen.getByRole('link', { name: 'Import Download My Data again' })).toHaveAttribute('href', '/settings')
+    expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where each bird was first seen\. Import MyEBirdData again to filter by every place you saw each bird\.$/)
+    expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
   })
 })
 
