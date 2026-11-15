@@ -330,6 +330,28 @@ test("Settings fits about 1.5 screens at 1280x800 with a source connected", asyn
   expect(height).toBeLessThanOrEqual(1.6 * 800);
 });
 
+// A life list download knows only where each bird was first seen: Settings says so under the eBird rows, with a button
+// to MyEBirdData's Add panel, and the collage's Places panel links to the same panel (/settings#add-mydata).
+test("after a life list import, Settings and Places say places are first places only, one tap from MyEBirdData", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await importLifeList(page);
+  const note = page.getByTestId("places-lifer-note");
+  await expect(note).toBeVisible();
+  const group = page.getByRole("group", { name: "Add MyEBirdData" });
+  const choose = group.getByRole("button", { name: "Choose your eBird file" });
+  await page.getByTestId("places-lifer-add").click();
+  await expect(group).toBeVisible();
+  await expect(choose).toBeFocused();
+
+  await page.getByRole("banner").getByRole("link", { name: "Collage", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.getByTestId("filter-tab-places").click();
+  await page.getByTestId("places-lifer-only").getByRole("link", { name: "Add MyEBirdData" }).click();
+  await expect(page).toHaveURL(/\/settings#add-mydata$/);
+  await expect(group).toBeVisible();
+  await expect(choose).toBeFocused();
+});
+
 // The collage's "Fix it" is a client navigation to /settings#match: the match report opens by itself there (it read
 // the hash before the router had written it; review, 2026-11-06).
 test("the collage's Fix it opens Settings with the match report open", async ({ page }) => {

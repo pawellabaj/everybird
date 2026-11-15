@@ -22,7 +22,8 @@ describe('regions', () => {
     expect(regions.sub1['CN-11']).toBe(regions.sub1['CN-BJ'])
   })
   it('no region or country name is inverted ("Madrid, Comunidad de") or carries an ISO bracket', () => {
-    // Commas would also break "Sub1, Country" places. No official name we keep needs one.
+    // Commas would also break "Sub1, Country" places, and the shared view's split of a link's place string at its last
+    // ", " into county and province (payloadToRecords). No official name we keep needs one.
     for (const [code, name] of [...Object.entries(regions.countries), ...Object.entries(regions.sub1)]) {
       expect(name, code).not.toMatch(/[,[\]]/)
     }

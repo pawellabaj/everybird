@@ -58,7 +58,8 @@ export function payloadFromList(list: ListEntry[], regions: Regions, name?: stri
  * (before, commas and all) and the province (after), so the shared view's Places filter drills country > province >
  * county from the strings links already carry. Each distinct province name in a country gets one synthetic sub1,
  * "CA-share0", whose Regions name is that province, so formatPlace prints the shared string exactly. A string whose
- * country the viewer's regions don't name stays whole on its synthetic sub1, with no county.
+ * country the viewer's regions don't name, or that doesn't end with ", <country name>", stays whole on its synthetic
+ * sub1, with no county.
  */
 export function payloadToRecords(p: SharePayload, regions: Regions): { records: SourceRecord[]; regions: Regions } {
   const sub1: Record<string, string> = { ...regions.sub1 }

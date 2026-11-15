@@ -45,7 +45,9 @@ describe('shared view', () => {
   it('keeps a place whole when the viewer does not know its country', () => {
     const p: SharePayload = { v: 1, places: ['Okanagan, British Columbia, Narnia'], countries: ['ZZ'], birds: [{ code: 'a', p: 0 }] }
     const { records, regions: shown } = payloadToRecords(p, regions)
-    expect(records[0].place).toEqual({ country: 'ZZ', sub1: records[0].place!.sub1 })
+    expect(records[0].place!.country).toBe('ZZ')
+    expect(records[0].place!.sub2).toBeUndefined()
+    expect(records[0].place!.sub1).toMatch(/^ZZ-share\d+$/)
     expect(shown.sub1[records[0].place!.sub1!]).toBe('Okanagan, British Columbia, Narnia')
   })
 

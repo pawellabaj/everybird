@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { pressAreas } from "./press-areas";
 
 // The Places and Time dropdowns in the controls bar, on a synthetic list: Canada most months, lifers in Egypt and Costa
 // Rica (full dates, 3+ lifers within days in another country).
@@ -137,17 +138,16 @@ for (const theme of ["light", "dark"] as const) {
   });
 }
 
-// Down to a county, in each design of the panel (`?v=places:<letter>`: a drills in place, b expands rows inline). Seen-
-// here places: Canada (British Columbia's Capital and Greater Vancouver, Ontario) and Egypt.
-function provincesSaved() {
+/** A MyEBirdData-style list: one species per entry of `where` ("CA-BC|Capital", "CA-ON", "EG"), seen there. */
+function seenSaved(where: string[]) {
   const species = (JSON.parse(readFileSync(resolve(__dirname, "../public/data/species.v1.json"), "utf8")) as { species: Row[] }).species;
-  const where = ["CA-BC|Capital", "CA-BC|Capital", "CA-BC|Greater Vancouver", "CA-ON", "CA-ON", "EG"];
   const records = where.map((w, i) => {
     const [sub, county] = w.split("|");
     const country = sub.slice(0, 2);
+    const date = `2022-${String(1 + (i % 12)).padStart(2, "0")}-10`;
     return {
-      code: species[i * 5].code, source: "ebird", date: `2022-0${1 + i}-10`,
-      place: { country, ...(sub.includes("-") ? { sub1: sub } : {}) }, seen: [`2022-0${1 + i}-10|${sub}${county ? `|${county}` : ""}`],
+      code: species[i * 5].code, source: "ebird", date,
+      place: { country, ...(sub.includes("-") ? { sub1: sub } : {}) }, seen: [`${date}|${sub}${county ? `|${county}` : ""}`],
     };
   });
   return {
@@ -156,6 +156,138 @@ function provincesSaved() {
     savedAt: new Date().toISOString(),
   };
 }
+const provincesSaved = () => seenSaved(["CA-BC|Capital", "CA-BC|Capital", "CA-BC|Greater Vancouver", "CA-ON", "CA-ON", "EG"]);
+/** 21 species: ten in British Columbia's Capital, four in its Okanagan-Similkameen, three in Ontario, two in King
+ * County (Washington), two in Egypt. */
+const drilledSaved = () =>
+  seenSaved([
+    ...Array<string>(10).fill("CA-BC|Capital"), ...Array<string>(4).fill("CA-BC|Okanagan-Similkameen"),
+    ...Array<string>(3).fill("CA-ON"), ...Array<string>(2).fill("US-WA|King"), ...Array<string>(2).fill("EG"),
+  ]);
+
+/** Neither the page, the dock nor the panel's body scrolls sideways. */
+const sideways = (page: Page) =>
+  page.evaluate(() => {
+    const d = document.querySelector(".eb-dock")!;
+    const b = document.querySelector<HTMLElement>(".eb-drop-body");
+    return { dock: d.scrollWidth - d.clientWidth, body: b ? b.scrollWidth - b.clientWidth : 0, page: document.documentElement.scrollWidth - innerWidth };
+  });
+/** Every control is a 44px press (pressAreas), and every checklist row in the panel, the checkbox's target, too. */
+async function pressable(page: Page, panel: Locator, where: string) {
+  expect((await pressAreas(page)).small, `${where}: controls under 44px`).toEqual([]);
+  const rows = await panel.locator(".eb-check").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().height)));
+  expect(rows.length, where).toBeGreaterThan(0);
+  for (const h of rows) expect(h, `${where}: a row under 44px`).toBeGreaterThanOrEqual(44);
+}
+/** A row's checkbox, pressed by its name (the whole row is the label). */
+const row = (panel: Locator, testId: string) => panel.locator("label.eb-check", { has: panel.page().getByTestId(testId) }).locator(".eb-check-name");
+
+for (const width of [1280, 390]) {
+  test.describe(`Places drills down at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 }, hasTouch: width < 600 });
+    const press = (l: Locator) => (width < 600 ? l.tap() : l.click());
+
+    test("drill from Canada to British Columbia to a county; the bar names it; back, Esc and 44px presses", async ({ page }) => {
+      await seed(page, drilledSaved());
+      const places = page.getByTestId("filter-tab-places");
+      const stats = page.getByTestId("collage-stats");
+      await places.click();
+      const panel = page.getByTestId("filter-panel-places");
+      const head = panel.locator(".eb-places-head");
+      await expect(head).toContainText("Countries · 3");
+      const canada = panel.getByTestId("drill-c:CA");
+      await expect(canada).toBeVisible();
+      await expect(panel.getByTestId("drill-c:EG")).toHaveCount(0); // Egypt has no places under it
+      await pressable(page, panel, "countries");
+
+      if (width < 600) await canada.tap();
+      else {
+        await canada.focus();
+        await page.keyboard.press("Enter");
+      }
+      await expect(panel.getByTestId("place-all")).toBeFocused();
+      await expect(head).toContainText("States and provinces · 2");
+      await expect(panel.getByTestId("places-path")).toContainText("All countries/Canada");
+      await press(row(panel, "place-s:CA-BC"));
+      await expect(panel.getByTestId("place-s:CA-BC")).toBeChecked();
+      await expect(stats).toContainText("14 of 21 species");
+      await expect(places).toContainText("Places · 1");
+      await expect(places).toHaveAttribute("aria-label", "Places: British Columbia, Canada");
+      await pressable(page, panel, "provinces");
+
+      await press(panel.getByTestId("drill-s:CA-BC"));
+      await expect(panel.getByTestId("place-all")).toBeFocused();
+      await expect(head).toContainText("Counties · 2");
+      await expect(panel.getByTestId("place-all")).toBeChecked(); // "All of British Columbia" is the checked province
+      await press(row(panel, "place-k:CA-BC|Capital"));
+      await expect(panel.getByTestId("place-k:CA-BC|Capital")).toBeChecked();
+      await expect(panel.getByTestId("place-all")).not.toBeChecked(); // the county narrows its province away
+      await expect(stats).toContainText("10 of 21 species");
+      await expect(places).toContainText("Places · 1");
+      await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
+      await pressable(page, panel, "counties");
+      let m = await sideways(page);
+      expect(m.body).toBeLessThanOrEqual(0);
+
+      await press(panel.getByTestId("places-path").getByRole("button", { name: "All countries" }));
+      await expect(canada).toBeFocused();
+      await expect(head).toContainText("Countries · 3");
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+      await expect(places).toBeFocused();
+      await expect(stats).toContainText("10 of 21 species"); // closing keeps the county
+      m = await sideways(page);
+      expect(m.dock).toBeLessThanOrEqual(0);
+      expect(m.page).toBeLessThanOrEqual(0);
+    });
+
+    test("variant b (?v=places:b) selects a province and a county inline", async ({ page }) => {
+      await seed(page, drilledSaved());
+      await page.goto("/?v=places:b");
+      await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
+      const stats = page.getByTestId("collage-stats");
+      await page.getByTestId("filter-tab-places").click();
+      const panel = page.getByTestId("filter-panel-places");
+      await press(panel.getByTestId("drill-c:CA"));
+      await press(panel.getByTestId("drill-s:CA-BC"));
+      await expect(panel.getByTestId("drill-s:CA-BC")).toHaveAttribute("aria-expanded", "true");
+      await press(row(panel, "place-s:CA-BC"));
+      await expect(stats).toContainText("14 of 21 species");
+      await press(row(panel, "place-k:CA-BC|Capital"));
+      await expect(panel.getByTestId("place-k:CA-BC|Capital")).toBeChecked();
+      await expect(panel.getByTestId("place-s:CA-BC")).not.toBeChecked();
+      await expect(stats).toContainText("10 of 21 species");
+      await pressable(page, panel, "variant b, both groups open");
+      const m = await sideways(page);
+      expect(m.body).toBeLessThanOrEqual(0);
+      expect(m.page).toBeLessThanOrEqual(0);
+    });
+  });
+}
+
+// Safari's aA at 150% on a 390px phone is a 260px viewport (as text-size.spec.ts uses): variant b's nested groups still
+// fit the sheet.
+test.describe("Places variant b at 260px", () => {
+  test.use({ viewport: { width: 260, height: 700 }, hasTouch: true });
+  test("a province's and a county's groups open in the sheet without sideways scroll", async ({ page }) => {
+    await seed(page, drilledSaved());
+    await page.goto("/?v=places:b");
+    await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
+    await page.getByTestId("filter-tab-places").tap();
+    const panel = page.getByTestId("filter-panel-places");
+    await panel.getByTestId("drill-c:CA").tap();
+    await panel.getByTestId("drill-s:CA-BC").tap();
+    await expect(panel.getByTestId("place-k:CA-BC|Okanagan-Similkameen")).toBeAttached();
+    await row(panel, "place-k:CA-BC|Capital").tap();
+    await expect(page.getByTestId("collage-stats")).toContainText("10 of 21 species");
+    const m = await sideways(page);
+    expect(m.body).toBeLessThanOrEqual(0);
+    expect(m.page).toBeLessThanOrEqual(0);
+  });
+});
+
+// Down to a county, in each design of the panel (`?v=places:<letter>`: a drills in place, b expands rows inline). Seen-
+// here places: Canada (British Columbia's Capital and Greater Vancouver, Ontario) and Egypt.
 for (const v of ["a", "b"] as const) {
   test(`?v=places:${v}: a province, then a county`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
