@@ -164,20 +164,6 @@ test.describe("date stamp", () => {
       expect(drawn.join("\n"), `${format}: never the UTC day`).not.toContain("14 Nov 2026");
     }
   });
-
-  test("preview variant b (?v=stamp:b) puts the stamp beside the address", async ({ page }) => {
-    test.setTimeout(90_000);
-    await stampClock(page);
-    // On /settings?v=stamp:b; the restore goes to / without it, and the tab remembers it.
-    const dialog = await openShare(page, "?v=stamp:b");
-    expect(new URL(page.url()).search).toBe("");
-    const preview = dialog.getByTestId("share-preview");
-    await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
-    await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
-    const drawn = await page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
-    expect(drawn).toContain("everybird.yusuftaleb.com · As of 15 Nov 2026 · stickers by huashu");
-    expect(drawn).not.toContain("everybird.yusuftaleb.com · stickers by huashu · As of 15 Nov 2026");
-  });
 });
 
 // Preview variant b (?v=sharepv:b): one square stage for every format, so the preview and the controls never move.

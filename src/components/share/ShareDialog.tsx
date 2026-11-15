@@ -64,8 +64,6 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
   const theme = useTheme()
-  // Preview variant `stamp` (?v=stamp:b): the date stamp beside the address instead of at the end of the footer line.
-  const stampAt = useVariant('stamp', ['a', 'b'] as const) === 'b' ? 'address' : 'end'
   // Preview variant `sharepv` (share.css): a = the preview box takes the image's own shape at the dialog's full height and
   // the dialog fits around it; b = one square stage for every format (the image centred in it, no box), so the controls
   // never move.
@@ -116,7 +114,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${format}|${trimmed}|${theme}|${stampAt}|${withLatest}`
+  const key = `${format}|${trimmed}|${theme}|${withLatest}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   useEffect(() => {
@@ -129,7 +127,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
       .then(() => packFor(format, !!trimmed, withLatest))
-      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, stampAt, latest: withLatest, signal: life.current?.signal }))
+      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, latest: withLatest, signal: life.current?.signal }))
     current.current = job
     job.then(
       (blob) => {
@@ -146,7 +144,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, format, trimmed, theme, stampAt, withLatest, packFor, shown, species, label])
+  }, [key, format, trimmed, theme, withLatest, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).

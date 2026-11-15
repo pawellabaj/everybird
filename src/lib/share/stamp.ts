@@ -19,12 +19,3 @@ export function withStamp(line: string, stamp: string): string {
   return stamp ? `${line} · ${stamp}` : line
 }
 
-/** Where the stamp sits in the footer line: at its end (variant a) or beside the address (variant b, `?v=stamp:b`). */
-export type StampAt = 'end' | 'address'
-
-/** The footer line from its parts: `site · credit · stamp` ('end') or `site · stamp · credit` ('address'); `site · credit` without a stamp. */
-export function stampedFooter(site: string, credit: string, stamp: string, at: StampAt = 'end'): string {
-  const line = `${site} · ${credit}`
-  if (!stamp) return line
-  return at === 'address' ? `${site} · ${stamp} · ${credit}` : withStamp(line, stamp)
-}

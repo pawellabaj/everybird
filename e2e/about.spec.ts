@@ -4,7 +4,7 @@ import { BIRDS, TOTAL } from "../src/components/about/how-it-works-data";
 import { pageTitle } from "../src/lib/list/title";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
-import { asOfDate, stampedFooter, withStamp } from "../src/lib/share/stamp";
+import { asOfDate, withStamp } from "../src/lib/share/stamp";
 
 // share/image.ts's FOOTER_LINE (that module can't load here: it starts a worker with import.meta); the test checks its
 // definition is still this.
@@ -345,11 +345,8 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   const LINE = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 10, 6)))
   expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
   expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
-  // The product builds its line with stampedFooter (default 'end', variant a: the scene's), from the same parts
-  expect(src("src/lib/share/image.ts")).toContain("stampedFooter(SITE_LABEL, FOOTER_CREDIT, asOfDate(")
-  expect(stampedFooter(new URL(SHARE_ORIGIN).host, "stickers by huashu", asOfDate(new Date(2026, 10, 6)))).toBe(LINE)
-  expect(src("src/lib/share/image.ts")).toContain("const FOOTER_CREDIT = 'stickers by huashu'")
-  expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · ${FOOTER_CREDIT}`")
+  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, asOfDate(")
+  expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")
   expect(await scene.locator(".ebd-img-mark").allTextContents()).toEqual(["Everybird", "Everybird", "Everybird"])

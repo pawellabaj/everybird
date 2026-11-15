@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { asOfDate, stampedFooter, withStamp } from '@/lib/share/stamp'
+import { asOfDate, withStamp } from '@/lib/share/stamp'
 
 // The footer line as image.ts has it (FOOTER_LINE); this file must not import image.ts.
 const FOOTER = 'everybird.yusuftaleb.com · stickers by huashu'
@@ -28,21 +28,5 @@ describe('withStamp', () => {
   })
   it('leaves the line alone without a stamp', () => {
     expect(withStamp(FOOTER, '')).toBe(FOOTER)
-  })
-})
-
-describe('stampedFooter', () => {
-  const site = 'everybird.yusuftaleb.com'
-  const credit = 'stickers by huashu'
-  it('ends the line with the stamp (variant a, the default)', () => {
-    expect(stampedFooter(site, credit, 'As of 14 Nov 2026', 'end')).toBe('everybird.yusuftaleb.com · stickers by huashu · As of 14 Nov 2026')
-    expect(stampedFooter(site, credit, 'As of 14 Nov 2026')).toBe(withStamp(FOOTER, 'As of 14 Nov 2026'))
-  })
-  it('puts the stamp beside the address (variant b)', () => {
-    expect(stampedFooter(site, credit, 'As of 14 Nov 2026', 'address')).toBe('everybird.yusuftaleb.com · As of 14 Nov 2026 · stickers by huashu')
-  })
-  it('is the plain footer line without a stamp', () => {
-    expect(stampedFooter(site, credit, '', 'end')).toBe(FOOTER)
-    expect(stampedFooter(site, credit, '', 'address')).toBe(FOOTER)
   })
 })
