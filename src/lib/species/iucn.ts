@@ -23,7 +23,8 @@ export function isIucnCat(x: unknown): x is IucnCat {
 }
 
 /** Keep the category alone: possibly-extinct flags (PE, PEW) still mean CR. */
-export function parseIucn(raw: string | undefined): IucnCat | undefined {
-  const cat = /^(LC|NT|VU|EN|CR|EW|EX|DD)(?: \([A-Z]+\))?$/.exec(raw?.trim() ?? '')?.[1]
+export function parseIucn(raw: unknown): IucnCat | undefined {
+  if (typeof raw !== 'string') return undefined
+  const cat = /^(LC|NT|VU|EN|CR|EW|EX|DD)(?: \([A-Z]+\))?$/.exec(raw.trim())?.[1]
   return isIucnCat(cat) ? cat : undefined
 }

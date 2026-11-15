@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import huashu from './fixtures/build/huashu.json'
 import taxonomy from './fixtures/build/taxonomy.json'
 import overrides from './fixtures/build/overrides.json'
-import { buildSpecies, formMatch, matchHuashu, statusOf } from '../scripts/build-data/build-species'
+import { buildSpecies, creditMatchesSources, formMatch, iucnSources, matchHuashu, statusOf } from '../scripts/build-data/build-species'
+import { IUCN_SOURCE } from '../src/lib/species/iucn'
 import type { HuashuRecord, Overrides, TaxonRow } from '../src/lib/species/types'
 
 const run = (o: Overrides = overrides as Overrides) =>
@@ -65,6 +66,52 @@ describe('conservation status', () => {
     const { file, report } = buildSpecies([{ ...parent, forms: [form] }], taxa, {})
     expect(file.species[0]).not.toHaveProperty('iu')
     expect(report).toContain('From huashu forms (a subspecies drawing of that very taxon): 1')
+  })
+
+  // Synthetic taxa and records for the borrowing guards: one record, Gus_rec, and two eBird species near it.
+  const tx = (code: string, sci: string, to: number): TaxonRow => ({ code, sci, com: `Bird ${code}`, cat: 'species', to,
+    ord: 'Ordo', fam: 'Famone', famCom: 'Family One' })
+  const rec = (extra: Partial<HuashuRecord>): HuashuRecord => ({ id: 'Gus_rec', scientificName: 'Gus rec', taxonConcept: 'same',
+    taxonomy: { seq: 1, order: 'Ordo', family: 'Famone' }, ids: {}, traits: { massG: 10 },
+    sticker: { file: 'stickers/Ordo/Famone/Gus_rec.webp', meetsQualityBar: true }, conservation: { iucn: 'EN' }, ...extra })
+
+  it('not through a hand-named override: the record may be another taxon', () => {
+    const { file, report } = buildSpecies([rec({})], [tx('hand1', 'Gus other', 1)], { hand1: { huashu: 'Gus_rec', source: 'synthetic' } })
+    expect(file.species[0]).toMatchObject({ code: 'hand1', st: true })
+    expect(file.species[0]).not.toHaveProperty('iu')
+    expect(report).toContain("No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species) (1)")
+    expect(report).toContain('hand1 (Bird hand1): hand-named override -> huashu Gus_rec, EN')
+  })
+
+  it('not when one record is matched by two eBird species: neither takes its status', () => {
+    const shared = rec({ ids: { ebird: 'own1' }, previous: [{ scientificName: 'Gus split', relation: 'renamed' }] })
+    const { file, report } = buildSpecies([shared], [tx('own1', 'Gus rec', 1), tx('split1', 'Gus split', 2)], {})
+    expect(file.species.map((r) => [r.code, r.st, r.iu])).toEqual([['own1', true, undefined], ['split1', true, undefined]])
+    expect(report).toContain('own1 (Bird own1): huashu Gus_rec is also matched by split1, EN')
+    expect(report).toContain('split1 (Bird split1): huashu Gus_rec is also matched by own1, EN')
+  })
+
+  it('a former name: renamed keeps its status, lumped_into_this gives none', () => {
+    const renamed = buildSpecies([rec({ previous: [{ scientificName: 'Gus old', relation: 'renamed' }] })], [tx('ren1', 'Gus old', 1)], {})
+    expect(renamed.file.species[0].iu).toBe('EN')
+    const lumped = buildSpecies([rec({ previous: [{ scientificName: 'Gus old', relation: 'lumped_into_this' }] })], [tx('lum1', 'Gus old', 1)], {})
+    expect(lumped.file.species[0]).toMatchObject({ st: false })
+    expect(lumped.file.species[0]).not.toHaveProperty('iu')
+  })
+
+  it('reports the cited status sources and whether About’s credit still names their versions', () => {
+    const src = (iucn: string) => rec({ conservation: { iucn: 'LC', sources: { iucn } } })
+    const today = 'AviList v2026（BirdLife v10）', next = 'AviList v2027（BirdLife v11）'
+    expect(iucnSources([src(today), src(today), src(next), rec({})])).toEqual([[today, 2], [next, 1]])
+    expect(creditMatchesSources([today])).toBe(true)
+    expect(creditMatchesSources([today, next])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v11）'])).toBe(false)
+    expect(creditMatchesSources([today], 'no version here')).toBe(false)
+    const ok = buildSpecies([src(today)], [tx('own1', 'Gus rec', 1)], {}).report
+    expect(ok).toContain('IUCN status sources cited by huashu (records) (1)')
+    expect(ok).toContain(`- ${today}: 1`)
+    expect(ok).toContain(`About's credit "${IUCN_SOURCE}" matches huashu's sources: yes`)
+    expect(buildSpecies([src(next)], [tx('own1', 'Gus rec', 1)], {}).report).toContain("matches huashu's sources: NO")
   })
 
   it('rows without a status keep their exact keys', () => {

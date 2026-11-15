@@ -25,6 +25,10 @@ describe('IUCN categories', () => {
     }
   })
 
+  it('a non-string value (a changed upstream schema) is no status, not a TypeError', () => {
+    for (const bad of [null, 3, true, {}, ['VU'], { cat: 'VU' }]) expect(parseIucn(bad)).toBeUndefined()
+  })
+
   it('recognises only literal categories, without flags or whitespace', () => {
     for (const cat of IUCN_CATS) expect(isIucnCat(cat)).toBe(true)
     for (const bad of [undefined, null, 1, {}, ['VU'], ' VU ', 'CR (PE)', 'NE', 'vu']) expect(isIucnCat(bad)).toBe(false)

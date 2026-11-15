@@ -6,6 +6,7 @@
 - Multi-candidate choices: 0; scientific-name fallbacks: 22; huashu orphans: 0
 - From huashu forms (a subspecies drawing of that very taxon): 22
 - No sticker because huashu has them only inside another species (lumped): 0
+- With an IUCN status: 10100; About's credit "BirdLife v10 via AviList v2026" matches huashu's sources: yes
 
 ## Multi-candidate choices (0)
 
@@ -1063,9 +1064,17 @@ _none_
 - roypar1 (Royal Parrotfinch): broadened, LC
 - origre (Oriental Greenfinch): broadened, LC
 
+## No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species) (0)
+
+_none_
+
 ## Unrecognised IUCN values (0)
 
 _none_
+
+## IUCN status sources cited by huashu (records) (1)
+
+- AviList v2026（BirdLife v10）: 10140
 
 ## Huashu records matching no eBird species (0)
 

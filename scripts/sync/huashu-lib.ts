@@ -161,11 +161,12 @@ export function restrictToShipped(rows: SpeciesRow[], shipped: Record<string, st
 }
 
 /** Thresholds past which a diff looks like an upstream schema change rather than real edits. */
-export const LIMITS = { removed: 0.05, mass: 0.2, recordsLost: 0.2, malformed: 0.5 } as const
+export const LIMITS = { removed: 0.05, mass: 0.2, statusLost: 0.2, recordsLost: 0.2, malformed: 0.5 } as const
 
 /**
  * Reasons to stop instead of shipping: more than 5% of the published stickers removed, more than 20% of the species'
- * masses changed, more than 20% of the species.json records gone, or most records missing the fields the build reads.
+ * masses changed, more than 20% of the species that had an IUCN status losing it (a renamed `conservation.iucn`
+ * would drop every one), more than 20% of the species.json records gone, or most records missing the fields the build reads.
  * Empty when the diff looks like ordinary edits.
  */
 export function implausible(o: {
@@ -178,6 +179,9 @@ export function implausible(o: {
   const before = new Map(o.prevRows.map((r) => [r.code, r.g]))
   const mass = o.rows.filter((r) => before.has(r.code) && before.get(r.code) !== r.g).length
   if (o.rows.length && mass / o.rows.length > LIMITS.mass) out.push(`${mass} of ${o.rows.length} species masses would change (over ${LIMITS.mass * 100}%)`)
+  const hadStatus = new Set(o.prevRows.filter((r) => r.iu).map((r) => r.code))
+  const lost = o.rows.filter((r) => hadStatus.has(r.code) && !r.iu).length
+  if (hadStatus.size && lost / hadStatus.size > LIMITS.statusLost) out.push(`${lost} of ${hadStatus.size} species with an IUCN status would lose it (over ${LIMITS.statusLost * 100}%)`)
   if (o.huashu) {
     const n = o.huashu.length
     if (o.prevRecords && n < o.prevRecords * (1 - LIMITS.recordsLost)) out.push(`species.json has ${n} records, down from ${o.prevRecords}`)
@@ -291,7 +295,7 @@ export function renderPrBody(s: Summary, o: { sheets?: SheetInfo | null; tableMa
     '',
     `- Stickers: ${n.changed} changed, ${n.new} new, ${n.removed} removed (removed ones draw the outline)`,
     ...(s.deferred ? [`- Left for the next sync: ${s.deferred} more rebuilt stickers (this run ships at most ${s.cap}; merge this PR and the next run continues)`] : []),
-    `- Other data (mass, quality bar): ${n.data} species`,
+    `- Other data (mass, names, quality bar, status): ${n.data} species`,
     `- huashu records with build-relevant changes: ${s.records.changed.length} changed, ${s.records.added.length} added, ${s.records.removed.length} removed`,
     `- On the website's /lifelist: ${web.length ? web.map((e) => `\`${e.code}\``).join(', ') : 'none'}`,
     '',

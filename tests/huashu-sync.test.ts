@@ -396,6 +396,15 @@ describe('the schema-change guard', () => {
     const broken = huashu.map((h) => ({ ...h, scientificName: undefined, taxonomy: undefined })) as unknown as HuashuRecord[]
     expect(implausible({ ...base, changes: [], huashu: broken, prevRecords: 3 })[0]).toMatch(/3 of 3 species.json records lack/)
   })
+
+  it('stops when most statuses vanish (upstream renamed conservation.iucn), not when a few change', () => {
+    const withIu = prevRows.map((r, i) => ({ ...r, iu: i % 2 ? 'LC' as const : 'VU' as const }))
+    const renamed = withIu.map((r): SpeciesRow => ({ ...r, iu: undefined }))
+    expect(implausible({ ...base, prevRows: withIu, rows: renamed, changes: [], prevRecords: 3 })).toEqual([
+      '100 of 100 species with an IUCN status would lose it (over 20%)'])
+    const few = withIu.map((r, i) => (i < 20 ? { ...r, iu: undefined } : i < 40 ? { ...r, iu: 'EN' as const } : r))
+    expect(implausible({ ...base, prevRows: withIu, rows: few, changes: [], prevRecords: 3 })).toEqual([])
+  })
 })
 
 describe('local builds stay on the lock', () => {
