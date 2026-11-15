@@ -167,4 +167,9 @@ describe('the share image names the countries', async () => {
     expect(filterLabel({ countries: ['CA', 'EG'], order: 'Strigiformes' }, ctx)).toBe('Owls · Canada + Egypt')
     expect(filterLabel({ countries: ['CA', 'EG', 'MX'] }, ctx)).toBe('Canada and 2 more')
   })
+  it('provinces and counties by their own names when the regions are given', () => {
+    const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
+    expect(filterLabel({ order: 'Strigiformes', provinces: ['CA-BC'] }, { species, countryName: (c) => c, regions })).toBe('Owls · British Columbia')
+    expect(filterLabel({ countries: ['KE'], counties: ['CA-BC|Capital'] }, { species, countryName: (c) => c, regions })).toBe('Kenya + Capital')
+  })
 })

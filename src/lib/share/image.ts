@@ -28,11 +28,12 @@ import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
-import { countriesLabel } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import type { Regions } from '@/lib/species/types'
 import { orderLabel } from '@/lib/species/orders'
 
 export type ImageFormat = 'story' | 'post' | 'square' // 1080×1920, 1080×1350, 1080×1080
@@ -66,15 +67,16 @@ export function latestText(latest: { com: string; date?: string }): { label: str
 
 /**
  * The current filter in words, birds then places then time: "Egypt · 2026", "Herons · Canada + Egypt"; a range reads
- * "Mar 2020 to Jun 2021" (timeline.ts rangeLabel).
+ * "Mar 2020 to Jun 2021" (timeline.ts rangeLabel). With `regions`, places at every level by their short names
+ * ("Owls · British Columbia"); without, the countries only.
  * Undefined when nothing is filtered.
  */
 export function filterLabel(
   f: Filter,
-  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string },
+  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
 ): string | undefined {
-  // Countries: "Canada", "Canada + Egypt", "Canada and 2 more".
-  const place = countriesLabel(f.countries, ctx.countryName)
+  // Places: "Canada", "Canada + Egypt", "Capital and 2 more".
+  const place = ctx.regions ? placesLabel(f, ctx.regions) : countriesLabel(f.countries, ctx.countryName)
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
   else if (f.order) parts.push(orderLabel(f.order))

@@ -71,7 +71,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
   const onFilter = (f: Filter) => dispatch({ type: 'filter', filter: f })
 
   const summary = (p: Panel) => (p === 'places' ? placesSummary(filter) : timeSummary(filter))
-  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, countryName) : timeSpoken(filter))
+  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, regions) : timeSpoken(filter))
 
   return (
     <>

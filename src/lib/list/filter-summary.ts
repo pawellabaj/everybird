@@ -1,8 +1,12 @@
-// What the Places and Time buttons in the controls bar say about the active filter, and the multi-country label the
-// share image uses. Pure, so the bar, the share image and the tests agree.
-import type { Filter } from './filters'
+// What the Places and Time buttons in the controls bar say about the active filter, and the places label the share
+// image uses. Pure, so the bar, the share image and the tests agree.
+import type { Regions } from '@/lib/species/types'
+import { filterPlaceKeys, type Filter } from './filters'
+import { placeName, placeNameLong } from './place-keys'
 import type { Saved } from './storage'
 import { monthName, monthShort, rangeLabel } from './timeline'
+
+type Names = Pick<Regions, 'countries' | 'sub1'>
 
 /** "Canada", "Canada + Egypt", "Canada and 2 more" (sorted as the filter keeps them); undefined for none. */
 export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string): string | undefined {
@@ -13,14 +17,30 @@ export function countriesLabel(countries: readonly string[] | undefined, name: (
   return `${first} and ${countries.length - 1} more`
 }
 
-/** The Places button's short summary: the number of checked countries ("2"), or undefined for none. */
-export function placesSummary(f: Filter): string | undefined {
-  return f.countries?.length ? String(f.countries.length) : undefined
+/**
+ * The share image's places at every level by their short names, worded as `countriesLabel`: "British Columbia",
+ * "Kenya + British Columbia", "Capital and 2 more" (in `filterPlaceKeys` order); undefined for none.
+ */
+export function placesLabel(f: Filter, regions: Names): string | undefined {
+  const keys = filterPlaceKeys(f)
+  return countriesLabel(keys, (k) => placeName(k, regions))
 }
 
-/** The Places button's accessible description of the filter: "Canada, Egypt". */
-export function placesSpoken(f: Filter, name: (iso2: string) => string): string | undefined {
-  return f.countries?.length ? f.countries.map(name).join(', ') : undefined
+/** The Places button's short summary: the number of checked places at every level ("3"), or undefined for none. */
+export function placesSummary(f: Filter): string | undefined {
+  const n = filterPlaceKeys(f).length
+  return n ? String(n) : undefined
+}
+
+/**
+ * The Places button's accessible description of the filter, each place with its parent: "Canada, Egypt" for
+ * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas).
+ */
+export function placesSpoken(f: Filter, regions: Names): string | undefined {
+  const keys = filterPlaceKeys(f)
+  if (!keys.length) return undefined
+  const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
+  return keys.map((k) => placeNameLong(k, regions)).join(sep)
 }
 
 const year = (m: string) => m.slice(0, 4)

@@ -69,7 +69,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const fk = filterKey(filter)
   const shown = useMemo(() => (fk ? applyFilter(known, filter, species, seen) : known), [known, filter, fk, species, seen])
   const label = useMemo(
-    () => labelFor(filter, { species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso) }),
+    () => labelFor(filter, { species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso), regions }),
     [filter, species, regions],
   )
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])

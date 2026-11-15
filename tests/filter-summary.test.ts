@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
+const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
 
 describe('countriesLabel (share image)', () => {
   it('one, two joined by +, three or more as "and N more"', () => {
@@ -18,8 +19,20 @@ describe('the bar buttons', () => {
   it('Places: the number checked; spoken as the names', () => {
     expect(placesSummary({})).toBeUndefined()
     expect(placesSummary({ countries: ['CA', 'EG'] })).toBe('2')
-    expect(placesSpoken({ countries: ['CA', 'EG'] }, name)).toBe('Canada, Egypt')
-    expect(placesSpoken({}, name)).toBeUndefined()
+    expect(placesSpoken({ countries: ['CA', 'EG'] }, regions)).toBe('Canada, Egypt')
+    expect(placesSpoken({}, regions)).toBeUndefined()
+  })
+  it('Places at every level: counted together; spoken in full, "; " between places once a province or county is in', () => {
+    expect(placesSummary({ countries: ['KE'], provinces: ['CA-BC'], counties: ['CA-ON|Ottawa'] })).toBe('3')
+    expect(placesSummary({ provinces: ['CA-BC'] })).toBe('1')
+    expect(placesSpoken({ countries: ['KE'], provinces: ['CA-BC'] }, regions)).toBe('Kenya; British Columbia, Canada')
+    expect(placesSpoken({ counties: ['CA-BC|Capital'] }, regions)).toBe('Capital, British Columbia')
+  })
+  it('Places on the share image: short names, in the filter\'s order', () => {
+    expect(placesLabel({}, regions)).toBeUndefined()
+    expect(placesLabel({ provinces: ['CA-BC'] }, regions)).toBe('British Columbia')
+    expect(placesLabel({ provinces: ['CA-BC'], countries: ['KE'] }, regions)).toBe('Kenya + British Columbia')
+    expect(placesLabel({ counties: ['CA-BC|Capital', 'CA-BC|Okanagan', 'CA-BC|Sooke'] }, regions)).toBe('Capital and 2 more')
   })
   it('Time: years for a range, a month for one month; spoken in full', () => {
     expect(timeSummary({})).toBeUndefined()
