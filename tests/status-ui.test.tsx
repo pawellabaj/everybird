@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { CollageView } from '@/components/app/CollageView'
 import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
 import { StatusList } from '@/components/filters/StatusList'
 import { IucnPill } from '@/components/collage/IucnPill'
@@ -31,14 +32,14 @@ function seeded(codes: string[]): AppState {
   return reduce(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide }: { codes?: string[]; hide?: readonly Panel[] }) {
+function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide, threatLine }: { codes?: string[]; hide?: readonly Panel[]; threatLine?: number }) {
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(codes))
   const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
     <>
       <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} hide={hide} />
+        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} hide={hide} threatLine={threatLine} />
       </div>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Passeriformes', family: 'Turdidae' } })}>thrushes only</button>
@@ -187,5 +188,47 @@ describe('IucnPill', () => {
     expect(pill).toHaveAccessibleName('VU, Vulnerable (IUCN Red List)')
     expect(pill).toHaveTextContent('VU')
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
+  })
+})
+
+describe('The threatened count (?v=threat:<letter>)', () => {
+  afterEach(() => {
+    history.replaceState(null, '', '/')
+    sessionStorage.removeItem('everybird:variants')
+  })
+
+  it('FilterDropdowns passes threatLine on to the Status panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness threatLine={2} />)
+    fireEvent.click(statusBtn())
+    expect(screen.getByTestId('status-threatened')).toHaveTextContent('2 threatened: Vulnerable, Endangered or Critically Endangered.')
+  })
+
+  function View() {
+    const [state, dispatch] = useReducer(reduce, undefined, () => seeded(['duck1', 'owl1', 'crow1', 'robin1']))
+    return <CollageView state={state} dispatch={dispatch} species={species} regions={regions} label="Test collage" />
+  }
+  const stats = () => screen.getByTestId('collage-stats')
+
+  it.each([
+    ['a', '4 species · 3 orders · 4 families · 2 threatened · since Jan 2020'],
+    ['b', '4 species · 3 orders · 4 families · 2 globally threatened · since Jan 2020'],
+  ])('variant %s: on the stats line, not in the Status panel', (v, line) => {
+    vi.stubGlobal('innerWidth', 1000)
+    history.replaceState(null, '', `/?v=threat:${v}`)
+    render(<View />)
+    expect(stats()).toHaveTextContent(line)
+    fireEvent.click(statusBtn())
+    expect(screen.queryByTestId('status-threatened')).toBeNull()
+  })
+
+  it('variant c: off the stats line, a line in the Status panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    history.replaceState(null, '', '/?v=threat:c')
+    render(<View />)
+    expect(stats()).toHaveTextContent('4 species · 3 orders · 4 families · since Jan 2020')
+    expect(stats()).not.toHaveTextContent('threatened')
+    fireEvent.click(statusBtn())
+    expect(screen.getByTestId('status-threatened')).toHaveTextContent('2 threatened: Vulnerable, Endangered or Critically Endangered.')
   })
 })

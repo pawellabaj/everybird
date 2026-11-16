@@ -49,6 +49,8 @@ type Props = {
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   /** The search covers the bar: the buttons are inert. */
   inert?: boolean
+  /** The list's threatened count for the Status panel's line (the `threat` variant c; otherwise on the stats line). */
+  threatLine?: number
 }
 
 const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] = [
@@ -57,7 +59,7 @@ const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] =
   { id: 'status', label: 'Status', Icon: Leaf },
 ]
 
-export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert }: Props) {
+export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert, threatLine }: Props) {
   const base = useId()
   const sheet = useIsSheet()
   const { filter } = state
@@ -116,7 +118,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
           {current.id === 'places' ? (
             <PlacesList state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
           ) : current.id === 'status' ? (
-            <StatusList state={state} species={species} onFilter={onFilter} />
+            <StatusList state={state} species={species} threatLine={threatLine} onFilter={onFilter} />
           ) : (
             <Timeline
               entries={time.entries}

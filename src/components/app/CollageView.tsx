@@ -12,7 +12,7 @@ import { FilterBar } from '@/components/filters/FilterBar'
 import { FilterDropdowns, type Panel, type PlacesNote } from '@/components/filters/FilterDropdowns'
 import { formatDate } from '@/lib/format'
 import { latestLifer } from '@/lib/list/build-list'
-import { applyFilter, drillTo, filterKey, filterToShow } from '@/lib/list/filters'
+import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import { monthBins, todayMonth } from '@/lib/list/timeline'
 import type { Action, AppState } from '@/lib/list/store'
@@ -20,6 +20,7 @@ import type { SpeciesIndex } from '@/lib/species/load'
 import type { CollageHit } from '@/lib/species/name-search'
 import type { Regions } from '@/lib/species/types'
 import type { StateLayout } from '@/lib/layout/layout-client'
+import { useVariant } from '@/lib/variants'
 import { ControlsBar } from './ControlsBar'
 import { useCollageLayout } from './use-collage-layout'
 import './app.css'
@@ -55,6 +56,10 @@ type Props = {
 const n = (x: number) => x.toLocaleString('en-US')
 const plural = (x: number, one: string, many: string) => `${n(x)} ${x === 1 ? one : many}`
 const pad = (d: string) => (d.length === 4 ? `${d}-00-00` : d.length === 7 ? `${d}-00` : d)
+/** Preview variants of the threatened count: a "12 threatened" on the stats line, b "12 globally threatened", c in
+ *  the Status panel instead. */
+const THREAT_VARIANTS = ['a', 'b', 'c'] as const
+type ThreatVariant = (typeof THREAT_VARIANTS)[number]
 /** How long a bird picked from the search wears its Accent ring. */
 const RING_MS = 1600
 /** The collage's glide to a new layout (640 ms) and a little slack: then a bird picked from outside the view is shown. */
@@ -62,8 +67,11 @@ const GLIDE_MS = 760
 /** How long an out-of-view pick waits for its layout before it lapses. */
 const PENDING_MS = 4000
 
-/** "197 species · 20 orders · 50 families · since Jan 2020", or "12 of 197 species · 3 families" when filtered. */
-export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex): string {
+/**
+ * "197 species · 20 orders · 50 families · 12 threatened · since Jan 2020", or "12 of 197 species · 3 families" when
+ * filtered. The threatened count (VU + EN + CR) is left out at 0 and in variant c; b reads "12 globally threatened".
+ */
+export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex, threat: ThreatVariant = 'a'): string {
   const ords = new Set<string>(), fams = new Set<string>()
   for (const e of shown) {
     const r = species.byCode.get(e.code)
@@ -73,6 +81,8 @@ export function statsLine(all: ListEntry[], shown: ListEntry[], species: Species
   let first: string | undefined
   for (const e of all) if (e.date && (!first || pad(e.date) < pad(first))) first = e.date
   const parts = [plural(all.length, 'species', 'species'), plural(ords.size, 'order', 'orders'), plural(fams.size, 'family', 'families')]
+  const threatened = threat === 'c' ? 0 : threatenedCount(all, species)
+  if (threatened > 0) parts.push(`${n(threatened)} ${threat === 'b' ? 'globally threatened' : 'threatened'}`)
   if (first && formatDate(first)) parts.push(`since ${formatDate(first)}`)
   return parts.join(' · ')
 }
@@ -102,7 +112,10 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const time = useMemo(() => ({ entries, months, today, onPreview }), [entries, months, today, onPreview])
   const fk = filterKey(filter)
   const shownList = useMemo(() => (fk ? applyFilter(entries, filter, species, seen) : entries), [entries, filter, fk, species, seen])
-  const stats = useMemo(() => statsLine(entries, shownList, species), [entries, shownList, species])
+  const threat = useVariant('threat', THREAT_VARIANTS)
+  const stats = useMemo(() => statsLine(entries, shownList, species, threat), [entries, shownList, species, threat])
+  // Variant c: the count moves to the Status panel.
+  const threatLine = useMemo(() => (threat === 'c' ? threatenedCount(entries, species) : undefined), [threat, entries, species])
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
 
@@ -195,7 +208,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
         filters={(inert) => (
-          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} />
+          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} threatLine={threatLine} />
         )}
       />
 
