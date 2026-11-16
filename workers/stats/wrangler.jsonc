@@ -7,5 +7,8 @@
   "workers_dev": false,
   "routes": [{ "pattern": "stats.yusuftaleb.com", "custom_domain": true }],
   "d1_databases": [{ "binding": "DB", "database_name": "everybird-events", "database_id": "c0c4b3de-5afd-4472-b6f0-49a1579327bd" }],
+  // The private dashboard (GET /dashboard, /dashboard/data) is locked to a Cloudflare Access identity. Set these as
+  // secrets (never commit values; see README.md): ACCESS_AUD, ACCESS_TEAM_DOMAIN, DASHBOARD_EMAILS. Any missing => 404.
+  //   npx wrangler secret put ACCESS_AUD | ACCESS_TEAM_DOMAIN | DASHBOARD_EMAILS
   "observability": { "enabled": false }
 }

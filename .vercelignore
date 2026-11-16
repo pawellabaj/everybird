@@ -9,5 +9,6 @@ test-results/
 playwright-report/
 # The stats Worker deploys to Cloudflare with wrangler, not with the app.
 workers/
-# Its unit test imports the Worker's code, so it can't type-check without workers/.
+# Its unit tests import the Worker's code, so they can't type-check without workers/.
 tests/stats-worker.test.ts
+tests/stats-dashboard.test.ts
