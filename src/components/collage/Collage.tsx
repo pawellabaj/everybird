@@ -14,6 +14,7 @@ import { labelBounds } from '@/lib/layout/count-box'
 import type { StateLayout } from '@/lib/layout/layout-client'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { hiddenMarks, markShown, markedName } from '@/lib/species/status-mark'
 import { Bird, type BirdInit } from './Bird'
 import { loadDeferred, unloadSticker } from './Sticker'
 import { birdAt, ensureMasks } from './collage-hit'
@@ -107,8 +108,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
   const chunkFrame = useRef(0)
   const prunedFor = useRef<ListEntry[] | null>(null)
   const alive = useRef(true)
-  const latest = useRef({ layout, onPick, onHover, still })
-  useLayoutEffect(() => { latest.current = { layout, onPick, onHover, still } })
+  const latest = useRef({ layout, onPick, onHover, still, visible, shown: 0 })
   const written = useRef<StateLayout | null>(null) // the layout of the last write
 
   const row = useCallback((code: string) => species.byCode.get(code), [species])
@@ -124,6 +124,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
   const top = useMemo(() => [...draw].reverse(), [draw])
   const orders = useMemo(() => [...new Set(entries.map((e) => row(e.code)?.ord).filter((o): o is string => !!o))], [entries, row])
   const shown = useMemo(() => entries.reduce((n, e) => n + (visible.has(e.code) ? 1 : 0), 0), [entries, visible])
+  useLayoutEffect(() => { latest.current = { layout, onPick, onHover, still, visible, shown } })
   // Big from the start: the first appearance doesn't animate (collage.css). Frozen at the first render: flipping it
   // later would restyle every rendered bird, and by then the first appearance is long over.
   const [many] = useState(() => shown > CROSSFADE_AT)
@@ -180,6 +181,8 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
   }, [])
   // Codes that have had an element: a second one is the same bird re-created (a windowed list's group changed).
   const known = useRef(new Set<string>())
+  // Birds whose Red List mark is left out (too small, or on the count): decided once per layout, see refreshMarks.
+  const markOff = useRef(new Set<string>())
   const register = useCallback((code: string, el: HTMLButtonElement | null) => {
     const old = els.current.get(code)
     if (old && old !== el) { io.current?.near.unobserve(old); io.current?.far.unobserve(old) }
@@ -193,6 +196,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         else { applyFar(motion, far, code, el); setFar(el, false) }
       }
       known.current.add(code)
+      if (markOff.current.has(code)) el.setAttribute('data-nomark', '')
       if (!winOn.current) observe(el)
     } else {
       els.current.delete(code)
@@ -449,6 +453,18 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
     return () => cancelAnimationFrame(id)
   }, [])
 
+  // The Red List marks to leave out, from the layout's boxes and the count's hole (hiddenMarks): worked out when a layout
+  // arrives or the stage's width changes, never per frame, and written as data-nomark on the few birds that change.
+  const refreshMarks = useCallback(() => {
+    const { layout: L, visible: V, shown: count } = latest.current
+    const next = hiddenMarks({ layout: L, visible: V, cat: (c) => species.byCode.get(c)?.iu, stagePx: stagePx.current, count })
+    const prev = markOff.current
+    for (const c of prev) if (!next.has(c)) els.current.get(c)?.removeAttribute('data-nomark')
+    for (const c of next) if (!prev.has(c)) els.current.get(c)?.setAttribute('data-nomark', '')
+    markOff.current = next
+  }, [species])
+  useLayoutEffect(() => { refreshMarks() }, [refreshMarks, layout, visible])
+
   // Measure the stage so sticker sizes follow its real width.
   useEffect(() => {
     const el = stage.current
@@ -458,11 +474,12 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
       if (!w || w === stagePx.current) return
       stagePx.current = w
       raiseSizes(motion, els.current, latest.current.layout, w)
+      refreshMarks()
       if (winOn.current) getWin().schedule()
     })
     ro.observe(el)
     return () => ro.disconnect()
-  }, [motion, getWin])
+  }, [motion, getWin, refreshMarks])
   // On unmount: stop the rAF, the layer fade and every bird animation; late onfinish callbacks see alive = false.
   useEffect(() => {
     alive.current = true
@@ -533,7 +550,8 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         inits.set(code, init)
       }
       const r = row(code)
-      return <Bird key={code} code={code} name={r?.com ?? code} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} init={init} register={register} />
+      const iu = markShown(r?.iu) ? r?.iu : undefined
+      return <Bird key={code} code={code} name={markedName(r?.com ?? code, r?.iu)} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} iu={iu} init={init} register={register} />
     })
     if (!windowed) return list
     // Windowed: in groups of GROUP (display: contents, so nothing changes for layout or paint order). WebKit restyles

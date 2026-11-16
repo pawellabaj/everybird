@@ -1,0 +1,44 @@
+/* A threatened bird's Red List pill (StatusMark.tsx), in the Red List chart's colours
+   (IUCN_COLORS, kept in step by tests/status-mark-css.test.ts): the fill and the text are fixed and the same in both
+   themes (never var(--ink) or var(--paper): dark Ink is white); only the 1px Line ring follows the theme. The pill
+   centres its text as the card's .eb-iucn does (card-list.css: line-height 1 centres Geist Mono's caps; the padding
+   shifts the ink by .0225em to balance the letter-spacing's trailing space), at 9px in a 14px pill. */
+.eb-status[data-cat="LC"] { --iucn-fill: #60c659; --iucn-text: #1e1e24; }
+.eb-status[data-cat="NT"] { --iucn-fill: #cce226; --iucn-text: #1e1e24; }
+.eb-status[data-cat="VU"] { --iucn-fill: #f9e814; --iucn-text: #1e1e24; }
+.eb-status[data-cat="EN"] { --iucn-fill: #fc7f3f; --iucn-text: #1e1e24; }
+.eb-status[data-cat="CR"] { --iucn-fill: #d81e05; --iucn-text: #ffffff; }
+.eb-status[data-cat="EW"] { --iucn-fill: #542344; --iucn-text: #ffffff; }
+.eb-status[data-cat="EX"] { --iucn-fill: #000000; --iucn-text: #ffffff; }
+.eb-status[data-cat="DD"] { --iucn-fill: #d1d1c6; --iucn-text: #1e1e24; }
+
+.eb-status {
+  --iucn-fill: #d1d1c6; --iucn-text: #1e1e24;
+  flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+  margin: 0; border: 0; background: var(--iucn-fill); color: var(--iucn-text);
+  box-shadow: inset 0 0 0 1px var(--line);
+  pointer-events: none;
+}
+.eb-status {
+  height: 14px; padding: 0 calc(4px - .0225em) 0 calc(4px + .0225em); border-radius: 7px;
+  font: 600 9px/1 var(--font-mono); letter-spacing: .06em;
+}
+
+/* On a bird: in its bottom-right corner, 2px in, a fixed size. The bird is sized by its --w/--h and drawn at --k with
+   `scale` (collage.css), which would scale the mark with the sticker: so the mark takes the bird's --k (explicitly
+   inherited; the property is registered not to inherit) and scales by its inverse about its own corner, and its inset
+   is divided by --k the same way. Where nothing travels (data-fast) the bird's box is already w * k with no scale, so
+   the mark takes none either. A bird too small to carry it, or whose mark would sit on the count, is data-nomark
+   (Collage.tsx, once per layout); a far bird is display: none with its mark. */
+.eb-bird > .eb-status {
+  --k: inherit;
+  position: absolute; right: 0; bottom: 0; z-index: 1;
+  transform-origin: 100% 100%;
+  translate: calc(-2px / var(--k)) calc(-2px / var(--k));
+  scale: calc(1 / var(--k));
+}
+.eb-stage[data-fast] .eb-tile > .eb-status { translate: -2px -2px; scale: none; }
+.eb-bird[data-nomark] > .eb-status { display: none; }
+
+/* In a list row: inline after the name and its marks. */
+.eb-row-name > span > .eb-status { margin-left: 6px; vertical-align: middle; }
