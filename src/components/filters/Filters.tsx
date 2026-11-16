@@ -229,6 +229,8 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   button: (inert: boolean) => ReactNode
   below: ReactNode
   dimmed: boolean
+  /** Closes the panel (the search opening calls it). */
+  close: () => void
 } {
   const base = useId()
   const sheet = useIsSheet()
@@ -243,6 +245,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
     if (o) opener.current = null // closing keeps it: focus goes back to the chip that opened the panel
     setOpen(o)
   }, [])
+  const close = useCallback(() => setOpen(null), [])
   const returnFocus = useCallback(() => opener.current, [])
   const onEmpty = useCallback(() => buttonRef.current?.focus(), [])
   // Every removal changes the filter, so the chips change and ChipRow's remembered index is used up.
@@ -278,5 +281,6 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
       </>
     ),
     dimmed: live && !sheet,
+    close,
   }
 }

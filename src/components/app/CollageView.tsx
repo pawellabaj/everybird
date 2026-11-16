@@ -213,6 +213,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
         filters={filtersUi.button}
         below={filtersUi.below}
+        onFind={filtersUi.close}
       />
 
       {/* Everything under the dock: dimmed and inert while the Filters popover is open (a press there closes it). */}

@@ -26,9 +26,11 @@ type Props = {
   filters?: (inert: boolean) => ReactNode
   /** After the dock, inside the wrap: the active-filter chips, then the Filters popover (it anchors under them). */
   below?: ReactNode
+  /** The search is opening (pointer or keyboard): the caller closes whatever else is open over the bar. */
+  onFind?: () => void
 }
 
-export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters, below }: Props) {
+export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters, below, onFind }: Props) {
   const [finding, setFinding] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
   const findBtn = useRef<HTMLButtonElement>(null)
@@ -84,7 +86,7 @@ export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, on
           </button>
         </div>
         {filters?.(finding)}
-        {search && <div className="eb-dock-end" inert={finding}><SearchButton open={finding} onOpen={() => setFinding(true)} buttonRef={findBtn} /></div>}
+        {search && <div className="eb-dock-end" inert={finding}><SearchButton open={finding} onOpen={() => { onFind?.(); setFinding(true) }} buttonRef={findBtn} /></div>}
         {search && <DockSearchField {...search} onPick={onPick} open={finding} onClose={close} within={wrap} />}
       </div>
       {below}
