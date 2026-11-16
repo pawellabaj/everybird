@@ -171,33 +171,44 @@ describe('BirdCard Red List pill', () => {
     sessionStorage.removeItem('everybird:variants')
   })
 
-  it('the card shows the Red List pill and the full name beside it, with no press; read as one phrase', () => {
+  it('the card shows the pill alone on its own line: a button named "Red List: Vulnerable" with a toggletip', () => {
     renderCard({ iu: 'VU' })
+    const dlg = screen.getByRole('dialog')
     const badge = screen.getByTestId('iucn-badge')
-    const pill = badge.querySelector('.eb-iucn') as HTMLElement
+    const pill = screen.getByRole('button', { name: 'Red List: Vulnerable' })
+    expect(badge.contains(pill)).toBe(true)
     expect(pill).toHaveTextContent('VU')
-    expect(pill).toHaveAttribute('aria-hidden', 'true')
-    expect(pill.tagName).toBe('SPAN')
-    expect(badge.querySelector('button')).toBeNull()
-    expect(badge.querySelector('[aria-expanded], [aria-controls], [data-open]')).toBeNull()
-    const name = badge.querySelector('.eb-iucn-name')!
-    expect(name).not.toHaveAttribute('aria-hidden')
-    // The visible name, plus the hidden " (IUCN Red List)": a screen reader hears "Vulnerable (IUCN Red List)" once.
-    expect(name).toHaveTextContent('Vulnerable (IUCN Red List)')
-    expect(name.querySelector('.eb-sr')).toHaveTextContent('(IUCN Red List)')
+    expect(pill).toHaveAttribute('title', 'Red List: Vulnerable')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
-    // The mass, then the badge under it, in the head's right column.
-    const meta = screen.getByRole('dialog').querySelector('.eb-card-meta')!
-    expect(meta.firstElementChild).toHaveClass('eb-card-mass')
-    expect(meta.lastElementChild).toBe(badge)
-    expect(screen.getByRole('dialog')).not.toHaveAttribute('data-pill')
+    // The full name is only in the aria-hidden tip, not as visible text beside the pill.
+    const tip = badge.querySelector('.eb-iucn-tip')!
+    expect(tip).toHaveAttribute('aria-hidden', 'true')
+    expect(tip).toHaveTextContent('Vulnerable')
+    expect(badge.querySelector('.eb-iucn-name')).toBeNull()
+    expect(dlg.querySelector('.eb-card-meta')).toBeNull()
+    // A press toggles the tip, a press elsewhere closes it, blur closes it.
+    const wrap = screen.getByTestId('iucn-wrap')
+    fireEvent.click(pill)
+    expect(wrap).toHaveAttribute('data-open')
+    expect(pill).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.pointerDown(document.body)
+    expect(wrap).not.toHaveAttribute('data-open')
+    fireEvent.click(pill)
+    fireEvent.blur(pill)
+    expect(wrap).not.toHaveAttribute('data-open')
+    // Under the other name; the mass is the head's own child.
+    const names = dlg.querySelector('.eb-card-names')!
+    expect(names.lastElementChild).toBe(badge)
+    expect(badge.previousElementSibling).toHaveClass('eb-card-other')
+    expect(dlg.querySelector('.eb-card-head')!.contains(dlg.querySelector('.eb-card-mass'))).toBe(true)
   })
 
-  it('the longest names show whole in the card', () => {
+  it('every category reads "Red List: <name>" in full', () => {
     for (const [cat, name] of [['CR', 'Critically Endangered'], ['EW', 'Extinct in the Wild'], ['DD', 'Data Deficient']] as const) {
       cleanup()
       renderCard({ iu: cat })
-      expect(screen.getByTestId('iucn-badge').querySelector('.eb-iucn-name')).toHaveTextContent(`${name} (IUCN Red List)`)
+      expect(screen.getByRole('button', { name: `Red List: ${name}` })).toBeTruthy()
     }
   })
 
@@ -209,12 +220,16 @@ describe('BirdCard Red List pill', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('no pill for a species without a status, and never in the hover tooltip', () => {
+  it('no line for a species without a status; the tooltip shows the same line', () => {
     renderCard({})
     expect(screen.queryByTestId('iucn-badge')).toBeNull()
     cleanup()
     render(<BirdFacts entry={entry('statb1')} row={{ ...base, iu: 'EN' }} regions={regions} heading={false} />)
-    expect(screen.queryByTestId('iucn-badge')).toBeNull()
+    const badge = screen.getByTestId('iucn-badge')
+    expect(badge).toHaveTextContent('EN')
+    expect(badge.querySelector('.eb-iucn')).toHaveAttribute('aria-hidden', 'true')
+    expect(badge.querySelector('.eb-iucn')!.tagName).toBe('SPAN')
+    expect(badge.querySelector('button, .eb-iucn-tip')).toBeNull()
   })
 
   it('the pill text is IUCN_COLORS’ fixed colour, never a theme token', () => {

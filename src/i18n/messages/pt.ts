@@ -206,7 +206,7 @@ export const pt: Messages = {
         DD: 'Dados insuficientes',
       },
       threatened: 'Ameaçadas',
-      inList: '(Lista Vermelha da IUCN)',
+      pillName: 'Lista Vermelha: {name}',
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {

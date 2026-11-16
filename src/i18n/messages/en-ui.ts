@@ -257,7 +257,8 @@ export const EN_UI = {
       DD: 'Data Deficient',
     },
     threatened: 'Threatened',
-    inList: '(IUCN Red List)',
+    /** The card pill's name (a button whose tip shows the full name). */
+    pillName: 'Red List: {name}',
   },
   /** The Status panel (StatusList). {n} is formatted. */
   status: {

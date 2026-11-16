@@ -206,7 +206,7 @@ export const nl: Messages = {
         DD: 'Onvoldoende gegevens',
       },
       threatened: 'Bedreigd',
-      inList: '(Rode Lijst van de IUCN)',
+      pillName: 'Rode Lijst: {name}',
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {

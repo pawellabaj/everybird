@@ -169,7 +169,7 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
       tabIndex={-1}
       onKeyDown={trap}
     >
-      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} status>
+      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} statusTip>
         <button type="button" className="eb-card-close" aria-label={t.card.close} onClick={onClose}>
           <CloseIcon />
         </button>
@@ -189,10 +189,13 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
  * What the card and the hover tooltip say (LifeList's card, layout C): the name with its marks, the other name under
  * it, the body mass top-right (then `children`, the card's close button); then the date line (with the marks in
  * words) and the place, both mono. `heading` names the bird with an h2 (the card) or a plain paragraph (the tooltip).
- * `status` adds the Red List pill beside the mass (the card only: never the tooltip), under the mass.
+ * A species with a Red List category gets its own line directly under the other name: the pill alone
+ * (the card and the tooltip alike; the card's is a button whose tip names the category, the tooltip's a plain span).
  */
-export function BirdFacts({ entry, row, regions, sci = false, heading = true, status = false, children }: {
-  entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean; status?: boolean
+export function BirdFacts({ entry, row, regions, sci = false, heading = true, statusTip = false, children }: {
+  entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean
+  /** The pill is a toggletip button (the card); off, a plain aria-hidden span (the aria-hidden hover tooltip). */
+  statusTip?: boolean
   children?: ReactNode
 }) {
   const { lang, t } = useI18n()
@@ -203,18 +206,16 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
   const marks = marksOf(entry).map((m) => markLabel(m.k, t))
   const when = [date, ...marks].filter(Boolean)
   const Name = heading ? 'h2' : 'p'
-  const badge = status && row.iu ? <IucnBadge cat={row.iu} /> : null
+  const badge = row.iu ? <IucnBadge cat={row.iu} tip={statusTip} /> : null
   return (
     <>
       <div className="eb-card-head">
         <div className="eb-card-names">
           <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}<Marks entry={entry} /></Name>
           <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</p>
-        </div>
-        <div className="eb-card-meta">
-          <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
           {badge}
         </div>
+        <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
         {children}
       </div>
       {(when.length > 0 || place) && (
