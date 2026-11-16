@@ -72,25 +72,39 @@ function validSources(x: unknown): boolean {
   })
 }
 
-/** Parse and validate a backup. Throws an Error with a plain message on bad input. */
+/** Why a backup was refused: 'damaged' covers every malformed part (the message says which). */
+export type BackupReason = 'json' | 'not-backup' | 'version' | 'damaged'
+
+/** fromJson's error: a plain English message, and its reason for the UI to word in its own language. */
+export class BackupError extends Error {
+  constructor(
+    readonly reason: BackupReason,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'BackupError'
+  }
+}
+
+/** Parse and validate a backup. Throws a BackupError with a plain message on bad input. */
 export function fromJson(text: string): Saved {
   let raw: unknown
   try {
     raw = JSON.parse(text)
   } catch {
-    throw new Error('This file is not valid JSON.')
+    throw new BackupError('json', 'This file is not valid JSON.')
   }
-  if (!isObj(raw)) throw new Error('This is not an Everybird backup.')
+  if (!isObj(raw)) throw new BackupError('not-backup', 'This is not an Everybird backup.')
   // v1 backups predate seen-here, v1 and v2 backups predate source details, v1 to v3 backups hold a person's name
   // rather than the collage's title: migrateSaved brings them to v4.
-  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4) throw new Error('Unsupported backup version.')
+  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4) throw new BackupError('version', 'Unsupported backup version.')
 
-  if (!isObj(raw.records)) throw new Error('Backup has no records.')
+  if (!isObj(raw.records)) throw new BackupError('damaged', 'Backup has no records.')
   // Backups made before the second eBird slot have no 'ebird-list'; it starts empty.
   const records = { ebird: [], 'ebird-list': [], inat: [], manual: [] } as Record<Slot, SourceRecord[]>
   for (const [k, v] of Object.entries(raw.records)) {
     if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen))))
-      throw new Error('Backup records are malformed.')
+      throw new BackupError('damaged', 'Backup records are malformed.')
     records[k] = v as SourceRecord[]
   }
 
@@ -99,23 +113,23 @@ export function fromJson(text: string): Saved {
     !Array.isArray(unmatched) ||
     !unmatched.every((u) => isObj(u) && typeof u.row === 'number' && SOURCES.includes(u.source as Source) && (u.slot === undefined || (isSlot(u.slot) && slotSource(u.slot) === u.source)) && (u.seen === undefined || isStrArr(u.seen)))
   )
-    throw new Error('Backup unmatched rows are malformed.')
+    throw new BackupError('damaged', 'Backup unmatched rows are malformed.')
 
   const e = raw.edits
   if (!isObj(e) || !isStrArr(e.removed) || !Array.isArray(e.added) || !isObj(e.marks) || !isObj(e.fixes))
-    throw new Error('Backup edits are malformed.')
-  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string')) throw new Error('Backup edits are malformed.')
+    throw new BackupError('damaged', 'Backup edits are malformed.')
+  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string')) throw new BackupError('damaged', 'Backup edits are malformed.')
 
   const r = raw.rules
   if (!isObj(r) || typeof r.hideHeard !== 'boolean' || typeof r.hideDead !== 'boolean' || typeof r.researchOnly !== 'boolean')
-    throw new Error('Backup rules are malformed.')
+    throw new BackupError('damaged', 'Backup rules are malformed.')
 
-  if (raw.name !== undefined && typeof raw.name !== 'string') throw new Error('Backup name is malformed.')
+  if (raw.name !== undefined && typeof raw.name !== 'string') throw new BackupError('damaged', 'Backup name is malformed.')
   const sk = raw.skipped
   if (sk !== undefined && (!isObj(sk) || !Object.entries(sk).every(([k, n]) => isSlot(k) && typeof n === 'number' && n >= 0)))
-    throw new Error('Backup skipped counts are malformed.')
+    throw new BackupError('damaged', 'Backup skipped counts are malformed.')
   const src = raw.sources
-  if (src !== undefined && !validSources(src)) throw new Error('Backup source details are malformed.')
+  if (src !== undefined && !validSources(src)) throw new BackupError('damaged', 'Backup source details are malformed.')
   const out: Saved = {
     v: raw.v as Saved['v'],
     records,

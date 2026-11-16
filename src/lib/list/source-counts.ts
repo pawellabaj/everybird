@@ -1,3 +1,6 @@
+import { fmt, plural, type Plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import { SLOTS, slotSource, unmatchedKey } from './model'
 import type { ListEntry, Slot, SourceRecord } from './model'
 import type { Saved } from './storage'
@@ -117,24 +120,25 @@ export function sourceCounts(saved: Saved, list: readonly ListEntry[]): SourceCo
   return { total: list.length, rows, parts }
 }
 
-const num = (x: number) => x.toLocaleString('en-US')
-const FROM: Record<Group, string> = { ebird: 'from eBird', inat: 'from iNaturalist', manual: 'ticked by hand' }
-
 /**
- * Settings' one line above the sources: "Your collage has 199 species: 185 from eBird, 11 more from iNaturalist,
- * 3 ticked by hand." One source: "Your collage has 576 species, all from iNaturalist." Null for an empty list.
+ * Settings' one line above the sources, in `t`'s language: "Your collage has 199 species: 185 from eBird, 11 more from
+ * iNaturalist, 3 ticked by hand." One source: "Your collage has 576 species, all from iNaturalist." Null for an empty
+ * list. Whole templates per group (`t.import.summary`), each plural on its own number, so gender and number agree.
  */
-export function summaryLine(c: SourceCounts): string | null {
+export function summaryLine(c: SourceCounts, t: Ui): string | null {
   if (!c.total) return null
-  const head = `Your collage has ${num(c.total)} species`
-  if (c.parts.length <= 1) return c.parts[0] ? `${head}, all ${FROM[c.parts[0].group]}.` : `${head}.`
-  const body = c.parts.map((p, i) => `${num(p.n)} ${i > 0 && p.group !== 'manual' ? 'more ' : ''}${FROM[p.group]}`)
-  return `${head}: ${body.join(', ')}.`
+  const s = t.import.summary
+  const count = (n: number, p: Plural) => plural(p, n, { n: formatInt(n, t.num) })
+  const head = count(c.total, s.head)
+  if (c.parts.length <= 1) return c.parts[0] ? fmt(s.one, { head, all: count(c.total, s.all[c.parts[0].group]) }) : `${head}.`
+  const parts = c.parts.map((p, i) => count(p.n, i > 0 && p.group !== 'ebird' ? s.more[p.group] : s.first[p.group]))
+  return fmt(s.list, { head, parts: parts.join(', ') })
 }
 
-/** A row's counts as status parts: ["185 species", "12 only here"] (no "only" part at 0). */
-export function countParts(r: RowCount): string[] {
-  const parts = [`${num(r.species)} species`]
-  if (r.only > 0) parts.push(`${num(r.only)} only ${r.onlyIn === 'here' ? 'here' : 'in eBird'}`)
+/** A row's counts as status parts: ["185 species", "12 only here"] (no "only" part at 0), in `t`'s language. */
+export function countParts(r: RowCount, t: Ui): string[] {
+  const n = (x: number) => formatInt(x, t.num)
+  const parts = [plural(t.import.species, r.species, { n: n(r.species) })]
+  if (r.only > 0) parts.push(fmt(r.onlyIn === 'here' ? t.import.onlyHere : t.import.onlyEbird, { n: n(r.only) }))
   return parts
 }

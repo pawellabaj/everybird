@@ -2,6 +2,7 @@
 import { CaretDown, LockSimple } from '@phosphor-icons/react'
 import { memo, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ImportJobs } from '@/components/app/use-import-jobs'
+import { useI18n } from '@/i18n/I18nProvider'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
 import type { Action } from '@/lib/list/store'
 import type { Saved } from '@/lib/list/storage'
@@ -76,6 +77,7 @@ function Group({ id, label, children }: { id: string; label: string; children: R
  */
 export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species, regions, jobs, disabled, children, onList, counts, summary, placesNote }: Props) {
   const tick = useDisclosure()
+  const { t } = useI18n()
   const ebirdConnected: EbirdConnected[] = (['ebird', 'ebird-list'] as const)
     .filter((slot) => (saved.records[slot]?.length ?? 0) > 0 || saved.unmatched.some((u) => (u.slot ?? u.source) === slot))
     .map((slot) => ({ slot, details: saved.sources?.[slot] }))
@@ -97,11 +99,11 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
   return (
     <section ref={section} id="sources" className="eb-block eb-import" aria-labelledby="eb-sources-h" tabIndex={-1}>
       <div className="eb-block-head">
-        <h2 id="eb-sources-h" className="eb-h2">Your list</h2>
-        {summary ?? <p className="eb-note">Combine any of these into one list.</p>}
+        <h2 id="eb-sources-h" className="eb-h2">{t.import.head}</h2>
+        {summary ?? <p className="eb-note">{t.import.combine}</p>}
       </div>
       <div className="eb-srclist">
-        <Group id="way-ebird" label="eBird files">
+        <Group id="way-ebird" label={t.import.ebirdGroup}>
           <EbirdDrop
             job={jobs.ebird}
             onFile={(f) => void jobs.readEbird(f)}
@@ -127,22 +129,22 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
             counts={counts.rows.inat}
           />
         </Group>
-        <Group id="way-tick" label="Ticked by hand">
+        <Group id="way-tick" label={t.tick.title}>
           <SourceRow
-            title="Ticked by hand"
-            parts={ticked.species ? [] : ['None yet']}
-            counts={ticked.species ? countParts(ticked) : undefined}
+            title={t.tick.title}
+            parts={ticked.species ? [] : [t.import.noneYet]}
+            counts={ticked.species ? countParts(ticked, t) : undefined}
             primary={
               <button
                 type="button"
                 className="eb-btn eb-btn-quiet eb-btn-sm eb-disclose-btn"
                 aria-expanded={tick.open}
                 aria-controls="tick"
-                aria-label="Tick birds off a list"
+                aria-label={t.tick.label}
                 disabled={disabled}
                 onClick={tick.toggle}
               >
-                Tick birds
+                {t.tick.button}
                 <CaretDown aria-hidden="true" focusable="false" weight="bold" />
               </button>
             }
@@ -166,7 +168,7 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
       </div>
       {children}
       {/* The section's footnote, where files and usernames are handed over; the full privacy note is on About. */}
-      <p className="eb-privacy"><LockSimple aria-hidden="true" focusable="false" weight="bold" />Your list never leaves your browser. We count visits anonymously.</p>
+      <p className="eb-privacy"><LockSimple aria-hidden="true" focusable="false" weight="bold" />{t.import.privacy}</p>
     </section>
   )
 })

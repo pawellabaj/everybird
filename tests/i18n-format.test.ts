@@ -6,7 +6,6 @@ import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
 import { formatDate, formatMass as legacyMass, MONTHS } from '@/lib/format'
-import { shortDate } from '@/components/import/SourceLine'
 
 describe('formatInt: grouped from 4 digits', () => {
   it('groups by language', () => {
@@ -59,10 +58,11 @@ describe('formatMonth', () => {
 
 describe('shortDay', () => {
   const now = new Date('2026-11-15T12:00:00Z')
-  it('is shortDate’s output in English (outside September, where the engines say "Sept")', () => {
-    for (const iso of ['2026-11-06T10:00:00Z', '2025-03-01T10:00:00Z', '2026-01-20T10:00:00Z', '2024-12-31T10:00:00Z']) {
-      expect(shortDay(iso, en.ui.date.months, now)).toBe(shortDate(iso, now))
-    }
+  it('reads as Settings always did in English ("6 Nov", "1 Mar 2025"), and "6 Sep", never "Sept"', () => {
+    expect(shortDay('2026-11-06T10:00:00Z', en.ui.date.months, now)).toBe('6 Nov')
+    expect(shortDay('2025-03-01T10:00:00Z', en.ui.date.months, now)).toBe('1 Mar 2025')
+    expect(shortDay('2026-01-20T10:00:00Z', en.ui.date.months, now)).toBe('20 Jan')
+    expect(shortDay('2026-09-20T10:00:00Z', en.ui.date.months, now)).toBe('20 Sep')
   })
   it('adds the year only when it is not this year, and says nothing for a bad date', () => {
     expect(shortDay('2026-11-06T10:00:00Z', es.ui.date.months, now)).toBe('6 nov')

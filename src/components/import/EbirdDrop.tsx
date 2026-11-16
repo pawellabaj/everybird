@@ -1,8 +1,12 @@
 'use client'
 import { FileCsv } from '@phosphor-icons/react'
 import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
-import type { EbirdJob } from '@/components/app/use-import-jobs'
-import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY } from '@/lib/list/filter-summary'
+import { ebirdMessage, type EbirdJob } from '@/components/app/use-import-jobs'
+import { fmt, plural, rich } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
+import { MYEBIRDDATA_PLACES } from '@/lib/list/filter-summary'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
 import type { Saved, EbirdDetails } from '@/lib/list/storage'
 import { notCounted } from './NotCounted'
@@ -39,24 +43,14 @@ type Row = {
   help: ReactNode
 }
 
-const ROWS: Row[] = [
-  {
-    slot: 'ebird-list',
-    kind: 'life-list',
-    title: 'eBird life list',
-    what: 'your eBird life list download',
-    guide: 'Your World life list from eBird. It downloads at once, and places each bird to the state or province.',
-    help: <p>On eBird: My eBird, then your World life list total, then Download. It&apos;s instant, and places go down to the state or province.</p>,
-  },
-  {
-    slot: 'ebird',
-    kind: 'full-export',
-    title: 'MyEBirdData',
-    what: 'your eBird full export',
-    guide: 'eBird’s full export of every checklist. It places birds down to the region (county), and joins your life list if you add both.',
-    help: <p>On eBird: Download My Data (under My eBird). eBird emails you MyEBirdData.csv; it places birds down to the region (county).</p>,
-  },
-]
+/** The two rows in `t`'s language: the life list download, then MyEBirdData (a name, the same in every language). */
+const rowsIn = (t: Ui): Row[] => {
+  const e = t.import.ebird
+  return [
+    { slot: 'ebird-list', kind: 'life-list', title: e.listTitle, what: e.listWhat, guide: e.listGuide, help: <p>{e.listHelp}</p> },
+    { slot: 'ebird', kind: 'full-export', title: 'MyEBirdData', what: e.fullWhat, guide: e.fullGuide, help: <p>{e.fullHelp}</p> },
+  ]
+}
 
 /**
  * The two eBird files, one quiet row each (Settings > Your list). Not added: "Add" opens the row's panel (what the file
@@ -71,6 +65,7 @@ const ROWS: Row[] = [
  */
 export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts }: Props) {
   const id = useId()
+  const { t } = useI18n()
   const [over, setOver] = useState(false)
   const [adding, setAdding] = useState<EbirdConnected['slot'] | null>(null)
   const input = useRef<HTMLInputElement>(null)
@@ -161,15 +156,15 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
         className="eb-sr"
         type="file"
         accept=".csv,text/csv"
-        aria-label="eBird file"
+        aria-label={t.import.ebird.input}
         data-testid="ebird-input"
         tabIndex={-1}
         disabled={off}
         onChange={(e) => read(e.target.files?.[0])}
       />
-      {ROWS.map((r) => {
+      {rowsIn(t).map((r) => {
         const c = connected.find((x) => x.slot === r.slot)
-        const line = c ? ebirdLine(r.kind, c.details) : null
+        const line = c ? ebirdLine(r.kind, c.details, t) : null
         const open = adding === r.slot
         return (
           <SourceRow
@@ -177,17 +172,17 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
             testId={c ? `source-${r.slot}` : undefined}
             title={r.title}
             name={line?.name}
-            parts={line ? line.parts : ['Not added']}
-            counts={c && counts ? countParts(counts.rows[r.slot]) : undefined}
-            skipped={c && saved ? notCounted(saved, [r.slot]) ?? undefined : undefined}
+            parts={line ? line.parts : [t.import.notAdded]}
+            counts={c && counts ? countParts(counts.rows[r.slot], t) : undefined}
+            skipped={c && saved ? notCounted(saved, [r.slot], t) ?? undefined : undefined}
             what={c ? r.what : undefined}
             disabled={off}
             onRemove={() => onRemove?.(r.slot)}
-            menu={c ? [{ label: 'Replace', onSelect: pick }] : undefined}
+            menu={c ? [{ label: t.import.replace, onSelect: pick }] : undefined}
             primary={
               c ? (
-                <button ref={r.slot === 'ebird' ? replaceFull : undefined} type="button" className="eb-btn eb-btn-quiet eb-btn-sm" disabled={off} onClick={pick} aria-label={`Replace ${line!.name}`}>
-                  Replace
+                <button ref={r.slot === 'ebird' ? replaceFull : undefined} type="button" className="eb-btn eb-btn-quiet eb-btn-sm" disabled={off} onClick={pick} aria-label={fmt(t.import.replaceLabel, { name: line!.name })}>
+                  {t.import.replace}
                 </button>
               ) : (
                 <button
@@ -196,25 +191,25 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
                   disabled={off}
                   aria-expanded={open}
                   aria-controls={`${id}-${r.slot}`}
-                  aria-label={`Add ${r.title}`}
+                  aria-label={fmt(t.import.addLabel, { title: r.title })}
                   onClick={() => setAdding(open ? null : r.slot)}
                 >
-                  Add
+                  {t.import.add}
                 </button>
               )
             }
           >
             {!c && (
-              <div id={`${id}-${r.slot}`} className="eb-src-panel" hidden={!open} role="group" aria-label={`Add ${r.title}`}>
+              <div id={`${id}-${r.slot}`} className="eb-src-panel" hidden={!open} role="group" aria-label={fmt(t.import.addLabel, { title: r.title })}>
                 <p className="eb-note">{r.guide}</p>
                 <div className="eb-dropzone">
                   <button ref={r.slot === 'ebird' ? chooseFull : undefined} type="button" className="eb-btn" disabled={off} onClick={pick}>
                     <FileCsv aria-hidden="true" focusable="false" />
-                    Choose your eBird file
+                    {t.import.ebird.choose}
                   </button>
-                  <span className="eb-note eb-drop-hint">or drop it here</span>
+                  <span className="eb-note eb-drop-hint">{t.import.ebird.drop}</span>
                 </div>
-                <HowTo label="How do I get this file?">{r.help}</HowTo>
+                <HowTo label={t.import.ebird.howTo}>{r.help}</HowTo>
               </div>
             )}
           </SourceRow>
@@ -222,31 +217,34 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
       })}
       {quickOnly && (
         <p className="eb-note eb-src-status eb-lifer-note" data-testid="places-lifer-note">
-          Your eBird life list only says where you first recorded each bird, so Places filters by those first places.{' '}
-          <a
-            href={`#${P.anchor}`}
-            data-testid="places-lifer-add"
-            aria-label={`${P.add} for every place`}
-            aria-controls={fullOn ? undefined : `${id}-ebird`}
-            onClick={(e) => {
-              e.preventDefault()
-              // During a read the request is held until it ends, and taken up only while the address names it.
-              if (off) history.replaceState(history.state, '', `#${P.anchor}`)
-              toFull(false)
-            }}
-          >
-            {P.add}
-          </a>
-          {' '}to filter by {PLACES_EVERY}, {P.reach}.
+          {rich(t.import.ebird.liferNote, {
+            link: (chunk) => (
+              <a
+                href={`#${P.anchor}`}
+                data-testid="places-lifer-add"
+                aria-label={t.import.ebird.liferLink}
+                aria-controls={fullOn ? undefined : `${id}-ebird`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  // During a read the request is held until it ends, and taken up only while the address names it.
+                  if (off) history.replaceState(history.state, '', `#${P.anchor}`)
+                  toFull(false)
+                }}
+              >
+                {chunk}
+              </a>
+            ),
+          })}
         </p>
       )}
       <p className="eb-status eb-src-status" role="status">
-        {busy ? (rows ? `Reading your file… ${rows.toLocaleString('en-US')} rows` : 'Reading your file…') : ''}
+        {busy ? (rows ? plural(t.import.ebird.readingRows, rows, { n: formatInt(rows, t.num) }) : t.import.ebird.reading) : ''}
       </p>
-      {error && <p className="eb-error eb-src-status" role="alert">{error}</p>}
+      {error && <p className="eb-error eb-src-status" role="alert">{ebirdMessage(error, t)}</p>}
       {reimport && (
+        // The Places panel's own words (one source), its link left as plain text here: Replace is right above.
         <p className="eb-note eb-src-status" data-testid="ebird-detail">
-          {PLACES_FIRST_ONLY} {P.again} to filter by {PLACES_EVERY}.
+          {rich(t.places.note.reimport, {})}
         </p>
       )}
     </div>

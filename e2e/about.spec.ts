@@ -303,24 +303,23 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   const src = (f: string) => readFileSync(f, "utf8")
   // Settings: the heads and the four source rows, as SourceRow draws them
   await expect(scene.locator(".ebd-h1")).toHaveText("Settings")
-  expect(src("src/components/app/SettingsPage.tsx")).toContain('<PageHead title="Settings" />')
-  await expect(scene.locator(".ebd-h2")).toHaveText("Your list")
-  expect(src("src/components/import/ImportPanel.tsx")).toContain('>Your list</h2>')
+  expect(src("src/components/app/SettingsPage.tsx")).toContain('<PageHead title={t.shell.nav.settings} />')
+  expect(en.ui.shell.nav.settings).toBe("Settings")
+  await expect(scene.locator(".ebd-h2")).toHaveText(en.ui.import.head)
   const titles = await scene.locator(".ebd-src-title").evaluateAll((els) => els.map((e) => e.firstChild!.textContent))
-  expect(titles).toEqual(["eBird life list", "MyEBirdData", "iNaturalist", "Ticked by hand"])
-  for (const t of titles.slice(0, 2)) expect(src("src/components/import/EbirdDrop.tsx")).toContain(`title: '${t}'`)
+  expect(titles).toEqual([en.ui.import.ebird.listTitle, "MyEBirdData", "iNaturalist", en.ui.tick.title])
+  expect(src("src/components/import/EbirdDrop.tsx")).toContain("title: 'MyEBirdData'")
   expect(src("src/components/import/InatForm.tsx")).toContain('title="iNaturalist"')
-  expect(src("src/components/import/ImportPanel.tsx")).toContain('title="Ticked by hand"')
+  expect(src("src/components/import/ImportPanel.tsx")).toContain("title={t.tick.title}")
   // The connected row's status and the summary line, from the product's own functions
   const status = (await scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-b").textContent())!
   // Before the import: "Not added", then the reading line in its place (the product's .eb-status wording)
-  await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-a")).toHaveText("Not added")
+  await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-a")).toHaveText(en.ui.import.notAdded)
   await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-b")).toHaveText(/^Reading your file… [\d,]+ rows$/)
-  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
-  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts)!
-  await expect(scene.locator(".ebd-sum .ebd-swap-b")).toHaveText(`${sum} See my collage`)
-  await expect(scene.locator(".ebd-sum .ebd-swap-a")).toHaveText("Combine any of these into one list.")
-  expect(src("src/components/import/ImportPanel.tsx")).toContain("Combine any of these into one list.")
+  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount, en.ui).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
+  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts, en.ui)!
+  await expect(scene.locator(".ebd-sum .ebd-swap-b")).toHaveText(`${sum} ${en.ui.settings.seeCollage}`)
+  await expect(scene.locator(".ebd-sum .ebd-swap-a")).toHaveText(en.ui.import.combine)
   // The collage page: the title as the product shows an untitled collage, and the taxonomy labels
   await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined, en.ui))
   await expect(scene.locator(".ebd-chips-label")).toHaveText(en.ui.filters.rank.order)

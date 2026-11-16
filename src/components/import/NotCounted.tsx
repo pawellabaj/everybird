@@ -1,5 +1,8 @@
 'use client'
 import type { ReactNode } from 'react'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import type { Slot } from '@/lib/list/model'
 import type { Saved } from '@/lib/list/storage'
 
@@ -12,7 +15,7 @@ const reopen = () => requestAnimationFrame(() => window.dispatchEvent(new HashCh
  * matched to an eBird species (fixed in the match report, #match). `body` is what "why?" opens: why, in plain words,
  * the names when the import kept them, and the way to the match report. Null when nothing was left out.
  */
-export function notCounted(saved: Saved, slots: Slot[]): { n: number; body: ReactNode } | null {
+export function notCounted(saved: Saved, slots: Slot[], t: Ui): { n: number; body: ReactNode } | null {
   const mine = saved.unmatched.filter((u) => slots.includes(u.slot ?? u.source))
   const named = mine.filter((u) => u.reason === 'not-species')
   const unmatched = mine.filter((u) => u.reason === 'no-match').length
@@ -26,17 +29,14 @@ export function notCounted(saved: Saved, slots: Slot[]): { n: number; body: Reac
       <>
         {groups > 0 && (
           <>
-            <p className="eb-note">
-              {groups.toLocaleString('en-US')} {groups === 1 ? "entry isn't a species" : "entries aren't species"}: birds only identified to a group (like
-              “duck sp.”), either/or IDs (like “Greater/Lesser Scaup”) and hybrids. eBird leaves these off life lists too.
-            </p>
+            <p className="eb-note">{plural(t.import.notCounted.groups, groups, { n: formatInt(groups, t.num) })}</p>
             {names.length > 0 && <ul className="eb-note">{names.map((x, i) => <li key={i}>{x}</li>)}</ul>}
           </>
         )}
         {unmatched > 0 && (
           <p className="eb-note">
-            {unmatched.toLocaleString('en-US')} {unmatched === 1 ? "row couldn't" : "rows couldn't"} be matched to this year&apos;s eBird taxonomy.{' '}
-            <a href="#match" onClick={reopen}>{unmatched === 1 ? 'Fix it' : 'Fix them'}</a>
+            {plural(t.import.notCounted.unmatched, unmatched, { n: formatInt(unmatched, t.num) })}{' '}
+            <a href="#match" onClick={reopen}>{plural(t.collage.fix, unmatched)}</a>
           </p>
         )}
       </>

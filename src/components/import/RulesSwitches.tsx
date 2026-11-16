@@ -1,11 +1,12 @@
 'use client'
 import { memo, useId, useMemo } from 'react'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { Rules } from '@/lib/list/model'
 import type { Saved } from '@/lib/list/storage'
 import { ruleCounts, type Action } from '@/lib/list/store'
 import '@/components/collage/collage.css'
-
-const birds = (n: number) => `${n.toLocaleString('en-US')} ${n === 1 ? 'bird' : 'birds'}`
 
 /** One settings row: the label and a one-line explanation on the left, the switch at the row's end; the whole row toggles. */
 export function SettingRow({ label, note, checked, onChange, disabled }: { label: string; note: string; checked: boolean; onChange: (on: boolean) => void; disabled?: boolean }) {
@@ -25,6 +26,9 @@ export function SettingRow({ label, note, checked, onChange, disabled }: { label
 
 /** Settings > "Counting": the birder's own rules on top of eBird's, each with how many birds on the list it touches. */
 export const RulesSwitches = memo(function RulesSwitches({ saved, dispatch }: { saved: Saved; dispatch: (a: Action) => void }) {
+  const { t } = useI18n()
+  const tr = t.rules
+  const n = (x: number) => formatInt(x, t.num)
   const rules = saved.rules
   const counts = useMemo(() => ruleCounts(saved), [saved])
   const hasInat = saved.records.inat.length > 0
@@ -32,15 +36,15 @@ export const RulesSwitches = memo(function RulesSwitches({ saved, dispatch }: { 
   return (
     <section className="eb-block" aria-labelledby="eb-rules-h">
       <div className="eb-block-head">
-        <h2 id="eb-rules-h" className="eb-h2">Counting</h2>
-        <p className="eb-note">Only full species count, as on eBird; subspecies roll up into their species.</p>
+        <h2 id="eb-rules-h" className="eb-h2">{tr.head}</h2>
+        <p className="eb-note">{tr.note}</p>
       </div>
       <ul className="eb-setgroup" data-testid="rules">
-        <SettingRow label="Hide heard-only birds" note={`* Birds you only heard. ${counts.heard.toLocaleString('en-US')} on your list.`} checked={rules.hideHeard} onChange={set('hideHeard')} />
-        <SettingRow label="Hide found-dead birds" note={`† Birds you found dead. ${counts.dead.toLocaleString('en-US')} on your list.`} checked={rules.hideDead} onChange={set('hideDead')} />
+        <SettingRow label={tr.heard} note={fmt(tr.heardNote, { n: n(counts.heard) })} checked={rules.hideHeard} onChange={set('hideHeard')} />
+        <SettingRow label={tr.dead} note={fmt(tr.deadNote, { n: n(counts.dead) })} checked={rules.hideDead} onChange={set('hideDead')} />
         <SettingRow
-          label="Research-grade iNaturalist only"
-          note={hasInat ? `Count iNaturalist sightings only once the community agrees on the ID. Affects ${birds(counts.casual)}.` : 'For iNaturalist sightings. Add iNaturalist above to use it.'}
+          label={tr.research}
+          note={hasInat ? plural(tr.researchNote, counts.casual, { n: n(counts.casual) }) : tr.researchOff}
           checked={rules.researchOnly}
           onChange={set('researchOnly')}
           disabled={!hasInat}

@@ -56,6 +56,39 @@ const ui = {
       label: 'Show bird names in English',
       note: 'Wherever bird names appear, on this device.',
     },
+    /** "See my collage", after the summary line once an import landed. */
+    seeCollage: 'See my collage',
+    /** Your data (SettingsPage, RestoreBackup). */
+    data: {
+      head: 'Your data',
+      noteMine: 'Your list lives on this device. Download it, or move it to another device with the backup.',
+      noteRestore: 'Moving from another device? Restore the backup you downloaded there.',
+      /** Name your collage (NameField). */
+      name: {
+        label: 'Name your collage',
+        placeholder: 'e.g. Yusuf’s life list',
+        helper: 'Shown as your collage’s title and on shares.',
+      },
+      downloadCsv: 'Download CSV',
+      downloadJson: 'Download JSON backup',
+      restore: 'Restore from backup',
+      forget: 'Forget my list',
+      restoreAsk: 'Replace your list with this backup? Download your current list first if you want to keep it.',
+      restoreYes: 'Yes, replace it',
+      restoreKeep: 'Keep my list',
+      forgetAsk: 'Forget this list on this device? Download a backup first if you want to keep it.',
+      forgetYes: 'Yes, forget it',
+      forgetKeep: 'Keep it',
+      /** A backup that couldn't be read: the lead, then why (fromJson's BackupError reason). English shows fromJson's
+       *  own message as the reason, so its wording stays exactly as it was. */
+      restoreFailed: "Couldn't restore this backup.",
+      restoreWhy: {
+        json: 'This file is not valid JSON.',
+        notBackup: 'This is not an Everybird backup.',
+        version: 'Unsupported backup version.',
+        damaged: 'Parts of this backup are damaged.',
+      },
+    },
   },
   /** The collage page and the collage block every page shares (CollagePage, CollageView, ControlsBar, DockSearch,
    *  Collage's stage, Notices, UndoToast). The stats line and the Timeline readout join their parts with " · " in code. */
@@ -338,6 +371,192 @@ const ui = {
     oldLinkTitle: "{name}'s life list",
     /** The shared page's document title for a link without a title ({n} formatted). */
     untitledTitle: { one: 'A life list: {n} species', other: 'A life list: {n} species' },
+  },
+  /** Settings > Your list (ImportPanel, SourceLine, SourceMenu, EbirdDrop, InatForm, NotCounted, MatchReport,
+   *  SpeciesSearch, source-counts.ts) and the import jobs' messages (use-import-jobs.ts). eBird, MyEBirdData and
+   *  iNaturalist are names and stay as they are. */
+  import: {
+    head: 'Your list',
+    combine: 'Combine any of these into one list.',
+    privacy: 'Your list never leaves your browser. We count visits anonymously.',
+    /** The eBird rows' group (its aria-label). */
+    ebirdGroup: 'eBird files',
+    /** The summary line ("Your collage has 199 species: 185 from eBird, 11 more from iNaturalist, 3 ticked by hand.").
+     *  `head` is plural on the total, each part on its own number; the parts are joined with ", " in code. */
+    summary: {
+      head: { one: 'Your collage has {n} species', other: 'Your collage has {n} species' },
+      list: '{head}: {parts}.',
+      /** One source, plural on the total: "Your collage has 576 species, all from iNaturalist." */
+      one: '{head}, {all}.',
+      all: {
+        ebird: { one: 'all from eBird', other: 'all from eBird' },
+        inat: { one: 'all from iNaturalist', other: 'all from iNaturalist' },
+        manual: { one: 'all ticked by hand', other: 'all ticked by hand' },
+      },
+      /** The first part. */
+      first: {
+        ebird: { one: '{n} from eBird', other: '{n} from eBird' },
+        inat: { one: '{n} from iNaturalist', other: '{n} from iNaturalist' },
+        manual: { one: '{n} ticked by hand', other: '{n} ticked by hand' },
+      },
+      /** A later part: the species it adds to the ones before (eBird is always first when it is on the list). */
+      more: {
+        inat: { one: '{n} more from iNaturalist', other: '{n} more from iNaturalist' },
+        manual: { one: '{n} ticked by hand', other: '{n} ticked by hand' },
+      },
+    },
+    /** A row's counts (countParts): "185 species · 12 only here". */
+    species: { one: '{n} species', other: '{n} species' },
+    onlyHere: '{n} only here',
+    onlyEbird: '{n} only in eBird',
+    /** "· 10 skipped why?" (SourceRow): the entries that weren't counted, and the button that says why. */
+    skipped: { one: '{n} skipped', other: '{n} skipped' },
+    why: 'why?',
+    whyLabel: { one: 'Why {n} skipped?', other: 'Why {n} skipped?' },
+    /** A row's status. */
+    notAdded: 'Not added',
+    noneYet: 'None yet',
+    detailsUnknown: 'Details unknown',
+    usernameUnknown: 'Username unknown: enter it again to refresh',
+    imported: 'Imported {date}',
+    updated: 'Updated {date}',
+    /** The row's buttons and its ⋯ menu ({title} is the source's name). */
+    add: 'Add',
+    addLabel: 'Add {title}',
+    replace: 'Replace',
+    replaceLabel: 'Replace {name}',
+    more: 'More for {title}',
+    remove: 'Remove',
+    /** Remove's one question; {what} is the row's `…What` below. */
+    removeLabel: 'Remove {what}',
+    removeAsk: 'Remove {what}? Its birds leave your collage unless another source has them. Your edits stay.',
+    removeYes: 'Yes, remove it',
+    keep: 'Keep it',
+    /** The two eBird rows (EbirdDrop). */
+    ebird: {
+      listTitle: 'eBird life list',
+      /** A file's name when it wasn't kept. */
+      listFile: 'eBird life list download',
+      fullFile: 'eBird full export',
+      listWhat: 'your eBird life list download',
+      fullWhat: 'your eBird full export',
+      listGuide: 'Your World life list from eBird. It downloads at once, and places each bird to the state or province.',
+      fullGuide: 'eBird’s full export of every checklist. It places birds down to the region (county), and joins your life list if you add both.',
+      listHelp: "On eBird: My eBird, then your World life list total, then Download. It's instant, and places go down to the state or province.",
+      fullHelp: 'On eBird: Download My Data (under My eBird). eBird emails you MyEBirdData.csv; it places birds down to the region (county).',
+      choose: 'Choose your eBird file',
+      drop: 'or drop it here',
+      howTo: 'How do I get this file?',
+      /** The hidden file input's aria-label. */
+      input: 'eBird file',
+      reading: 'Reading your file…',
+      readingRows: { one: 'Reading your file… {n} row', other: 'Reading your file… {n} rows' },
+      /** Under the rows with only the life list download; <link> opens MyEBirdData's Add panel. */
+      liferNote: 'Your eBird life list only says where you first recorded each bird, so Places filters by those first places. <link>Add MyEBirdData</link> to filter by every place you recorded each bird, down to the county.',
+      liferLink: 'Add MyEBirdData for every place',
+      /** use-import-jobs.ts: a file that isn't an eBird export, and one that failed to read. */
+      unknownFile: "Couldn't read this file. Use eBird's life list download or MyEBirdData.csv.",
+      damaged: "Couldn't read this file. It may be damaged or not an eBird export.",
+    },
+    /** iNaturalist's row (InatForm). */
+    inat: {
+      what: 'your iNaturalist birds',
+      refresh: 'Refresh',
+      refreshLabel: 'Refresh {user} from iNaturalist',
+      cancel: 'Cancel',
+      change: 'Change username',
+      guide: 'Your public, wild bird observations identified to species. iNaturalist sees the username; your list stays here.',
+      guideReplaces: 'Fetching replaces only your iNaturalist birds. Your edits stay.',
+      /** The field's label and placeholder. */
+      username: 'iNaturalist username',
+      fetch: 'Fetch my birds',
+      keepUser: 'Keep {user}',
+      howTo: 'How do I find my username?',
+      help: 'Use your username (on your iNaturalist profile, after the @), not your display name. Only public, wild bird observations identified to species count.',
+      fetched: 'Fetched {n} of {total}',
+      lookingUp: 'Looking up “{user}”…',
+      cancelled: 'Cancelled. Nothing was changed.',
+      /** use-import-jobs.ts inatMessage, by the import's error code. */
+      errors: {
+        unknownUser: "We couldn't find an iNaturalist user called “{user}”. Check the username (not the display name).",
+        noBirds: '“{user}” has no public bird observations on iNaturalist yet.',
+        network: "Couldn't reach iNaturalist. Check your connection and try again.",
+        rateLimited: 'iNaturalist is busy right now. Wait a minute, then try again.',
+      },
+    },
+    /** What "why?" opens under a row (NotCounted). Plural on the entries or rows; the fix link is `collage.fix`. */
+    notCounted: {
+      groups: {
+        one: "{n} entry isn't a species: birds only identified to a group (like “duck sp.”), either/or IDs (like “Greater/Lesser Scaup”) and hybrids. eBird leaves these off life lists too.",
+        other: "{n} entries aren't species: birds only identified to a group (like “duck sp.”), either/or IDs (like “Greater/Lesser Scaup”) and hybrids. eBird leaves these off life lists too.",
+      },
+      unmatched: {
+        one: "{n} row couldn't be matched to this year's eBird taxonomy.",
+        other: "{n} rows couldn't be matched to this year's eBird taxonomy.",
+      },
+    },
+    /** The match report (MatchReport, #match); its head is `collage.unmatched`, its button `collage.fix`. */
+    match: {
+      note: "Not in this year's eBird taxonomy, so not counted yet. Pick the right bird for each.",
+      inatRow: 'iNaturalist observation {row}',
+      listRow: 'eBird life list row {row}',
+      ebirdRow: 'eBird row {row}',
+      row: 'Row {row}',
+      use: 'Use {name}',
+      byHand: 'Fix by hand',
+      find: 'Find the right species for {name}',
+    },
+    /** The species search (SpeciesSearch, and Tick by hand's field); its results' name is `collage.search.matches`. */
+    search: {
+      placeholder: 'Common or scientific name',
+      none: "No bird by that name in eBird's taxonomy.",
+    },
+  },
+  /** Tick by hand (ImportPanel's row, TickList). The removal toast is `collage.removed`. */
+  tick: {
+    title: 'Ticked by hand',
+    button: 'Tick birds',
+    /** The button's aria-label and the list's heading. */
+    label: 'Tick birds off a list',
+    search: 'Search birds',
+    order: 'Order',
+    allOrders: 'All orders',
+    family: 'Family',
+    allFamilies: 'All families',
+    list: 'Species to tick',
+    /** A row's name for screen readers when the bird is already on the list ({name} is "Common, Scientific"). */
+    onListLabel: '{name}, already on your list',
+    onList: 'On your list',
+    toRemove: 'To remove',
+    bar: 'Add or remove the ticked birds',
+    selected: { one: '{n} selected', other: '{n} selected' },
+    toRemoveN: { one: '{n} to remove', other: '{n} to remove' },
+    date: 'Date (optional)',
+    datePlaceholder: 'Date: YYYY-MM-DD, YYYY-MM or YYYY',
+    dateError: 'Use YYYY-MM-DD, YYYY-MM or YYYY.',
+    country: 'Country (optional)',
+    noCountry: 'No country',
+    region: 'Region (optional)',
+    wholeCountry: 'Whole country',
+    addN: { one: 'Add {n} to my list', other: 'Add {n} to my list' },
+    removeN: { one: 'Remove {n} from my list', other: 'Remove {n} from my list' },
+    keepThem: 'Keep them',
+    added: { one: 'Added {n} bird to your list.', other: 'Added {n} birds to your list.' },
+  },
+  /** Settings > Counting (RulesSwitches). */
+  rules: {
+    head: 'Counting',
+    note: 'Only full species count, as on eBird; subspecies roll up into their species.',
+    heard: 'Hide heard-only birds',
+    heardNote: '* Birds you only heard. {n} on your list.',
+    dead: 'Hide found-dead birds',
+    deadNote: '† Birds you found dead. {n} on your list.',
+    research: 'Research-grade iNaturalist only',
+    researchNote: {
+      one: 'Count iNaturalist sightings only once the community agrees on the ID. Affects {n} bird.',
+      other: 'Count iNaturalist sightings only once the community agrees on the ID. Affects {n} birds.',
+    },
+    researchOff: 'For iNaturalist sightings. Add iNaturalist above to use it.',
   },
 }
 

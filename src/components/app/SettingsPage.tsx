@@ -3,6 +3,7 @@ import { ArrowRight, DownloadSimple, Trash } from '@phosphor-icons/react'
 import Link from '@/components/app/IntentLink'
 import { useRouter } from 'next/navigation'
 import { useId, useMemo, useState } from 'react'
+import { useI18n } from '@/i18n/I18nProvider'
 import { ImportPanel } from '@/components/import/ImportPanel'
 import { MatchReport } from '@/components/import/MatchReport'
 import { RulesSwitches } from '@/components/import/RulesSwitches'
@@ -23,6 +24,8 @@ import './app.css'
  *  Empty: "My collage" on the page and no title on shares. */
 function NameField({ stored, onName }: { stored: string; onName: (name: string) => void }) {
   const id = useId()
+  const { t } = useI18n()
+  const n = t.settings.data.name
   const [name, setName] = useState(stored)
   // A restore or a forget changes the saved title underneath the field: follow it (not while the field only differs
   // by the spaces the store trims off).
@@ -33,19 +36,19 @@ function NameField({ stored, onName }: { stored: string; onName: (name: string) 
   }
   return (
     <div className="eb-namefield">
-      <label htmlFor={id} className="eb-namefield-label">Name your collage</label>
+      <label htmlFor={id} className="eb-namefield-label">{n.label}</label>
       <input
         id={id}
         className="eb-input"
         type="text"
         autoComplete="off"
         maxLength={NAME_MAX}
-        placeholder="e.g. Yusuf’s life list"
+        placeholder={n.placeholder}
         aria-describedby={`${id}-n`}
         value={name}
         onChange={(e) => { setName(e.target.value); onName(e.target.value) }}
       />
-      <p id={`${id}-n`} className="eb-note">Shown as your collage’s title and on shares.</p>
+      <p id={`${id}-n`} className="eb-note">{n.helper}</p>
     </div>
   )
 }
@@ -57,6 +60,8 @@ function NameField({ stored, onName }: { stored: string; onName: (name: string) 
  */
 export function SettingsPage() {
   const eb = useEverybirdContext()
+  const { t } = useI18n()
+  const d = t.settings.data
   const { state, dispatch, data, mine, jobs } = eb
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
@@ -66,10 +71,10 @@ export function SettingsPage() {
   const { saved } = state
   const onList = useMemo(() => new Set(state.list.map((e) => e.code)), [state.list])
   const counts = useMemo(() => sourceCounts(saved, state.list), [saved, state.list])
-  const line = mine ? summaryLine(counts) : null
+  const line = mine ? summaryLine(counts, t) : null
   return (
     <main className="eb-page eb-page-settings eb-page-titled">
-      <PageHead title="Settings" />
+      <PageHead title={t.shell.nav.settings} />
       <AppNotices eb={eb} />
       {data ? (
         <ImportPanel
@@ -87,7 +92,7 @@ export function SettingsPage() {
               {landed && count > 0 && (
                 <>
                   {' '}
-                  <Link href="/" className="eb-summary-link">See my collage<ArrowRight aria-hidden="true" focusable="false" weight="bold" /></Link>
+                  <Link href="/" className="eb-summary-link">{t.settings.seeCollage}<ArrowRight aria-hidden="true" focusable="false" weight="bold" /></Link>
                 </>
               )}
             </p>
@@ -103,8 +108,8 @@ export function SettingsPage() {
       {/* Always shown: the language comes first, with or without a list, in the prerendered page too. */}
       <section className="eb-block" aria-labelledby="eb-data-h">
           <div className="eb-block-head">
-            <h2 id="eb-data-h" className="eb-h2">Your data</h2>
-            {(mine || data) && <p className="eb-note">{mine ? 'Your list lives on this device. Download it, or move it to another device with the backup.' : 'Moving from another device? Restore the backup you downloaded there.'}</p>}
+            <h2 id="eb-data-h" className="eb-h2">{d.head}</h2>
+            {(mine || data) && <p className="eb-note">{mine ? d.noteMine : d.noteRestore}</p>}
           </div>
           <div className="eb-langrow">
             <LanguageField />
@@ -116,16 +121,16 @@ export function SettingsPage() {
               <div className="eb-tools">
                 <button type="button" className="eb-btn eb-btn-quiet" disabled={!data} onClick={() => data && downloadText(toCsv(state.list, data.species, data.regions, state.seen), `everybird-${today()}.csv`, 'text/csv')}>
                   <DownloadSimple aria-hidden="true" focusable="false" />
-                  Download CSV
+                  {d.downloadCsv}
                 </button>
                 <button type="button" className="eb-btn eb-btn-quiet" disabled={!data} onClick={() => downloadText(toJson(saved), `everybird-backup-${today()}.json`, 'application/json')}>
                   <DownloadSimple aria-hidden="true" focusable="false" />
-                  Download JSON backup
+                  {d.downloadJson}
                 </button>
                 <RestoreBackup onRestore={(s) => { setConfirming(false); setRestoring(s) }} disabled={!data} />
                 <button type="button" className="eb-btn eb-btn-quiet eb-btn-danger" aria-expanded={confirming} onClick={() => { setRestoring(null); setConfirming((c) => !c) }}>
                   <Trash aria-hidden="true" focusable="false" />
-                  Forget my list
+                  {d.forget}
                 </button>
               </div>
             </div>
@@ -135,20 +140,20 @@ export function SettingsPage() {
             </div>
           )}
           {restoring && (
-            <div className="eb-confirm" role="group" aria-label="Restore from backup">
-              <p>Replace your list with this backup? Download your current list first if you want to keep it.</p>
+            <div className="eb-confirm" role="group" aria-label={d.restore}>
+              <p>{d.restoreAsk}</p>
               <div className="eb-row">
-                <button type="button" className="eb-btn eb-btn-danger-solid" autoFocus onClick={() => { dispatch({ type: 'restore', saved: restoring }); setRestoring(null) }}>Yes, replace it</button>
-                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => setRestoring(null)}>Keep my list</button>
+                <button type="button" className="eb-btn eb-btn-danger-solid" autoFocus onClick={() => { dispatch({ type: 'restore', saved: restoring }); setRestoring(null) }}>{d.restoreYes}</button>
+                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => setRestoring(null)}>{d.restoreKeep}</button>
               </div>
             </div>
           )}
           {confirming && (
-            <div className="eb-confirm" role="group" aria-label="Forget my list">
-              <p>Forget this list on this device? Download a backup first if you want to keep it.</p>
+            <div className="eb-confirm" role="group" aria-label={d.forget}>
+              <p>{d.forgetAsk}</p>
               <div className="eb-row">
-                <button type="button" className="eb-btn eb-btn-danger-solid" autoFocus onClick={() => { setConfirming(false); dispatch({ type: 'forget' }) }}>Yes, forget it</button>
-                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => setConfirming(false)}>Keep it</button>
+                <button type="button" className="eb-btn eb-btn-danger-solid" autoFocus onClick={() => { setConfirming(false); dispatch({ type: 'forget' }) }}>{d.forgetYes}</button>
+                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => setConfirming(false)}>{d.forgetKeep}</button>
               </div>
             </div>
           )}

@@ -1,6 +1,9 @@
 'use client'
 import { SearchIcon } from '@/components/collage/icons'
 import { useId, useMemo, useState } from 'react'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
 
@@ -17,6 +20,7 @@ type Props = {
 /** Type-ahead over eBird common and scientific names; each result is a button. */
 export function SpeciesSearch({ species, label, showLabel = true, onPick, limit = 8, autoFocus }: Props) {
   const id = useId()
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   const hits = useMemo(() => (q.trim().length >= 2 ? species.search(q, limit) : []), [q, species, limit])
   return (
@@ -30,14 +34,14 @@ export function SpeciesSearch({ species, label, showLabel = true, onPick, limit 
           type="search"
           autoComplete="off"
           spellCheck={false}
-          placeholder="Common or scientific name"
+          placeholder={t.import.search.placeholder}
           value={q}
           autoFocus={autoFocus}
           onChange={(e) => setQ(e.target.value)}
         />
       </div>
       {hits.length > 0 && (
-        <ul className="eb-hits" aria-label={`${hits.length} matches`}>
+        <ul className="eb-hits" aria-label={plural(t.collage.search.matches, hits.length, { n: formatInt(hits.length, t.num) })}>
           {hits.map((r) => (
             <li key={r.code}>
               <button type="button" className="eb-hit" onClick={() => { onPick(r); setQ('') }}>
@@ -47,7 +51,7 @@ export function SpeciesSearch({ species, label, showLabel = true, onPick, limit 
           ))}
         </ul>
       )}
-      {q.trim().length >= 2 && hits.length === 0 && <p className="eb-note">No bird by that name in eBird&apos;s taxonomy.</p>}
+      {q.trim().length >= 2 && hits.length === 0 && <p className="eb-note">{t.import.search.none}</p>}
     </div>
   )
 }

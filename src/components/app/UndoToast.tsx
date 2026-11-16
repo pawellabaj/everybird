@@ -14,8 +14,7 @@ export const UNDO_MS = 6000
 /** What a removal took off, to undo: the line to show and the codes. */
 export type Removal = { text: string; codes: string[] }
 
-/** "Removed Snow Goose." for one bird, "Removed 3 birds." for more, in `t`'s language (English for callers not yet
- *  translated: Tick by hand, Task 5). */
+/** "Removed Snow Goose." for one bird, "Removed 3 birds." for more, in `t`'s language (English when no `t` is given). */
 export function removedText(names: string[], t: Ui = EN_UI): string {
   return plural(t.collage.removed, names.length, { n: formatInt(names.length, t.num), name: names[0] ?? '' })
 }

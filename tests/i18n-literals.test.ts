@@ -11,19 +11,17 @@ import { describe, expect, it } from 'vitest'
 const ROOT = resolve(__dirname, '..')
 
 /** The directories scanned (every .tsx under them). */
-export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'src/components/share', 'app']
+export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'src/components/import', 'src/components/share', 'app']
 
 /** Files in a scope that another task translates, or that stay English, each with why. */
 export const SKIP: Record<string, string> = {
   'src/components/collage/Tally.tsx': "Task 6: the count's label and live text",
-  'src/components/app/SettingsPage.tsx': 'Task 5: Settings',
-  'src/components/app/RestoreBackup.tsx': 'Task 5: Settings',
   'app/[lang]/(app)/about/page.tsx': 'Task 10: About (server prose in `page`)',
   'app/global-not-found.tsx': 'English by design: no route, so no language (its own document)',
 }
 
 /** Texts that are the same in every language: names and glyphs. */
-export const ALLOW = new Set<string>(['Everybird'])
+export const ALLOW = new Set<string>(['Everybird', 'iNaturalist'])
 
 const ATTRS = new Set(['aria-label', 'title', 'placeholder', 'alt'])
 const WORD = /\p{L}{2,}/u

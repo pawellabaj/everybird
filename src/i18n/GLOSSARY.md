@@ -22,6 +22,12 @@ Read this before you translate a string or add a language. English (`messages/en
 | county | condado | condado | graafschap |
 | Heard only / Found dead | Solo oída / Encontrada muerta | Só ouvida / Encontrada morta | Alleen gehoord / Dood gevonden |
 | birder | observador de aves | observador de aves | vogelaar |
+| Ticked by hand (source) | Marcadas a mano | Marcadas à mão | Met de hand aangevinkt |
+| skipped (entries) | omitidas | ignoradas | overgeslagen |
+| backup | copia de seguridad | backup | back-up |
+| Counting (Settings) | Recuento | Contagem | Tellen |
+| (iNaturalist) observation, sighting | observación | observação | waarneming |
+| Your list (Settings) | Tu lista | Sua lista | Je lijst |
 
 ## Register
 

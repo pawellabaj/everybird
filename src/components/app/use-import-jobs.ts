@@ -10,9 +10,15 @@ import type { ImportResult, Slot } from '@/lib/list/model'
 import type { EbirdDetails, InatDetails } from '@/lib/list/storage'
 import { loadTaxonomy } from '@/lib/species/load'
 import { fetchData } from '@/lib/data-url'
+import { fmt } from '@/i18n/core'
+import type { Ui } from '@/i18n/messages/en'
 
-export type EbirdJob = { busy: boolean; rows: number; error: string | null }
-export type InatJob = { busyFor: string | null; progress: InatProgress | null; error: string | null; note: string | null }
+/** Why an eBird file wasn't read (worded by `t.import.ebird`: unknownFile, damaged). */
+export type EbirdError = 'unknown-file' | 'damaged'
+export type EbirdJob = { busy: boolean; rows: number; error: EbirdError | null }
+/** The jobs hold codes, not words: the rows word them in the UI language (inatMessage, ebirdMessage). `error.user` is
+ *  the username the failed fetch asked for (busyFor is null by the time it shows). */
+export type InatJob = { busyFor: string | null; progress: InatProgress | null; error: { code: InatError; user: string } | null; note: 'cancelled' | null }
 /** The last import that landed (what "See my collage" announces). */
 export type Landed = { slot: Slot; species: number; at: number }
 
@@ -53,18 +59,24 @@ function loadSynonyms(): Promise<Record<string, string>> {
   return synonymsP
 }
 
-/** Plain messages; the rest of the list is untouched whenever one shows. */
-export function inatMessage(error: InatError, user: string): string {
+/** Plain messages, in `t`'s language; the rest of the list is untouched whenever one shows. */
+export function inatMessage(error: InatError, user: string, t: Ui): string {
+  const e = t.import.inat.errors
   switch (error) {
     case 'unknown-user':
-      return `We couldn't find an iNaturalist user called “${user}”. Check the username (not the display name).`
+      return fmt(e.unknownUser, { user })
     case 'no-birds':
-      return `“${user}” has no public bird observations on iNaturalist yet.`
+      return fmt(e.noBirds, { user })
     case 'network':
-      return "Couldn't reach iNaturalist. Check your connection and try again."
+      return e.network
     case 'rate-limited':
-      return 'iNaturalist is busy right now. Wait a minute, then try again.'
+      return e.rateLimited
   }
+}
+
+/** An eBird file's read failure, in `t`'s language. */
+export function ebirdMessage(error: EbirdError, t: Ui): string {
+  return error === 'unknown-file' ? t.import.ebird.unknownFile : t.import.ebird.damaged
 }
 
 const IDLE_EBIRD: EbirdJob = { busy: false, rows: 0, error: null }
@@ -107,7 +119,7 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
       kind = 'unknown' as const
     }
     if (kind === 'unknown') {
-      setEbird({ ...IDLE_EBIRD, error: "Couldn't read this file. Use eBird's life list download or MyEBirdData.csv." })
+      setEbird({ ...IDLE_EBIRD, error: 'unknown-file' })
       return
     }
     busyEbird.current = true
@@ -121,7 +133,7 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
       if (live.current) land(lifeList ? 'ebird-list' : 'ebird', result, details)
       setEbird(IDLE_EBIRD)
     } catch {
-      setEbird({ ...IDLE_EBIRD, error: "Couldn't read this file. It may be damaged or not an eBird export." })
+      setEbird({ ...IDLE_EBIRD, error: 'damaged' })
     } finally {
       busyEbird.current = false
     }
@@ -144,11 +156,11 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
           if (abort.current === ctl) setInat((j) => ({ ...j, progress }))
         },
       })
-      if (ctl.signal.aborted) end = { note: 'Cancelled. Nothing was changed.' }
-      else if ('error' in res) end = { error: inatMessage(res.error, login) }
+      if (ctl.signal.aborted) end = { note: 'cancelled' }
+      else if ('error' in res) end = { error: { code: res.error, user: login } }
       else land('inat', res, { user: login, observations, at: new Date().toISOString() })
     } catch (err) {
-      end = (err as Error)?.name === 'AbortError' || ctl.signal.aborted ? { note: 'Cancelled. Nothing was changed.' } : { error: inatMessage('network', login) }
+      end = (err as Error)?.name === 'AbortError' || ctl.signal.aborted ? { note: 'cancelled' } : { error: { code: 'network', user: login } }
     } finally {
       if (abort.current === ctl) abort.current = null
       setInat({ ...IDLE_INAT, ...end })
