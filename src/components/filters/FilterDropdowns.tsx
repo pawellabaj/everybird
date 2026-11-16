@@ -4,7 +4,7 @@
 // taxonomy sits under the bar (wrapped chips; the "Choose an order" picker on phones). A button opens its panel (one at a time; a second tap, Esc or a press outside
 // closes it and focus returns to the button): a popover under the bar on wider screens, a bottom sheet on phones.
 // Filters apply live.
-//  - Places (PlacesList.tsx): checklists of places, one level at a time (?v=places:b: rows that expand inline):
+//  - Places (PlacesList.tsx): checklists of places, one level at a time:
 //    countries (flag, name, species seen there), then a country's states and provinces, then a province's counties,
 //    each sorted by count; several places at any levels may be checked (the collage keeps species seen in ANY of them); Clear clears every level; a search field
 //    once a level has more than SEARCH_FROM rows. A list whose places are all lifer places says so (PlacesNote).
