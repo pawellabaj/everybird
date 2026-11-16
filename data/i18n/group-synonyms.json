@@ -11,6 +11,9 @@
     "pt": ["rapina", "aves de rapina", "águias", "gaviões"],
     "nl": ["roofvogel", "roofvogels", "havik", "haviken", "arenden"]
   },
+  "herons-ibis-and-allies": {
+    "en": ["heron", "herons", "egret", "egrets"], "es": ["garza", "garzas"], "pt": ["garça", "garças"], "nl": ["reiger", "reigers"]
+  },
   "owls": {
     "en": ["owl"], "es": ["búho", "búhos", "lechuzas"], "pt": ["coruja", "corujas"], "nl": ["uil", "uilen"]
   },

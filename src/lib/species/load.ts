@@ -54,14 +54,23 @@ export function loadSpecies(): Promise<SpeciesIndex> {
   )
 }
 
-/** The groups file as a map by id; undefined when it can't be loaded or isn't the expected shape. */
-export async function loadGroupMap(): Promise<ReadonlyMap<string, BirdGroup> | undefined> {
-  try {
-    const file = await fetchData<GroupsFile>('groups.v1.json')
-    return Array.isArray(file?.groups) ? new Map(file.groups.map((g) => [g.id, g])) : undefined
-  } catch {
-    return undefined
-  }
+let groupsP: Promise<ReadonlyMap<string, BirdGroup> | undefined> | null = null
+
+/**
+ * The groups file as a map by id; undefined when it can't be loaded or isn't the expected shape. One fetch is shared by
+ * the species index, the landing sample and the search; a failure is not cached.
+ */
+export function loadGroupMap(): Promise<ReadonlyMap<string, BirdGroup> | undefined> {
+  groupsP ??= (async () => {
+    try {
+      const file = await fetchData<GroupsFile>('groups.v1.json')
+      return Array.isArray(file?.groups) ? new Map(file.groups.map((g) => [g.id, g])) : undefined
+    } catch {
+      groupsP = null
+      return undefined
+    }
+  })()
+  return groupsP
 }
 
 export function loadTaxonomy(): Promise<TaxonomyIndex> {

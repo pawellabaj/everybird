@@ -3,7 +3,7 @@ import { isContinentId } from '@/lib/places/continents'
 import { filterPlaceKeys, inContinents, inRange, statusCatOf, withContinents, withPlaces, withStatuses, type Filter } from './filters'
 import type { ListEntry } from './model'
 import { keysOf, type SeenIndex } from './seen'
-import { makeWhere, seenWhere } from './sighting'
+import { makeWhere, seenAt as seenIn } from './sighting'
 import { MONTH_RE } from './timeline'
 
 /**
@@ -60,7 +60,7 @@ export function applyFilterValidity(f: Filter & Legacy, list: ListEntry[], speci
       if (!g || !has((e) => { const to = row(e)?.to; return to !== undefined && to >= g.lo && to <= g.hi })) delete out.group
     }
     const when = out.basis === 'seen' ? makeWhere(undefined, undefined, out.from, out.to) : undefined
-    const inTime = (e: ListEntry) => inRange(e.date, out.from, out.to) || (!!when && !!seen?.byCode.get(e.code)?.months && seenWhere(seen.byCode.get(e.code)!.months!, when))
+    const inTime = (e: ListEntry) => inRange(e.date, out.from, out.to) || (!!when && seenIn(e, seen, when))
     if ((out.from || out.to) && !has(inTime)) {
       delete out.from
       delete out.to

@@ -15,6 +15,7 @@ import { formatInt, formatMonth } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { latestLifer } from '@/lib/list/build-list'
+import { hasSeenMonths } from '@/lib/list/seen'
 import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount, type Filter } from '@/lib/list/filters'
 import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { ListEntry } from '@/lib/list/model'
@@ -151,7 +152,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
     for (const e of seen.byCode.values()) for (const k of e.keys) keys.add(k)
     return [...keys]
   }, [seen])
-  const hasMonths = useMemo(() => Object.values(state.saved.records).some((rs) => rs.some((r) => r.seenMonths !== undefined)), [state.saved])
+  const hasMonths = useMemo(() => hasSeenMonths(seen), [seen])
   const onApply = useCallback((f: Filter) => dispatch({ type: 'filter', filter: f }), [dispatch])
 
   const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, placesUnplaced, time, threatLine, shown: shownList.length })

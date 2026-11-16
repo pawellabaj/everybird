@@ -73,7 +73,7 @@ describe('basis: lifer (the default) and seen', () => {
   })
   it('the basis has a key only when it applies', () => {
     expect(filterKey({ basis: 'seen' })).toBe('')
-    expect(filterKey({ countries: ['CA'], basis: 'seen' })).toBe('c:CA|b:seen')
+    expect(filterKey({ countries: ['CA'], basis: 'seen' })).toBe('c:CA') // places alone: nothing to be seen in a period
     expect(filterKey({ from: '2026-01', basis: 'seen' })).toBe('r:2026-01~|b:seen')
     expect(filterKey({ from: '2026-01', basis: 'lifer' })).toBe('r:2026-01~')
   })
@@ -92,7 +92,8 @@ describe('the card and tooltip inside the filter (sightingIn)', () => {
   it('keeps the lifer with no filter, no month sets, or nothing inside the filter with a month', () => {
     expect(sightingIn(entry('merlin'), {}, seen)).toBeUndefined()
     expect(sightingIn(entry('merlin'), { order: 'X' }, seen)).toBeUndefined()
-    expect(sightingIn(entry('crow'), { countries: ['CA'] }, seen)).toBeUndefined()
+    // crow has no month sets: its lifer, inside the filter, stands with its full date
+    expect(sightingIn(entry('crow'), { countries: ['CA'] }, seen)).toEqual({ date: '2020-01-05', place: { country: 'CA', sub1: 'CA-BC' } })
     expect(sightingIn(entry('merlin'), { countries: ['FR'] }, seen)).toBeUndefined()
     expect(sightingIn(entry('merlin'), { countries: ['CA'] }, undefined)).toBeUndefined()
     expect(entryInFilter(entry('crow'), { countries: ['CA'] }, seen)).toBe(entry('crow'))

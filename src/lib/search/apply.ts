@@ -2,6 +2,7 @@
 // pick the chips the search shows, give the bird-name words left over, and turn the chips into one filter.
 import { clearPlaces, withPlaces, withStatuses, type Filter } from '../list/filters'
 import { timeless } from '../list/timeline'
+import type { SpeciesIndex } from '../species/load'
 import { isStatusFilterCat } from '../species/status-filter'
 import type { Chip, SmartFilter } from './smart'
 
@@ -25,9 +26,10 @@ export function nameQuery(query: string, chips: readonly Chip[]): string {
 /**
  * The filter the chips ask for. For each kind the query sets, the fields that kind owns are replaced and the rest
  * stay: places (one dimension, so a continent picked before goes too), the time range and its basis, the group, the
- * Red List categories. A kind the query doesn't set leaves its fields alone.
+ * Red List categories. A kind the query doesn't set leaves its fields alone. With `species`, a group drops an order or
+ * family that lies outside its bounds (as `drillTo` clears what would leave nothing), so the collage is never empty by it.
  */
-export function applySmart(current: Filter, found: SmartFilter, kinds: ReadonlySet<Chip['kind']>): Filter {
+export function applySmart(current: Filter, found: SmartFilter, kinds: ReadonlySet<Chip['kind']>, species?: SpeciesIndex): Filter {
   let next: Filter = { ...current }
   if (kinds.has('place')) {
     next = withPlaces(clearPlaces(next), [
@@ -46,8 +48,15 @@ export function applySmart(current: Filter, found: SmartFilter, kinds: ReadonlyS
     else delete next.basis
   }
   if (kinds.has('group')) {
-    if (found.group) next.group = found.group
-    else delete next.group
+    if (found.group) {
+      next.group = found.group
+      const g = species?.groups?.get(found.group)
+      if (g) {
+        const inside = (r: { to: number }) => r.to >= g.lo && r.to <= g.hi
+        if (next.order && !species!.rows.some((r) => r.ord === next.order && inside(r))) { delete next.order; delete next.family }
+        if (next.family && !species!.rows.some((r) => r.fam === next.family && inside(r))) delete next.family
+      }
+    } else delete next.group
   }
   if (kinds.has('status')) {
     next = withStatuses(next, (found.statuses ?? []).filter((c) => isStatusFilterCat(c)))

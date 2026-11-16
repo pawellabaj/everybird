@@ -5,7 +5,7 @@
 import type { LayoutName } from '@/lib/layout/layout.worker'
 import type { StateLayout } from '@/lib/layout/layout-client'
 import type { Box } from '@/lib/layout/pack'
-import { buildSpeciesIndex, type SpeciesIndex } from '@/lib/species/load'
+import { buildSpeciesIndex, loadGroupMap, type SpeciesIndex } from '@/lib/species/load'
 import type { NameBase } from '@/lib/species/name-locales'
 import type { NameSet } from '@/lib/species/names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
@@ -29,8 +29,10 @@ export function seedLayouts(f: Pick<SamplePackFile, 'layouts'>): StateLayout[] {
   })
 }
 
-export function fromPackFile(f: SamplePackFile): SamplePack {
-  return { saved: sampleToSaved(f), species: buildSpeciesIndex(f.species), regions: f.regions, seed: seedLayouts(f), loc: f.loc }
+/** `groups`: eBird's groups (the search's group chip and the Filter.group bounds); the sample's index has none without them. */
+export function fromPackFile(f: SamplePackFile, groups?: SpeciesIndex['groups']): SamplePack {
+  const index = buildSpeciesIndex(f.species)
+  return { saved: sampleToSaved(f), species: groups ? { ...index, groups } : index, regions: f.regions, seed: seedLayouts(f), loc: f.loc }
 }
 
 let packP: Promise<SamplePack> | null = null
@@ -39,7 +41,9 @@ let packP: Promise<SamplePack> | null = null
 export function loadSamplePack(): Promise<SamplePack> {
   if (packP) return packP
   const p = (async () => {
-    return fromPackFile(await fetchData<SamplePackFile>('sample-pack.v1.json', { priority: 'high' } as RequestInit))
+    // The small, shared groups file rides along; without it the sample's search just offers no group chip.
+    const [file, groups] = await Promise.all([fetchData<SamplePackFile>('sample-pack.v1.json', { priority: 'high' } as RequestInit), loadGroupMap()])
+    return fromPackFile(file, groups)
   })().catch((e) => {
     packP = null
     throw e

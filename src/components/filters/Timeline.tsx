@@ -12,7 +12,7 @@ import { useI18n } from '@/i18n/I18nProvider'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeLabel, sliderKey, timeless, type Month } from '@/lib/list/timeline'
-import type { SeenIndex } from '@/lib/list/seen'
+import { hasSeenMonths, type SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
 import './timeline.css'
 
@@ -48,7 +48,7 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   const pct = (i: number) => `${frac(i) * 100}%`
   const chosen = useMemo(() => rangeIndices(filter, months), [filter, months])
   // The basis switch is for lists with month sets (MyEBirdData, iNaturalist, observation.org observations); without, nothing changes by it.
-  const hasMonths = useMemo(() => { if (seen) for (const e of seen.byCode.values()) if (e.months) return true; return false }, [seen])
+  const hasMonths = useMemo(() => hasSeenMonths(seen), [seen])
   const basis = filter.basis === 'seen' ? 'seen' : 'lifer'
   const setBasis = useCallback((b: 'lifer' | 'seen') => {
     const next: Filter = { ...latest.current.filter }

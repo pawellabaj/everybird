@@ -37,6 +37,12 @@ export type SeenEntry = { places: SeenPlace[]; keys: Set<string>; months?: Place
  */
 export type SeenIndex = { byCode: Map<string, SeenEntry>; full: boolean; sig: string }
 
+/** Whether any species on the list has month sets (MyEBirdData, iNaturalist, observation.org): without them the "seen any time" basis changes nothing. */
+export function hasSeenMonths(seen: SeenIndex | undefined): boolean {
+  if (seen) for (const e of seen.byCode.values()) if (e.months) return true
+  return false
+}
+
 /** YYYY -> YYYY-00-00, YYYY-MM -> YYYY-MM-00, so partial dates compare lexically. */
 const pad = (d: string) => (d.length === 4 ? `${d}-00-00` : d.length === 7 ? `${d}-00` : d)
 /** True when date `a` should replace `b` as the earliest there: dated beats undated, then earlier wins. */

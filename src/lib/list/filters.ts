@@ -6,7 +6,8 @@ import { CONTINENT_NAMES, CONTINENT_OF, CONTINENTS, isContinentId, type Continen
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
-import { keysSeenIn, makeWhere, seenWhere } from './sighting'
+import { inRange } from './in-range'
+import { makeWhere, seenAt, sightingKeys } from './sighting'
 
 /**
  * The active filters. Time: `from`/`to` are a range of months (YYYY-MM, inclusive, either end open; see timeline.ts).
@@ -55,20 +56,9 @@ type Level = FilterLevel
 
 const yearOf = (e: ListEntry) => (e.date && /^\d{4}/.test(e.date) ? e.date.slice(0, 4) : undefined)
 
-/**
- * Whether an entry's date falls in the range from..to (YYYY-MM, inclusive, either open). A month or full date is
- * compared by its month; a year-only date matches when its year overlaps the range. Undated entries never match.
- */
-export function inRange(date: string | undefined, from: string | undefined, to: string | undefined): boolean {
-  if (!from && !to) return true
-  const m = date && /^(\d{4})(?:-(\d{2}))?/.exec(date)
-  if (!m) return false
-  const lo = m[2] ? `${m[1]}-${m[2]}` : `${m[1]}-01`
-  const hi = m[2] ? lo : `${m[1]}-12`
-  return (!from || hi >= from) && (!to || lo <= to)
-}
-/** Basis 'seen' with something it applies to (a place or a range); otherwise it changes nothing and has no key. */
-export const seenBasis = (f: Filter): boolean => f.basis === 'seen' && (hasPlaces(f) || !!(f.from || f.to))
+export { inRange }
+/** Basis 'seen' with a range (places alone have nothing to be "seen in" a period); otherwise it changes nothing and has no key. */
+export const seenBasis = (f: Filter): boolean => f.basis === 'seen' && !!(f.from || f.to)
 
 /**
  * Stable key, e.g. "o:Passeriformes|f:Corvidae|g:waterfowl|c:CA,EG|s:US-WA|k:CA-BC|Capital|y:2026|r:2026-03~2026-09|b:seen|i:VU,EN";
@@ -120,9 +110,8 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
       if (statuses && !statuses.has(row.iu ?? 'NE')) return false
       if (bounds === null || (bounds && (row.to < bounds.lo || row.to > bounds.hi))) return false
     }
-    const months = where && seen?.byCode.get(e.code)?.months
-    if (months && where) {
-      if (!seenWhere(months, where)) return false
+    if (where) {
+      if (!seenAt(e, seen, where)) return false
     } else {
       if (places || continents) {
         const keys = places ? keysOf(seen, e) : undefined
@@ -231,9 +220,8 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
   }
   if (next.year && yearOf(e) !== next.year) delete next.year
   if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) {
-    // Basis 'seen': any sighting in the range keeps it (a month set, else the lifer date as above).
-    const months = next.basis === 'seen' ? seen?.byCode.get(e.code)?.months : undefined
-    if (!(months && seenWhere(months, makeWhere(undefined, undefined, next.from, next.to)))) { delete next.from; delete next.to }
+    // Basis 'seen': any sighting in the range keeps it (a month set, a place's earliest date or the lifer, as above).
+    if (!(next.basis === 'seen' && seenAt(e, seen, makeWhere(undefined, undefined, next.from, next.to)))) { delete next.from; delete next.to }
   }
   // Each dimension alone includes the bird; under basis 'seen' the places and the range together may still not (Canada in
   // 2019, a range of 2026 the bird was seen in only in Egypt): the range goes.
@@ -370,8 +358,7 @@ export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex,
   for (let i = 0; i < list.length; i++) {
     const e = list[i]
     if (!m(e)) continue
-    const months = when && seen?.byCode.get(e.code)?.months
-    const here = months && when ? keysSeenIn(months, when) : undefined
+    const here = when ? sightingKeys(e, seen, when) : undefined
     for (const p of seenOf(seen, e)) {
       if (here && !here.has(p.sub2 ? `${p.sub1 ?? p.country}|${p.sub2}` : (p.sub1 ?? p.country))) continue
       const cont = CONTINENT_OF[p.country]

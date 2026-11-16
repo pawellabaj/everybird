@@ -42,6 +42,8 @@ const GENERIC = new Set(['bird', 'birds', 'and', 'of', 'the', 'aves', 'vogel', '
 const CONNECTOR_WORDS = new Set(['de', 'del', 'do', 'da', 'dos', 'das', 'la', 'el', 'los', 'las', 'of', 'the', 'van', 'der', 'het'])
 /** A province code typed as capitals ("BC", "ON"); lowercase "or", "no" and "al" are words, never codes. */
 const isCodeWord = (raw: string) => /^\p{Lu}{2,}$/u.test(raw)
+/** Words that join the parts of a group's name ('Ducks, Geese, and Waterfowl') and may be left out of a query. */
+const GROUP_JOINERS = new Set(['and', 'y', 'e'])
 const singular = (s: string) => s.split(' ').map((w) => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w).join(' ')
 const unique = <T,>(xs: Iterable<T>) => [...new Set(xs)]
 const STATUS_WORDS: Record<SearchLang, Record<string, SearchStatus[]>> = {
@@ -148,6 +150,13 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
     }
     return entities.filter((e) => !e.exactOnly && e.aliases.some((name) => singular(name) === singular(phrase) || fits(name)))
   }
+  // A group needs the query's words to be a whole group name or synonym (connectors aside, plural or not), never a
+  // part of one: "great blue heron" names no group, though "great", "blue" and "heron" each sit inside some group's name.
+  const bare = (s: string) => singular(s.split(' ').filter((w) => w && !CONNECTOR_WORDS.has(w) && !GROUP_JOINERS.has(w)).join(' '))
+  const matchGroup = (phrase: string) => {
+    const p = bare(phrase)
+    return p ? groupEntities.filter((g) => g.aliases.some((a) => bare(a) === p)) : []
+  }
   for (let i = 0; i < tokens.length; i++) {
     if (used[i] || tokens[i].quoted) continue
     const t = tokens[i]
@@ -195,7 +204,7 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
       }
       if (!filter.group) {
         const exactTaxon = match(familyEntities, phrase, false).length || match(orderEntities, phrase, false).length
-        const hits = match(groupEntities, phrase, !exactTaxon)
+        const hits = exactTaxon ? match(groupEntities, phrase, false) : matchGroup(phrase)
         if (hits.length === 1) {
           filter.group = hits[0].value
           addChip('group', hits[0].name, i, n)

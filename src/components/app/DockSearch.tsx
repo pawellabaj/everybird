@@ -19,16 +19,15 @@ import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { regionsIn } from '@/lib/i18n-places'
-import { fetchData } from '@/lib/data-url'
 import type { Filter } from '@/lib/list/filters'
 import { timeSummary } from '@/lib/list/filter-summary'
 import { applySmart, nameQuery, shownChips } from '@/lib/search/apply'
 import { parseSmart, withoutChip, type Chip as SmartChip } from '@/lib/search/smart'
-import { type BirdGroup, type GroupsFile } from '@/lib/search/groups'
+import { type BirdGroup } from '@/lib/search/groups'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { IUCN_CATS } from '@/lib/species/iucn'
 import { useNames } from '@/lib/species/use-names'
-import { searchCollage, type CollageHit } from '@/lib/species/name-search'
+import { searchCollage, searchKey, type CollageHit } from '@/lib/species/name-search'
 import { ORDERS, orderLabel } from '@/lib/species/orders'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 
@@ -62,24 +61,9 @@ type Props = DockSearchProps & {
   within: React.RefObject<HTMLElement | null>
 }
 
-/** eBird's species groups, fetched once when the search first opens; a failure is not cached and the search works without them. */
-let groupsP: Promise<readonly BirdGroup[]> | null = null
-function loadGroups(): Promise<readonly BirdGroup[]> {
-  groupsP ??= fetchData<GroupsFile>('groups.v1.json').then((f) => f.groups).catch((e) => {
-    groupsP = null
-    throw e
-  })
-  return groupsP
-}
-function useGroups(open: boolean): readonly BirdGroup[] {
-  const [groups, setGroups] = useState<readonly BirdGroup[]>([])
-  useEffect(() => {
-    if (!open) return
-    let live = true
-    loadGroups().then((g) => { if (live) setGroups(g) }, () => {})
-    return () => { live = false }
-  }, [open])
-  return groups
+/** eBird's groups as the species index holds them (loaded with it; the sample's pack brings its own); none without. */
+function useGroups(species: SpeciesIndex): readonly BirdGroup[] {
+  return useMemo(() => (species.groups ? [...species.groups.values()] : []), [species.groups])
 }
 
 /** One species per family on the list: the parser's family names and orders need no more. */
@@ -119,7 +103,7 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(-1)
   const names = useNames()
-  const groups = useGroups(open)
+  const groups = useGroups(species)
   const localRegions = useMemo(() => regionsIn(regions, lang), [regions, lang])
   const familyRows = useMemo(() => firstOfEachFamily(entries, species), [entries, species])
   const orderNames = useMemo(() => Object.fromEntries(Object.keys(ORDERS).map((o) => [o, orderLabel(o, t)])), [t])
@@ -128,23 +112,32 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
     () => (query.trim() ? parseSmart(query, { today: new Date(), lang, groups, regions: localRegions, listPlaces, statuses, species: familyRows, orderNames }) : undefined),
     [query, lang, groups, localRegions, listPlaces, statuses, familyRows, orderNames],
   )
+  const typed = query.trim().length > 0
+  // Bird names search the query as typed.
+  const raw = useMemo(
+    () => (typed ? searchCollage(entries, query, species, { shown, t, lang }) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+    [entries, query, species, typed, shown, t, lang, names],
+  )
+  // A query that is exactly a name on the list (a bird's, an order's or a family's, common or scientific, folded as the
+  // search folds) is that hit: its words ("canada goose") are never read as a place or a period, and Enter shows it.
+  const exact = useMemo(() => {
+    const key = searchKey(query)
+    return key ? raw.find((h) => searchKey(h.com) === key || searchKey(h.sci) === key) : undefined
+  }, [raw, query])
   // The chips the search shows; a period reads as the Filters panel does ("2026", not "2026-01–2026-12").
   const understood: SmartChip[] = useMemo(
-    () => shownChips(parsed?.chips ?? []).map((c) => (c.kind === 'date' && parsed ? { ...c, label: timeSummary(parsed.filter as Filter, t) ?? c.label } : c)),
-    [parsed, t],
+    () => (exact ? [] : shownChips(parsed?.chips ?? [])).map((c) => (c.kind === 'date' && parsed ? { ...c, label: timeSummary(parsed.filter as Filter, t) ?? c.label } : c)),
+    [parsed, t, exact],
   )
   const kinds = useMemo(() => new Set(understood.map((c) => c.kind)), [understood])
-  const typed = query.trim().length > 0
-  // Bird names search the query as typed; with chips and no hit, the words the chips leave over.
+  // With chips and no hit, the words the chips leave over.
   const hits = useMemo(() => {
-    if (!typed) return []
-    const opts = { shown, t, lang }
-    const raw = searchCollage(entries, query, species, opts)
     if (raw.length || !understood.length) return raw
     const rest = nameQuery(query, parsed?.chips ?? [])
-    return rest ? searchCollage(entries, rest, species, opts) : []
+    return rest ? searchCollage(entries, rest, species, { shown, t, lang }) : []
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
-  }, [entries, query, species, typed, shown, t, lang, names, understood, parsed])
+  }, [raw, entries, query, species, shown, t, lang, names, understood, parsed])
   // With chips, a query with no name left over shows no list and no "no bird matches" line.
   const listOpen = hits.length > 0 || (typed && !understood.length)
   const needsMonths = whose === 'your' && !hasMonths && parsed?.filter.basis === 'seen' && kinds.has('date')
@@ -172,7 +165,10 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
   const pick = (h: CollageHit) => { setQuery(''); setCursor(-1); onPick(h) }
   const apply = () => {
     if (!parsed) return
-    onApply(applySmart(filter, parsed.filter, kinds))
+    const next = applySmart(filter, parsed.filter, kinds, species)
+    // Without month sets "seen any time" changes nothing (and its labels would mislead): the dates stay lifer dates.
+    if (!hasMonths) delete next.basis
+    onApply(next)
     setQuery('')
     setCursor(-1)
     onClose(true)
@@ -190,12 +186,12 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
       if (!n) return
       setCursor(at < 0 ? (e.key === 'ArrowDown' ? 0 : n - 1) : (at + (e.key === 'ArrowDown' ? 1 : -1) + n) % n)
     } else if (e.key === 'Enter') {
-      if (at < 0 && understood.length) {
+      if (at < 0 && !exact && understood.length) {
         e.preventDefault()
         apply()
         return
       }
-      const h = hits[at >= 0 ? at : 0]
+      const h = at >= 0 ? hits[at] : (exact ?? hits[0])
       if (h) { e.preventDefault(); pick(h) }
     }
   }

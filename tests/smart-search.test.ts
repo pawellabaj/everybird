@@ -39,7 +39,7 @@ describe('approved smart-search verification cases', () => {
     expect(parse('threatened', lang).filter.statuses).toEqual(['CR', 'EN', 'VU'])
     expect(parse('lifers 2024 Mystery Bird', lang)).toMatchObject({ filter: { basis: 'lifer', from: '2024-01', to: '2024-12' }, rest: 'Mystery Bird' })
     expect(parse('2024 new', lang).filter.basis).toBe('lifer')
-    expect(parse('mysterious Wren!', lang).rest).toBe('mysterious Wren!')
+    expect(parse('mysterious Zork!', lang).rest).toBe('mysterious Zork!')
   })
 })
 
@@ -139,7 +139,7 @@ describe('places and taxonomy', () => {
   it('matches multiword groups, singulars, prefixes, orders and families', () => {
     expect(parse('Hawks, Eagles, and Kites').filter.group).toBe('vultures-hawks-and-allies')
     expect(parse('hummingbird').filter.group).toBe('hummingbirds')
-    expect(parse('hummingb').filter.group).toBe('hummingbirds')
+    expect(parse('hummingb').filter.group).toBeUndefined() // part of a name is no group
     expect(parse('Passeriformes').filter.order).toBe('Passeriformes')
     expect(parse('perching birds').filter.order).toBe('Passeriformes')
     expect(parse('Corvidae').filter).toMatchObject({ order: 'Passeriformes', family: 'Corvidae' })
