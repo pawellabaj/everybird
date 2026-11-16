@@ -5,7 +5,7 @@ export const DATA_FILES = {
   'regions.v1.json': 'regions.v1.098d136545.json',
   'masks.v2.json': 'masks.v2.afba42e8fe.json',
   'sample.v1.json': 'sample.v1.300671bac4.json',
-  'sample-pack.v1.json': 'sample-pack.v1.7d766a15cd.json',
+  'sample-pack.v1.json': 'sample-pack.v1.5bcd8ff92f.json',
   'inat-synonyms.v1.json': 'inat-synonyms.v1.44136fa355.json',
   'names.es.v1.json': 'names.es.v1.cff9628611.json',
   'names.es_MX.v1.json': 'names.es_MX.v1.921b2c6667.json',

@@ -25,7 +25,8 @@ import { stickerUrl } from '@/lib/sticker-url'
 import { formatDate } from '@/lib/format'
 import { asOfDate, withStamp } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
-import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
+import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_CAP_ACCENT, MONO_LINE, NUM_LINE, columnBoxes, countDisplay, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
+import { EN_UI, type Ui } from '@/i18n/messages/en'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
 import { countriesLabel, placesLabel } from '@/lib/list/filter-summary'
@@ -130,7 +131,11 @@ const COUNT_W = 0.26
 const COUNT_PAD = 0.17
 
 type Text = { y: number; size: number }
-/** The count at the centre of the collage: the number (size, px), the mono label under it, and the hole kept for them. */
+/**
+ * The count at the centre of the collage: the number (size, px), the mono label under it, and the hole kept for them.
+ * `number` and `label` are the geometry's text (en-US countText, "SPECIES"), for measuring only: what is drawn is the
+ * UI language's (countDisplay, `count.label` upper-cased), never wider, so the hole is the same in every language.
+ */
 export type CountLayout = {
   number: string
   label: string
@@ -162,7 +167,9 @@ export type CardContent = { name: boolean; filter: boolean; latest: boolean; cou
  * view too: the filter label on top says what it is). The number shrinks so it never takes more than COUNT_W of the
  * collage's width. `format` sets the largest size (or pass it in px: the link preview's smaller card).
  * The hole holds the text as renderShareImage draws it: one column centred on the collage's centre, the digits' height
- * (the comma's foot below the baseline counted in), the gap, the label's caps.
+ * (the comma's foot below the baseline counted in), the gap, the label's caps. The label's box reaches up to an
+ * accented capital's ink (MONO_CAP_ACCENT, pt's "ESPÉCIES") into the gap, and holds COUNT_LABEL_CHARS characters; the
+ * column's height, and so where the text is drawn, stays the caps'.
  */
 export function countLayout(format: ImageFormat | number, count: number, collageW: number): CountLayout {
   const max = typeof format === 'number' ? format : COUNT_MAX[format]
@@ -174,7 +181,8 @@ export function countLayout(format: ImageFormat | number, count: number, collage
   const labelSize = Math.round(Math.max(Math.min(22, size * 0.2), Math.min(28, size * 0.14), typeof format === 'number' ? 0 : 18))
   const gap = Math.round(size * 0.14)
   const drop = COMMA_DROP * size
-  const boxes = columnBoxes(em * size, DIGIT_CAP * size + drop, gap - drop, labelEm(label) * labelSize, MONO_CAP * labelSize)
+  const accent = (MONO_CAP_ACCENT - MONO_CAP) * labelSize
+  const boxes = columnBoxes(em * size, DIGIT_CAP * size + drop, gap - drop - accent, labelEm() * labelSize, MONO_CAP_ACCENT * labelSize)
   return { number, label, size, labelSize, gap, hole: { ...boxes, pad: COUNT_PAD * size } }
 }
 
@@ -184,7 +192,7 @@ export function countLayout(format: ImageFormat | number, count: number, collage
  */
 export function ogCountHole(K: CountLayout): Hole {
   const em = numberEm(K.number)
-  const boxes = columnBoxes(em * K.size, Math.max(NUM_LINE, DIGIT_CAP + COMMA_DROP) * K.size, K.gap * 0.6 - Math.max(0, DIGIT_CAP + COMMA_DROP - NUM_LINE) * K.size, labelEm(K.label) * K.labelSize, MONO_LINE * K.labelSize)
+  const boxes = columnBoxes(em * K.size, Math.max(NUM_LINE, DIGIT_CAP + COMMA_DROP) * K.size, K.gap * 0.6 - Math.max(0, DIGIT_CAP + COMMA_DROP - NUM_LINE) * K.size, labelEm() * K.labelSize, MONO_LINE * K.labelSize)
   return { ...boxes, pad: COUNT_PAD * K.size }
 }
 
@@ -449,6 +457,8 @@ export type ShareImageOpts = {
   now?: Date
   /** The latest lifer row; default true. False leaves it out and gives its room to the collage (cardLayout's `latest: false`). */
   latest?: boolean
+  /** The UI language's strings the image draws (the count's number and label); default English. */
+  strings?: Pick<Ui, 'num' | 'count'>
   signal?: AbortSignal
 }
 
@@ -549,11 +559,15 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   // The count grows with the birds when a short list is scaled up past the width fit (its hole grew as much).
   const g = Math.min(fit.grow, 1.3)
   const K = { ...L.count, size: Math.round(L.count.size * g), labelSize: Math.round(L.count.labelSize * Math.min(g, 1.15)), gap: Math.round(L.count.gap * g) }
+  // What the count draws, in the UI language ("1.089", "ESPÉCIES"); K's number and label are the geometry's.
+  const strings = opts.strings ?? EN_UI
+  const countNum = countDisplay(content.count, strings.num)
+  const countLabel = strings.count.label.toUpperCase()
   const [imgs] = await Promise.all([
     loadStickers([...new Set([...tiles, ...(lifer ? [lifer] : [])].flatMap((t) => (t.url ? [t.url] : [])))], { signal }),
     fontsReady(
       [font.name(L.name?.size ?? 60), font.filter(34), font.count(K.size), font.mono(K.labelSize), font.lifer(34), font.brand(30), font.footer(20)],
-      `${name ?? ''}${label ?? ''}${K.number}${K.label}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
+      `${name ?? ''}${label ?? ''}${countNum}${countLabel}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
     ),
   ])
   check()
@@ -588,11 +602,11 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   ctx.font = font.count(K.size)
   track(-0.02, K.size)
   ctx.fillStyle = C.ink
-  ctx.fillText(K.number, fit.cx, blockTop + digitH)
+  ctx.fillText(countNum, fit.cx, blockTop + digitH)
   ctx.font = font.mono(K.labelSize)
   track(0.06, K.labelSize)
   ctx.fillStyle = C.muted
-  ctx.fillText(K.label, fit.cx, blockTop + digitH + K.gap + capH)
+  ctx.fillText(countLabel, fit.cx, blockTop + digitH + K.gap + capH)
   track(0, 0)
 
   // Text.

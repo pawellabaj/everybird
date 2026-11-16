@@ -1,9 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NAME_MAX } from '@/lib/share/link'
-import { IMAGE_SIZE, NAME_MAX_LEN, SHARE_COLORS, cardLayout, countLayout, filterLabel, fitPack, latestText, maxTileFrac, maxTileSide, OG_COUNT_MAX, ogCountHole, packSpec, placeCredit, SPREAD, spreadY, FOOTER_LINE, SHARE_CREDIT, SITE_LABEL } from '@/lib/share/image'
-import { countText, holeExtent, numberEm } from '@/lib/layout/count-box'
+import { IMAGE_SIZE, NAME_MAX_LEN, SHARE_COLORS, cardLayout, countLayout, drawShareImage, filterLabel, fitPack, latestText, maxTileFrac, maxTileSide, OG_COUNT_MAX, ogCountHole, packSpec, placeCredit, SPREAD, spreadY, FOOTER_LINE, SHARE_CREDIT, SITE_LABEL } from '@/lib/share/image'
+import { MONO_CAP, MONO_CAP_ACCENT, countText, holeExtent, numberEm } from '@/lib/layout/count-box'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { pt } from '@/i18n/messages/pt'
 import { asOfDate, withStamp } from '@/lib/share/stamp'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { orderLabel } from '@/lib/species/orders'
@@ -206,6 +209,17 @@ describe('countLayout (the count in the middle)', () => {
       expect(h.num[2] - h.num[0]).toBeGreaterThanOrEqual(numberEm(K.number) * K.size - 1e-6)
     }
   })
+  it("the label's box reaches an accented capital's ink (ESPÉCIES), inside the same column", () => {
+    for (const n of [197, 1089, 11019]) {
+      const c = countLayout('story', n, 952)
+      const { num, label } = c.hole
+      expect(label[3] - label[1]).toBeCloseTo(MONO_CAP_ACCENT * c.labelSize, 6)
+      // The accent rises into the gap; the column (digits, gap, caps) and so the drawn text's place are unchanged.
+      expect(label[3] - num[1]).toBeCloseTo(0.745 * c.size + c.gap + MONO_CAP * c.labelSize, 6)
+      // Eight characters of Geist Mono with their tracking, the longest label in any language.
+      expect(label[2] - label[0]).toBeGreaterThanOrEqual(8 * 0.66 * c.labelSize - 1e-6)
+    }
+  })
   it('the label is legible and smaller than the number', () => {
     const c = countLayout('post', 1500, 952)
     expect(c.labelSize).toBeGreaterThanOrEqual(18)
@@ -319,5 +333,51 @@ describe('the footer line (the site and the sticker credit, never truncated)', (
     const r = placeCredit(measure(long), 952 - 280, 952, 20)
     expect(r).toEqual({ size: 20, below: true })
     expect(measure(long)(r.size)).toBeLessThanOrEqual(952)
+  })
+})
+
+describe('drawShareImage draws the count in the UI language', () => {
+  // A recording canvas: every fillText is kept. No stickers (st: false draws outlines), a pack given, no fonts API.
+  function stubCanvas() {
+    const texts: string[] = []
+    const ctx = new Proxy({ letterSpacing: '0px' } as Record<string | symbol, unknown>, {
+      get(t, k) {
+        if (k in t) return t[k]
+        if (k === 'fillText') return (text: string) => { texts.push(text) }
+        if (k === 'measureText') return (text: string) => ({ width: text.length * 10, actualBoundingBoxAscent: 0 })
+        return () => {}
+      },
+      set(t, k, v) { t[k] = v; return true },
+    })
+    const canvas = { width: 0, height: 0, getContext: () => ctx }
+    vi.stubGlobal('document', { createElement: () => canvas, documentElement: {} })
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+    vi.stubGlobal('Path2D', class {})
+    return texts
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+  const many = (n: number) => {
+    const rows = Array.from({ length: n }, (_, i) => ({ code: `b${i}`, com: `Bird ${i}`, sci: `B ${i}`, ord: 'Passeriformes', fam: 'Passeridae', famCom: 'Sparrows', to: i, st: false, ar: 1 }))
+    const index = { rows, byCode: new Map(rows.map((r) => [r.code, r])), search: () => [] } as unknown as SpeciesIndex
+    const entries = rows.map((r) => ({ code: r.code, date: '2020-05', place: { country: 'CA' }, heard: false, dead: false, media: false, sources: ['ebird'] })) as never
+    return { index, entries }
+  }
+  const draw = async (n: number, strings?: Parameters<typeof drawShareImage>[0]['strings']) => {
+    const texts = stubCanvas()
+    const { index, entries } = many(n)
+    await drawShareImage({ format: 'post', entries, species: index, theme: 'light', pack: { W: 100, H: 100, boxes: new Map() }, now: new Date(2026, 10, 14), latest: false, strings })
+    return texts
+  }
+  it('draws the count label in the UI language, upper-cased', async () => {
+    expect(await draw(1089, pt.ui)).toContain('ESPÉCIES')
+    const esTexts = await draw(1089, es.ui)
+    expect(esTexts).toContain('1.089')
+    expect(esTexts).toContain('ESPECIES')
+  })
+  it('English by default, as before', async () => {
+    const texts = await draw(1089)
+    expect(texts).toContain('1,089')
+    expect(texts).toContain('SPECIES')
+    expect(await draw(1089, en.ui)).toEqual(texts)
   })
 })

@@ -19,7 +19,11 @@ const ui = {
     asOf: 'As of',
   },
   /** The count's label under the number (Tally, share images, link previews). At most 8 characters: the hole is sized for it. */
-  count: { label: 'species' },
+  count: {
+    label: 'species',
+    /** The settled count for screen readers (Tally's live region): "12 species". {n} is the formatted number. */
+    live: { one: '{n} species', other: '{n} species' },
+  },
   /** The top bar (TopBar, ThemeToggle) and the footer (SiteFooter) on every page. */
   shell: {
     nav: {

@@ -8,7 +8,10 @@ export const es: Messages = {
       months: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'],
       asOf: 'Al',
     },
-    count: { label: 'especies' },
+    count: {
+      label: 'especies',
+      live: { one: '{n} especie', other: '{n} especies' },
+    },
     shell: {
       nav: {
         label: 'Everybird',

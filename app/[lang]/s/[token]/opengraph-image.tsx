@@ -7,6 +7,8 @@ import { packBest, relSizes, type Box } from '@/lib/layout/pack'
 import { latestLifer } from '@/lib/list/build-list'
 import type { ListEntry } from '@/lib/list/model'
 import { formatDate } from '@/lib/format'
+import { EN_UI } from '@/i18n/messages/en'
+import { countDisplay } from '@/lib/layout/count-box'
 import { OG_COUNT_MAX, SHARE_COLORS, FOOTER_LINE, countLayout, ogCountHole, type CountLayout } from '@/lib/share/image'
 import { ymToDate } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
@@ -89,6 +91,10 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   }
   const name = payload ? ogName(payload) : 'Everybird'
   const K = payload ? ogCount(payload.birds.length) : null
+  // The drawn count (K's number and label are the geometry's): English until the preview takes the page's language.
+  const strings = EN_UI
+  const countNum = payload ? countDisplay(payload.birds.length, strings.num) : ''
+  const countLabel = strings.count.label.toUpperCase()
 
   // The footer, as the share images': the wordmark and one quiet line, the site and the sticker credit ("… · stickers by
   // huashu"). Beside the wordmark on the wide text card; under it beside the collage, where the column is too narrow.
@@ -102,8 +108,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   const middle = K && (
     <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, width: OG_COLLAGE.w, height: OG_COLLAGE.h, alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: K.gap * 0.6 }}>
-        <div style={{ display: 'flex', fontFamily: CABINET, fontWeight: 700, fontSize: K.size, lineHeight: 0.85, letterSpacing: -0.02 * K.size }}>{K.number}</div>
-        <div style={{ display: 'flex', fontFamily: MONO, fontSize: K.labelSize, lineHeight: 1.3, letterSpacing: 0.06 * K.labelSize, color: C.muted }}>{K.label}</div>
+        <div style={{ display: 'flex', fontFamily: CABINET, fontWeight: 700, fontSize: K.size, lineHeight: 0.85, letterSpacing: -0.02 * K.size }}>{countNum}</div>
+        <div style={{ display: 'flex', fontFamily: MONO, fontSize: K.labelSize, lineHeight: 1.3, letterSpacing: 0.06 * K.labelSize, color: C.muted }}>{countLabel}</div>
       </div>
     </div>
   )
@@ -125,8 +131,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
           {K && !placed.length && (
             // No collage (a hiccup or no stickers): the count leads the text card instead.
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 28 }}>
-              <div style={{ display: 'flex', fontFamily: CABINET, fontWeight: 700, fontSize: 112, lineHeight: 1, letterSpacing: -3 }}>{K.number}</div>
-              <div style={{ display: 'flex', fontFamily: MONO, fontSize: 24, letterSpacing: 1.4, color: C.muted }}>{K.label}</div>
+              <div style={{ display: 'flex', fontFamily: CABINET, fontWeight: 700, fontSize: 112, lineHeight: 1, letterSpacing: -3 }}>{countNum}</div>
+              <div style={{ display: 'flex', fontFamily: MONO, fontSize: 24, letterSpacing: 1.4, color: C.muted }}>{countLabel}</div>
             </div>
           )}
           {!K && <div style={{ display: 'flex', fontSize: 34, fontWeight: 500, color: C.muted, marginTop: 24 }}>{OG_DESCRIPTION}</div>}

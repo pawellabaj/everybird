@@ -8,7 +8,10 @@ export const nl: Messages = {
       months: ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'],
       asOf: 'Per',
     },
-    count: { label: 'soorten' },
+    count: {
+      label: 'soorten',
+      live: { one: '{n} soort', other: '{n} soorten' },
+    },
     shell: {
       nav: {
         label: 'Everybird',
