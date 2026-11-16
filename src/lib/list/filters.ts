@@ -1,6 +1,5 @@
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
-import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
@@ -152,7 +151,7 @@ export function options(
   }
 
   const label = (v: string) =>
-    level === 'order' ? orderLabel(v) : level === 'family' ? famLabel.get(v) || v : level === 'country' ? name(v) : v
+    level === 'family' ? famLabel.get(v) || v : level === 'country' ? name(v) : v
   const out = [...counts].map(([value, count]) => ({ value, label: label(value), count }))
   if (level === 'order' || level === 'family') out.sort((a, b) => firstTo.get(a.value)! - firstTo.get(b.value)!)
   else if (level === 'country') out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))

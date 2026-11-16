@@ -2,10 +2,12 @@
 // it to the page prerendered for one language (/es/about). The language comes from the preference cookie, else from
 // Accept-Language's first tag, else English. Vercel's router applies these (`has` conditions), so a visit costs no Proxy
 // or Function invocation. No `@/` imports: next.config.ts imports this file relatively.
-import { LANGS } from './langs'
+import { LANGS, LANG_COOKIE, type Lang } from './langs'
 
-/** The preference cookie (src/i18n/choose.ts writes it): `en|es|pt|nl`. */
-export const LANG_COOKIE = 'everybird-lang'
+export { LANG_COOKIE }
+
+/** The languages negotiated from Accept-Language: every language but English, the fallback. */
+const NEGOTIATED = LANGS.filter((l): l is Exclude<Lang, 'en'> => l !== 'en')
 
 /**
  * Every unprefixed path a page answers at, in rule order. `/s/:token` (the shared view, negotiated) comes before
@@ -26,11 +28,9 @@ const anyCase = (s: string) => [...s].map((c) => `[${c.toUpperCase()}${c.toLower
  * Next compiles a `has` value as `new RegExp('^' + value + '$')`; the value carries its own anchors as well, so it also
  * matches the whole header on a router that doesn't add them ("^^…$$" is the same regex).
  */
-export const ACCEPT: Record<'es' | 'pt' | 'nl', string> = {
-  es: `^${anyCase('es')}(?:[-_][^,;]*)?(?:[;,].*)?$`,
-  pt: `^${anyCase('pt')}(?:[-_][^,;]*)?(?:[;,].*)?$`,
-  nl: `^${anyCase('nl')}(?:[-_][^,;]*)?(?:[;,].*)?$`,
-}
+export const ACCEPT = Object.fromEntries(
+  NEGOTIATED.map((l) => [l, `^${anyCase(l)}(?:[-_][^,;]*)?(?:[;,].*)?$`]),
+) as Record<(typeof NEGOTIATED)[number], string>
 
 /** The cookie's value when it names a language; the named group becomes `:lang` in the destination. */
 const COOKIE_VALUE = `^(?<lang>${LANGS.join('|')})$`
@@ -47,7 +47,7 @@ export function langRewrites(): LangRewrite[] {
     if (source === OLD_IMAGES) return [{ source, destination: `/en${source}` }]
     return [
       { source, destination: `/:lang${dest(source)}`, has: [{ type: 'cookie', key: LANG_COOKIE, value: COOKIE_VALUE }] },
-      ...(['es', 'pt', 'nl'] as const).map((l) => ({
+      ...NEGOTIATED.map((l) => ({
         source,
         destination: `/${l}${dest(source)}`,
         has: [{ type: 'header' as const, key: 'accept-language', value: ACCEPT[l] }],

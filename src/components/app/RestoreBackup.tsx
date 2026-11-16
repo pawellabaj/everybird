@@ -19,6 +19,8 @@ export function RestoreBackup({ onRestore, disabled }: { onRestore: (s: Saved) =
     try {
       onRestore(fromJson(await file.text()))
     } catch (e) {
+      // English shows BackupError's own, more specific message (what the restore tests pin); the other languages show
+      // restoreWhy, whose English strings are the translators' source text and are never rendered in English.
       const why = e instanceof BackupError && lang !== 'en'
         ? { json: d.restoreWhy.json, 'not-backup': d.restoreWhy.notBackup, version: d.restoreWhy.version, damaged: d.restoreWhy.damaged }[e.reason]
         : lang === 'en' && e instanceof Error ? e.message : ''

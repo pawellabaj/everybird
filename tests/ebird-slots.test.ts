@@ -56,7 +56,7 @@ describe('the two eBird slots', () => {
 
   it('the store merges both slots: the county from the full export shows', () => {
     const species = { rows: [], byCode: new Map([['a', { code: 'a', to: 1 }]]), search: () => [] } as unknown as SpeciesIndex
-    const reduce = makeReducer({ species, countryName: (c) => c })
+    const reduce = makeReducer({ species })
     let st = reduce(initialState(), { type: 'import', source: 'ebird', result: result([rec('a', { place: { country: 'CA', sub1: 'CA-BC', sub2: 'Kootenay' } })]) })
     st = reduce(st, { type: 'import', source: 'ebird-list', result: result([rec('a', { place: { country: 'CA', sub1: 'CA-BC' } })]) })
     expect(st.list).toHaveLength(1)
@@ -66,7 +66,7 @@ describe('the two eBird slots', () => {
 
   it('a fix on a life-list row is keyed by its slot and counts', () => {
     const species = { rows: [], byCode: new Map([['z', { code: 'z', to: 1 }]]), search: () => [] } as unknown as SpeciesIndex
-    const reduce = makeReducer({ species, countryName: (c) => c })
+    const reduce = makeReducer({ species })
     let st = reduce(initialState(), { type: 'import', source: 'ebird-list', result: result([], { unmatched: [{ source: 'ebird', row: 2, reason: 'no-match' }] }) })
     expect(st.openUnmatched).toHaveLength(1)
     st = reduce(st, { type: 'edit', edits: { ...st.saved.edits, fixes: { 'ebird-list:2': 'z' } } })

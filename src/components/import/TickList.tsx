@@ -11,6 +11,7 @@ import { removedText, UndoToast, type Removal } from '@/components/app/UndoToast
 import { Sticker } from '@/components/collage/Sticker'
 import { fmt, plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
+import { HTML_LANG } from '@/i18n/langs'
 import { useI18n } from '@/i18n/I18nProvider'
 import { regionsIn } from '@/lib/i18n-places'
 import { track } from '@/lib/analytics'
@@ -19,7 +20,8 @@ import type { Edits, Place } from '@/lib/list/model'
 import type { Action } from '@/lib/list/store'
 import { addTicked, filterTickRows, removeTicked, undoRemove } from '@/lib/list/tick'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { displayName, familyName, nameOfCode, useNames } from '@/lib/species/names'
+import { displayName, familyName, nameOfCode } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import { orderLabel } from '@/lib/species/orders'
 import type { Regions } from '@/lib/species/types'
 import { parseManualDate } from './manual-date'
@@ -79,12 +81,12 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
   const rows = useMemo(() => filterTickRows(species.rows, { q: dq, order, family }), [species, dq, order, family, names])
   // Country names in the UI language (Intl.DisplayNames, src/lib/i18n-places.ts), sorted in its order.
   const countries = useMemo(
-    () => Object.entries(regionsIn(regions, lang).countries).map(([iso, name]) => [iso, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], lang)),
+    () => Object.entries(regionsIn(regions, lang).countries).map(([iso, name]) => [iso, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], HTML_LANG[lang])),
     [regions, lang],
   )
   const subs = useMemo(
-    () => (country ? Object.entries(regions.sub1).filter(([c]) => c.startsWith(`${country}-`)).map(([c, name]) => [c, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1])) : []),
-    [regions, country],
+    () => (country ? Object.entries(regions.sub1).filter(([c]) => c.startsWith(`${country}-`)).map(([c, name]) => [c, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], HTML_LANG[lang])) : []),
+    [regions, country, lang],
   )
 
   // A new search or group starts at the top.

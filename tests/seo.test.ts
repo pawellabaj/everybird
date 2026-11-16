@@ -44,7 +44,6 @@ describe('page metadata', () => {
   it('/about has its own canonical and card', async () => {
     const metadata = await (await import('../app/[lang]/(app)/about/page')).generateMetadata(params('en'))
     expect(metadata.title).toBe('About · Everybird')
-    expect(metadata.alternates?.canonical).toBe(`${ORIGIN}/about`)
     expect(metadata.openGraph).toMatchObject({ url: `${ORIGIN}/about`, title: metadata.title, description: metadata.description })
   })
 

@@ -55,7 +55,7 @@ Country names come from `Intl.DisplayNames` (the one `Intl` exception), bird and
 ## How to add a language
 
 1. `src/i18n/langs.ts`: add the code to `LANGS`, and its entries to `HTML_LANG` and `LANG_NAMES` (the name in its own language).
-2. `src/i18n/messages/<lang>.ts`: `export const <lang>: Messages = { … }`, every key of `en.ts` translated with this glossary (add the new column above). `npx tsc --noEmit` names any missing key; `tests/i18n.test.ts` names extra, empty or untranslated ones. Add it to `MESSAGES` in `tests/i18n-render.tsx`.
+2. `src/i18n/messages/<lang>.ts`: `export const <lang>: Messages = { … }`, every key of `en.ts` translated with this glossary (add the new column above). `npx tsc --noEmit` names any missing key; `tests/i18n.test.ts` names extra, empty or untranslated ones. Add it to `MESSAGES` in `src/i18n/server.ts` (the test helper `tests/i18n-render.tsx` imports that map).
 3. The count label must be at most 8 characters (`COUNT_LABEL_CHARS`), and the group separator no wider than ",".
-4. A rewrite regex for the language in `routes.ts`, so `/about` reaches `/<lang>/about` from the cookie or `Accept-Language`.
+4. Nothing in `routes.ts`: its cookie value and `Accept-Language` rules derive from `LANGS`, so `/about` reaches `/<lang>/about` by itself.
 5. eBird's locales for its bird names in `NAME_LOCALES` (the names build), with their regional fallbacks.

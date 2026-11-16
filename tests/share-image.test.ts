@@ -40,7 +40,7 @@ describe('filterLabel', () => {
     expect(filterLabel({ countries: ['EG'], from: '2026-01', to: '2026-12' }, ctx, en.ui)).toBe('Egypt · 2026')
     expect(filterLabel({ from: '2025-03', to: '2026-06' }, ctx, en.ui)).toBe('Mar 2025 to Jun 2026')
     expect(filterLabel({ countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx, en.ui)).toBe('Egypt · Sep 2026')
-    expect(filterLabel({ order: 'Pelecaniformes', countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx, en.ui)).toBe(`${orderLabel('Pelecaniformes')} · Egypt · Sep 2026`)
+    expect(filterLabel({ order: 'Pelecaniformes', countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx, en.ui)).toBe(`${orderLabel('Pelecaniformes', en.ui)} · Egypt · Sep 2026`)
   })
 })
 

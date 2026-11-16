@@ -12,6 +12,8 @@ import { emptySaved } from '@/lib/list/storage'
 import { initialState, makeReducer, type AppState } from '@/lib/list/store'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { fmt } from '@/i18n/core'
+import { es } from '@/i18n/messages/es'
 import { withI18n } from './i18n-render'
 
 const sp = (code: string, com: string, sci: string, ord: string, fam: string, famCom: string, to: number, g: number): SpeciesRow =>
@@ -25,7 +27,7 @@ const species = buildSpeciesIndex([
 ])
 const regions: Regions = { v: 1, countries: { CA: 'Canada' }, sub1: { 'CA-BC': 'British Columbia' } }
 const rec = (code: string, date: string): SourceRecord => ({ code, source: 'ebird', date, place: { country: 'CA', sub1: 'CA-BC' } })
-const reduce = makeReducer({ species, countryName: (c) => (c === 'CA' ? 'Canada' : c) })
+const reduce = makeReducer({ species })
 
 function seeded(): AppState {
   const saved = emptySaved()
@@ -266,7 +268,7 @@ describe('in Spanish', () => {
     const field = screen.getByRole('combobox', { name: 'Buscar un ave' })
     expect(field).toHaveAttribute('placeholder', 'Buscar un ave')
     fireEvent.change(field, { target: { value: 'zzz' } })
-    expect(screen.getByRole('listbox', { name: 'Aves y grupos que coinciden' })).toHaveTextContent('Ninguna ave de esta lista coincide con “zzz”.')
+    expect(screen.getByRole('listbox', { name: 'Aves y grupos que coinciden' })).toHaveTextContent(fmt(es.ui.collage.search.noneThis, { q: 'zzz' }))
     expect(screen.getByRole('button', { name: 'Cerrar la búsqueda' })).toBeInTheDocument()
   })
   it('the legend in Spanish', () => {

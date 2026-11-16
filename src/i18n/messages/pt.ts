@@ -32,6 +32,7 @@ export const pt: Messages = {
     },
     settings: {
       language: 'Idioma',
+      languageChange: 'Mudar idioma',
       enNames: {
         label: 'Mostrar os nomes das aves em inglês',
         note: 'Onde aparecerem nomes de aves, neste dispositivo.',
@@ -169,7 +170,7 @@ export const pt: Messages = {
       find: { country: 'Encontrar um país', province: 'Encontrar um estado ou província', county: 'Encontrar um condado' },
       noMatch: { country: 'Nenhum país corresponde.', province: 'Nenhum estado ou província corresponde.', county: 'Nenhum condado corresponde.' },
       allCountries: 'Todos os países',
-      allOf: 'Todos os lugares: {place}',
+      allOf: 'Tudo em {place}',
       drill: { country: 'Mostrar estados e províncias: {place}', province: 'Mostrar condados: {place}' },
       group: { country: 'Estados e províncias: {place}', province: 'Condados: {place}' },
       none: 'Não há lugares nesta lista.',
@@ -200,7 +201,7 @@ export const pt: Messages = {
     landing: {
       title: 'Uma vida inteira de aves.',
       lede: 'Sua lista de vida como uma colagem de adesivos, do eBird, do iNaturalist ou à mão.',
-      makeYours: 'Faça o seu',
+      makeYours: 'Faça a sua',
       samplePrefix: 'Exemplo: a lista de vida de um observador de aves fictício',
       sampleFailed: 'Não foi possível carregar a colagem de exemplo. Verifique sua conexão e recarregue a página.',
       welcome: 'Uma vida inteira de aves, como uma colagem de adesivos.',

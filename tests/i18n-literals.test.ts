@@ -15,7 +15,6 @@ export const SCOPES = ['src/components/app', 'src/components/collage', 'src/comp
 
 /** Files in a scope that another task translates, or that stay English, each with why. */
 export const SKIP: Record<string, string> = {
-  'src/components/collage/Tally.tsx': "Task 6: the count's label and live text",
   'app/global-not-found.tsx': 'English by design: no route, so no language (its own document)',
 }
 

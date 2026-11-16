@@ -1,6 +1,6 @@
 'use client'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { loadRegions, stripBracket } from '@/lib/import/places'
+import { loadRegions } from '@/lib/import/places'
 import { loadSpecies, type SpeciesIndex } from '@/lib/species/load'
 import { buildList } from './build-list'
 import type { Filter } from './filters'
@@ -47,7 +47,7 @@ export type Action =
   /** Internal: the hook reports where the last save went. */
   | { type: 'persistence'; persistence: AppState['persistence'] }
 
-export type StoreContext = { species: SpeciesIndex; countryName: (iso2: string) => string }
+export type StoreContext = { species: SpeciesIndex }
 
 /** Every record the list is built from: each slot's records, then the fixed unmatched rows (source-counts.ts
  *  `slottedRecords`, which also says each record's slot). */
@@ -143,7 +143,7 @@ export function makeReducer(ctx: StoreContext): (s: AppState, a: Action) => AppS
   }
 }
 
-const NO_CTX: StoreContext = { species: { rows: [], byCode: new Map(), search: () => [] }, countryName: (c) => c }
+const NO_CTX: StoreContext = { species: { rows: [], byCode: new Map(), search: () => [] } }
 const SAVE_DELAY_MS = 500
 
 export type EverybirdMeta = {
@@ -202,12 +202,9 @@ export function useEverybird(opts: { deferIfEmpty?: boolean } = {}): [AppState, 
           setMeta((m) => (m.ready ? m : { ...m, stored: stored0 }))
           if (!stored0) await whenIdle(1500)
         } else void storedP.then((st) => { if (!cancelled) setMeta((m) => (m.ready ? m : { ...m, stored: st })) }, () => {})
-        const [species, regions, stored] = await Promise.all([loadSpecies(), loadRegions(), storedP])
+        const [species, , stored] = await Promise.all([loadSpecies(), loadRegions(), storedP])
         if (cancelled) return
-        setCtx({
-          species,
-          countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso),
-        })
+        setCtx({ species })
         const early = queue.current ?? []
         queue.current = null
         // The restored list itself is not re-saved, unless queued actions change it (then they must be saved).

@@ -32,6 +32,7 @@ export const nl: Messages = {
     },
     settings: {
       language: 'Taal',
+      languageChange: 'Taal wijzigen',
       enNames: {
         label: 'Vogelnamen in het Engels tonen',
         note: 'Overal waar vogelnamen staan, op dit apparaat.',
@@ -179,7 +180,7 @@ export const nl: Messages = {
         add: 'Plaatsen weet alleen waar je elke vogel voor het eerst hebt vastgelegd. <link>Voeg MyEBirdData toe</link> om te filteren op elke plaats waar je elke vogel hebt vastgelegd, tot op het graafschap.',
         reimport: 'Plaatsen weet alleen waar je elke vogel voor het eerst hebt vastgelegd. <link>Importeer MyEBirdData opnieuw</link> om te filteren op elke plaats waar je elke vogel hebt vastgelegd.',
       },
-      andMore: '{first} en {n} meer',
+      andMore: '{first} en nog {n}',
     },
     card: {
       close: 'Sluiten',
@@ -335,9 +336,9 @@ export const nl: Messages = {
       addLabel: '{title} toevoegen',
       replace: 'Vervangen',
       replaceLabel: '{name} vervangen',
-      more: 'Meer voor {title}',
+      more: 'Meer opties voor {title}',
       remove: 'Verwijderen',
-      removeLabel: 'Verwijder {what}',
+      removeLabel: '{what} verwijderen',
       removeAsk: 'Wil je {what} verwijderen? De vogels ervan verdwijnen uit je collage, tenzij een andere bron ze heeft. Je aanpassingen blijven.',
       removeYes: 'Ja, verwijderen',
       keep: 'Houden',
@@ -347,7 +348,7 @@ export const nl: Messages = {
         fullFile: 'Volledige eBird-export',
         listWhat: 'je eBird-levenslijstdownload',
         fullWhat: 'je volledige eBird-export',
-        listGuide: 'Je wereldlevenslijst uit eBird. Hij is meteen gedownload en plaatst elke vogel tot op de staat of provincie.',
+        listGuide: 'Je wereldlevenslijst uit eBird. Je downloadt hem meteen. Hij plaatst elke vogel tot op de staat of provincie.',
         fullGuide: 'De volledige export van eBird met al je checklists. Hij plaatst vogels tot op de regio (graafschap), en vult je levenslijst aan als je beide toevoegt.',
         listHelp: 'Op eBird: My eBird, dan het totaal van je wereldlevenslijst, dan Download. Het gaat meteen, en de plaatsen gaan tot op de staat of provincie.',
         fullHelp: 'Op eBird: Download My Data (onder My eBird). eBird mailt je MyEBirdData.csv; dat plaatst vogels tot op de regio (graafschap).',
@@ -387,8 +388,8 @@ export const nl: Messages = {
       },
       notCounted: {
         groups: {
-          one: '{n} regel is geen soort: vogels die alleen tot een groep zijn gedetermineerd (zoals “Anas sp.”), of-of-determinaties (zoals “Aythya marila/affinis”) en hybriden. eBird laat ze ook weg uit levenslijsten.',
-          other: '{n} regels zijn geen soorten: vogels die alleen tot een groep zijn gedetermineerd (zoals “Anas sp.”), of-of-determinaties (zoals “Aythya marila/affinis”) en hybriden. eBird laat ze ook weg uit levenslijsten.',
+          one: '{n} rij is geen soort: vogels die alleen tot een groep zijn gedetermineerd (zoals “Anas sp.”), of-of-determinaties (zoals “Aythya marila/affinis”) en hybriden. eBird laat ze ook weg uit levenslijsten.',
+          other: '{n} rijen zijn geen soorten: vogels die alleen tot een groep zijn gedetermineerd (zoals “Anas sp.”), of-of-determinaties (zoals “Aythya marila/affinis”) en hybriden. eBird laat ze ook weg uit levenslijsten.',
         },
         unmatched: {
           one: '{n} rij kon niet worden gekoppeld aan de eBird-taxonomie van dit jaar.',

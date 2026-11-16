@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import { refreshLangCookie } from './choose'
 import type { Lang } from './langs'
-import { EN_UI, type Ui } from './messages/en'
+import { EN_UI, type Ui } from './messages/en-ui'
 
 type I18n = { lang: Lang; t: Ui }
 

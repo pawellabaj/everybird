@@ -4,6 +4,8 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { fmt } from '@/i18n/core'
+import { es } from '@/i18n/messages/es'
 import { withI18n } from './i18n-render'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
@@ -28,7 +30,6 @@ const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => 
 const species = buildSpeciesIndex([row('duck1', 'Anseriformes', 'Anatidae', 1), row('crow1', 'Passeriformes', 'Corvidae', 3), row('owl1', 'Strigiformes', 'Strigidae', 5)])
 const MORE = { FR: 'France', DE: 'Germany', JP: 'Japan', KE: 'Kenya', PE: 'Peru', MX: 'Mexico', AU: 'Australia' }
 const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
-const name = (c: string) => regions.countries[c] ?? c
 
 type Variant = 'full' | 'lifer' | 'countries' | 'many'
 
@@ -36,7 +37,7 @@ type Variant = 'full' | 'lifer' | 'countries' | 'many'
 // Egypt, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
 // species with lifer countries only and no seen-here.
 function seeded(variant: Variant = 'full') {
-  const reduce = makeReducer({ species, countryName: name })
+  const reduce = makeReducer({ species })
   const saved = emptySaved()
   saved.records.ebird = variant === 'full' || variant === 'many'
     ? [
@@ -58,11 +59,11 @@ function seeded(variant: Variant = 'full') {
 function seededOwl() {
   const saved = emptySaved()
   saved.records.ebird = [{ code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] }]
-  return makeReducer({ species, countryName: name })(initialState(), { type: 'restore', saved })
+  return makeReducer({ species })(initialState(), { type: 'restore', saved })
 }
 
 function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
-  const reduce = makeReducer({ species, countryName: name })
+  const reduce = makeReducer({ species })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
@@ -657,7 +658,7 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
 })
 
 describe('in Spanish', () => {
-  it('countries by DisplayNames (Canadá), the levels, "Todo Canadá" and the drill labels from es.ui', () => {
+  it('countries by DisplayNames (Canadá), the levels, "Todo en Canadá" (es.ui.places.allOf) and the drill labels from es.ui', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />, { wrapper: withI18n('es') })
     expect(placesBtn()).toHaveAccessibleName('Lugares')
@@ -669,7 +670,7 @@ describe('in Spanish', () => {
     expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Ver estados y provincias de Canadá')
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     expect(screen.getByTestId('places-path')).toHaveTextContent('Todos los países/Canadá')
-    expect(screen.getByTestId('place-all')).toHaveAccessibleName('Todo Canadá, 3 especies')
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName(`${fmt(es.ui.places.allOf, { place: 'Canadá' })}, 3 especies`)
     expect(screen.getByRole('list', { name: 'Estados y provincias' })).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('place-all'))
     expect(placesBtn()).toHaveAccessibleName('Lugares: Canadá')

@@ -197,3 +197,18 @@ describe('stripLang', () => {
       expect(stripLang(p), p).toBe(p)
   })
 })
+
+describe('the rules follow LANGS', () => {
+  it('Accept-Language is negotiated for every language but English, each with its own rule per page', () => {
+    const others = LANGS.filter((l) => l !== 'en')
+    expect(Object.keys(ACCEPT).sort()).toEqual([...others].sort())
+    for (const l of others) {
+      expect(resolve('/about', { accept: l })).toBe(`/${l}/about`)
+      expect(resolve('/about', { accept: `${l.toUpperCase()}-xx,en;q=0.8` })).toBe(`/${l}/about`)
+    }
+    expect(resolve('/about', { accept: 'en-GB' })).toBe('/en/about')
+  })
+  it('a language cookie among others is found, whatever its position', () => {
+    for (const l of LANGS) expect(resolve('/settings', { cookie: `a=1; ${LANG_COOKIE}=${l}; b=2`, accept: 'nl' })).toBe(`/${l}/settings`)
+  })
+})

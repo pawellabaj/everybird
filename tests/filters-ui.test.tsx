@@ -25,7 +25,7 @@ const species = buildSpeciesIndex([
 const rec = (code: string, country: string, date: string): SourceRecord => ({ code, source: 'ebird', date, place: { country } })
 
 function seeded(): AppState {
-  const reduce = makeReducer({ species, countryName: (c) => (c === 'CA' ? 'Canada' : c === 'EG' ? 'Egypt' : c) })
+  const reduce = makeReducer({ species })
   const saved = emptySaved()
   saved.records.ebird = [
     rec('duck1', 'CA', '2020-05-01'), rec('duck2', 'CA', '2021-05-01'), rec('crow1', 'EG', '2021-06-01'),
@@ -35,7 +35,7 @@ function seeded(): AppState {
 }
 
 function Harness({ initial }: { initial?: AppState }) {
-  const reduce = makeReducer({ species, countryName: (c) => (c === 'CA' ? 'Canada' : c === 'EG' ? 'Egypt' : c) })
+  const reduce = makeReducer({ species })
   const [state, dispatch] = useReducer(reduce, initial ?? seeded())
   return (
     <>

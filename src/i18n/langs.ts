@@ -4,6 +4,9 @@
 export const LANGS = ['en', 'es', 'pt', 'nl'] as const
 export type Lang = (typeof LANGS)[number]
 
+/** The preference cookie (src/i18n/choose.ts writes it, the rewrites in routes.ts read it): `en|es|pt|nl`. */
+export const LANG_COOKIE = 'everybird-lang'
+
 export function isLang(s: unknown): s is Lang {
   return typeof s === 'string' && (LANGS as readonly string[]).includes(s)
 }

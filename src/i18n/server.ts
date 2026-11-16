@@ -7,7 +7,7 @@ import { es } from './messages/es'
 import { nl } from './messages/nl'
 import { pt } from './messages/pt'
 
-const MESSAGES: Record<Lang, Messages> = { en, es, pt, nl }
+export const MESSAGES: Record<Lang, Messages> = { en, es, pt, nl }
 
 export function getMessages(lang: Lang): Messages {
   return MESSAGES[lang]

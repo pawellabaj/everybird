@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
-import { EN_UI, type Ui } from '@/i18n/messages/en'
+import type { Ui } from '@/i18n/messages/en-ui'
 
 /** How long "Removed … · Undo" stays. */
 export const UNDO_MS = 6000
@@ -14,8 +14,8 @@ export const UNDO_MS = 6000
 /** What a removal took off, to undo: the line to show and the codes. */
 export type Removal = { text: string; codes: string[] }
 
-/** "Removed Snow Goose." for one bird, "Removed 3 birds." for more, in `t`'s language (English when no `t` is given). */
-export function removedText(names: string[], t: Ui = EN_UI): string {
+/** "Removed Snow Goose." for one bird, "Removed 3 birds." for more, in `t`'s language. */
+export function removedText(names: string[], t: Ui): string {
   return plural(t.collage.removed, names.length, { n: formatInt(names.length, t.num), name: names[0] ?? '' })
 }
 

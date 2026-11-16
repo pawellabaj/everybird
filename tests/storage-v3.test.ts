@@ -121,7 +121,6 @@ describe('replace, refresh and remove one source', () => {
   it('the store: import carries details, remove drops a source and the list rebuilds', () => {
     const ctx: StoreContext = {
       species: { rows: [], byCode: new Map(), search: () => [] } as never,
-      countryName: (c) => c,
     }
     const reduce = makeReducer(ctx)
     let st = reduce(initialState(), { type: 'import', source: 'ebird', result: result([rec('a')]), details: { kind: 'full-export', file: 'f.csv', rows: 1, at: AT } })

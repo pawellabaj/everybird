@@ -5,7 +5,6 @@ import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
-import { formatDate, formatMass as legacyMass, MONTHS } from '@/lib/format'
 
 describe('formatInt: grouped from 4 digits', () => {
   it('groups by language', () => {
@@ -35,10 +34,10 @@ describe('formatMass', () => {
     expect(formatMass(7.25, pt.ui.num)).toBe('7,3 g')
     expect(formatMass(33, nl.ui.num)).toBe('33 g')
   })
-  it('is today’s English output in English', () => {
-    for (const g of [33, 4.27, 1130, 999.6, 2400, 7.25, 0, 10, 1_000_000, Number.NaN, -1, Infinity]) {
-      expect(formatMass(g, en.ui.num)).toBe(legacyMass(g))
-    }
+  it('reads as English always did: whole grams from 10, one decimal under 10 and for kilograms', () => {
+    const cases: [number, string][] = [[33, '33 g'], [4.27, '4.3 g'], [1130, '1.1 kg'], [999.6, '1000 g'], [2400, '2.4 kg'], [7.25, '7.3 g'], [0, '0.0 g'], [10, '10 g'], [1_000_000, '1000.0 kg']]
+    for (const [g, text] of cases) expect(formatMass(g, en.ui.num)).toBe(text)
+    for (const g of [Number.NaN, -1, Infinity]) expect(formatMass(g, en.ui.num)).toBe('')
   })
 })
 
@@ -48,11 +47,10 @@ describe('formatMonth', () => {
     expect(formatMonth('2026-03', nl.ui.date.months)).toBe('mrt 2026')
     expect(formatMonth('2026-02-14', pt.ui.date.months)).toBe('fev 2026')
   })
-  it('is formatDate’s output in English', () => {
-    expect(en.ui.date.months).toEqual(MONTHS)
-    for (const d of ['2026-09-30', '2026-09', '2022', 'junk', undefined, '2026-13', '2026-00', '']) {
-      expect(formatMonth(d, en.ui.date.months)).toBe(formatDate(d))
-    }
+  it('reads as English always did: "Sep 2026", a bare year, nothing for junk', () => {
+    expect(en.ui.date.months).toHaveLength(12)
+    const cases: [string | undefined, string][] = [['2026-09-30', 'Sep 2026'], ['2026-09', 'Sep 2026'], ['2022', '2022'], ['junk', ''], [undefined, ''], ['2026-13', '2026'], ['2026-00', '2026'], ['', '']]
+    for (const [d, text] of cases) expect(formatMonth(d, en.ui.date.months)).toBe(text)
   })
 })
 
