@@ -3,6 +3,7 @@ export const DATA_FILES = {
   'species.v1.json': 'species.v1.f07084044e.json',
   'taxonomy.v1.json': 'taxonomy.v1.ded5d08fde.json',
   'regions.v1.json': 'regions.v1.098d136545.json',
+  'groups.v1.json': 'groups.v1.58ae6e3a9a.json',
   'masks.v2.json': 'masks.v2.afba42e8fe.json',
   'sample.v1.json': 'sample.v1.300671bac4.json',
   'sample-pack.v1.json': 'sample-pack.v1.7d766a15cd.json',
