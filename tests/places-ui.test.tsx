@@ -29,7 +29,7 @@ const MORE = { FR: 'France', DE: 'Germany', JP: 'Japan', KE: 'Kenya', PE: 'Peru'
 const regions: Regions = { v: 1, countries: { CA: 'Canada', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
 const name = (c: string) => regions.countries[c] ?? c
 
-type Variant = 'full' | 'lifer' | 'countries' | 'many'
+type Variant = 'full' | 'lifer' | 'countries' | 'many' | 'two'
 
 // full: duck1 lifer in Canada, also seen in the US (Capital, British Columbia and King, Washington); crow1 lifer in
 // Mexico, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
@@ -37,9 +37,9 @@ type Variant = 'full' | 'lifer' | 'countries' | 'many'
 function seeded(variant: Variant = 'full') {
   const reduce = makeReducer({ species, countryName: name })
   const saved = emptySaved()
-  saved.records.ebird = variant === 'full' || variant === 'many'
+  saved.records.ebird = variant === 'full' || variant === 'many' || variant === 'two'
     ? [
-        { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King', ...(variant === 'many' ? Object.keys(MORE).map((c) => `2023-01-01|${c}`) : [])] },
+        { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King', ...(variant === 'many' ? Object.keys(MORE).map((c) => `2023-01-01|${c}`) : variant === 'two' ? ['2021-01-01|KE', '2023-01-01|JP'] : [])] },
         { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'MX' }, seen: ['2019-01-01|MX', '2022-01-01|CA-BC'] },
         { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] },
       ]
@@ -71,6 +71,7 @@ function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesN
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Passeriformes' } })}>crows only</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, from: '2022-01' } })}>from 2022</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
     </>
   )
@@ -365,6 +366,19 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(ontario).toHaveAccessibleName('Ontario, 0 species')
     fireEvent.click(ontario)
     expect(filterOf()).toEqual({ order: 'Anseriformes' })
+  })
+
+  it('the top-level search finds a checked country the Time range has emptied (count 0)', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="two" />)
+    openFilters()
+    fireEvent.click(screen.getByTestId('drill-n:AF'))
+    fireEvent.click(screen.getByTestId('country-KE'))
+    fireEvent.click(screen.getByRole('button', { name: 'All continents' }))
+    fireEvent.click(screen.getByRole('button', { name: 'from 2022' }))
+    expect(filterOf()).toEqual({ countries: ['KE'], from: '2022-01' })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Find a country' }), { target: { value: 'Ken' } })
+    expect(screen.getByTestId('country-KE')).toHaveAccessibleName('Kenya, 0 species')
   })
 
   it('a drilled level with nothing left under the other filters says so, the breadcrumb kept', () => {

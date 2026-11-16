@@ -191,7 +191,11 @@ describe('chips and labels', () => {
   it('the Places label names continents first ("Africa + Kenya"); the spoken name lists them by name', () => {
     expect(placesLabel({ continents: ['AF'], countries: ['KE'] }, regions)).toBe('Africa + Kenya')
     expect(placesLabel({ continents: ['AF', 'EU', 'OC'], countries: ['CA'] }, regions)).toBe('Africa and 3 more')
-    expect(placesLabel({ countries: ['FR@SA'] }, regions)).toBe('France')
+    expect(placesLabel({ countries: ['FR@SA'] }, regions)).toBe('France (South America)')
+    expect(placesLabel({ countries: ['FR', 'FR@SA'] }, regions)).toBe('France + France (South America)')
+    expect(placesLabel({ countries: ['CA', 'CA'] }, regions)).toBe('Canada')
+    expect(placesSpoken({ countries: ['FR', 'FR@SA'] }, regions)).toBe('France, France (South America)')
+    expect(filterChips({ countries: ['FR', 'FR@SA'] }, regions).map((c) => [c.label, c.spoken])).toEqual([['France', 'France'], ['France (South America)', 'France (South America)']])
     expect(placesSpoken({ continents: ['AF'], countries: ['EG', 'KE'] }, regions)).toBe('Africa; Egypt, Kenya')
     expect(placesSpoken({ continents: ['AF'] }, regions)).toBe('Africa')
     expect(filtersSpoken({ continents: ['AF'] }, regions)).toBe('Places: Africa')

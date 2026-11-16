@@ -32,7 +32,20 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
   const level = levelUnder(at, flat)
   const shownLevel = searching ? 'country' : level
   const rows = usePlaceRows(counts, filter, at, regions, flat)
-  const found = searching ? matchRows(countryRows(counts, (k) => placeName(k, regions)), q) : []
+  // The search also finds a checked country, or one holding a checked place, that the counts have emptied (count 0).
+  const found = (() => {
+    if (!searching) return []
+    const rowsAll = countryRows(counts, (k) => placeName(k, regions))
+    const have = new Set(rowsAll.map((r) => r.value))
+    for (const key of filterPlaceKeys(filter)) {
+      let k: string | undefined = key
+      while (k && parsePlaceKey(k)?.level !== 'country') k = parentKey(k)
+      if (!k || have.has(k)) continue
+      have.add(k)
+      rowsAll.push({ value: k, label: placeName(k, regions), count: 0, children: 0 })
+    }
+    return matchRows(rowsAll, q)
+  })()
   const checked = useMemo(() => new Set(filterPlaceKeys(filter)), [filter])
   // "All of <parent>": the parent's own count, as its row one level up shows it (from the same counts).
   const allCount = at ? (placeRows(counts, parentKey(at), (k) => k).find((o) => o.value === at)?.count ?? 0) : 0

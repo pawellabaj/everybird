@@ -36,7 +36,7 @@ export function continentNames(continents: readonly ContinentId[] | undefined): 
  * order); undefined for none.
  */
 export function placesLabel(f: Filter, regions: Names): string | undefined {
-  return namesLabel(filterPlaceKeys(f).map((k) => placeName(k, regions)))
+  return namesLabel([...new Set(filterPlaceKeys(f).map((k) => placeName(k, regions)))])
 }
 
 /**

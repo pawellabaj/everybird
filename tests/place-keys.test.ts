@@ -55,7 +55,8 @@ describe('place keys', () => {
     expect(placeName('s:CA-XX', regions)).toBe('CA-XX')
     expect(placeName('k:CA-BC|Capital', regions)).toBe('Capital')
     expect(placeName('n:NA', regions)).toBe('North America')
-    expect(placeName('c:FR@SA', { countries: { FR: 'France' }, sub1: {} })).toBe('France')
+    expect(placeName('c:FR@SA', { countries: { FR: 'France' }, sub1: {} })).toBe('France (South America)')
+    expect(placeName('c:FR', { countries: { FR: 'France' }, sub1: {} })).toBe('France')
     expect(placeNameLong('c:CA', regions)).toBe('Canada') // never with its continent
     expect(placeNameLong('s:CA-BC', regions)).toBe('British Columbia, Canada')
     expect(placeNameLong('k:CA-BC|Capital', regions)).toBe('Capital, British Columbia')

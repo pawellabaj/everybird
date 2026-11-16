@@ -101,12 +101,12 @@ type Names = Pick<Regions, 'countries' | 'sub1'>
 const countryName = (iso: string, r: Names) => (r.countries[iso] ? stripBracket(r.countries[iso]) : iso)
 const sub1Name = (code: string, r: Names) => (r.sub1[code] ? stripBracket(r.sub1[code]) : code)
 
-/** A key's own name: "Canada", "British Columbia", "Capital"; the code when the regions don't know it. */
+/** A key's own name: "Canada", "British Columbia", "Capital", "France (South America)" for an overseas part; the code when the regions don't know it. */
 export function placeName(key: string, regions: Names): string {
   const p = parsePlaceKey(key)
   if (!p) return key
   if (p.level === 'continent') return continentName(p.continent!)
-  if (p.level === 'country') return countryName(p.country, regions)
+  if (p.level === 'country') return p.continent ? `${countryName(p.country, regions)} (${continentName(p.continent)})` : countryName(p.country, regions)
   if (p.level === 'province') return sub1Name(p.sub1!, regions)
   return p.county!
 }
