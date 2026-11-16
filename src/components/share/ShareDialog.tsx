@@ -45,6 +45,9 @@ import '@/components/app/app.css'
 import '@/components/collage/collage.css'
 import './share.css'
 
+/** How long the preview's frame eases to a new shape and the images cross-fade (share.css, as the photo lightbox). */
+const PREVIEW_EASE_MS = 420
+
 type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesIndex; regions: Regions; onClose: () => void }
 
 const RENDER_DELAY_MS = 250
@@ -63,11 +66,12 @@ type QuietAction = { label: string; short?: string; icon: Icon; onClick: () => v
 /** Why a link carries less than the regions (a large list), or nothing for a full link. */
 const levelReason = (level: ShareLevel, t: ReturnType<typeof useI18n>['t']) => (level === 'regions' ? '' : t.share.level[level])
 
-export default function ShareDialog({ state, species, regions, onClose }: Props) {
+export default function ShareDialog({ state, dispatch, species, regions, onClose }: Props) {
   const names = useNames()
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const nameId = useId()
+  const optionalId = useId()
   useEscapeCapture(onClose)
   useFocusInAndBack(ref)
   useHoldTopBar()
@@ -138,9 +142,14 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   /** The finished PNG for `key`, so Share and Download can use it without awaiting anything. */
   const ready = useRef<{ key: string; blob: Blob } | null>(null)
   const previewUrl = useRef<string | null>(null)
+  // The image being replaced stays a layer over the frame while it fades out (share.css); its blob URL is revoked after.
+  const [outgoing, setOutgoing] = useState<{ url: string; w: number; h: number } | null>(null)
+  const outgoingUrl = useRef<string | null>(null)
+  const outgoingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const shownSize = useRef<[number, number]>([0, 0])
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${print ? `print|${size}` : format}|${trimmed}|${theme}|${withLatest}|${withStatus}|${lang}|${names}`
+  const key = `${print ? `print|${size}` : format}|${trimmed}|${theme}|${withLatest}|${withStatus}|${lang}|${names}|${fk}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   // What the render depends on: in print mode not the share format, so switching it there never starts a needless render.
@@ -163,7 +172,18 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     job.then(
       (blob) => {
         if (!live) return
-        if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+        clearTimeout(outgoingTimer.current)
+        if (outgoingUrl.current) URL.revokeObjectURL(outgoingUrl.current)
+        outgoingUrl.current = previewUrl.current
+        if (outgoingUrl.current) {
+          const gone = outgoingUrl.current
+          setOutgoing({ url: gone, w: shownSize.current[0], h: shownSize.current[1] })
+          outgoingTimer.current = setTimeout(() => {
+            URL.revokeObjectURL(gone)
+            if (outgoingUrl.current === gone) outgoingUrl.current = null
+            setOutgoing(null)
+          }, PREVIEW_EASE_MS)
+        }
         ready.current = { key, blob }
         previewUrl.current = URL.createObjectURL(blob)
         setPreview({ url: previewUrl.current, format: cardFormat, size, key })
@@ -176,7 +196,11 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     )
     return () => { live = false; cancel() }
   }, [key, print, size, cardFormat, trimmed, theme, withLatest, withStatus, packFor, shown, species, label, t])
-  useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
+  useEffect(() => () => {
+    clearTimeout(outgoingTimer.current)
+    if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
+    if (outgoingUrl.current) URL.revokeObjectURL(outgoingUrl.current)
+  }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
   const linkModule = useRef<ReturnType<typeof loadLinkModule> | null>(null)
@@ -394,6 +418,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
   const shownCard: CardFormat = preview?.format ?? (print ? 'print' : format)
   const [w, h] = shownCard === 'print' ? [1080, Math.round(printDesignH(preview?.size ?? size))] : IMAGE_SIZE[shownCard]
+  shownSize.current = [w, h]
   const pct = makingNow && makingNow.total > 0 ? Math.round((makingNow.done / makingNow.total) * 100) : 0
   const [cmW, cmH] = PRINT_CM[size]
   const [pxW, pxH] = PRINT_PX[size]
@@ -407,7 +432,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     lastShown.current = shownFormat
     if (!el || !was || was === shownFormat) return
     el.dataset.resizing = ''
-    const t = setTimeout(() => { delete el.dataset.resizing }, 400)
+    const t = setTimeout(() => { delete el.dataset.resizing }, PREVIEW_EASE_MS + 60)
     return () => clearTimeout(t)
   }, [shownFormat])
   // The actions: the primary slot (Share image; in print mode Make poster, the progress row or
@@ -508,11 +533,16 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
           {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits
               centred in an area the story's size, so the controls keep their place in every format. */}
           <div ref={previewBox} className="eb-share-preview" data-format={shownCard} aria-busy={busy} data-testid="share-preview">
+            {outgoing && (
+              // The image just replaced, fading out over the frame while it changes shape.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="eb-share-out" src={outgoing.url} width={outgoing.w} height={outgoing.h} alt="" aria-hidden="true" />
+            )}
             {preview && (
               // A blob URL of the rendered PNG: next/image has nothing to optimise here.
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={preview.url} width={w} height={h}
+                key={preview.url} className="eb-share-in" src={preview.url} width={w} height={h}
                 alt={preview.format === 'print' ? fmt(t.share.print.previewAlt, { size: preview.size }) : t.share.preview[preview.format]}
               />
             )}
@@ -536,38 +566,46 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                 </div>
               )}
 
-              <div className="eb-share-field">
-                <label htmlFor={nameId} className="eb-share-label">{t.share.nameLabel}</label>
-                <input
-                  id={nameId}
-                  className="eb-share-input"
-                  type="text"
-                  autoComplete="off"
-                  maxLength={NAME_MAX_LEN}
-                  placeholder={t.share.namePlaceholder}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
-                />
+              <div className="eb-share-box">
+                <div className="eb-share-field">
+                  <div className="eb-share-labelrow">
+                    <label htmlFor={nameId} className="eb-share-label">{t.share.nameLabel}</label>
+                    <span id={optionalId} className="eb-share-optional">{t.share.nameOptional}</span>
+                  </div>
+                  <input
+                    id={nameId}
+                    className="eb-share-input"
+                    type="text"
+                    autoComplete="off"
+                    maxLength={NAME_MAX_LEN}
+                    placeholder={t.share.namePlaceholder}
+                    aria-describedby={optionalId}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
+                  />
+                </div>
+
+                <div className="eb-share-switches" data-testid="share-switches">
+                  {hasLatest && (
+                    <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
+                      <span>{t.share.showLatest}</span>
+                      <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+                    </button>
+                  )}
+
+                  {hasThreatened && (
+                    <button type="button" role="switch" aria-checked={showStatus} className="eb-switch eb-share-switch" onClick={() => setShowStatus((v) => !v)}>
+                      <span>{t.share.showStatus}</span>
+                      <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+                    </button>
+                  )}
+
+                  <button type="button" role="switch" aria-checked={dark} className="eb-switch eb-share-switch" onClick={() => setDark((v) => !v)}>
+                    <span>{t.share.dark}</span>
+                    <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+                  </button>
+                </div>
               </div>
-
-              {hasLatest && (
-                <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
-                  <span>{t.share.showLatest}</span>
-                  <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
-                </button>
-              )}
-
-              {hasThreatened && (
-                <button type="button" role="switch" aria-checked={showStatus} className="eb-switch eb-share-switch" onClick={() => setShowStatus((v) => !v)}>
-                  <span>{t.share.showStatus}</span>
-                  <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
-                </button>
-              )}
-
-              <button type="button" role="switch" aria-checked={dark} className="eb-switch eb-share-switch" onClick={() => setDark((v) => !v)}>
-                <span>{t.share.dark}</span>
-                <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
-              </button>
             </div>
 
             <div className="eb-share-actions">
@@ -579,7 +617,12 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             {manual && (
               <input ref={manualRef} className="eb-share-input" type="text" readOnly value={manual} aria-label={t.share.linkField} onFocus={(e) => e.currentTarget.select()} />
             )}
-            {fk && <p className="eb-note">{t.share.filtered}</p>}
+            {fk && (
+              <div className="eb-note eb-share-filters" data-testid="share-filters">
+                <span>{label ? fmt(t.share.filters, { label }) : t.share.filtersNoLabel}</span>
+                <button type="button" className="eb-textbtn" onClick={() => dispatch({ type: 'filter', filter: {} })}>{t.share.clearFilters}</button>
+              </div>
+            )}
             {/* Buy Me a Coffee's standard static button, self-hosted as on About (no script, nothing from their servers),
                 at 32px tall in the column's bottom right corner; never on the images. */}
             <a className="eb-share-coffee" href={COFFEE_URL} target="_blank" rel="noopener noreferrer">

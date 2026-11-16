@@ -222,19 +222,45 @@ describe('share dialog', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Print a poster' })).toHaveFocus())
   })
 
-  it('has no "Image options" heading; the title field, "Show latest lifer" and "Dark image" follow one another', () => {
-    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+  it('has no "Image options" heading; the three switches share one row inside one box with the title field', () => {
+    const st = { ...stateWith([entry('ostric2')]), filter: { countries: ['CA'] } }
+    render(<ShareDialog state={st} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     expect(screen.queryByText('Image options')).toBeNull()
     expect(screen.queryByRole('group', { name: 'Image options' })).toBeNull()
     const field = screen.getByLabelText('Collage title').closest('.eb-share-field')!
     const latest = screen.getByRole('switch', { name: 'Show latest lifer' })
     const dark = screen.getByRole('switch', { name: 'Dark image' })
-    expect(field.nextElementSibling).toBe(latest)
-    expect(latest.nextElementSibling).toBe(dark)
-    // In print mode the size control sits above the title.
+    const row = screen.getByTestId('share-switches')
+    expect(latest.parentElement).toBe(row)
+    expect(dark.parentElement).toBe(row)
+    expect(field.nextElementSibling).toBe(row)
+    expect(row.parentElement).toBe(field.parentElement)
+    expect(row.parentElement).toHaveClass('eb-share-box')
+    // In print mode the size control sits above the box, outside it.
     fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
     const sizes = screen.getByRole('group', { name: 'Poster size' })
     expect(sizes.compareDocumentPosition(screen.getByLabelText('Collage title')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(sizes.closest('.eb-share-box')).toBeNull()
+  })
+
+  it('the title label says "(optional)" beside it and the placeholder is an example', () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    const input = screen.getByLabelText('Collage title')
+    expect(input).toHaveAttribute('placeholder', 'My 2024 birds')
+    expect(screen.getByText('(optional)')).toBeInTheDocument()
+    expect(input).toHaveAccessibleDescription('(optional)')
+  })
+
+  it('the filters line shows only with a filter, and Clear filters dispatches the empty filter', () => {
+    const dispatch = vi.fn()
+    const { unmount } = render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={dispatch} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.queryByTestId('share-filters')).toBeNull()
+    unmount()
+    const st = { ...stateWith([entry('ostric2')]), filter: { countries: ['CA'] } }
+    render(<ShareDialog state={st} dispatch={dispatch} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.getByTestId('share-filters')).toHaveTextContent(/^Showing your filters: .*Canada/)
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(dispatch).toHaveBeenCalledWith({ type: 'filter', filter: {} })
   })
 
   it('"Dark image" starts at the app\'s theme (light)', () => {
@@ -316,7 +342,8 @@ describe('share dialog', () => {
     expect(screen.getByRole('switch', { name: 'Última especie nueva' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copiar enlace' })).toBeInTheDocument()
     expect(screen.getByLabelText('Título del collage')).toBeInTheDocument()
-    expect(screen.getByText('La imagen muestra el filtro actual.')).toBeInTheDocument()
+    expect(screen.getByText(/Mostrando tus filtros: /)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: es.share.clearFilters })).toBeInTheDocument()
     await waitFor(() => expect(renders).toHaveLength(1))
     const opts = vi.mocked(image.renderShareImage).mock.calls[0][0]
     expect(opts.strings).toBe(es)

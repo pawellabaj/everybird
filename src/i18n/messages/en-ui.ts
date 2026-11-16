@@ -402,7 +402,8 @@ export const EN_UI = {
     linkFailed: 'Couldn’t make the link. Try again.',
     tooLarge: 'This list is too large for a link. Share the image instead.',
     nameLabel: 'Collage title',
-    namePlaceholder: 'Optional, shown on the image',
+    namePlaceholder: 'My 2024 birds',
+    nameOptional: '(optional)',
     showLatest: 'Show latest lifer',
     showStatus: 'Show conservation status',
     shareImage: 'Share image',
@@ -423,7 +424,9 @@ export const EN_UI = {
     copyThis: 'Copy this link:',
     /** The hand-copy field's aria-label. */
     linkField: 'Share link',
-    filtered: 'The image shows the current filter.',
+    filters: 'Showing your filters: {label}',
+    filtersNoLabel: 'Showing your filters.',
+    clearFilters: 'Clear filters',
     /** The latest lifer row's mono label on the images and the link preview ("LATEST LIFER · SEP 2026"; upper-cased in code). */
     latestLifer: 'Latest lifer',
     /** A link made before titles carries a bare name: its title (og.ts shareTitle). */
