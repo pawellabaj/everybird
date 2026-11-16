@@ -159,3 +159,89 @@ describe('source spans and purity', () => {
     expect(parse('')).toEqual({ filter: {}, chips: [], rest: '' })
   })
 })
+
+// nf-9 bug check (2026-11-15): connectors, bare three-letter months, province suffixes, hyphenated ranges, "from X",
+// month aliases and the waterfowl synonyms.
+describe('nf-9 review fixes: connectors and whole words in group names', () => {
+  it.each([
+    ['es', 'aves de garzas'], ['es', 'aves del mar'], ['es', 'aves de la costa'], ['es', 'aves de'], ['pt', 'aves do Brasil'],
+  ] as const)('%s "%s" never yields Birds-of-Paradise', (lang, q) => {
+    expect(parse(q, lang).filter.group).not.toBe('birds-of-paradise')
+  })
+  it('still reads "aves del paraíso" as Birds-of-Paradise', () => {
+    expect(parse('aves del paraíso', 'es').filter.group).toBe('birds-of-paradise')
+  })
+})
+
+describe('nf-9 review fixes: three-letter months', () => {
+  it('"aves del mar" has no date, and a bare "mar" is not March', () => {
+    for (const q of ['aves del mar', 'mar']) {
+      const r = parse(q, 'es')
+      expect(r.chips.filter((c) => c.kind === 'date')).toEqual([])
+      expect(r.filter.from).toBeUndefined()
+      expect(r.filter.to).toBeUndefined()
+    }
+  })
+  it('"mar 2020" is March 2020 and "marzo" is March', () => {
+    expect(parse('mar 2020', 'es').filter).toMatchObject({ from: '2020-03', to: '2020-03' })
+    expect(parse('marzo', 'es').filter).toMatchObject({ from: '2026-03', to: '2026-03' })
+  })
+})
+
+describe('nf-9 review fixes: province code suffixes need an uppercase code', () => {
+  const listed = { ...ctx, listPlaces: ['s:US-OR', 's:AR-A', 's:CM-NO', 's:US-AL', 's:CA-BC'] }
+  it.each(['or', 'a', 'no', 'al'])('lowercase "%s" is an ordinary word, not a province', (q) => {
+    expect(parseSmart(q, { ...listed, lang: 'en' }).filter.provinces).toBeUndefined()
+  })
+  it('an uppercase BC with CA-BC on the list is still British Columbia', () => {
+    expect(parseSmart('BC', { ...listed, lang: 'en' }).filter.provinces).toEqual(['CA-BC'])
+  })
+})
+
+describe('nf-9 review fixes: hyphenated month ranges', () => {
+  it('"Jan-Mar 2020" and "oct-dec 2025" are month ranges', () => {
+    expect(span('Jan-Mar 2020')).toEqual(['2020-01', '2020-03'])
+    expect(span('oct-dec 2025')).toEqual(['2025-10', '2025-12'])
+  })
+  it('"Nov-Feb" matches the en-dash form, spanning the year boundary', () => {
+    expect(span('Nov-Feb')).toEqual(span('Nov–Feb'))
+    expect(span('Nov-Feb')).toEqual(['2025-11', '2026-02'])
+  })
+  it('spaced and en-dash forms keep working', () => {
+    expect(span('Jan - Mar 2020')).toEqual(['2020-01', '2020-03'])
+    expect(span('Jan – Mar 2020')).toEqual(['2020-01', '2020-03'])
+  })
+  it('compounds and place codes stay whole', () => {
+    expect(parse('beija-flor', 'pt').filter.group).toBe('hummingbirds')
+    expect(parse('CA-BC').filter.provinces).toEqual(['CA-BC'])
+  })
+})
+
+describe('nf-9 review fixes: "from X" with no end is since X', () => {
+  it('"birds from 2019" is since January 2019', () => {
+    expect(span('birds from 2019')).toEqual(['2019-01', '2026-11'])
+  })
+  it('"from March 2020" is since March 2020', () => {
+    expect(span('from March 2020')).toEqual(['2020-03', '2026-11'])
+  })
+  it('"from nov to feb" stays a range', () => {
+    expect(span('from nov to feb')).toEqual(['2025-11', '2026-02'])
+  })
+})
+
+describe('nf-9 review fixes: month spellings', () => {
+  it('"mrt 2020" is March 2020 and "setiembre 2020" is September 2020', () => {
+    expect(span('mrt 2020', 'nl')).toEqual(['2020-03', '2020-03'])
+    expect(span('setiembre 2020', 'es')).toEqual(['2020-09', '2020-09'])
+  })
+})
+
+describe('nf-9 review fixes: waterbird words', () => {
+  it('the waterfowl synonyms no longer list waterbird words', () => {
+    const file = JSON.parse(readFileSync('data/i18n/group-synonyms.json', 'utf8'))
+    expect(JSON.stringify(file.waterfowl)).not.toMatch(/acuáticas|aquáticas|watervogels/)
+  })
+  it('"aves aquáticas" (pt) is not waterfowl', () => {
+    expect(parse('aves aquáticas', 'pt').filter.group).not.toBe('waterfowl')
+  })
+})

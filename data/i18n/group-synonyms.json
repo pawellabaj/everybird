@@ -1,9 +1,9 @@
 {
   "waterfowl": {
     "en": ["duck", "ducks", "goose", "geese", "swan", "swans"],
-    "es": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes", "aves acuáticas"],
-    "pt": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes", "aves aquáticas"],
-    "nl": ["eend", "eenden", "gans", "ganzen", "zwaan", "zwanen", "watervogels"]
+    "es": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes"],
+    "pt": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes"],
+    "nl": ["eend", "eenden", "gans", "ganzen", "zwaan", "zwanen"]
   },
   "vultures-hawks-and-allies": {
     "en": ["raptor", "raptors", "hawk", "hawks", "eagle", "eagles", "kite", "kites", "hawks eagles and kites"],

@@ -2,11 +2,11 @@
 import type { Filter } from '../list/filters'
 import { parsePlaceKey, placeName, keysOfPlace } from '../list/place-keys'
 import { countryNameMap, sub1Names, SUB1_ALIASES, OBSORG_SUB1_ALIASES } from '../places/names'
-import { searchKey, nameTier } from '../species/name-search'
+import { searchKey } from '../species/name-search'
 import { ORDERS } from '../species/orders'
 import type { Regions, SpeciesRow } from '../species/types'
 import synonyms from '../../../data/i18n/group-synonyms.json'
-import { dateParser, SEARCH_CONNECTORS, type SearchWord } from './dates'
+import { dateParser, monthIndex, monthOfWord, SEARCH_CONNECTORS, type SearchWord } from './dates'
 import type { BirdGroup, SearchLang } from './groups'
 
 export type SearchStatus = 'LC' | 'NT' | 'VU' | 'EN' | 'CR' | 'EW' | 'EX' | 'DD' | 'NE'
@@ -36,8 +36,12 @@ export type SearchContext = {
   familyNames?: Readonly<Record<string, string>>
 }
 
-type Entity = { value: string; name: string; aliases: string[]; exactOnly?: boolean }
+type Entity = { value: string; name: string; aliases: string[]; exactOnly?: boolean; codes?: string[] }
 const GENERIC = new Set(['bird', 'birds', 'and', 'of', 'the', 'aves', 'vogel', 'vogels'])
+/** Words dropped from a phrase before group and taxon names are matched word by word ("aves de garzas" is "aves garzas"). */
+const CONNECTOR_WORDS = new Set(['de', 'del', 'do', 'da', 'dos', 'das', 'la', 'el', 'los', 'las', 'of', 'the', 'van', 'der', 'het'])
+/** A province code typed as capitals ("BC", "ON"); lowercase "or", "no" and "al" are words, never codes. */
+const isCodeWord = (raw: string) => /^\p{Lu}{2,}$/u.test(raw)
 const singular = (s: string) => s.split(' ').map((w) => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w).join(' ')
 const unique = <T,>(xs: Iterable<T>) => [...new Set(xs)]
 const STATUS_WORDS: Record<SearchLang, Record<string, SearchStatus[]>> = {
@@ -50,18 +54,31 @@ const LIFERS: Record<SearchLang, string[]> = {
   en: ['lifer', 'lifers', 'new'], es: ['nuevas', 'nuevos', 'nueva', 'nuevo'], pt: ['novas', 'novos', 'nova', 'novo'], nl: ['nieuw', 'nieuwe'],
 }
 
-function tokenize(input: string): SearchWord[] {
+function tokenize(input: string, months: Map<string, number>): SearchWord[] {
   // Keep compounds (beija-flor, CA-BC), ISO dates, quotes and positions. A numeric year range splits at its dash.
   const re = /"[^"]*"|(?:19|20)\d{2}-\d{2}(?:-\d{2})?(?!\d)|(?:19|20)\d{2}(?![\p{L}\p{N}])|[\p{L}\p{M}\p{N}]+(?:[-'’][\p{L}\p{M}]+)*|[-–—/]|[^\s]/gu
-  return [...input.matchAll(re)].map((m) => ({ raw: m[0], key: searchKey(m[0]), start: m.index!, end: m.index! + m[0].length, quoted: m[0].startsWith('"') }))
+  const word = (text: string, start: number): SearchWord => ({ raw: text, key: searchKey(text), start, end: start + text.length, quoted: text.startsWith('"') })
+  const isMonth = (text: string) => monthOfWord(months, searchKey(text), true) !== undefined
+  const out: SearchWord[] = []
+  for (const m of input.matchAll(re)) {
+    // "Jan-Mar" is two months and a dash, as "Jan – Mar" is; "beija-flor" and "CA-BC" stay whole.
+    const parts = /^([\p{L}\p{M}]+)-([\p{L}\p{M}]+)$/u.exec(m[0])
+    if (parts && isMonth(parts[1]) && isMonth(parts[2])) {
+      const start = m.index!
+      out.push(word(parts[1], start), word('-', start + parts[1].length), word(parts[2], start + parts[1].length + 1))
+    } else out.push(word(m[0], m.index!))
+  }
+  return out
 }
 
 function places(ctx: SearchContext): Entity[] {
   const out = new Map<string, Entity>()
-  const add = (value: string, aliases: string[], exactOnly = false) => {
+  const add = (value: string, aliases: string[], exactOnly = false, codes: string[] = []) => {
     const existing = out.get(value)
-    if (existing) existing.aliases.push(...aliases.map(searchKey))
-    else out.set(value, { value, name: placeName(value, ctx.regions), aliases: aliases.map(searchKey), exactOnly })
+    if (existing) {
+      existing.aliases.push(...aliases.map(searchKey))
+      existing.codes = [...(existing.codes ?? []), ...codes.map(searchKey)]
+    } else out.set(value, { value, name: placeName(value, ctx.regions), aliases: aliases.map(searchKey), exactOnly, codes: codes.map(searchKey) })
   }
   for (const [name, code] of countryNameMap(ctx.regions, ['en', ctx.lang])) add(`c:${code}`, [name])
   for (const [code, name] of Object.entries(ctx.regions.sub1)) {
@@ -74,19 +91,19 @@ function places(ctx: SearchContext): Entity[] {
     for (const k of keysOfPlace({ country: p.country, sub1: p.sub1, sub2: p.county })) onList.add(k)
     if (p.level === 'county') add(key, [p.county!], true)
   }
-  // Short sub1 suffixes are aliases only for places actually on this list. They are exact, never prefix matches.
+  // Short sub1 suffixes ("BC" of CA-BC) are codes only for places on this list: exact, and only as typed in capitals.
   for (const key of onList) {
     const p = parsePlaceKey(key)!
-    if (p.level === 'province') add(key, [p.sub1!.split('-').slice(1).join('-')])
+    if (p.level === 'province') add(key, [], false, [p.sub1!.split('-').slice(1).join('-')])
   }
-  return [...out.values()].map((p) => ({ ...p, aliases: unique(p.aliases) }))
+  return [...out.values()].map((p) => ({ ...p, aliases: unique(p.aliases), codes: unique(p.codes ?? []) }))
 }
 
 /** Recognized spans become filters; every other word stays in its original spelling for bird-name search. */
 export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFilter; chips: Chip[]; rest: string } {
   const filter: SmartFilter = {}
   const chips: Chip[] = []
-  const tokens = tokenize(input)
+  const tokens = tokenize(input, monthIndex(ctx.lang))
   const used = tokens.map(() => false)
   const invalidDates = new Set<number>()
   const languages = unique(['en', ctx.lang] as SearchLang[])
@@ -121,8 +138,15 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
   }
   const match = (entities: Entity[], phrase: string, fuzzy: boolean) => {
     const exact = entities.filter((e) => e.aliases.includes(phrase))
-    if (exact.length || !fuzzy || phrase.length < 4 || phrase.split(' ').every((w) => GENERIC.has(w))) return exact
-    return entities.filter((e) => !e.exactOnly && e.aliases.some((name) => singular(name) === singular(phrase) || name.startsWith(phrase) && nameTier(phrase, { com: name, sci: '' }) >= 0))
+    if (exact.length || !fuzzy) return exact
+    const words = phrase.split(' ').filter((w) => w && !CONNECTOR_WORDS.has(w))
+    if (words.join(' ').length < 4 || words.every((w) => GENERIC.has(w))) return exact
+    // Each word must match a whole word of the name (a prefix only from four letters: "hummingb"), never the name's start.
+    const fits = (name: string) => {
+      const nameWords = name.split(' ')
+      return words.every((w) => nameWords.some((nw) => nw === w || w.length >= 4 && nw.startsWith(w)))
+    }
+    return entities.filter((e) => !e.exactOnly && e.aliases.some((name) => singular(name) === singular(phrase) || fits(name)))
   }
   for (let i = 0; i < tokens.length; i++) {
     if (used[i] || tokens[i].quoted) continue
@@ -142,6 +166,8 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
     }
     // Longest contiguous entity first, like Nest Ledger. Counties can have more than four words.
     for (let n = Math.min(12, tokens.length - i); n >= 1; n--) {
+      // A lone lifer word ("nieuwe", "new") is the basis switch, never a whole-word match inside a group's name.
+      if (n === 1 && lifers.has(t.key)) break
       if (tokens.slice(i, i + n).some((t, j) => t.quoted || used[i + j] || !t.key && !/^[,&.]$/.test(t.raw))) continue
       const phrase = tokens.slice(i, i + n).map((t) => t.raw === '&' ? 'and' : t.key).filter(Boolean).join(' ')
       const status = statuses.get(phrase)
@@ -152,6 +178,7 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
         break
       }
       let hits = match(placeEntities, phrase, false)
+      if (n === 1 && isCodeWord(t.raw)) hits = unique([...hits, ...placeEntities.filter((e) => e.codes?.includes(phrase))])
       if (hits.length > 1) {
         const listed = hits.filter((p) => onList.has(p.value))
         if (listed.length) hits = listed

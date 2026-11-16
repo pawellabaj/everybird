@@ -72,7 +72,7 @@ describe('importInat', () => {
     expect(r.records).toHaveLength(1)
     expect(r.records[0].date).toBe('2024-01-01')
     expect(r.records[0].seen).toEqual(['2024-01-01|US-CA|Alameda'])
-    expect(r.records[0].seenMonths).toEqual(['2024-01,2026-06,2026-11|US-CA|Alameda'])
+    expect(r.records[0].seenMonths).toEqual(['1k801' + '1kaGW' + '|US-CA|Alameda'])
   })
 
   it('pages with id_above until empty', async () => {
@@ -158,7 +158,7 @@ describe('importInat', () => {
   it('earliest observation per name wins; unmatched has one entry with date and place', async () => {
     const r = okResult(await run(fakeFetch()))
     expect(r.unmatched).toEqual([
-      { source: 'inat', row: 6, sci: 'Fakeus birdus', reason: 'no-match', date: '2026-04-01', place: { country: 'US', sub1: 'US-CA' }, seen: ['2026-04-01|US-CA'], seenMonths: ['2026-04|US-CA'] },
+      { source: 'inat', row: 6, sci: 'Fakeus birdus', reason: 'no-match', date: '2026-04-01', place: { country: 'US', sub1: 'US-CA' }, seen: ['2026-04-01|US-CA'], seenMonths: ['1ka08|US-CA'] },
     ])
   })
 
