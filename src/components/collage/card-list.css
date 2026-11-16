@@ -37,19 +37,24 @@
 @keyframes eb-sheet-in { from { opacity: 0; transform: translateY(24px); } }
 .eb-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .eb-card-names { min-width: 0; }
-.eb-card-name { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.2; }
+.eb-card-name { margin: 0; overflow-wrap: break-word; font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.2; }
 .eb-card-name[lang] { font-family: var(--font-body); font-weight: 600; font-size: 16px; font-style: italic; }
-.eb-card-other { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.eb-card-other { margin: 2px 0 0; overflow-wrap: break-word; font-size: 13px; color: var(--muted); }
 .eb-card-other[lang] { font-style: italic; }
-/* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill with it: under it
-   (pill variant a) or before it on its line (b). */
-.eb-card-meta { margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-[data-pill="b"] .eb-card-meta { position: relative; flex-direction: row; align-items: center; gap: 6px; }
+/* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill under it, right-
+   aligned (Yusuf, 2026-11-15). The column's floor is its narrowest unit (`min-width: min-content`, no `min-width: 0`:
+   with it the two shrank in proportion, which left the badge narrower than its pill and longest word, hanging left over
+   the name, and a bird without a status had its nowrap mass pushed into the gap). Above that floor it is `flex: 0 1
+   auto`: its content width, at most 45% of the head, and it gives back what its label's wrapping frees instead of
+   holding the full 45% (a wrapped "Critically Endangered" leaves the name the room). A long name beside it takes the
+   shrinking (.eb-card-names has min-width 0) and breaks inside a word that is wider than it (`overflow-wrap:
+   break-word` on .eb-card-name and .eb-card-other: Sci mode's "meyerdeschauenseei" must not run into the badge). */
+.eb-card-meta { flex: 0 1 auto; margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: min-content; max-width: 45%; }
 .eb-card-mass {
   white-space: nowrap;
   font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
 }
-/* -3px left: the head's 12px gap leaves 9px before the close button, exactly the pill's press area overhang. */
+/* -3px left: the head's 12px gap leaves 9px before the close button. */
 .eb-card-close {
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -10px 0 -3px; padding: 0;
   border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer;
@@ -115,46 +120,48 @@
 
 /* The IUCN Red List pill (IucnPill.tsx): DESIGN.md's mono label in the switch track's full rounding. The fill and the
    text are the Red List chart's, fixed and the same in both themes (never var(--ink): dark Ink is white); only the
-   1px Line ring follows the theme, which keeps EX and EW visible on dark Paper and VU, NT and DD on light Paper. */
+   1px Line ring follows the theme, which keeps EX and EW visible on dark Paper and VU, NT and DD on light Paper.
+   Centring the abbreviation (measured on Geist Mono's variable file, wght 600, which is what draws: layout.tsx loads
+   the whole 100-900 axis, so 600 is real, not synthesised). Units per em 1000; hhea = OS/2 typo ascender 1005,
+   descender -295 (USE_TYPO_METRICS on); cap height 710; advance 600 (6.6px at 11px).
+   Vertical: with line-height 1 the 11px line box is centred in the 18px pill; the baseline sits 11px * (1005 - (1005 +
+   295 - 1000) / 2) / 1000 = 9.405px below the line's top (half-leading -1.65px) and the capitals span 1.595px to 9.405px,
+   so their centre is 5.500px: exactly the line box's centre (the ascender and descender are symmetric about the cap
+   height's middle, (1005 - 295) / 2 = 355 = 710 / 2). The offset is 0.00px; with the baseline snapped to a device pixel
+   at most 0.1px. Nothing to correct, and `text-box: trim-both cap alphabetic` would give the same 0.00px (it does not
+   apply to this flex container's anonymous text anyway).
+   Horizontal: letter-spacing .06em (0.66px) follows every glyph, the last too, so the text's box is 0.66px wider
+   than its ink. The ink's centre against the box's, for the pairs (px, + = right of centre): LC -0.02, NT -0.19, VU
+   -0.51, EN -0.22, CR -0.46, EW 0.00, EX -0.08, DD -0.10 (side bearings and the trailing space together). The
+   spread's midpoint is -0.25px, so the text moves right by .0225em (0.2475px): LC +0.23, NT +0.06, VU -0.26, EN +0.03,
+   CR -0.21, EW +0.25, EX +0.17, DD +0.15, never more than 0.26px off. The padding moves it, one side gaining what the
+   other loses, so the pill is the same width as before (12px + the text).
+   Optical centring (Yusuf saw NT off-centre). The ink's area centroid (fontTools StatisticsPen on the same file, wght
+   600, summed over both glyphs, against the box's centre with the .0225em shift above applied; + = right of centre, px
+   at 11px): LC -0.03, NT -1.01, VU +0.13, EN +0.01, CR +0.02, EW +0.19, EX -0.43, DD -0.16. Only NT and EX are over
+   0.4px, so only they get an extra shift right in the same padding split: NT .09em (0.99px, leaving -0.02px), EX .04em
+   (0.44px, leaving +0.01px), written as .1125em and .0625em in all (the .0225em above plus the extra). The pill keeps
+   its width. Vertically the centroids sit within 0.43px (LC +0.43 low, NT -0.41 high, the rest under 0.13): round and
+   diagonal letters balance differently from flat ones, so no vertical nudge; the box metrics are centred. The collage
+   and list pill (status-mark.css) takes the same em values: the offsets scale with the font size. */
+.eb-iucn[data-cat="NT"] { padding: 0 calc(6px - .1125em) 0 calc(6px + .1125em); }
+.eb-iucn[data-cat="EX"] { padding: 0 calc(6px - .0625em) 0 calc(6px + .0625em); }
 .eb-iucn {
-  flex: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 18px; padding: 0 6px; margin: 0;
+  flex: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 18px;
+  padding: 0 calc(6px - .0225em) 0 calc(6px + .0225em); margin: 0;
   border: 0; border-radius: 9px; background: var(--iucn-fill); color: var(--iucn-text);
   box-shadow: inset 0 0 0 1px var(--line);
   font: 600 11px/1 var(--font-mono); letter-spacing: .06em;
 }
-button.eb-iucn { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-button.eb-iucn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button.eb-iucn { position: relative; }
-/* A 44px press (18px + 2 × 13px) that stops short of the card's close button (9px gap, .eb-card-close). */
-button.eb-iucn::after { content: ""; position: absolute; inset: -13px -9px; }
 
-/* The pill's toggletip: the card's floating look in small, 4px under the pill and above the date line. Shown on a
-   press (data-open), on keyboard focus and on a fine pointer's hover; aria-hidden (the button's name says it). */
-.eb-iucn-wrap { position: relative; display: inline-flex; }
-.eb-iucn-tip {
-  position: absolute; top: calc(100% + 4px); right: 0; z-index: 1;
-  /* One line when it fits; it wraps rather than run past the card's left edge on the narrowest sheets (the tip ends
-     about 66px from the viewport's right, the card's content starts 23px from its left: 100vw - 96px leaves room). */
-  width: max-content; max-width: calc(100vw - 96px);
-  padding: 4px 8px; white-space: normal; pointer-events: none;
-  background: var(--paper); color: var(--ink);
-  border: 1px solid var(--hairline);
-  border-radius: calc(8px * var(--one-if-corner-shape-supported, .566));
-  corner-shape: superellipse(2);
-  box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
-  font: 400 12px/1.3 var(--font-mono);
-  opacity: 0; visibility: hidden;
-  transition: opacity 150ms var(--ease-ui), visibility 0s linear 150ms;
-}
-/* b: the tip hangs from the meta row (positioned, above: pill, then mass) and ends at the mass's right edge, as in a,
-   so a long name ("Critically Endangered") never runs past the card. */
-[data-pill="b"] .eb-iucn-wrap { position: static; }
-.eb-iucn-wrap[data-open] .eb-iucn-tip, .eb-iucn:focus-visible + .eb-iucn-tip {
-  opacity: 1; visibility: visible; transition-delay: 0s;
-}
-@media (hover: hover) and (pointer: fine) {
-  .eb-iucn:hover + .eb-iucn-tip { opacity: 1; visibility: visible; transition-delay: 0s; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .eb-iucn-tip { transition: none; }
-}
+/* The card's status: the pill and the full name, always shown, in the mass's mono style (12px, Muted). The label's
+   line is 18px tall, the pill's height, so a first line sits level with the pill and a wrapped second line under the
+   name. Room on the narrowest sheet (320px viewport: sheet 304, minus 2 * 14px padding and 2px border = 274px head; the
+   close button takes 44 - 3 - 10 = 31px and two 12px gaps): the meta column's narrowest unit is the pill (2 * 7.26 + 12
+   = 26.5px), 6px, and the longest word, "Endangered" (10 * 7.2 = 72px) = 104.5px, which is its floor
+   (`min-content`, above); it may take up to 45% = 123px, so "Critically Endangered", "Extinct in the Wild" and "Data
+   Deficient" wrap under the pill's line and never overflow. The bird's name takes all the shrinking and keeps 274 - 31
+   - 24 - 123 = 96px at the widest column (more beside a shorter badge), never below 274 - 31 - 24 - 104.5 = 114.5px
+   for the narrowest. */
+.eb-iucn-badge { display: inline-flex; align-items: flex-start; gap: 6px; min-width: 0; }
+.eb-iucn-name { min-width: 0; font: 500 12px/18px var(--font-mono); color: var(--muted); text-align: right; overflow-wrap: break-word; }

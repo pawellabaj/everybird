@@ -1,18 +1,15 @@
-'use client'
 // A global IUCN Red List category as a small pill in the Red List chart's colours (IUCN_COLORS): the fill and the
 // text are fixed and the same in both themes; only the 1px Line ring follows the theme (card-list.css .eb-iucn).
-// The span form is decoration beside words that already name the category (the Status panel's rows), so it is
-// hidden from assistive tech. The button form is the bird card's: a toggletip whose label (the full name) shows on a
-// press, on keyboard focus and on a fine pointer's hover. The label is visual only: the button's name already says it.
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { fmt } from '@/i18n/core'
+// The pill is decoration beside words that name the category, so it is hidden from assistive tech. The Status panel's
+// rows have their own full name beside it; the bird card uses IucnBadge: the pill and the full name as plain text,
+// always visible (no press), read as "Vulnerable (IUCN Red List)".
+import type { CSSProperties } from 'react'
 import { useI18n } from '@/i18n/I18nProvider'
 import { IUCN_COLORS, type IucnCat } from '@/lib/species/iucn'
 import './card-list.css'
 
-export function IucnPill({ cat, as = 'span' }: { cat: IucnCat; as?: 'span' | 'button' }) {
+export function IucnPill({ cat }: { cat: IucnCat }) {
   const style = { '--iucn-fill': IUCN_COLORS[cat].fill, '--iucn-text': IUCN_COLORS[cat].text } as CSSProperties
-  if (as === 'button') return <IucnToggletip cat={cat} style={style} />
   return (
     <span className="eb-iucn" data-cat={cat} style={style} aria-hidden="true">
       {cat}
@@ -20,38 +17,16 @@ export function IucnPill({ cat, as = 'span' }: { cat: IucnCat; as?: 'span' | 'bu
   )
 }
 
-function IucnToggletip({ cat, style }: { cat: IucnCat; style: CSSProperties }) {
+/** The bird card's status: the pill, then the full name in the card's mono meta style. Never on the tooltip. */
+export function IucnBadge({ cat }: { cat: IucnCat }) {
   const { t } = useI18n()
-  const name = t.iucn.names[cat]
-  const [open, setOpen] = useState(false)
-  const tipId = useId()
-  const ref = useRef<HTMLSpanElement>(null)
-  // An open tip closes on a press anywhere else or when focus leaves the pill (Esc stays the card's: it closes the card).
-  useEffect(() => {
-    if (!open) return
-    const down = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', down)
-    return () => document.removeEventListener('pointerdown', down)
-  }, [open])
   return (
-    <span ref={ref} className="eb-iucn-wrap" data-open={open || undefined} data-testid="iucn-wrap">
-      <button
-        type="button"
-        className="eb-iucn"
-        data-cat={cat}
-        style={style}
-        aria-label={fmt(t.iucn.tip, { cat, name })}
-        aria-expanded={open}
-        aria-controls={tipId}
-        data-testid="iucn-pill"
-        onClick={() => setOpen((o) => !o)}
-        onBlur={() => setOpen(false)}
-      >
-        {cat}
-      </button>
-      <span id={tipId} className="eb-iucn-tip" aria-hidden="true">{name}</span>
+    <span className="eb-iucn-badge" data-testid="iucn-badge">
+      <IucnPill cat={cat} />
+      <span className="eb-iucn-name">
+        {t.iucn.names[cat]}
+        <span className="eb-sr"> {t.iucn.inList}</span>
+      </span>
     </span>
   )
 }

@@ -58,7 +58,7 @@ for (const width of [320, 390, 430, 440, 600] as const) {
       const m = await bar(page);
       expect(m.rows, JSON.stringify(m.rows)).toHaveLength(2);
       expect(m.rows[0]).toEqual(["Collage", "List", expect.stringMatching(/^True/), expect.stringMatching(/^Sci\./), "Find a bird"]);
-      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/), expect.stringMatching(/^Status/)]);
+      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/), expect.stringMatching(/^(Conservation )?[Ss]tatus/)]); // aria-label first: the whole name
       expect(m.dock).toBeLessThanOrEqual(0);
       expect(m.page).toBeLessThanOrEqual(0);
 
@@ -134,7 +134,7 @@ async function dropLabels(page: Page) {
 // The landing sample has Red List statuses (LC and NT), so Status shows. Written in Round 4 and not run by agents.
 test.describe("390px phone, three drops active", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-  test("active labels read in full: Places · 2, Time · a range, Status · 1, nothing cut and the row doesn't overflow", async ({ page }) => {
+  test("active labels read in full: Places · 2, Time · a range, Status · 1 (the phone's short label), nothing cut and the row doesn't overflow", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("filter-tab-status")).toBeVisible();
     const pressRow = (panel: ReturnType<Page["getByTestId"]>, input: ReturnType<Page["locator"]>) =>

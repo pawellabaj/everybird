@@ -188,10 +188,11 @@ export const EN_UI = {
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
     /** The two buttons in the controls bar and their group. */
-    dock: 'Places, time and status',
+    dock: 'Places, time and conservation status',
     places: 'Places',
     time: 'Time',
-    status: 'Status',
+    status: 'Conservation status',
+    statusShort: 'Status',
     clear: 'Clear',
     timeline: {
       /** Full month names, January first (the sliders' value text, the Time button's spoken text). */
@@ -213,7 +214,7 @@ export const EN_UI = {
       empty: 'This list has no dates, so there is no timeline.',
     },
   },
-  /** The Places panel (PlacesList, PlacesDrill, PlacesTree, places-shared). Country names come from the data
+  /** The Places panel (PlacesList, PlacesDrill, places-shared). Country names come from the data
    *  (src/lib/i18n-places.ts); province and county names are local names. */
   places: {
     head: { country: 'Countries', province: 'States and provinces', county: 'Counties' },
@@ -238,7 +239,7 @@ export const EN_UI = {
     andMore: '{first} and {n} more',
   },
   /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
-   *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+   *  Vulnerable + Endangered + Critically Endangered, and the card badge's spoken suffix. */
   iucn: {
     names: {
       LC: 'Least Concern',
@@ -251,12 +252,11 @@ export const EN_UI = {
       DD: 'Data Deficient',
     },
     threatened: 'Threatened',
-    tip: '{cat}, {name} (IUCN Red List)',
+    inList: '(IUCN Red List)',
   },
   /** The Status panel (StatusList). {n} is formatted. */
   status: {
     head: 'Categories · {n}',
-    note: 'Global IUCN Red List categories. Birds without one are left out once you pick a category.',
     threatenedNote: '{n} threatened: Vulnerable, Endangered or Critically Endangered.',
     list: 'Categories',
     none: 'No categories here under the other filters.',

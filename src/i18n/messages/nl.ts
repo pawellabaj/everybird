@@ -149,10 +149,11 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
-      dock: 'Plaatsen, tijd en status',
+      dock: 'Plaatsen, tijd en beschermingsstatus',
       places: 'Plaatsen',
       time: 'Tijd',
-      status: 'Status',
+      status: 'Beschermingsstatus',
+      statusShort: 'Status',
       clear: 'Wissen',
       timeline: {
         months: ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
@@ -187,7 +188,7 @@ export const nl: Messages = {
       andMore: '{first} en nog {n}',
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
-     *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+     *  Vulnerable + Endangered + Critically Endangered, and the card badge's spoken suffix. */
     iucn: {
       names: {
         LC: 'Niet bedreigd',
@@ -200,12 +201,11 @@ export const nl: Messages = {
         DD: 'Onvoldoende gegevens',
       },
       threatened: 'Bedreigd',
-      tip: '{cat}, {name} (Rode Lijst van de IUCN)',
+      inList: '(Rode Lijst van de IUCN)',
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {
       head: 'Categorieën · {n}',
-      note: 'Wereldwijde categorieën van de Rode Lijst van de IUCN. Vogels zonder categorie vallen af zodra je er een kiest.',
       threatenedNote: '{n} bedreigd: Kwetsbaar, Bedreigd of Ernstig bedreigd.',
       list: 'Categorieën',
       none: 'Geen categorieën hier met de andere filters.',

@@ -11,7 +11,9 @@ import { displayName } from '@/lib/species/names'
 import { useNames } from '@/lib/species/use-names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { massValue } from './BirdCard'
+import { markShown } from '@/lib/species/status-mark'
 import { Marks } from './Marks'
+import { StatusMark } from './StatusMark'
 import { Sticker } from './Sticker'
 import './card-list.css'
 
@@ -47,7 +49,7 @@ const Row = memo(function Row({ entry, row, place, sci, onPick, t }: RowProps) {
           <span style={{ width: Math.round(fit * row.ar), height: Math.round(fit) }}><Sticker code={entry.code} st={row.st} ar={row.ar} sv={row.sv} w={fit * row.ar} h={fit} /></span>
         </span>
         <span className="eb-row-name">
-          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}</span><Marks entry={entry} /></span>
+          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}</span><Marks entry={entry} />{markShown(row.iu) && (<><span className="eb-sr">, {t.iucn.names[row.iu]}</span><StatusMark cat={row.iu} /></>)}</span>
           <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</span>
         </span>
         <span className="eb-row-meta">

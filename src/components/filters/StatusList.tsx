@@ -1,6 +1,6 @@
 'use client'
 // The Status panel's body (the Status dropdown in FilterDropdowns.tsx), on the Places panel's structure: the head
-// "Categories · N" with Clear, a Muted note, then one checklist of global IUCN Red List categories in Red List order,
+// "Categories · N" with Clear, then one checklist of global IUCN Red List categories in Red List order,
 // each row the box, the pill, the full name and the count (species under the OTHER filters, statusOptions). A checked
 // category another filter left with no species stays, at 0, so it can be unchecked. At most eight rows: no search.
 import { useMemo } from 'react'
@@ -16,7 +16,7 @@ import { useI18n } from '@/i18n/I18nProvider'
 type Props = {
   state: AppState
   species: SpeciesIndex
-  /** The list's threatened count, for the line under the note (the `threat` preview's c); none: no line. */
+  /** The list's threatened count, for the line under the head (the `threat` preview's c); none: no line. */
   threatLine?: number
   onFilter: (f: Filter) => void
 }
@@ -34,14 +34,13 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
   }, [counted, checked])
 
   return (
-    <div className="eb-places eb-status">
+    <div className="eb-places">
       <div className="eb-places-head">
         <span className="eb-mono">{fill(t.status.head, { n: fmt(rows.length) })}</span>
         {checked.size > 0 && (
           <button type="button" className="eb-textbtn" data-testid="status-clear" onClick={() => onFilter(withStatuses(filter, []))}>{t.filters.clear}</button>
         )}
       </div>
-      <p className="eb-note eb-places-note">{t.status.note}</p>
       {threatLine !== undefined && threatLine > 0 && (
         <p className="eb-note eb-places-note" data-testid="status-threatened">
           {fill(t.status.threatenedNote, { n: fmt(threatLine) })}

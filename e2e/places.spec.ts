@@ -242,35 +242,12 @@ for (const width of [1280, 390]) {
       expect(m.dock).toBeLessThanOrEqual(0);
       expect(m.page).toBeLessThanOrEqual(0);
     });
-
-    test("variant b (?v=places:b) selects a province and a county inline", async ({ page }) => {
-      await seed(page, drilledSaved());
-      await page.goto("/?v=places:b");
-      await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
-      const stats = page.getByTestId("collage-stats");
-      await page.getByTestId("filter-tab-places").click();
-      const panel = page.getByTestId("filter-panel-places");
-      await press(panel.getByTestId("drill-c:CA"));
-      await press(panel.getByTestId("drill-s:CA-BC"));
-      await expect(panel.getByTestId("drill-s:CA-BC")).toHaveAttribute("aria-expanded", "true");
-      await press(row(panel, "place-s:CA-BC"));
-      await expect(stats).toContainText("14 of 21 species");
-      await press(row(panel, "place-k:CA-BC|Capital"));
-      await expect(panel.getByTestId("place-k:CA-BC|Capital")).toBeChecked();
-      await expect(panel.getByTestId("place-s:CA-BC")).not.toBeChecked();
-      await expect(stats).toContainText("10 of 21 species");
-      await pressable(page, panel, "variant b, both groups open");
-      const m = await sideways(page);
-      expect(m.body).not.toBeNull();
-      expect(m.body).toBeLessThanOrEqual(0);
-      expect(m.page).toBeLessThanOrEqual(0);
-    });
   });
 }
 
-// Reopened, variant a starts at the selection's level, so a checked county is in view (checking "Canada" there would
+// Reopened, the panel starts at the selection's level, so a checked county is in view (checking "Canada" there would
 // otherwise silently replace it).
-test("variant a reopens at a checked county's level", async ({ page }) => {
+test("reopens at a checked county's level", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await seed(page, drilledSaved());
   await page.goto("/");
@@ -289,62 +266,31 @@ test("variant a reopens at a checked county's level", async ({ page }) => {
   await expect(panel.getByTestId("place-k:CA-BC|Capital")).toBeChecked();
 });
 
-// Safari's aA at 150% on a 390px phone is a 260px viewport (as text-size.spec.ts uses): variant b's nested groups still
-// fit the sheet.
-test.describe("Places variant b at 260px", () => {
-  test.use({ viewport: { width: 260, height: 700 }, hasTouch: true });
-  test("a province's and a county's groups open in the sheet without sideways scroll", async ({ page }) => {
-    await seed(page, drilledSaved());
-    await page.goto("/?v=places:b");
-    await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
-    await page.getByTestId("filter-tab-places").tap();
-    const panel = page.getByTestId("filter-panel-places");
-    await panel.getByTestId("drill-c:CA").tap();
-    await panel.getByTestId("drill-s:CA-BC").tap();
-    await expect(panel.getByTestId("place-k:CA-BC|Okanagan-Similkameen")).toBeAttached();
-    await row(panel, "place-k:CA-BC|Capital").tap();
-    await expect(page.getByTestId("collage-stats")).toContainText("10 of 21 species");
-    const m = await sideways(page);
-    expect(m.body).not.toBeNull();
-    expect(m.body).toBeLessThanOrEqual(0);
-    expect(m.page).toBeLessThanOrEqual(0);
+// Down to a county. Seen-here places: Canada (British Columbia's Capital and Greater Vancouver, Ontario) and Egypt.
+test("a province, then a county", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await seed(page, provincesSaved());
+  await page.goto("/");
+  await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
+  const places = page.getByTestId("filter-tab-places");
+  await places.click();
+  const panel = page.getByTestId("filter-panel-places");
+  await panel.getByTestId("drill-c:CA").click();
+  await expect(panel.getByTestId("places-path")).toContainText("Canada");
+  await panel.getByTestId("place-s:CA-BC").check();
+  await expect(places).toHaveAttribute("aria-label", "Places: British Columbia, Canada");
+  await expect(page.getByTestId("collage-stats")).toContainText("3 of 6 species");
+  await panel.getByTestId("drill-s:CA-BC").click();
+  await panel.getByTestId("place-k:CA-BC|Capital").check();
+  await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
+  await expect(page.getByTestId("collage-stats")).toContainText("2 of 6 species");
+  const m = await page.evaluate(() => {
+    const b = document.querySelector<HTMLElement>(".eb-drop-body")!;
+    return { body: b.scrollWidth - b.clientWidth, page: document.documentElement.scrollWidth - innerWidth };
   });
+  expect(m.body).toBeLessThanOrEqual(0);
+  expect(m.page).toBeLessThanOrEqual(0);
 });
-
-// Down to a county, in each design of the panel (`?v=places:<letter>`: a drills in place, b expands rows inline). Seen-
-// here places: Canada (British Columbia's Capital and Greater Vancouver, Ontario) and Egypt.
-for (const v of ["a", "b"] as const) {
-  test(`?v=places:${v}: a province, then a county`, async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await seed(page, provincesSaved());
-    await page.goto(`/?v=places:${v}`);
-    await expect(page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first()).toBeVisible();
-    const places = page.getByTestId("filter-tab-places");
-    await places.click();
-    const panel = page.getByTestId("filter-panel-places");
-    const canada = panel.getByTestId("drill-c:CA");
-    await canada.click();
-    if (v === "b") {
-      await expect(canada).toHaveAttribute("aria-expanded", "true");
-      await expect(panel.getByTestId("country-EG")).toBeVisible(); // one checklist: the countries stay
-    } else {
-      await expect(panel.getByTestId("places-path")).toContainText("Canada");
-    }
-    await panel.getByTestId("place-s:CA-BC").check();
-    await expect(places).toHaveAttribute("aria-label", "Places: British Columbia, Canada");
-    await expect(page.getByTestId("collage-stats")).toContainText("3 of 6 species");
-    await panel.getByTestId("drill-s:CA-BC").click();
-    await panel.getByTestId("place-k:CA-BC|Capital").check();
-    await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
-    await expect(page.getByTestId("collage-stats")).toContainText("2 of 6 species");
-    const m = await page.evaluate(() => {
-      const b = document.querySelector<HTMLElement>(".eb-drop-body")!;
-      return { body: b.scrollWidth - b.clientWidth, page: document.documentElement.scrollWidth - innerWidth };
-    });
-    expect(m.body).toBeLessThanOrEqual(0);
-    expect(m.page).toBeLessThanOrEqual(0);
-  });
-}
 
 // The lifer-only note's link is a client navigation to /settings#add-mydata: MyEBirdData's Add panel opens there with
 // its picker focused and in view; with MyEBirdData already on the list (saved before seen-here), its Replace is focused.

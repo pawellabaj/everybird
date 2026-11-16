@@ -149,10 +149,11 @@ export const es: Messages = {
       rank: { order: 'Órdenes', family: 'Familias', country: 'Países', year: 'Años' },
       choose: { order: 'Elige un orden', family: 'Elige una familia', country: 'Elige un país', year: 'Elige un año' },
       remove: 'Quitar el filtro {label}',
-      dock: 'Lugares, fechas y estado',
+      dock: 'Lugares, fechas y estado de conservación',
       places: 'Lugares',
       time: 'Fechas',
-      status: 'Estado',
+      status: 'Estado de conservación',
+      statusShort: 'Estado',
       clear: 'Borrar',
       timeline: {
         months: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
@@ -187,7 +188,7 @@ export const es: Messages = {
       andMore: '{first} y {n} más',
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
-     *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+     *  Vulnerable + Endangered + Critically Endangered, and the card badge's spoken suffix. */
     iucn: {
       names: {
         LC: 'Preocupación menor',
@@ -200,12 +201,11 @@ export const es: Messages = {
         DD: 'Datos insuficientes',
       },
       threatened: 'Amenazadas',
-      tip: '{cat}, {name} (Lista Roja de la UICN)',
+      inList: '(Lista Roja de la UICN)',
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {
       head: 'Categorías · {n}',
-      note: 'Categorías globales de la Lista Roja de la UICN. Las aves sin categoría se dejan fuera en cuanto eliges una.',
       threatenedNote: '{n} amenazadas: Vulnerable, En peligro o En peligro crítico.',
       list: 'Categorías',
       none: 'No hay categorías aquí con los otros filtros.',

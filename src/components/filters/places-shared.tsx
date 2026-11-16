@@ -1,6 +1,6 @@
 'use client'
-// What every design of the Places panel shares (PlacesList.tsx picks the design): a level's rows, one checkbox row, the
-// search field, the level's words, and the panel's props. A leaf: it imports neither the shell, a design nor
+// What the Places panel's parts share (PlacesList.tsx and PlacesDrill.tsx): a level's rows, one checkbox row, the
+// search field, the level's words, and the panel's props. A leaf: it imports neither the shell, the drill nor
 // FilterDropdowns, so none of them import each other in a cycle.
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
@@ -40,8 +40,8 @@ export function levelUnder(parent: string | undefined): PlaceLevel {
 // A level's head word (also its checklist's accessible name), its search field and what a search matching no row
 // says: `t.places.head`, `.find`, `.noMatch`.
 
-// The last counts per list (list and seen keep their identities across filter changes, store.ts): every design and
-// every open group reads the same pass, made again only when the other filters, the list or seen-here change.
+// The last counts per list (list and seen keep their identities across filter changes, store.ts): every level
+// reads the same pass, made again only when the other filters, the list or seen-here change.
 const lastCounts = new WeakMap<ListEntry[], { key: string; species: SpeciesIndex; seen: SeenIndex; counts: PlaceCounts }>()
 
 /** Every Places level counted under the filter's other dimensions (placeCounts), once per change of those. */
@@ -67,7 +67,7 @@ export function emptyHere(f: Filter, t: Ui): string {
 /**
  * The rows of the level under `parent` (placeRows over `counts`), and, at 0, any place at that level they lack (another
  * filter left it no species) that is checked or holds a checked place: so every checked place can still be reached and
- * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills or opens.
+ * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills.
  * A checkbox changes only the held rows: the counted rows stay as they were.
  */
 export function usePlaceRows(counts: PlaceCounts, filter: Filter, parent: string | undefined, regions: Regions): PlaceOption[] {
