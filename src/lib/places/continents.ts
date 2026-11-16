@@ -15,9 +15,8 @@
 // - Kosovo (XK) is Europe (it is not in UN M49; the usual non-UN assignment).
 // - Pacific islands, Australia and New Zealand are Oceania, including American Samoa, Guam and the Northern Mariana Islands
 //   (M49 Micronesia and Polynesia), Norfolk Island, Pitcairn and Cook Islands.
-// - Antarctica takes the sub-Antarctic territories: Heard and McDonald Islands (HM), the French Southern Territories (TF)
-//   and South Georgia and the South Sandwich Islands (GS). Antarctica itself (AQ) and Bouvet Island (BV) are not in
-//   regions.v1.json, so they have no entry.
+// - Antarctica takes Antarctica itself (AQ), Bouvet Island (BV) and the sub-Antarctic territories: Heard and McDonald
+//   Islands (HM), the French Southern Territories (TF) and South Georgia and the South Sandwich Islands (GS).
 // - American Samoa (AS) is Oceania: its code is also the id of the Asia chip, but the two never meet (a country key
 //   and a continent id live in different fields).
 
@@ -76,6 +75,6 @@ export const CONTINENT_OF: Record<string, ContinentId> = {
   // Oceania (the Pacific islands, Australia and New Zealand)
   AS: 'OC', AU: 'OC', CK: 'OC', FJ: 'OC', FM: 'OC', GU: 'OC', KI: 'OC', MH: 'OC', MP: 'OC', NC: 'OC', NF: 'OC', NR: 'OC',
   NU: 'OC', NZ: 'OC', PF: 'OC', PG: 'OC', PN: 'OC', PW: 'OC', SB: 'OC', TO: 'OC', TV: 'OC', VU: 'OC', WF: 'OC', WS: 'OC',
-  // Antarctica (the sub-Antarctic territories in the file)
-  GS: 'AN', HM: 'AN', TF: 'AN',
+  // Antarctica (Antarctica itself, Bouvet Island and the sub-Antarctic territories)
+  AQ: 'AN', BV: 'AN', GS: 'AN', HM: 'AN', TF: 'AN',
 }

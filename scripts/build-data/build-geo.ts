@@ -75,6 +75,9 @@ export const COUNTRY_NAMES: Record<string, string> = {
   HM: 'Heard Island and McDonald Islands',
 }
 
+/** eBird country codes Natural Earth's admin-0 has no shape for (names only; Antarctica, AQ, comes from NE). */
+export const EXTRA_COUNTRIES: Record<string, string> = { BV: 'Bouvet Island' }
+
 /** A country's name: NE's short NAME ("Russia", "South Korea") unless it abbreviates, then NAME_LONG, then COUNTRY_NAMES. */
 export function countryName(iso: string, p: Feature['properties']): string {
   if (COUNTRY_NAMES[iso]) return COUNTRY_NAMES[iso]
@@ -85,7 +88,8 @@ export function countryName(iso: string, p: Feature['properties']): string {
 
 export function buildRegions(admin0: { features: Feature[] }, admin1: { features: Feature[] }, iso: IsoSub[] = []): Regions {
   const countries: Record<string, string> = {}
-  for (const f of admin0.features) { const i = iso2(f.properties); if (i && i !== 'AQ') countries[i] ??= countryName(i, f.properties) }
+  for (const f of admin0.features) { const i = iso2(f.properties); if (i) countries[i] ??= countryName(i, f.properties) }
+  for (const [i, name] of Object.entries(EXTRA_COUNTRIES)) countries[i] ??= name
   const sub1: Record<string, string> = {}
   for (const f of admin1.features) {
     const code = String(f.properties.iso_3166_2 ?? '')

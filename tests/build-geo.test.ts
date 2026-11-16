@@ -38,6 +38,9 @@ describe('regions', () => {
     expect(regions.countries.CD).toBe('Democratic Republic of the Congo')
     expect(regions.countries.FK).toBe('Falkland Islands')
     expect(regions.countries.RU).toBe('Russia')
+    // eBird's AQ and BV (no NE polygon for Bouvet Island) are countries too.
+    expect(regions.countries.AQ).toBe('Antarctica')
+    expect(regions.countries.BV).toBe('Bouvet Island')
   })
   it('countryName keeps a short name, else NAME_LONG, else the table', () => {
     expect(countryName('RU', { NAME: 'Russia', NAME_LONG: 'Russian Federation' })).toBe('Russia')

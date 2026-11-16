@@ -25,7 +25,7 @@ describe('continent table', () => {
     for (const iso of ['GL', 'PR', 'CR', 'PA', 'JM']) expect(CONTINENT_OF[iso], iso).toBe('NA')
     expect(CONTINENT_OF.FK).toBe('SA')
     for (const iso of ['AU', 'NZ', 'FJ', 'PF']) expect(CONTINENT_OF[iso], iso).toBe('OC')
-    for (const iso of ['HM', 'TF', 'GS']) expect(CONTINENT_OF[iso], iso).toBe('AN')
+    for (const iso of ['AQ', 'BV', 'HM', 'TF', 'GS']) expect(CONTINENT_OF[iso], iso).toBe('AN')
   })
 
   it('lists the seven continents in display order, with English names', () => {
