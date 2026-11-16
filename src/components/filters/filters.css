@@ -89,9 +89,19 @@
    only: the sheet renders no row and its body scrolls as one). Flexbox, not grid: the flex column under max-height
    shrinks the row and the lists scroll. */
 .eb-drop[data-kind="filters"] .eb-drop-body { display: flex; flex-direction: column; gap: 16px; }
+.eb-fpanel-headrow { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .eb-drop[data-kind="filters"] .eb-fpanel-head { flex: none; margin: 0; }
+.eb-sheet-head .eb-textbtn { margin-left: auto; flex: none; }
 .eb-drop[data-kind="filters"] [data-sec="time"] { flex: none; }
-.eb-drop[data-kind="filters"] .eb-fpanel-row { display: flex; gap: 24px; flex: 1 1 auto; min-height: 0; }
+.eb-drop[data-kind="filters"] .eb-fpanel-row { display: flex; gap: 0; flex: 1 1 auto; min-height: 0; }
+/* Hairline rules between sections, no cards: full width under Time, a vertical one between Places and Status running the
+   row's full height (24px either side), the sheet's stacked sections divided by a horizontal one. Every section under a
+   rule has 16px above its head. No Time, no top rule; no Status, no vertical one. */
+.eb-drop[data-kind="filters"] [data-sec="time"] + .eb-fpanel-row { border-top: 1px solid var(--hairline); }
+.eb-drop[data-kind="filters"] [data-sec="time"] + .eb-fpanel-row > .eb-fsec { padding-top: 16px; }
+.eb-fpanel-row > [data-sec="places"] + [data-sec="status"] { border-left: 1px solid var(--hairline); padding-left: 24px; }
+.eb-fpanel-row > [data-sec="places"]:has(+ [data-sec="status"]) { padding-right: 24px; }
+.eb-drop-sheet .eb-fsec + .eb-fsec { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
 .eb-fpanel-row > [data-sec="places"] { flex: 2 1 0; }
 .eb-fpanel-row > [data-sec="status"] { flex: 1 1 0; }
 .eb-fpanel-row > .eb-fsec { min-width: 0; min-height: 0; display: flex; flex-direction: column; }

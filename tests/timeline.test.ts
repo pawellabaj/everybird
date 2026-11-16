@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import {
   addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, rangeShort, sliderKey,
-  todayMonth,
+  todayMonth, yearLabels,
 } from '@/lib/list/timeline'
 import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
@@ -157,3 +157,20 @@ describe('range filter', () => {
   })
 })
 
+
+describe('yearLabels', () => {
+  const run = (from: string, n: number, unitPx: number) => {
+    const months = Array.from({ length: n }, (_, k) => addMonths(from, k))
+    const axis = monthAxis(months.map(() => 1))
+    return yearLabels(months, axis, unitPx).map((y) => y.m.slice(0, 4))
+  }
+  it('a strip starting in November 2021 drops the partial 2021 for 2022', () => {
+    expect(run('2021-11', 40, 6).slice(0, 2)).toEqual(['2022', '2023'])
+    expect(run('2021-11', 40, 6)[0]).toBe('2022')
+    expect(run('2021-11', 40, 6)).not.toContain('2021')
+  })
+  it('keeps every label when each has room', () => {
+    expect(run('2021-11', 40, 20).slice(0, 2)).toEqual(['2021', '2022'])
+    expect(run('2020-01', 60, 8)).toEqual(['2020', '2021', '2022', '2023', '2024'])
+  })
+})

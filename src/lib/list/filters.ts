@@ -47,6 +47,11 @@ export type Filter = {
   /** Lifers (first sightings) or every sighting at the places and months ("seen"); item 9. */
   basis?: 'lifer' | 'seen'
 }
+/** The filter with nothing on: no taxonomy, group, places, time, statuses, and the seen basis back to its default (absent = 'lifer'). */
+export const emptyFilter = (): Filter => ({})
+/** Whether any filter field holds a value (the seen basis alone counts, so Clear all can reset it). */
+export const filterActive = (f: Filter): boolean =>
+  (Object.keys(f) as (keyof Filter)[]).some((k) => (Array.isArray(f[k]) ? f[k].length > 0 : !!f[k]))
 export type ChipOption = { value: string; label: string; count: number }
 /** `country`: the countries' options (the filter holds a set, `countries`); as a skipped dimension, every place level. */
 export type FilterLevel = 'order' | 'family' | 'country' | 'year'
