@@ -59,7 +59,10 @@ describe('Status: a dropdown in the controls bar', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     const group = screen.getByRole('group', { name: 'Places, time and status' })
+    expect(group).toHaveClass('eb-dock-filters')
     expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
+    // app.css's three-drop rules key on a third drop in the group (.eb-dock-drop:nth-child(3)): Status is it.
+    expect(group.querySelector('.eb-dock-drop:nth-child(3)')).toBe(statusBtn())
     expect(statusBtn()).toHaveAccessibleName('Status')
     fireEvent.click(statusBtn())
     const panel = screen.getByRole('dialog', { name: 'Status' })
@@ -114,6 +117,8 @@ describe('Status: a dropdown in the controls bar', () => {
     render(<Harness codes={['robin1']} />)
     expect(screen.queryByTestId('filter-tab-status')).toBeNull()
     expect(screen.getByTestId('filter-tab-places')).toBeInTheDocument()
+    // Two drops: none of app.css's three-drop rules applies, so the bar is as it was before Status.
+    expect(document.querySelector('.eb-dock-filters .eb-dock-drop:nth-child(3)')).toBeNull()
   })
 
   it('hide may name status: no Status button on a list that has statuses', () => {

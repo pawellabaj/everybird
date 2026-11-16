@@ -194,7 +194,7 @@ for (const c of CASES) {
 }
 
 // Safari's aA bigger text is page zoom: a 390px phone at 150% / 200% lays the page out at 260 / 195 CSS px. No page
-// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places and Time drop their glyphs).
+// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places, Time and Status drop their glyphs).
 for (const width of [195, 260] as const) {
   test(`at ${width} CSS px (a 390px phone at aA ${width === 195 ? 200 : 150}%), no page scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
@@ -249,6 +249,30 @@ for (const [width, css] of [[195, ""], [260, ""], [300, ""], [390, "html { font-
 
 
 
+
+// Under 300px of page, three drops (Places, Time and Status; the landing sample has Red List statuses) share one row of
+// the grid and end inside the bar; at 260 every resting label is whole (at 195 one may ellipsis: app.css's arithmetic).
+for (const width of [195, 260] as const) {
+  test(`at ${width} CSS px Places, Time and Status share one row inside the bar`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    await expect(page.getByTestId("filter-tab-status")).toBeVisible();
+    const m = await page.locator(".eb-dock").evaluate((dock) => {
+      const d = dock.getBoundingClientRect();
+      const drops = [...dock.querySelectorAll<HTMLElement>(".eb-dock-filters .eb-dock-drop")];
+      return {
+        n: drops.length,
+        tops: new Set(drops.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        out: drops.filter((b) => b.getBoundingClientRect().right > d.right - 1 + 0.5).length,
+        cut: drops.map((b) => b.querySelector<HTMLElement>(".eb-drop-label")!).filter((l) => l.scrollWidth > l.clientWidth).map((l) => l.textContent),
+      };
+    });
+    expect(m.n).toBe(3);
+    expect(m.tops, "the drops share one top").toBe(1);
+    expect(m.out, "drops ending outside the bar").toBe(0);
+    if (width === 260) expect(m.cut, "resting labels cut").toEqual([]);
+  });
+}
 
 // Under 300px of page the controls bar is a grid (app.css): never a control alone on a row, and the magnifier still
 // opens the full-width "Find a bird" field.

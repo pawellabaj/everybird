@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { SAMPLE_ORDERS } from "./sample";
 
 // Phones, as /lifelist's phone view: the controls bar in two rows (the view icons, True and Sci. or the list's
-// "Heaviest", and the magnifier; then Places and Time), and the taxonomy as one "Choose an order" button, the landing
+// "Heaviest", and the magnifier; then Places, Time and Status: the landing sample has Red List statuses), and the taxonomy as one "Choose an order" button, the landing
 // included. Chromium and WebKit; 440 is the widest iPhone. From 600px the taxonomy is /lifelist's chips: the mono rank
 // label, then chips that wrap onto more rows, never a sideways strip.
 
@@ -56,7 +56,7 @@ for (const width of [320, 390, 430, 440, 600] as const) {
       const m = await bar(page);
       expect(m.rows, JSON.stringify(m.rows)).toHaveLength(2);
       expect(m.rows[0]).toEqual(["Collage", "List", expect.stringMatching(/^True/), expect.stringMatching(/^Sci\./), "Find a bird"]);
-      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/)]);
+      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/), expect.stringMatching(/^Status/)]);
       expect(m.dock).toBeLessThanOrEqual(0);
       expect(m.page).toBeLessThanOrEqual(0);
 
