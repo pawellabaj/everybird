@@ -6,7 +6,6 @@ import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
-import { useVariant } from '@/lib/variants'
 import { CloseIcon } from './icons'
 import { IucnBadge } from './IucnPill'
 import { Marks, marksOf } from './Marks'
@@ -31,10 +30,6 @@ type Props = {
   follow?: number
 }
 
-/** Preview variants of the card's Red List pill (`?v=pill:b`): a, under the mass; b, before it on the mass's line. */
-const PILL_VARIANTS = ['a', 'b'] as const
-type PillVariant = (typeof PILL_VARIANTS)[number]
-
 const MARGIN = 8
 const GAP = 10
 
@@ -54,7 +49,6 @@ const massValue = (row: SpeciesRow) => `${row.gSrc === 'family' || row.gSrc === 
 export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow }: Props) {
   const row = species.byCode.get(entry.code)
   const sheet = useIsSheet()
-  const pill = useVariant('pill', PILL_VARIANTS)
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   const anchorRef = useRef(anchor)
@@ -164,11 +158,10 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
       aria-modal={sheet ? true : undefined}
       aria-label={row.com}
       data-variant={sheet ? 'sheet' : 'popover'}
-      data-pill={pill}
       tabIndex={-1}
       onKeyDown={trap}
     >
-      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} status pill={pill}>
+      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} status>
         <button type="button" className="eb-card-close" aria-label="Close" onClick={onClose}>
           <CloseIcon />
         </button>
@@ -188,10 +181,10 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
  * What the card and the hover tooltip say (LifeList's card, layout C): the name with its marks, the other name under
  * it, the body mass top-right (then `children`, the card's close button); then the date line (with the marks in
  * words) and the place, both mono. `heading` names the bird with an h2 (the card) or a plain paragraph (the tooltip).
- * `status` adds the Red List pill beside the mass (the card only: never the tooltip), placed by the `pill` variant.
+ * `status` adds the Red List pill beside the mass (the card only: never the tooltip), under the mass.
  */
-export function BirdFacts({ entry, row, regions, sci = false, heading = true, status = false, pill = 'a', children }: {
-  entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean; status?: boolean; pill?: PillVariant
+export function BirdFacts({ entry, row, regions, sci = false, heading = true, status = false, children }: {
+  entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean; status?: boolean
   children?: ReactNode
 }) {
   const place = formatPlace(entry.place, regions)
@@ -208,9 +201,8 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
           <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</p>
         </div>
         <div className="eb-card-meta">
-          {badge && pill === 'b' && badge}
           <span className="eb-card-mass" title={massLabel(row)}><span className="eb-sr">{massLabel(row)} </span>{massValue(row)}</span>
-          {badge && pill === 'a' && badge}
+          {badge}
         </div>
         {children}
       </div>

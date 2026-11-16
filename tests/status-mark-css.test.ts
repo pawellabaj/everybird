@@ -38,4 +38,9 @@ describe('status-mark.css', () => {
     expect(body('.eb-status')).toMatch(/height:\s*14px/)
     expect(body('.eb-status')).toMatch(/font:\s*600 9px\/1 var\(--font-mono\)/)
   })
+  it('shares the card pill’s optical nudges (NT .09em, EX .04em, in em so they scale with the 9px font), same width', () => {
+    expect(body('.eb-status[data-cat="NT"]')).toMatch(/padding:\s*0 calc\(4px - \.1125em\) 0 calc\(4px \+ \.1125em\)/)
+    expect(body('.eb-status[data-cat="EX"]')).toMatch(/padding:\s*0 calc\(4px - \.0625em\) 0 calc\(4px \+ \.0625em\)/)
+    expect(body('.eb-status')).toMatch(/padding:\s*0 calc\(4px - \.0225em\) 0 calc\(4px \+ \.0225em\)/)
+  })
 })

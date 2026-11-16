@@ -9,6 +9,8 @@ const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim()
 const rule = (selector: string) => rules.find(([s]) => s === selector)?.[1] ?? ''
 /** The pill's own rules: `.eb-iucn` itself, not the badge's or the name's. */
 const pillRules = rules.filter(([s]) => /\.eb-iucn(?![-\w])/.test(s))
+/** Every `.eb-iucn*` rule (the pill, the badge, the name). */
+const iucnRules = rules.filter(([s]) => /\.eb-iucn/.test(s))
 
 // Geist Mono, variable, wght 600 (what draws: layout.tsx loads the whole axis), read with fontTools: units per em 1000,
 // OS/2 typo = hhea ascender 1005, descender -295, cap height 710, advance 600. Ink bounds (xMin, xMax) at wght 600.
@@ -32,17 +34,24 @@ describe('the Red List pill CSS', () => {
     }
   })
   it('the card badge is plain text: no press area, no toggletip rules left', () => {
-    expect(css).not.toMatch(/eb-iucn-tip|eb-iucn-wrap|::after|:hover/)
+    expect(css).not.toMatch(/eb-iucn-tip|eb-iucn-wrap/)
+    // Scoped to the Red List rules: the card's close button and the list rows keep their own focus and press rules.
+    expect(iucnRules.length).toBeGreaterThanOrEqual(3)
+    for (const [sel] of iucnRules) expect(sel, sel).not.toMatch(/::after|:hover/)
     expect(rule('.eb-iucn-name')).toMatch(/font:\s*500 12px\/18px var\(--font-mono\)/)
     expect(rule('.eb-iucn-name')).toMatch(/color:\s*var\(--muted\)/)
   })
-  it('variant a stacks mass over badge on the right; variant b is one wrapping row', () => {
+  it('the badge sits under the mass, right-aligned: one column (the pill variant is gone)', () => {
     expect(rule('.eb-card-meta')).toMatch(/flex-direction:\s*column/)
     expect(rule('.eb-card-meta')).toMatch(/align-items:\s*flex-end/)
-    expect(rule('[data-pill="b"] .eb-card-meta')).toMatch(/flex-direction:\s*row/)
-    expect(rule('[data-pill="b"] .eb-card-meta')).toMatch(/flex-wrap:\s*wrap/)
+    expect(css).not.toMatch(/data-pill/)
   })
   it('the meta column leaves a 320px phone sheet room: the longest unit fits its 45% cap, so the name wraps, never overflows', () => {
+    // The column never shrinks below its narrowest unit: the name takes all the shrinking (a proportional shrink with
+    // `min-width: 0` hung the badge over a long name).
+    expect(rule('.eb-card-meta')).toMatch(/flex:\s*none/)
+    expect(rule('.eb-card-meta')).toMatch(/min-width:\s*min-content/)
+    expect(rule('.eb-card-meta')).not.toMatch(/min-width:\s*0/)
     expect(rule('.eb-card-meta')).toMatch(/max-width:\s*45%/)
     expect(rule('.eb-iucn-name')).toMatch(/min-width:\s*0/)
     expect(rule('.eb-iucn-name')).toMatch(/overflow-wrap:\s*break-word/)
@@ -52,6 +61,8 @@ describe('the Red List pill CSS', () => {
     const word = 'Endangered'.length * 0.6 * 12
     expect(pill + 6 + word).toBeLessThanOrEqual(0.45 * head)
     expect(head - close - 24 - 0.45 * head).toBeGreaterThanOrEqual(95)
+    // Beside the narrowest column (its min-content floor) the name has more room still.
+    expect(head - close - 24 - (pill + 6 + word)).toBeGreaterThan(head - close - 24 - 0.45 * head)
   })
 })
 
@@ -70,7 +81,22 @@ describe('the pill centres its abbreviation (Geist Mono 600 metrics)', () => {
     expect(rule('.eb-iucn')).toMatch(/padding:\s*0 calc\(6px - \.0225em\) 0 calc\(6px \+ \.0225em\)/)
     expect(rule('.eb-iucn')).toMatch(/letter-spacing:\s*\.06em/)
   })
-  it('every category’s ink ends within 0.27px of the pill’s centre', () => {
+  it('optically: NT and EX (the only categories whose ink centroid is over 0.4px off) take an extra shift; the rest keep .0225em', () => {
+    // fontTools StatisticsPen, summed over both glyphs, px at 11px, + = right of the box's centre, with .0225em applied.
+    const CENTROID: Record<string, number> = { LC: -0.03, NT: -1.01, VU: 0.13, EN: 0.01, CR: 0.02, EW: 0.19, EX: -0.43, DD: -0.16 }
+    const extra = (cat: string) => {
+      const m = /padding:\s*0 calc\(6px - ([\d.]+)em\) 0 calc\(6px \+ \1em\)/.exec(rule(`.eb-iucn[data-cat="${cat}"]`))
+      return m ? (parseFloat(m[1]) - 0.0225) * FS : 0
+    }
+    for (const cat of Object.keys(CENTROID)) {
+      expect(Math.abs(CENTROID[cat] + extra(cat)), cat).toBeLessThan(0.3)
+      if (Math.abs(CENTROID[cat]) <= 0.4) expect(extra(cat), cat).toBe(0)
+    }
+    expect(rule('.eb-iucn[data-cat="NT"]')).toMatch(/calc\(6px - \.1125em\) 0 calc\(6px \+ \.1125em\)/)
+    expect(rule('.eb-iucn[data-cat="EX"]')).toMatch(/calc\(6px - \.0625em\) 0 calc\(6px \+ \.0625em\)/)
+    // The width is the same: one side gains what the other loses (6 + 6 in total).
+  })
+  it('every category’s ink bounds end within 0.27px of the pill’s centre (bounds; NT’s centroid is what needs the extra shift)', () => {
     for (const cat of ['LC', 'NT', 'VU', 'EN', 'CR', 'EW', 'EX', 'DD']) {
       const cell = (ADV / UPM) * FS + LS
       const left = (INK[cat[0]][0] / UPM) * FS

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The controls bar with three drops (Places, Time, Status). Round 4: no browser, so these read app.css as text and hold
+// The controls bar with three drops (Places, Time, Conservation status). Round 4: no browser, so these read app.css as text and hold
 // the rules the width arithmetic (in the CSS's own comments) derives.
 const css = readFileSync(resolve(__dirname, "../src/components/app/app.css"), "utf8");
 
@@ -51,8 +51,11 @@ function threeDropPhoneRow(): string {
 }
 
 describe("the controls bar's CSS: three drops", () => {
-  it("one row from W: the three-drop break is the derived W, and the two-drop 820 break is untouched", () => {
-    const w = block(css, /@container \(max-width: 979px\)/);
+  it("one row from W = 1080: the three-drop break is the derived W (the third label is \"Conservation status\"), and the two-drop 820 break is untouched", () => {
+    const w = block(css, /@container \(max-width: 1079px\)/);
+    // 1030.5 estimated (1046 in list view) + 40 for summaries = 1070.5, rounded up to 20 (see app.css's comment).
+    expect(1030.5 + 40).toBeLessThanOrEqual(1080);
+    expect(1046 + 40 - 1080).toBeLessThan(10);
     expect(w).toContain(`${THREE} { flex-wrap: wrap; row-gap: 4px; }`);
     expect(w).toMatch(/\.eb-dock-filters\s*\{\s*order: 1; flex: 1 0 100%/);
     expect(w).toContain(`${THREE} .eb-find`);
@@ -88,19 +91,19 @@ describe("the controls bar's CSS: three drops", () => {
   it("every three-drop rule is scoped under :where(), so it weighs no more than the two-drop rule it follows", () => {
     const g = block(css, /@container \(max-width: 319px\)/);
     const rules = [
-      ...block(css, /@container \(max-width: 979px\)/).split("}"),
+      ...block(css, /@container \(max-width: 1079px\)/).split("}"),
       ...threeDropPhoneRow().split("}"),
       ...g.split("}"),
     ].map((r) => r.trim()).filter((r) => r.includes("{"));
     expect(rules.length).toBeGreaterThan(4);
     for (const r of rules) expect(r.startsWith(THREE), r).toBe(true);
     // The three-drop break comes after the 599px row (the order the cascade relies on), the glyph rule after both.
-    expect(css.indexOf("@container (max-width: 599px)")).toBeLessThan(css.indexOf("@container (max-width: 979px)"));
-    expect(css.indexOf("@container (max-width: 979px)")).toBeLessThan(css.indexOf("@container (max-width: 319px)"));
-    // The three-drop phone row sits between the 979px break and the 319px glyph rule (both later rules of equal weight
+    expect(css.indexOf("@container (max-width: 599px)")).toBeLessThan(css.indexOf("@container (max-width: 1079px)"));
+    expect(css.indexOf("@container (max-width: 1079px)")).toBeLessThan(css.indexOf("@container (max-width: 319px)"));
+    // The three-drop phone row sits between the 1079px break and the 319px glyph rule (both later rules of equal weight
     // rely on it: 319's padding, and the <300px grid's `flex: 0 1 auto`, must still win).
     const phone = css.indexOf(threeDropPhoneRow());
-    expect(phone).toBeGreaterThan(css.indexOf("@container (max-width: 979px)"));
+    expect(phone).toBeGreaterThan(css.indexOf("@container (max-width: 1079px)"));
     expect(phone).toBeLessThan(css.indexOf("@container (max-width: 319px)"));
     expect(css.indexOf("@container (max-width: 319px)")).toBeLessThan(css.indexOf("@media (max-width: 299px)"));
   });
@@ -128,12 +131,22 @@ describe("the controls bar's CSS: three drops", () => {
     expect(tsx).toContain("data-drop={id}");
   });
 
+  it("the third drop's label has a short form (\"Status\") for under 540px of bar and phones, by the bar's own .eb-long/.eb-short swap", () => {
+    const tsx = readFileSync(resolve(__dirname, "../src/components/filters/FilterDropdowns.tsx"), "utf8");
+    expect(tsx).toContain("label: 'Conservation status', short: 'Status'");
+    expect(tsx).toContain('className="eb-long"');
+    expect(tsx).toContain('className="eb-short"');
+    expect(block(css, /@container \(max-width: 540px\)/)).toMatch(/\.eb-long \{ display: none; \}\s*\.eb-short \{ display: inline; \}/);
+    expect(block(css, /@media \(max-width: 600px\)/)).toMatch(/\.eb-dock \.eb-short \{ display: inline; \}/);
+    expect(topLevelRule(css, ".eb-short")).toMatch(/display: none/);
+  });
+
   it("the drop glyph is 18px: its rule outweighs .eb-dock-tab svg's 20px, and leaves the 14px caret alone", () => {
     expect(topLevelRule(css, ".eb-dock-drop svg:not(.eb-drop-caret)")).toMatch(/width: 18px; height: 18px/);
     expect(topLevelRule(css, ".eb-dock-tab svg")).toMatch(/width: 20px/);
   });
 
-  it("the Status panel's long category names wrap rather than cut", () => {
+  it("the Conservation status panel's long category names wrap rather than cut", () => {
     const filters = readFileSync(resolve(__dirname, "../src/components/filters/filters.css"), "utf8");
     expect(topLevelRule(filters, ".eb-status-row .eb-check-name")).toMatch(/white-space:\s*normal/);
   });

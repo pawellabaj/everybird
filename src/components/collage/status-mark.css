@@ -2,7 +2,9 @@
    (IUCN_COLORS, kept in step by tests/status-mark-css.test.ts): the fill and the text are fixed and the same in both
    themes (never var(--ink) or var(--paper): dark Ink is white); only the 1px Line ring follows the theme. The pill
    centres its text as the card's .eb-iucn does (card-list.css: line-height 1 centres Geist Mono's caps; the padding
-   shifts the ink by .0225em to balance the letter-spacing's trailing space), at 9px in a 14px pill. */
+   shifts the ink by .0225em to balance the letter-spacing's trailing space), at 9px in a 14px pill. NT and EX take the
+   same extra optical shift as the card's (card-list.css, measured centroids: NT .09em, EX .04em right, the offsets scale
+   with the font size), so the pill keeps its width. */
 .eb-status[data-cat="LC"] { --iucn-fill: #60c659; --iucn-text: #1e1e24; }
 .eb-status[data-cat="NT"] { --iucn-fill: #cce226; --iucn-text: #1e1e24; }
 .eb-status[data-cat="VU"] { --iucn-fill: #f9e814; --iucn-text: #1e1e24; }
@@ -19,6 +21,8 @@
   box-shadow: inset 0 0 0 1px var(--line);
   pointer-events: none;
 }
+.eb-status[data-cat="NT"] { padding: 0 calc(4px - .1125em) 0 calc(4px + .1125em); }
+.eb-status[data-cat="EX"] { padding: 0 calc(4px - .0625em) 0 calc(4px + .0625em); }
 .eb-status {
   height: 14px; padding: 0 calc(4px - .0225em) 0 calc(4px + .0225em); border-radius: 7px;
   font: 600 9px/1 var(--font-mono); letter-spacing: .06em;

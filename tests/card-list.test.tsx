@@ -180,7 +180,6 @@ describe('BirdCard Red List pill', () => {
     setWidth(1000)
     return render(card(o))
   }
-  const withVariant = (v: string) => history.replaceState(null, '', `/?v=pill:${v}`)
   afterEach(() => {
     history.replaceState(null, '', '/')
     sessionStorage.removeItem('everybird:variants')
@@ -201,21 +200,11 @@ describe('BirdCard Red List pill', () => {
     expect(name).toHaveTextContent('Vulnerable (IUCN Red List)')
     expect(name.querySelector('.eb-sr')).toHaveTextContent('(IUCN Red List)')
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
-    // Variant a (the default): mass, then the badge, in the head's right column.
+    // The mass, then the badge under it, in the head's right column.
     const meta = screen.getByRole('dialog').querySelector('.eb-card-meta')!
     expect(meta.firstElementChild).toHaveClass('eb-card-mass')
     expect(meta.lastElementChild).toBe(badge)
-    expect(screen.getByRole('dialog')).toHaveAttribute('data-pill', 'a')
-  })
-
-  it('variant b puts the badge on the mass line, before it', () => {
-    withVariant('b')
-    renderCard({ iu: 'EN' })
-    expect(screen.getByRole('dialog')).toHaveAttribute('data-pill', 'b')
-    const meta = screen.getByRole('dialog').querySelector('.eb-card-meta')!
-    expect(meta.firstElementChild).toBe(screen.getByTestId('iucn-badge'))
-    expect(meta.lastElementChild).toHaveClass('eb-card-mass')
-    expect(screen.getByTestId('iucn-badge')).toHaveTextContent('ENEndangered (IUCN Red List)')
+    expect(screen.getByRole('dialog')).not.toHaveAttribute('data-pill')
   })
 
   it('the longest names show whole in the card', () => {

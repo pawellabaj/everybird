@@ -41,10 +41,13 @@
 .eb-card-name[lang] { font-family: var(--font-body); font-weight: 600; font-size: 16px; font-style: italic; }
 .eb-card-other { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .eb-card-other[lang] { font-style: italic; }
-/* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill with it: under it
-   (pill variant a) or before it on its line (b). */
-.eb-card-meta { margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; max-width: 45%; }
-[data-pill="b"] .eb-card-meta { flex-direction: row; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px 6px; }
+/* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill under it, right-
+   aligned (Yusuf, 2026-11-15). The column never shrinks below its narrowest unit (`flex: none; min-width:
+   min-content`, no `min-width: 0`): a long name beside it takes all the shrinking (.eb-card-names has min-width 0, and
+   with `min-width: 0` here the two shrank in proportion, which left the badge narrower than its pill and longest word,
+   hanging left over the name, and a bird without a status had its nowrap mass pushed into the gap). Its width is its
+   content, at most 45% of the head. */
+.eb-card-meta { flex: none; margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: min-content; max-width: 45%; }
 .eb-card-mass {
   white-space: nowrap;
   font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
@@ -130,7 +133,17 @@
    -0.51, EN -0.22, CR -0.46, EW 0.00, EX -0.08, DD -0.10 (side bearings and the trailing space together). The
    spread's midpoint is -0.25px, so the text moves right by .0225em (0.2475px): LC +0.23, NT +0.06, VU -0.26, EN +0.03,
    CR -0.21, EW +0.25, EX +0.17, DD +0.15, never more than 0.26px off. The padding moves it, one side gaining what the
-   other loses, so the pill is the same width as before (12px + the text). */
+   other loses, so the pill is the same width as before (12px + the text).
+   Optical centring (Yusuf saw NT off-centre). The ink's area centroid (fontTools StatisticsPen on the same file, wght
+   600, summed over both glyphs, against the box's centre with the .0225em shift above applied; + = right of centre, px
+   at 11px): LC -0.03, NT -1.01, VU +0.13, EN +0.01, CR +0.02, EW +0.19, EX -0.43, DD -0.16. Only NT and EX are over
+   0.4px, so only they get an extra shift right in the same padding split: NT .09em (0.99px, leaving -0.02px), EX .04em
+   (0.44px, leaving +0.01px), written as .1125em and .0625em in all (the .0225em above plus the extra). The pill keeps
+   its width. Vertically the centroids sit within 0.43px (LC +0.43 low, NT -0.41 high, the rest under 0.13): round and
+   diagonal letters balance differently from flat ones, so no vertical nudge; the box metrics are centred. The collage
+   and list pill (status-mark.css) takes the same em values: the offsets scale with the font size. */
+.eb-iucn[data-cat="NT"] { padding: 0 calc(6px - .1125em) 0 calc(6px + .1125em); }
+.eb-iucn[data-cat="EX"] { padding: 0 calc(6px - .0625em) 0 calc(6px + .0625em); }
 .eb-iucn {
   flex: none; display: inline-flex; align-items: center; box-sizing: border-box; height: 18px;
   padding: 0 calc(6px - .0225em) 0 calc(6px + .0225em); margin: 0;
@@ -142,10 +155,11 @@
 /* The card's status: the pill and the full name, always shown, in the mass's mono style (12px, Muted). The label's
    line is 18px tall, the pill's height, so a first line sits level with the pill and a wrapped second line under the
    name. Room on the narrowest sheet (320px viewport: sheet 304, minus 2 * 14px padding and 2px border = 274px head; the
-   close button takes 44 - 3 - 10 = 31px and two 12px gaps): the meta column may take 45% = 123px, and its narrowest
-   unit is the pill (2 * 7.26 + 12 = 26.5px), 6px, and the longest word, "Endangered" (10 * 7.2 = 72px) = 104.5px, so
-   "Critically Endangered", "Extinct in the Wild" and "Data Deficient" wrap under the pill's line and never overflow;
-   the bird's name keeps 274 - 31 - 24 - 123 = 95px or more. */
+   close button takes 44 - 3 - 10 = 31px and two 12px gaps): the meta column's narrowest unit is the pill (2 * 7.26 + 12
+   = 26.5px), 6px, and the longest word, "Endangered" (10 * 7.2 = 72px) = 104.5px, which is its floor
+   (`min-content`, above); it may take up to 45% = 123px, so "Critically Endangered", "Extinct in the Wild" and "Data
+   Deficient" wrap under the pill's line and never overflow. The bird's name takes all the shrinking and keeps 274 - 31
+   - 24 - 123 = 96px at the widest column (more beside a shorter badge), never below 274 - 31 - 24 - 104.5 = 114.5px
+   for the narrowest. */
 .eb-iucn-badge { display: inline-flex; align-items: flex-start; gap: 6px; min-width: 0; }
 .eb-iucn-name { min-width: 0; font: 500 12px/18px var(--font-mono); color: var(--muted); text-align: right; overflow-wrap: break-word; }
-[data-pill="b"] .eb-iucn-name { text-align: left; }

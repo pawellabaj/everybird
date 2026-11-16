@@ -5,6 +5,7 @@ import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollageView } from '@/components/app/CollageView'
 import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
+import { STATUS_ICON } from '@/components/filters/status-icon'
 import { StatusList } from '@/components/filters/StatusList'
 import { IucnBadge, IucnPill } from '@/components/collage/IucnPill'
 import { initialState, makeReducer, type AppState } from '@/lib/list/store'
@@ -59,14 +60,14 @@ describe('Status: a dropdown in the controls bar', () => {
   it('a Status button after Time; its panel lists the categories on the list, in Red List order, with counts', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    const group = screen.getByRole('group', { name: 'Places, time and status' })
+    const group = screen.getByRole('group', { name: 'Places, time and conservation status' })
     expect(group).toHaveClass('eb-dock-filters')
     expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
     // app.css's three-drop rules key on a third drop in the group (.eb-dock-drop:nth-child(3)): Status is it.
     expect(group.querySelector('.eb-dock-drop:nth-child(3)')).toBe(statusBtn())
-    expect(statusBtn()).toHaveAccessibleName('Status')
+    expect(statusBtn()).toHaveAccessibleName('Conservation status')
     fireEvent.click(statusBtn())
-    const panel = screen.getByRole('dialog', { name: 'Status' })
+    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
     expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
@@ -90,8 +91,12 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ statuses: ['VU', 'EN'] })
     expect(screen.getByTestId('status-VU')).toBeChecked()
-    expect(statusBtn()).toHaveTextContent('Status · 2')
-    expect(statusBtn()).toHaveAccessibleName('Status: Vulnerable, Endangered')
+    // The visible label is the long form with the short "Status" beside it (app.css shows one by container query).
+    expect(statusBtn().querySelector('.eb-long')).toHaveTextContent('Conservation status')
+    expect(statusBtn().querySelector('.eb-short')).toHaveTextContent('Status')
+    expect(statusBtn().querySelector('.eb-short')).toHaveAttribute('aria-hidden', 'true')
+    expect(statusBtn().querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
+    expect(statusBtn()).toHaveAccessibleName('Conservation status: Vulnerable, Endangered')
     // The counts are under the other filters: checking a category changes none of them.
     expect(screen.getByRole('checkbox', { name: 'Least Concern, 1 species' })).not.toBeChecked()
     fireEvent.click(screen.getByTestId('status-clear'))
@@ -145,7 +150,7 @@ describe('Status: a dropdown in the controls bar', () => {
     const { unmount } = render(<Harness />)
     statusBtn().focus()
     fireEvent.click(statusBtn())
-    expect(screen.getByRole('dialog', { name: 'Status' })).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('dialog', { name: 'Conservation status' })).toContainElement(document.activeElement as HTMLElement)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(statusBtn()).toHaveFocus()
@@ -154,7 +159,7 @@ describe('Status: a dropdown in the controls bar', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
     fireEvent.click(statusBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Status' })
+    const sheet = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(within(sheet).getByTestId('status-LC')).toBeInTheDocument()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
@@ -190,33 +195,15 @@ describe('IucnPill', () => {
   })
 })
 
-describe('The Status button’s glyph (?v=statusicon:<letter>)', () => {
-  afterEach(() => {
-    history.replaceState(null, '', '/')
-    sessionStorage.removeItem('everybird:variants')
-  })
-  it.each([
-    ['', 'gauge'],
-    ['a', 'gauge'],
-    ['b', 'shield-check'],
-    ['c', 'hourglass'],
-  ])('?v=statusicon:%s draws the %s', (v, icon) => {
-    if (v) history.replaceState(null, '', `/?v=statusicon:${v}`)
+describe('The Conservation status button’s glyph', () => {
+  it('is Phosphor Leaf, one constant shared with the How it works scene; Places and Time keep their own', () => {
+    const { container } = render(<STATUS_ICON />)
+    const leaf = container.querySelector('svg')!.innerHTML
+    cleanup()
     render(<Harness />)
-    const glyph = statusBtn().querySelector('svg')!
-    expect(glyph).toHaveAttribute('data-icon', icon)
-    // Places and Time keep their own glyphs, unmarked.
-    expect(screen.getByTestId('filter-tab-places').querySelector('svg')).not.toHaveAttribute('data-icon')
-  })
-  it('the three glyphs are different drawings', () => {
-    const paths = ['a', 'b', 'c'].map((v) => {
-      history.replaceState(null, '', `/?v=statusicon:${v}`)
-      const { unmount } = render(<Harness />)
-      const d = statusBtn().querySelector('svg')!.innerHTML
-      unmount()
-      return d
-    })
-    expect(new Set(paths).size).toBe(3)
+    expect(statusBtn().querySelector('svg')!.innerHTML).toBe(leaf)
+    expect(screen.getByTestId('filter-tab-places').querySelector('svg')!.innerHTML).not.toBe(leaf)
+    expect(screen.getByTestId('filter-tab-time').querySelector('svg')!.innerHTML).not.toBe(leaf)
   })
 })
 
