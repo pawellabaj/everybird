@@ -150,6 +150,7 @@ type Agg = {
   date?: string
   placeIds: number[]
   seen: Map<string, string>
+  seenMonths: Map<string, Set<string>>
   media: boolean
   heardAll: boolean
   deadAll: boolean
@@ -162,6 +163,11 @@ function foldInto(into: Agg, from: Agg): void {
   for (const [k, d] of from.seen) {
     const prev = into.seen.get(k)
     if (prev === undefined || (d && (!prev || d < prev))) into.seen.set(k, d)
+  }
+  for (const [key, months] of from.seenMonths) {
+    let set = into.seenMonths.get(key)
+    if (!set) into.seenMonths.set(key, (set = new Set()))
+    for (const month of months) set.add(month)
   }
   into.media ||= from.media
   into.heardAll &&= from.heardAll
@@ -306,6 +312,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
           date,
           placeIds,
           seen: new Map(placeIds.length ? [[placeIds.join(','), date ?? '']] : []),
+          seenMonths: new Map(placeIds.length && date ? [[placeIds.join(','), new Set([date.slice(0, 7)])]] : []),
           media: photos + sounds > 0,
           heardAll: sounds > 0 && photos === 0,
           deadAll: !!o.annotations?.some((a) => a.controlled_attribute_id === 17 && a.controlled_value_id === 19),
@@ -339,7 +346,10 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
     const seenOf = (a: Agg, into: string) => {
       for (const [k, d] of a.seen) {
         if (!placeByKey.has(k)) placeByKey.set(k, placeOf(k.split(',').map(Number)))
-        seenPlaces.add(into, placeByKey.get(k), d || undefined)
+        const place = placeByKey.get(k)
+        seenPlaces.add(into, place, d || undefined)
+        const region = place?.sub1 || place?.country
+        if (region) seenPlaces.addMonths(into, place?.sub2 ? `${region}|${place.sub2}` : region, a.seenMonths.get(k) ?? [])
       }
     }
 
@@ -371,6 +381,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
             if (place) u.place = place
             seenOf(a, `name:${name}`)
             u.seen = seenPlaces.get(`name:${name}`) ?? []
+            u.seenMonths = seenPlaces.getMonths(`name:${name}`) ?? []
             unmatched.push(u)
             continue
           }
@@ -400,6 +411,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
       rec.research = a.research
       if (a.assigned) rec.assigned = a.assigned
       rec.seen = seenPlaces.get(a.code) ?? []
+      rec.seenMonths = seenPlaces.getMonths(a.code) ?? []
       records.push(rec)
     }
     return { records, unmatched, skipped }

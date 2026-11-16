@@ -40,7 +40,7 @@ describe('the observation.org slots', () => {
     const m = migrateSaved(old)
     expect(m.records.obsorg).toEqual([])
     expect(m.records['obsorg-list']).toEqual([])
-    expect(m.v).toBe(4)
+    expect(m.v).toBe(5)
   })
 
   it('importing replaces only its slot; Remove takes its records, unmatched, skipped and details', () => {

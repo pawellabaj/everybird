@@ -1,0 +1,41 @@
+{
+  "waterfowl": {
+    "en": ["duck", "ducks", "goose", "geese", "swan", "swans"],
+    "es": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes", "aves acuáticas"],
+    "pt": ["pato", "patos", "ganso", "gansos", "cisne", "cisnes", "aves aquáticas"],
+    "nl": ["eend", "eenden", "gans", "ganzen", "zwaan", "zwanen", "watervogels"]
+  },
+  "vultures-hawks-and-allies": {
+    "en": ["raptor", "raptors", "hawk", "hawks", "eagle", "eagles", "kite", "kites", "hawks eagles and kites"],
+    "es": ["rapaz", "rapaces", "águila", "águilas", "gavilanes"],
+    "pt": ["rapina", "aves de rapina", "águias", "gaviões"],
+    "nl": ["roofvogel", "roofvogels", "havik", "haviken", "arenden"]
+  },
+  "owls": {
+    "en": ["owl"], "es": ["búho", "búhos", "lechuzas"], "pt": ["coruja", "corujas"], "nl": ["uil", "uilen"]
+  },
+  "gulls-terns-and-skimmers": {
+    "en": ["gull", "gulls", "tern", "terns"], "es": ["gaviota", "gaviotas", "charranes"], "pt": ["gaivota", "gaivotas"], "nl": ["meeuw", "meeuwen", "sterns"]
+  },
+  "shorebirds": {
+    "en": ["shorebird", "wader", "waders"], "es": ["limícola", "limícolas"], "pt": ["limícola", "limícolas", "aves limícolas"], "nl": ["steltloper", "steltlopers"]
+  },
+  "hummingbirds": {
+    "en": ["hummingbird", "hummers"], "es": ["colibrí", "colibríes"], "pt": ["beija-flor", "beija-flores"], "nl": ["kolibrie", "kolibries"]
+  },
+  "woodpeckers": {
+    "en": ["woodpecker"], "es": ["pájaro carpintero", "pájaros carpinteros", "carpinteros"], "pt": ["pica-pau", "pica-paus"], "nl": ["specht", "spechten"]
+  },
+  "wood-warblers": {
+    "en": ["warbler", "warblers", "new world warblers"], "es": ["reinita", "reinitas"], "pt": ["mariquita", "mariquitas"], "nl": ["amerikaanse zanger", "amerikaanse zangers"]
+  },
+  "new-world-sparrows": {
+    "en": ["sparrow", "sparrows"], "es": ["gorrión", "gorriones"], "pt": ["pardal", "pardais"], "nl": ["mus", "mussen"]
+  },
+  "pigeons-and-doves": {
+    "en": ["pigeon", "pigeons", "dove", "doves"], "es": ["paloma", "palomas"], "pt": ["pombo", "pombos", "pombas"], "nl": ["duif", "duiven"]
+  },
+  "falcons-and-caracaras": {
+    "en": ["falcon", "falcons"], "es": ["halcón", "halcones"], "pt": ["falcão", "falcões"], "nl": ["valk", "valken"]
+  }
+}
