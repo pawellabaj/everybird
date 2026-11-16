@@ -23,8 +23,8 @@ What changed, and why each label is what it is:
   "Added 197 species" banner, the uppercase mono status and the cards with descriptors are gone.
 - The collage page: the page head with the title verbatim ("My collage": the list has no title yet), Add birds and
   Share; the stats line ("112 species · 7 orders · 31 families · since Mar 2019", "6 of 112 species · 1 family" on
-  Herons); the controls bar (view tabs, True size, Scientific, Places and Time dropdowns, search; on phones the short
-  labels and Places and Time on row two); the order chips wrapped (seven orders adding up to 112; on phones the "Choose
+  Herons); the controls bar (view tabs, True size, Scientific, a Filters button, search; on phones the short
+  labels and the Filters button on row two); the order chips wrapped (seven orders adding up to 112; on phones the "Choose
   an order 7" picker and its sheet).
 - The birds are the product's own packing (scripts/build-data/build-howto.ts writes how-it-works-data.ts): packBest
   with the order masks, painted-area sizes (relSizes: the Great Blue Heron's long tile beside the compact Great Horned
