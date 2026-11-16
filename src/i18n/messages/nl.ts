@@ -330,6 +330,8 @@ export const nl: Messages = {
       title: 'Deel je collage',
       formats: 'Afbeeldingsformaat',
       format: { story: 'Verhaal', post: 'Bericht', square: 'Vierkant' },
+      /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
+      formatName: '{name}, verhouding {ratio}',
       preview: { story: 'Voorbeeld van de verhaalafbeelding', post: 'Voorbeeld van de berichtafbeelding', square: 'Voorbeeld van de vierkante afbeelding' },
       failed: 'De afbeelding kon niet worden gemaakt.',
       imageFailed: 'De afbeelding kon niet worden gemaakt. Probeer het opnieuw.',
@@ -339,7 +341,6 @@ export const nl: Messages = {
       namePlaceholder: 'Mijn vogels van 2024',
       nameOptional: '(optioneel)',
       showLatest: 'Nieuwste soort tonen',
-      showStatus: 'Beschermingsstatus tonen',
       shareImage: 'Beeld delen',
       download: 'Beeld downloaden',
       copyLink: 'Link kopiëren',

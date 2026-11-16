@@ -395,6 +395,8 @@ export const EN_UI = {
     /** The format control's group name and its three segments (their 9:16, 4:5, 1:1 hints are in code). */
     formats: 'Image format',
     format: { story: 'Story', post: 'Post', square: 'Square' },
+    /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
+    formatName: '{name}, {ratio}',
     /** The preview image's alt text, per format. */
     preview: { story: 'Preview of the story image', post: 'Preview of the post image', square: 'Preview of the square image' },
     failed: "Couldn't make the image.",
@@ -405,7 +407,6 @@ export const EN_UI = {
     namePlaceholder: 'My 2024 birds',
     nameOptional: '(optional)',
     showLatest: 'Show latest lifer',
-    showStatus: 'Show conservation status',
     shareImage: 'Share image',
     download: 'Download image',
     copyLink: 'Copy link',

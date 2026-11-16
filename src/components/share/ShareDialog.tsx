@@ -39,7 +39,6 @@ import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { displayName, familyName } from '@/lib/species/names'
 import { useNames } from '@/lib/species/use-names'
-import { markShown } from '@/lib/species/status-mark'
 import type { Regions } from '@/lib/species/types'
 import '@/components/app/app.css'
 import '@/components/collage/collage.css'
@@ -88,7 +87,6 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const print = mode === 'print'
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
-  const [showStatus, setShowStatus] = useState(false) // off at every open
   // The look of everything the dialog makes: the app's theme when the dialog opens, then this dialog's own choice.
   const [dark, setDark] = useState(() => currentTheme() === 'dark')
   const theme: Theme = dark ? 'dark' : 'light'
@@ -105,9 +103,6 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   }, [filter, species, regions, lang, t, names])
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
-  // The conservation status switch shows only when the view holds a threatened bird (VU, EN, CR), as the pill does.
-  const hasThreatened = useMemo(() => shown.some((e) => markShown(species.byCode.get(e.code)?.iu)), [shown, species])
-  const withStatus = hasThreatened && showStatus
 
   // One pack per format, name-or-not and lifer-or-not while the dialog is open (the view can't change underneath it; a
   // name takes a line off the collage and the latest lifer row gives one back, so each gets its own pack); workers end
@@ -149,7 +144,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const shownSize = useRef<[number, number]>([0, 0])
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${print ? `print|${size}` : format}|${trimmed}|${theme}|${withLatest}|${withStatus}|${lang}|${names}|${fk}`
+  const key = `${print ? `print|${size}` : format}|${trimmed}|${theme}|${withLatest}|${lang}|${names}|${fk}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   // What the render depends on: in print mode not the share format, so switching it there never starts a needless render.
@@ -166,7 +161,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       .then(() => packFor(cardFormat, !!trimmed, withLatest))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
-        theme, pack, latest: withLatest, status: withStatus, strings: t, nameOf: displayName, signal: life.current?.signal,
+        theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal,
       }))
     current.current = job
     job.then(
@@ -195,7 +190,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       },
     )
     return () => { live = false; cancel() }
-  }, [key, print, size, cardFormat, trimmed, theme, withLatest, withStatus, packFor, shown, species, label, t])
+  }, [key, print, size, cardFormat, trimmed, theme, withLatest, packFor, shown, species, label, t])
   useEffect(() => () => {
     clearTimeout(outgoingTimer.current)
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
@@ -218,7 +213,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
 
   // The poster: one make at a time, for `posterKey`. A new key, leaving print mode or closing the dialog cancels the
   // make and drops the poster (its encoder ends with it).
-  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${withStatus}|${fk}`
+  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${fk}`
   const [poster, setPoster] = useState<{ key: string; p: Poster } | null>(null)
   const [making, setMaking] = useState<{ key: string; done: number; total: number } | null>(null)
   const makeCtl = useRef<AbortController | null>(null)
@@ -279,7 +274,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       const pack = await packFor('print', !!trimmed, withLatest)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
-        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, status: withStatus, theme, strings: t, nameOf: displayName, signal: ctl.signal },
+        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, strings: t, nameOf: displayName, signal: ctl.signal },
         (done, total) => { if (!ctl.signal.aborted) setMaking({ key: forKey, done, total }) },
       )
       if (ctl.signal.aborted) { p.dispose(); return }
@@ -518,7 +513,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
             ) : (
               <div className="eb-seg" role="group" aria-label={t.share.formats}>
                 {FORMATS.map(({ id, hint, icon: Glyph }) => (
-                  <button key={id} type="button" className="eb-seg-btn" aria-pressed={format === id} onClick={() => setFormat(id)}>
+                  <button key={id} type="button" className="eb-seg-btn" aria-label={fmt(t.share.formatName, { name: t.share.format[id], ratio: hint })} aria-pressed={format === id} onClick={() => setFormat(id)}>
                     <Glyph aria-hidden="true" focusable="false" />
                     <span className="eb-seg-text">
                       <span className="eb-seg-label">{t.share.format[id]}</span>
@@ -589,13 +584,6 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
                   {hasLatest && (
                     <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
                       <span>{t.share.showLatest}</span>
-                      <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
-                    </button>
-                  )}
-
-                  {hasThreatened && (
-                    <button type="button" role="switch" aria-checked={showStatus} className="eb-switch eb-share-switch" onClick={() => setShowStatus((v) => !v)}>
-                      <span>{t.share.showStatus}</span>
                       <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
                     </button>
                   )}

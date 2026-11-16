@@ -330,6 +330,8 @@ export const pt: Messages = {
       title: 'Compartilhe sua colagem',
       formats: 'Formato da imagem',
       format: { story: 'Story', post: 'Post', square: 'Quadrado' },
+      /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
+      formatName: '{name}, proporção {ratio}',
       preview: { story: 'Prévia da imagem para story', post: 'Prévia da imagem para publicação', square: 'Prévia da imagem quadrada' },
       failed: 'Não foi possível criar a imagem.',
       imageFailed: 'Não foi possível criar a imagem. Tente de novo.',
@@ -339,7 +341,6 @@ export const pt: Messages = {
       namePlaceholder: 'Minhas aves de 2024',
       nameOptional: '(opcional)',
       showLatest: 'Última espécie nova',
-      showStatus: 'Estado de conservação',
       shareImage: 'Compartilhar',
       download: 'Baixar imagem',
       copyLink: 'Copiar link',

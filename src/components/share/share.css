@@ -194,19 +194,28 @@
 .eb-share-actions .eb-btn {
   min-width: 0; white-space: normal; text-align: center; line-height: 1.2; padding-block: 3px; overflow-wrap: break-word;
 }
-/* Share image across the column, then one row of equal quiet buttons (however many print mode has). */
-.eb-share-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
-.eb-share-row .eb-btn { padding-inline: 12px; }
-/* The controls' column is a container: where the row runs short (a 300px column beside the preview, phones), the
-   icons go from the row; narrower still (a 320px phone gives 246px) the padding tightens and the row becomes a grid
-   of cells at least 10ch wide (a little over "Download"), so a cell that can't fit moves to a new row instead of
+/* Share image across the column, then one row of quiet buttons (however many print mode has). The buttons take their
+   words' width and share what is left, so a long label ("Link kopiëren") keeps its line while "Print" stays small;
+   when the row truly runs short they shrink together and wrap alike (equal heights, centred). */
+.eb-share-row { display: flex; gap: 8px; }
+.eb-share-row .eb-btn { flex: 1 1 auto; padding-inline: 10px; }
+/* The controls' column is a container, and the steps are budgeted from the longest language's labels in
+   tests/i18n-fit.test.ts ("the share dialog's rows"): under 440px (so the 420px column) the icons go and the padding
+   tightens; under 400px (the 300px column beside the preview) the text and gaps tighten too: Dutch "Downloaden",
+   "Link kopiëren" and "Printen" stay on one line. Under 300px (a 320px phone gives 246px) the row becomes a grid of
+   cells at least 10ch wide (a little over "Download"), so a cell that can't fit moves to a new row instead of
    squeezing its label (Safari's page zoom takes the column to about 186px). */
-@container (max-width: 379px) {
+@container (max-width: 439px) {
   .eb-share-row .eb-btn svg { display: none; }
+  .eb-share-row .eb-btn { padding-inline: 8px; }
+}
+@container (max-width: 399px) {
+  .eb-share-row { gap: 6px; }
+  .eb-share-row .eb-btn { font-size: 14px; padding-inline: 6px; }
 }
 @container (max-width: 299px) {
   .eb-share-row .eb-btn { padding-inline: 4px; }
-  .eb-share-row { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10ch), 1fr)); }
+  .eb-share-row { display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10ch), 1fr)); }
 }
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -240,17 +249,26 @@
 .eb-seg-text { display: inline-flex; align-items: baseline; gap: 8px; }
 .eb-seg-label, .eb-seg-btn .eb-share-hint { display: block; line-height: 1; text-box: trim-both cap alphabetic; }
 .eb-seg-btn[aria-pressed="true"] { opacity: 1; background: var(--surface); }
-/* The control answers to its column's width (a container query), not the window's: where three formats with icons
-   don't fit, the formats share the column evenly and the icons go; narrower still, the ratios go too, the words stay. */
+/* The control answers to its column's width (a container query), not the window's, in steps budgeted from the longest
+   language's labels (Dutch "Verhaal 9:16, Bericht 4:5, Vierkant 1:1"; tests/i18n-fit.test.ts, "the share dialog's
+   rows"): under 500px the icons go and the padding tightens; under 384px (the 300px column) the ratios go too, the
+   words stay (the button's aria-label keeps the ratio); under 290px (a 320px phone gives 246px) the gaps, padding and
+   text shrink. A label that still can't fit wraps inside its button rather than run past the control. */
 /* The format words keep 16px (in px, as the switch's label does), so a reader's larger text size never pushes them
    past the control on a small phone (at 320px and 200% they overlapped). */
 .eb-share .eb-seg-btn { font-size: 16px; }
 /* It spans its column: the formats share any room left over. */
 .eb-share-formats .eb-seg { display: flex; }
-.eb-share-formats .eb-seg-btn { flex: 1 1 auto; }
-@container (max-width: 419px) {
-  .eb-share-formats .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+.eb-share-formats .eb-seg-btn { flex: 1 1 auto; min-width: 0; }
+.eb-share-formats .eb-seg-text { min-width: 0; max-width: 100%; }
+.eb-share-formats .eb-seg-label { min-width: 0; overflow-wrap: anywhere; }
+@container (max-width: 499px) {
+  .eb-share-formats .eb-seg-btn { flex: 1 1 0; padding: 0 8px; }
   .eb-seg-btn svg { display: none; }
 }
-@container (max-width: 259px) { .eb-seg-btn .eb-share-hint { display: none; } }
+@container (max-width: 383px) { .eb-seg-btn .eb-share-hint { display: none; } }
+@container (max-width: 289px) {
+  .eb-share-formats .eb-seg { gap: 2px; padding: 2px; }
+  .eb-share .eb-seg-btn { font-size: 14px; padding: 0 4px; }
+}
 @media (prefers-reduced-motion: reduce) { .eb-seg-btn { transition: none; } }

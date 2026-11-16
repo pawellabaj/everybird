@@ -34,10 +34,8 @@ import { formatMonth } from '@/i18n/format'
 import { PRINT_DESIGN_H, PRINT_DESIGN_W, printDesignH, type PrintSize } from '@/lib/share/print'
 import { stampDate, stampStrings, withStamp } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
-import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_CAP_ACCENT, MONO_LINE, NUM_LINE, columnBoxes, countDisplay, countText, labelEm, numberEm, scaleHole, touchesHole, type Hole } from '@/lib/layout/count-box'
+import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_CAP_ACCENT, MONO_LINE, NUM_LINE, columnBoxes, countDisplay, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { Ui } from '@/i18n/messages/en'
-import { IUCN_COLORS, type IucnCat } from '@/lib/species/iucn'
-import { MARK_COUNT_AIR_PX, MARK_INSET_PX, MARK_PX, markShown } from '@/lib/species/status-mark'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
 import { continentNames, namesLabel, placesLabel, seenLabels, statusLabel } from '@/lib/list/filter-summary'
@@ -414,8 +412,6 @@ export type Tile = {
   x: number; y: number; w: number; h: number; url: string | null
   /** The print's 384 file, tried when its 1024 file (`url`) fails; absent or null otherwise. */
   fallback?: string | null
-  /** The Red List category whose pill the tile carries (only set when the card shows conservation status). */
-  iu?: IucnCat
 }
 /** A band of the card in design units, top (y0) to bottom (y1): the part a poster strip paints. */
 export type PaintRange = { y0: number; y1: number }
@@ -427,50 +423,6 @@ export type PaintRange = { y0: number; y1: number }
 export function tileInRange(t: { y: number; h: number }, range: PaintRange): boolean {
   return t.y < range.y1 + 1 && t.y + t.h > range.y0 - 1
 }
-// The Red List pill on a share image: the screen's mark (MARK_PX, in CSS px) at the image's text scale, since the image's
-// mono label is 20px where the screen's is 12px (about 1.7x). Design units.
-const PILL_S = 1.7
-const PILL = { w: 37, h: 24, inset: MARK_INSET_PX * PILL_S, air: MARK_COUNT_AIR_PX * PILL_S, minSide: MARK_PX.minSide * PILL_S, font: 9 * PILL_S, ring: PILL_S }
-const pillFont = (mono: string) => `600 ${PILL.font}px ${mono}`
-/** A tile's pill rectangle: its bottom-right corner, inset. */
-const pillRect = (t: Tile): [number, number, number, number] => {
-  const r = t.x + t.w - PILL.inset, b = t.y + t.h - PILL.inset
-  return [r - PILL.w, b - PILL.h, r, b]
-}
-
-/** Draw the pills of the tiles that carry one (tile.iu), in every strip their tile is drawn in (tileInRange). */
-function paintPills(ctx: CanvasRenderingContext2D, tiles: Tile[], line: string, mono: string, range?: PaintRange): void {
-  const path = (x0: number, y0: number, x1: number, y1: number, r: number) => {
-    ctx.beginPath()
-    if (typeof ctx.roundRect === 'function') ctx.roundRect(x0, y0, x1 - x0, y1 - y0, r)
-    else ctx.rect(x0, y0, x1 - x0, y1 - y0)
-  }
-  let set = false
-  for (const t of tiles) {
-    if (!t.iu || (range && !tileInRange(t, range))) continue
-    const c = IUCN_COLORS[t.iu]
-    const [x0, y0, x1, y1] = pillRect(t)
-    // The ring (Line) is the pill's outer 1px; the fill sits inside it.
-    ctx.fillStyle = line
-    path(x0, y0, x1, y1, PILL.h / 2)
-    ctx.fill()
-    ctx.fillStyle = c.fill
-    path(x0 + PILL.ring, y0 + PILL.ring, x1 - PILL.ring, y1 - PILL.ring, PILL.h / 2 - PILL.ring)
-    ctx.fill()
-    if (!set) {
-      ctx.font = pillFont(mono)
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'alphabetic'
-      if ('letterSpacing' in ctx) ctx.letterSpacing = `${(0.06 * PILL.font).toFixed(2)}px`
-      set = true
-    }
-    ctx.fillStyle = c.text
-    // Centred on the caps' height; the trailing letter space shifts the ink left, so nudge it back by half.
-    ctx.fillText(t.iu, (x0 + x1) / 2 + 0.03 * PILL.font, (y0 + y1) / 2 + (MONO_CAP * PILL.font) / 2)
-  }
-  if (set && 'letterSpacing' in ctx) ctx.letterSpacing = '0px'
-}
-
 /**
  * Draw the collage's tiles: the sticker when it loaded, else a thin outline of the bird in `line` (never a hole). With
  * `range`, only the tiles tileInRange keeps.
@@ -564,8 +516,6 @@ export type ShareImageOpts = {
   strings: ShareStrings
   /** A bird's name to draw (the latest lifer's); default its English name. The dialog passes the display name. */
   nameOf?: (row: SpeciesRow) => string
-  /** Draw the Red List pill on threatened birds (VU, EN, CR); default false. Drawing only: the pack does not change. */
-  status?: boolean
   signal?: AbortSignal
 }
 
@@ -653,8 +603,6 @@ export type PreparedCard = {
   name?: string
   label?: string
   fonts: CardFonts
-  /** Whether any tile carries a Red List pill (its font is loaded with the others). */
-  pills?: boolean
   /** The wordmark's width plus the gap before the footer line beside it. */
   brandW: number
   /** The footer line's size, and whether it took its own line under the wordmark (placeCredit). */
@@ -690,7 +638,6 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
   // The pack on the collage area, its centre (the count) on the area's centre.
   const area = L.collage
   const fit = fitPack(pack, area, maxTileSide(area.w, L.maxTile), SPREAD[format])
-  const threatened = new Map<Tile, IucnCat>()
   const tiles: Tile[] = shown.flatMap((e) => {
     const b = pack.boxes.get(e.code)
     if (!b) return []
@@ -698,7 +645,6 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
     const [w, h] = [b[2] * fit.s, b[3] * fit.s]
     const [x, y] = [fit.cx + (b[0] - fit.ux) * fit.s, spreadY(fit, b[1] + b[3] / 2) - h / 2]
     const tile: Tile = { x, y, w, h, ...(row.st ? sticker(e.code, Math.max(w, h), row.sv) : { url: null }) }
-    if (opts.status && markShown(row.iu)) threatened.set(tile, row.iu)
     return [tile]
   })
   // The latest lifer's sticker, contained in its square at the sticker's own aspect.
@@ -712,23 +658,10 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
   // The count grows with the birds when a short list is scaled up past the width fit (its hole grew as much).
   const g = Math.min(fit.grow, 1.3)
   const K = { ...L.count, size: Math.round(L.count.size * g), labelSize: Math.round(L.count.labelSize * Math.min(g, 1.15)), gap: Math.round(L.count.gap * g) }
-  // Red List pills (opts.status): a threatened bird's tile carries one when it is long enough and the pill keeps clear
-  // of the count's text (the hole, grown with the birds as the count is).
-  let pills = false
-  if (threatened.size) {
-    const hole = { ...scaleHole(L.count.hole, g), pad: PILL.air }
-    for (const [t, iu] of threatened) {
-      if (Math.max(t.w, t.h) < PILL.minSide) continue
-      const [x0, y0, x1, y1] = pillRect(t)
-      if (touchesHole([x0 - fit.cx, y0 - fit.cy, x1 - fit.cx, y1 - fit.cy], hole)) continue
-      t.iu = iu
-      pills = true
-    }
-  }
   // What the count draws, in the UI language ("1.089", "ESPÉCIES"); K's number and label are the geometry's.
   const countNum = countDisplay(content.count, strings.num)
   const countLabel = strings.count.label.toUpperCase()
-  return { format, L, colors, fit, tiles, lifer, K, countNum, countLabel, footerLine, latest, name, label, fonts: cardFonts(), ...(pills ? { pills } : {}) }
+  return { format, L, colors, fit, tiles, lifer, K, countNum, countLabel, footerLine, latest, name, label, fonts: cardFonts() }
 }
 
 /**
@@ -747,9 +680,8 @@ function textMeasurer(): (font: string, px: number, text: string, em: number) =>
 function cardFontsReady(d: CardDraft): Promise<void> {
   const { L, fonts: font, K, name, label, latest, footerLine, countNum, countLabel } = d
   return fontsReady(
-    [font.name(L.name?.size ?? 60), font.filter(34), font.count(K.size), font.mono(K.labelSize), font.lifer(34), font.brand(30), font.footer(20),
-      ...(d.pills ? [pillFont(families().mono)] : [])],
-    `${d.pills ? 'VUENCR' : ''}${name ?? ''}${label ?? ''}${countNum}${countLabel}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
+    [font.name(L.name?.size ?? 60), font.filter(34), font.count(K.size), font.mono(K.labelSize), font.lifer(34), font.brand(30), font.footer(20)],
+    `${name ?? ''}${label ?? ''}${countNum}${countLabel}${latest ? latest.label.toUpperCase() + latest.name : ''}Everybird${footerLine}`,
   )
 }
 
@@ -804,7 +736,6 @@ export function paintCard(ctx: CanvasRenderingContext2D, card: PreparedCard, img
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
   paintTiles(ctx, card.tiles, imgs, C.line, range)
-  if (card.pills) paintPills(ctx, card.tiles, C.line, families().mono, range)
 
   const maxW = L.W - 2 * M
   const track = (em: number, px: number) => { if ('letterSpacing' in ctx) ctx.letterSpacing = `${(em * px).toFixed(2)}px` }

@@ -330,6 +330,8 @@ export const es: Messages = {
       title: 'Comparte tu collage',
       formats: 'Formato de imagen',
       format: { story: 'Historia', post: 'Post', square: 'Cuadrado' },
+      /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
+      formatName: '{name}, relación {ratio}',
       preview: { story: 'Vista previa de la imagen de historia', post: 'Vista previa de la imagen de publicación', square: 'Vista previa de la imagen cuadrada' },
       failed: 'No se pudo crear la imagen.',
       imageFailed: 'No se pudo crear la imagen. Inténtalo de nuevo.',
@@ -339,7 +341,6 @@ export const es: Messages = {
       namePlaceholder: 'Mis aves de 2024',
       nameOptional: '(opcional)',
       showLatest: 'Última especie nueva',
-      showStatus: 'Estado de conservación',
       shareImage: 'Compartir',
       download: 'Descargar imagen',
       copyLink: 'Copiar enlace',
