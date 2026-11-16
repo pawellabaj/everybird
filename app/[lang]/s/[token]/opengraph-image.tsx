@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og'
+import { notFound } from 'next/navigation'
+import { isLang } from '@/i18n/langs'
 import { loadBirds } from '@/lib/layout/layout.worker'
 import { EXP, LAYOUTS } from '@/lib/layout/constants'
 import { packBest, relSizes, type Box } from '@/lib/layout/pack'
@@ -62,8 +64,12 @@ function frame(children: React.ReactNode) {
   )
 }
 
-export default async function Image({ params }: { params: Promise<{ token: string }> }) {
-  const [payload, fonts] = [tryDecodeShare((await params).token), ogFonts()]
+export default async function Image({ params }: { params: Promise<{ lang: string; token: string }> }) {
+  // An image route skips the root layout, so it checks the language itself: /zz/s/<token>/opengraph-image is a 404,
+  // never a render cached for a year under a made-up prefix.
+  const { lang, token } = await params
+  if (!isLang(lang)) notFound()
+  const [payload, fonts] = [tryDecodeShare(token), ogFonts()]
   let placed: Placed[] = [], expected = 0, failed = false, latest: { name: string; date?: string } | undefined
   if (payload) {
     try {

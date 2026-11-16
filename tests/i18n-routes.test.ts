@@ -173,6 +173,11 @@ describe('coverage', () => {
     }
     expect(readFileSync(join(process.cwd(), 'app/[lang]/layout.tsx'), 'utf8')).not.toMatch(/export const dynamicParams/)
   })
+  it('the image routes refuse a language segment they do not know (they skip the root layout)', () => {
+    const src = readFileSync(join(process.cwd(), 'app/[lang]/s/[token]/opengraph-image.tsx'), 'utf8')
+    expect(src).toMatch(/if \(!isLang\(lang\)\) notFound\(\)/)
+    expect(readFileSync(join(process.cwd(), 'app/[lang]/s/[token]/twitter-image.tsx'), 'utf8')).toMatch(/from '\.\/opengraph-image'/)
+  })
   it('every prerendered page closes its language, so /nope is the static 404 and never a render', () => {
     const files = ['(app)/page.tsx', '(app)/about/page.tsx', '(app)/settings/page.tsx', 'make/page.tsx', 'my/page.tsx', 'credits/page.tsx']
     for (const f of files) {
