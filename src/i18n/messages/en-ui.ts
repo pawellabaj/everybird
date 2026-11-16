@@ -188,10 +188,12 @@ export const EN_UI = {
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
     /** The two buttons in the controls bar and their group. */
-    dock: 'Places, time and Red List',
+    dock: 'Places, time and conservation status',
     places: 'Places',
     time: 'Time',
-    status: 'Red List',
+    status: 'Conservation status',
+    /** The bar's short form (under 540px of bar, on phones). */
+    statusShort: 'Status',
     clear: 'Clear',
     timeline: {
       /** Full month names, January first (the sliders' value text, the Time button's spoken text). */

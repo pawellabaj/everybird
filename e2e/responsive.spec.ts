@@ -58,7 +58,7 @@ for (const width of [320, 390, 430, 440, 600] as const) {
       const m = await bar(page);
       expect(m.rows, JSON.stringify(m.rows)).toHaveLength(2);
       expect(m.rows[0]).toEqual(["Collage", "List", expect.stringMatching(/^True/), expect.stringMatching(/^Sci\./), "Find a bird"]);
-      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/), expect.stringMatching(/^Red List/)]); // aria-label first: the whole name
+      expect(m.rows[1]).toEqual([expect.stringMatching(/^Places/), expect.stringMatching(/^Time/), expect.stringMatching(/^(Conservation )?[Ss]tatus/)]); // aria-label first: the whole name
       expect(m.dock).toBeLessThanOrEqual(0);
       expect(m.page).toBeLessThanOrEqual(0);
 
@@ -134,7 +134,7 @@ async function dropLabels(page: Page) {
 // The landing sample has Red List statuses (LC and NT), so Status shows. Written in Round 4 and not run by agents.
 test.describe("390px phone, three drops active", () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-  test("active labels read in full: Places · 2, Time · a range, Red List · 1, nothing cut and the row doesn't overflow", async ({ page }) => {
+  test("active labels read in full: Places · 2, Time · a range, Status · 1 (the phone's short label), nothing cut and the row doesn't overflow", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("filter-tab-status")).toBeVisible();
     const pressRow = (panel: ReturnType<Page["getByTestId"]>, input: ReturnType<Page["locator"]>) =>
@@ -145,7 +145,7 @@ test.describe("390px phone, three drops active", () => {
     const status = page.getByTestId("filter-panel-status");
     await pressRow(status, status.locator('input[data-testid^="status-"]').first()).tap();
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("filter-tab-status")).toContainText("Red List · 1");
+    await expect(page.getByTestId("filter-tab-status")).toContainText("Status · 1");
 
     // Time: a range of years from the keyboard, the start a year on and the end a year back (the start alone reads
     // "from 2019"). Keys commit KEY_COMMIT_MS after the last one, and closing the panel cancels a pending commit, so
@@ -169,7 +169,7 @@ test.describe("390px phone, three drops active", () => {
 
     const m = await dropLabels(page);
     expect(m.labels.map((l) => l.text)).toEqual([
-      expect.stringMatching(/^Places · 2$/), expect.stringMatching(/^Time · \d{4}–\d{4}$/), expect.stringMatching(/^Red List · 1$/),
+      expect.stringMatching(/^Places · 2$/), expect.stringMatching(/^Time · \d{4}–\d{4}$/), expect.stringMatching(/^Status · 1$/),
     ]);
     for (const l of m.labels) expect(l.cut, `"${l.text}" is cut`).toBe(false);
     expect(m.row).toBeLessThanOrEqual(0);
