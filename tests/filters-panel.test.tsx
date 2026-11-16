@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { useCallback, useReducer, useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IucnCat } from '@/lib/species/iucn'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 
@@ -53,8 +53,13 @@ function seeded() {
   return reduce(initialState(), { type: 'restore', saved })
 }
 
+type Action = import('@/lib/list/store').Action
+// Runs after each dispatch, before React renders it: a test uses it to move the scroll or focus the way a browser would.
+let onDispatched: (() => void) | null = null
+
 function Harness({ hide, sp = species }: { hide?: readonly FilterSection[]; sp?: typeof species }) {
-  const [state, dispatch] = useReducer(reduce, undefined, seeded)
+  const [state, rawDispatch] = useReducer(reduce, undefined, seeded)
+  const dispatch = useCallback((a: Action) => { rawDispatch(a); onDispatched?.() }, [])
   const [previews, setPreviews] = useState(0)
   const onPreview = useCallback(() => setPreviews((n) => n + 1), [])
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06', onPreview }
@@ -325,5 +330,124 @@ describe('spec 15: the content below the panel', () => {
     expect(filterOf()).toEqual({})
     expect(screen.queryByTestId('chips-clear-all')).toBeNull()
     expect(button()).toHaveFocus()
+  })
+})
+
+describe('a filter change keeps the place: scroll, panel scrollers and focus', () => {
+  let scrollTo: ReturnType<typeof vi.spyOn>
+  let intoView: ReturnType<typeof vi.fn>
+  // Places checkboxes and the Conservation status checkboxes, ticked and unticked with the panel open.
+  const tick = (testId: string) => {
+    const cb = screen.getByTestId(testId) as HTMLInputElement
+    act(() => cb.focus())
+    fireEvent.click(cb)
+    expect(cb).toHaveFocus()
+    return cb
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('innerWidth', 1000)
+    intoView = vi.fn()
+    Element.prototype.scrollIntoView = intoView as unknown as Element['scrollIntoView'] // jsdom has none
+    scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(((_x: number, y: number) => { window.scrollY = y }) as typeof window.scrollTo)
+    window.scrollY = 0
+  })
+  afterEach(() => {
+    onDispatched = null
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    scrollTo.mockRestore()
+    window.scrollY = 0
+  })
+
+  it('ticking, unticking and × keep the panel node, make no scroll call and keep the focus on the control', () => {
+    render(<Harness />)
+    fireEvent.click(button())
+    const panel = screen.getByTestId('filters-panel')
+    intoView.mockClear()
+    scrollTo.mockClear()
+
+    tick('continent-NA')
+    expect(filterOf()).toEqual({ continents: ['NA'] })
+    tick('continent-NA')
+    expect(filterOf()).toEqual({})
+    tick('status-VU')
+    tick('status-VU')
+    tick('continent-NA')
+    expect(screen.getByTestId('chip-place-n:NA')).toBeInTheDocument()
+    expect(screen.getByTestId('filters-panel')).toBe(panel)
+
+    // × on a chip: the chip now at its index takes focus (ChipRow), not the scroll.
+    tick('status-VU')
+    fireEvent.click(screen.getByTestId('chip-place-n:NA'))
+    expect(screen.getByTestId('chip-status-VU')).toHaveFocus()
+    expect(screen.getByTestId('filters-panel')).toBe(panel)
+    expect(filterOf()).toEqual({ statuses: ['VU'] })
+
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(intoView).not.toHaveBeenCalled()
+  })
+
+  it('a change that shrinks the window scroll puts it back', () => {
+    render(<Harness />)
+    fireEvent.click(button())
+    window.scrollY = 300
+    onDispatched = () => { window.scrollY = 0 } // the page shorter for a moment: the browser clamps
+    tick('continent-NA')
+    expect(scrollTo).toHaveBeenCalledWith(0, 300)
+    expect(window.scrollY).toBe(300)
+  })
+
+  it('a popover scroller (the Places checklist and the panel body) is put back to its position', () => {
+    render(<Harness />)
+    fireEvent.click(button())
+    const panel = screen.getByTestId('filters-panel')
+    const body = panel.querySelector<HTMLElement>('.eb-drop-body')!
+    const list = panel.querySelector<HTMLElement>('.eb-checklist')!
+    body.scrollTop = 120
+    list.scrollTop = 80
+    onDispatched = () => { body.scrollTop = 0; list.scrollTop = 0 }
+    tick('continent-NA')
+    expect(body.scrollTop).toBe(120)
+    expect(list.scrollTop).toBe(80)
+  })
+
+  it('focus lost to the body in a change comes back to the control that was focused', () => {
+    render(<Harness />)
+    fireEvent.click(button())
+    onDispatched = () => (document.activeElement as HTMLElement).blur()
+    const cb = tick('status-VU')
+    expect(cb).toHaveFocus()
+    expect(filterOf()).toEqual({ statuses: ['VU'] })
+  })
+
+  it('a change with the panel closed takes no snapshot and moves nothing', () => {
+    render(<Harness />)
+    window.scrollY = 300
+    onDispatched = () => { window.scrollY = 0 }
+    fireEvent.click(screen.getByRole('button', { name: 'four places' }))
+    expect(scrollTo).not.toHaveBeenCalled()
+    expect(window.scrollY).toBe(0)
+  })
+})
+
+describe('the collage column while the panel is open', () => {
+  function Column() {
+    const [state, dispatch] = useReducer(reduce, undefined, seeded)
+    return <CollageView state={state} dispatch={dispatch} species={species} regions={regions} label="Test collage" />
+  }
+
+  it('is frozen at its height from open to close (popover and phone sheet alike)', () => {
+    for (const width of [1000, 390]) {
+      vi.stubGlobal('innerWidth', width)
+      const { unmount } = render(<Column />)
+      const section = document.querySelector<HTMLElement>('.eb-view')!
+      vi.spyOn(section, 'getBoundingClientRect').mockReturnValue({ height: 640 } as DOMRect)
+      expect(section.style.minHeight).toBe('')
+      fireEvent.click(button())
+      expect(section.style.minHeight).toBe('640px')
+      esc()
+      expect(section.style.minHeight).toBe('')
+      unmount()
+    }
   })
 })

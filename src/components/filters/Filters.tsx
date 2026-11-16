@@ -96,7 +96,8 @@ const PlacesSection = memo(PlacesList)
 const StatusSection = memo(StatusList)
 
 type PanelProps = Shared & {
-  dispatch: (a: Action) => void
+  /** Every filter change goes through here (useFiltersUi keeps the place around it); stable. */
+  onChange: (f: Filter) => void
   species: SpeciesIndex
   id: string
   buttonRef: RefObject<HTMLButtonElement | null>
@@ -112,14 +113,14 @@ type PanelProps = Shared & {
 }
 
 /** In ControlsBar's `below` slot, after the chip row (the popover anchors under it), or portalled as the sheet. */
-export function FiltersPanel({ state, dispatch, species, regions, sections, open, onOpen, id, buttonRef, returnFocus, placesNote, placesUnplaced, time, threatLine, shown }: PanelProps): ReactNode {
+export function FiltersPanel({ state, onChange, species, regions, sections, open, onOpen, id, buttonRef, returnFocus, placesNote, placesUnplaced, time, threatLine, shown }: PanelProps): ReactNode {
   const { t } = useI18n()
   const sheet = useIsSheet()
   const ref = useRef<HTMLDivElement>(null)
   const titles = useId()
   const { filter } = state
   const onClose = useCallback(() => onOpen(null), [onOpen])
-  const onFilter = useCallback((f: Filter) => dispatch({ type: 'filter', filter: f }), [dispatch])
+  const onFilter = onChange
   useEscapeCapture(onClose)
   useFocusInAndBack(ref, () => {
     const el = returnFocus?.()
@@ -234,6 +235,34 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
     : body
 }
 
+/** What a filter change must find again: the window's and each popover scroller's position, and the focused control. */
+type Kept = { y: number; scrolls: number[]; focus: HTMLElement | null }
+
+/** The panel's scrollers in document order: the body, then each Places or Status checklist. */
+function panelScrollers(panel: HTMLElement | null): HTMLElement[] {
+  return panel ? Array.from(panel.querySelectorAll<HTMLElement>('.eb-drop-body, .eb-checklist')) : []
+}
+
+function keepPlace(panel: HTMLElement | null): Kept {
+  const a = document.activeElement
+  return {
+    y: window.scrollY,
+    scrolls: panelScrollers(panel).map((el) => el.scrollTop),
+    focus: a instanceof HTMLElement && a !== document.body ? a : null,
+  }
+}
+
+/** Puts back what a change moved: only what moved, so nothing scrolls that did not. Focus returns only if it was lost. */
+function restorePlace(k: Kept, panel: HTMLElement | null): void {
+  if (window.scrollY !== k.y) window.scrollTo(0, k.y)
+  panelScrollers(panel).forEach((el, i) => {
+    const top = k.scrolls[i]
+    if (top !== undefined && el.scrollTop !== top) el.scrollTop = top
+  })
+  const active = document.activeElement
+  if (k.focus?.isConnected && (!active || active === document.body)) k.focus.focus({ preventScroll: true })
+}
+
 type UiArgs = {
   state: AppState
   dispatch: (a: Action) => void
@@ -255,6 +284,8 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   button: (inert: boolean) => ReactNode
   below: ReactNode
   dimmed: boolean
+  /** The panel is open (popover or sheet): CollageView freezes the height of the collage column while it is. */
+  frozen: boolean
   /** Closes the panel (the search opening calls it). */
   close: () => void
 } {
@@ -268,6 +299,24 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const { filter } = state
   const chips = useMemo(() => filterChips(filter, regionsIn(regions, lang), t, (id) => species.groups?.get(id)?.name[lang]), [filter, regions, lang, t, species.groups])
   const panelId = `${base}-filters`
+  const live = !!open && sections.length > 0
+  // Every filter change while the panel is open keeps the window's scroll, the scrollers' and the focus (restored in the
+  // layout effect below, once the change has committed). The snapshot is used by the first commit after it, or dropped
+  // at the end of the event when nothing re-rendered.
+  const liveRef = useRef(live)
+  useLayoutEffect(() => { liveRef.current = live })
+  const kept = useRef<Kept | null>(null)
+  const change = useCallback((f: Filter) => {
+    kept.current = liveRef.current ? keepPlace(document.getElementById(panelId)) : null
+    dispatch({ type: 'filter', filter: f })
+    queueMicrotask(() => { kept.current = null })
+  }, [dispatch, panelId])
+  useLayoutEffect(() => {
+    const k = kept.current
+    if (!k) return
+    kept.current = null
+    restorePlace(k, document.getElementById(panelId))
+  })
   const onOpen = useCallback((o: FiltersOpen | null) => {
     if (o) opener.current = null // closing keeps it: focus goes back to the chip that opened the panel
     setOpen(o)
@@ -277,12 +326,12 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const onEmpty = useCallback(() => buttonRef.current?.focus(), [])
   // The chips' scope: group, places, time (and its basis) and statuses; the taxonomy path has its own breadcrumb.
   // The same as the panel's Clear all: every filter, the taxonomy choice too.
-  const onClearAll = useCallback(() => dispatch({ type: 'filter', filter: emptyFilter() }), [dispatch])
+  const onClearAll = useCallback(() => change(emptyFilter()), [change])
   const active = chips.length + (filter.order || filter.family ? 1 : 0)
   // Every removal changes the filter, so the chips change and ChipRow's remembered index is used up.
   const onRemove = useCallback(
-    (c: (typeof chips)[number]) => dispatch({ type: 'filter', filter: withoutFilterChip(filter, c) }),
-    [dispatch, filter],
+    (c: (typeof chips)[number]) => change(withoutFilterChip(filter, c)),
+    [change, filter],
   )
   const onChip = useCallback((c: (typeof chips)[number], el: HTMLElement) => {
     opener.current = el
@@ -290,7 +339,6 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   }, [])
   const groupName = useCallback((id: string) => species.groups?.get(id)?.name[lang], [species.groups, lang])
   const shared = { state, regions, sections, open, onOpen, groupName }
-  const live = !!open && sections.length > 0
   return {
     button: (inert) => <FiltersButton {...shared} inert={inert} buttonRef={buttonRef} panelId={panelId} />,
     below: (
@@ -299,7 +347,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
         {live && (
           <FiltersPanel
             {...shared}
-            dispatch={dispatch}
+            onChange={change}
             species={species}
             id={panelId}
             buttonRef={buttonRef}
@@ -314,6 +362,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
       </>
     ),
     dimmed: live && !sheet,
+    frozen: live,
     close,
   }
 }
