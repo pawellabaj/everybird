@@ -12,7 +12,7 @@
       "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "#dedad2", "tonalRamp": ["#9a958b", "#b3aea5", "#c7c3ba", "#dedad2", "#e6e3dc", "#ebe8e1", "#f1efea", "#f6f4ef"] },
       "surface": { "role": "neutral", "displayName": "Surface", "canonical": "#ebe8e1", "tonalRamp": ["#a8a399", "#c2beb5", "#d4d0c8", "#dedad2", "#e5e2db", "#ebe8e1", "#f1efea", "#f6f4ef"] }
     },
-    "redList": { "role": "data", "description": "The IUCN Red List chart's category fills: data only, the status pill (the bird card, the Red List panel's rows) and, as a small pill on threatened birds (VU, EN, CR) in the collage and list view (2026-11-15). Never on other birds, share images, link previews, the tooltip, search or chips, or as decoration; the same in both themes; text #1e1e24, or #ffffff on CR, EW and EX; a 1px Line ring on every pill. DESIGN.md: The Red List Exception.",
+    "redList": { "role": "data", "description": "The IUCN Red List chart's category fills: data only, the status pill (the bird card, the Red List panel's rows) and, as a small pill on threatened birds' List view rows (VU, EN, CR; 2026-11-15; none on the collage's stickers). Never on other birds, share images, link previews, the tooltip, search or chips, or as decoration; the same in both themes; text #1e1e24, or #ffffff on CR, EW and EX; a 1px Line ring on every pill. DESIGN.md: The Red List Exception.",
       "fills": { "LC": "#60C659", "NT": "#CCE226", "VU": "#F9E814", "EN": "#FC7F3F", "CR": "#D81E05", "EW": "#542344", "EX": "#000000", "DD": "#D1D1C6" } },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "Page titles, the species count, wordmark. Cabinet Grotesk 700." },
