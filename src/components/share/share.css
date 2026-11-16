@@ -21,8 +21,9 @@
      rows on a phone), 22px less than the stacked switches, so 431; say 440.
      Print mode adds the size control above the box: 54 (the control) + 6 + 42 (the size line, two 21px lines on
      a phone: "A1 · 59.4 × 84.1 cm · 7016 × 9933 px at 150 dpi" is about 340px at 14px) + 8 (the group's gap) = 110
-     more, so 550. Each keeps the primary action on the first screen, 26px above the dialog's bottom edge, with the
-     top of the quiet row showing under it. */
+     more, so 550. The orientation switch is a second row above the preview (54 + 8 = 62 more, in both modes, since
+     the print's first row keeps the same height): 502 and 612. Each keeps the primary action on the first screen,
+     26px above the dialog's bottom edge, with the top of the quiet row showing under it. */
   .eb-share .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 502px, 600px)); }
   .eb-share[data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 612px, 600px)); }
 }
@@ -49,9 +50,12 @@
    above the preview's area, the controls under it, so neither moves when the preview changes shape), a grid from 720px
    (the preview on the left down both rows, the format control over the rest of the controls on the right). */
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
-/* At least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px), so print
-   mode's shorter "Share images" button in its place moves nothing below it. */
-.eb-share-formats { display: grid; gap: 8px; min-width: 0; min-height: 54px; container-type: inline-size; }
+/* The first row is at least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px),
+   so print mode's shorter "Share images" button in its place moves nothing below it; the orientation switch is the
+   second row, in both modes. */
+.eb-share-formats { display: grid; grid-template-rows: minmax(54px, auto) auto; gap: 8px; min-width: 0; min-height: 54px; container-type: inline-size; }
+/* Print mode's "Share images" button takes the first row's place at its own width, as it did when alone in the column. */
+.eb-share-formats > .eb-btn { justify-self: start; align-self: start; }
 
 /* The image's shape, from the format it shows. */
 .eb-share-preview { --ar: calc(9 / 16); }
