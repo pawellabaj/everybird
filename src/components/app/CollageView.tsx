@@ -249,7 +249,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         lay ? (
           <div ref={wrap} className="eb-stagewrap">
             <Stage entries={entries} species={species} layout={lay.layout} visible={lay.visible} mode={mode} onPick={onPickBird} onHover={onHover} still={lay.still} />
-            {tipEntry && <BirdTip key={tipEntry.code} entry={tipEntry} row={species.byCode.get(tipEntry.code)!} regions={regions} sci={sci} wrap={wrap} />}
+            {tipEntry && <BirdTip key={tipEntry.code} entry={tipEntry} row={species.byCode.get(tipEntry.code)!} regions={regions} sci={sci} wrap={wrap} filter={filter} seen={seen} />}
           </div>
         ) : (
           <div className="eb-stage-wait" aria-hidden="true">
@@ -278,6 +278,8 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
           regions={regions}
           anchor={pick.anchor}
           sci={sci}
+          filter={filter}
+          seen={seen}
           onClose={close}
           actions={cardActions?.(picked, close)}
         />

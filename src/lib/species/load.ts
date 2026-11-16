@@ -2,10 +2,13 @@ import type { SpeciesFile, SpeciesRow, TaxonRow, TaxonomyFile } from './types'
 import { prepared, rankByName } from './name-search'
 import { exactSci, foldName, normalizeSci } from './resolve'
 import { fetchData } from '../data-url'
+import type { BirdGroup, GroupsFile } from '../search/groups'
 
 export type SpeciesIndex = {
   rows: SpeciesRow[]
   byCode: Map<string, SpeciesRow>
+  /** eBird's bird groups by id (Filter.group), when the groups file is loaded; undefined without it. */
+  groups?: ReadonlyMap<string, BirdGroup>
   search(q: string, limit?: number): SpeciesRow[]
 }
 export type TaxonomyIndex = {
@@ -42,8 +45,23 @@ export function loadSpecies(): Promise<SpeciesIndex> {
   return cached(
     () => speciesP,
     (p) => (speciesP = p),
-    async () => buildSpeciesIndex((await fetchData<SpeciesFile>('species.v1.json')).species),
+    async () => {
+      // The groups file is small and optional: without it a group filter is ignored rather than the app failing.
+      const [file, groups] = await Promise.all([fetchData<SpeciesFile>('species.v1.json'), loadGroupMap()])
+      const index = buildSpeciesIndex(file.species)
+      return groups ? { ...index, groups } : index
+    },
   )
+}
+
+/** The groups file as a map by id; undefined when it can't be loaded or isn't the expected shape. */
+export async function loadGroupMap(): Promise<ReadonlyMap<string, BirdGroup> | undefined> {
+  try {
+    const file = await fetchData<GroupsFile>('groups.v1.json')
+    return Array.isArray(file?.groups) ? new Map(file.groups.map((g) => [g.id, g])) : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export function loadTaxonomy(): Promise<TaxonomyIndex> {

@@ -231,6 +231,14 @@ export const EN_UI = {
       end: 'End month',
       empty: 'This list has no dates, so there is no timeline.',
     },
+    /** The Time section's basis switch (Filter.basis) and how "seen" reads in chips, labels and share images. */
+    basis: {
+      label: 'Count a bird by',
+      first: 'First seen',
+      any: 'Seen any time',
+      seenIn: 'Seen in {places}',
+      seenTime: 'Seen: {time}',
+    },
   },
   /** The Places panel (PlacesList, PlacesDrill, places-shared). Country names come from the data
    *  (src/lib/i18n-places.ts); province and county names are local names. */

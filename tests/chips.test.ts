@@ -63,6 +63,7 @@ describe('withoutFilterChip', () => {
     expect(rm({ statuses: ['VU', 'EN'] }, 0)).toEqual({ statuses: ['EN'] })
     expect(withoutFilterChip({ statuses: ['LC', 'NT', 'VU', 'EN'] }, { kind: 'status', label: '4 statuses', token: ALL })).toEqual({})
     const f: Filter = { order: 'X' }
-    expect(withoutFilterChip(f, { kind: 'group', label: 'g', token: 'g' })).toBe(f)
+    expect(withoutFilterChip(f, { kind: 'order', label: 'o', token: 'o' })).toBe(f)
+    expect(withoutFilterChip({ order: 'X', group: 'g' }, { kind: 'group', label: 'g', token: 'g' })).toEqual({ order: 'X' })
   })
 })

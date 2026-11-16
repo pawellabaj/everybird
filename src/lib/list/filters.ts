@@ -6,6 +6,7 @@ import { CONTINENT_NAMES, CONTINENT_OF, CONTINENTS, isContinentId, type Continen
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
+import { keysSeenIn, makeWhere, seenWhere } from './sighting'
 
 /**
  * The active filters. Time: `from`/`to` are a range of months (YYYY-MM, inclusive, either end open; see timeline.ts).
@@ -15,13 +16,19 @@ import { keysOf, seenOf, type SeenIndex } from './seen'
  * the chosen places (seen.ts; the keys are place-keys.ts'), not only the lifers there, when the functions below get the
  * seen-here index; without it (a shared link) the lifer places stand in. A selection never holds a place and one of
  * its ancestors (withPlaces). Time stays about lifers: places and a range together keep the species seen there whose
- * lifer falls in the range. (Trips are gone: an old `trip` value is dropped by applyFilterValidity.)
+ * lifer falls in the range, unless `basis` is 'seen' (below). (Trips are gone: an old `trip` value is dropped by applyFilterValidity.)
  * Continents: `continents` (ids from places/continents.ts), in CONTINENTS order, never empty when set (withContinents);
  * each matches the species seen in ANY country on it, as one more Places value (OR with the levels above). It is a
  * field of its own, not a place key: a continent is no ancestor of its countries, so checking one leaves the others.
  * Status: `statuses`, the global IUCN Red List categories plus NE ("Not evaluated": a species with no category), in
  * `STATUS_FILTER_CATS` order, never empty when set (withStatuses); keeps the species in ANY of them. NE matches the
  * species with no category, so a checked category leaves those out unless NE is checked too. NE is never threatened.
+ * Group (item 9): `group`, an eBird group id (src/lib/search/groups.ts, `species.groups`): keeps the species whose
+ * taxon order is inside the group's bounds; unknown ids are dropped by applyFilterValidity.
+ * Basis (item 9): `basis` is 'lifer' (the default and today's behaviour: a range is about first-seen dates, so it is
+ * never stored) or 'seen': with a range, places and time together mean "seen at one of these places in this period",
+ * from the per-place month sets (seen.ts `seenMonths`, sighting.ts), and a range alone "seen anywhere in it". A
+ * species with no month data falls back to its seen-here places and its lifer date. Without a place or range it does nothing.
  */
 export type Filter = {
   order?: string
@@ -34,6 +41,8 @@ export type Filter = {
   from?: string
   to?: string
   statuses?: StatusFilterCat[]
+  group?: string
+  basis?: 'lifer' | 'seen'
 }
 export type ChipOption = { value: string; label: string; count: number }
 /** `country`: the countries' options (the filter holds a set, `countries`); as a skipped dimension, every place level. */
@@ -56,20 +65,25 @@ export function inRange(date: string | undefined, from: string | undefined, to: 
   const hi = m[2] ? lo : `${m[1]}-12`
   return (!from || hi >= from) && (!to || lo <= to)
 }
+/** Basis 'seen' with something it applies to (a place or a range); otherwise it changes nothing and has no key. */
+export const seenBasis = (f: Filter): boolean => f.basis === 'seen' && (hasPlaces(f) || !!(f.from || f.to))
+
 /**
- * Stable key, e.g. "o:Passeriformes|f:Corvidae|c:CA,EG|s:US-WA|k:CA-BC|Capital|y:2026|r:2026-03~2026-09|i:VU,EN";
+ * Stable key, e.g. "o:Passeriformes|f:Corvidae|g:waterfowl|c:CA,EG|s:US-WA|k:CA-BC|Capital|y:2026|r:2026-03~2026-09|b:seen|i:VU,EN";
  * empty values are omitted (so filters without a range, provinces, counties or statuses keep the keys they always had).
  */
 export function filterKey(f: Filter): string {
   const parts: string[] = []
   if (f.order) parts.push(`o:${f.order}`)
   if (f.family) parts.push(`f:${f.family}`)
+  if (f.group) parts.push(`g:${f.group}`)
   if (f.countries?.length) parts.push(`c:${[...f.countries].sort().join(',')}`)
   if (f.provinces?.length) parts.push(`s:${[...f.provinces].sort().join(',')}`)
   if (f.counties?.length) parts.push(`k:${[...f.counties].sort().join(',')}`)
   if (f.continents?.length) parts.push(`t:${f.continents.join(',')}`)
   if (f.year) parts.push(`y:${f.year}`)
   if (f.from || f.to) parts.push(`r:${f.from ?? ''}~${f.to ?? ''}`)
+  if (seenBasis(f)) parts.push('b:seen')
   if (f.statuses?.length) parts.push(`i:${[...f.statuses].sort((a, b) => STATUS_FILTER_CATS.indexOf(a) - STATUS_FILTER_CATS.indexOf(b)).join(',')}`)
   return parts.join('|')
 }
@@ -90,21 +104,32 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
   const from = skip.has('range') ? undefined : f.from
   const to = skip.has('range') ? undefined : f.to
   const statuses = skip.has('status') || !f.statuses?.length ? undefined : new Set<string>(f.statuses)
+  // A group is its taxon-order bounds; ids unknown to a loaded groups file match nothing (validation drops them), and
+  // without the file (tests, the sample) the group is ignored.
+  const bounds = f.group && species.groups ? (species.groups.get(f.group) ?? null) : undefined
+  // Basis 'seen' with a range: seen in the places (any, when none) in the period, from the month sets.
+  const where = f.basis === 'seen' && (from || to) ? makeWhere(places, continents, from, to) : undefined
   return (e: ListEntry): boolean => {
-    if (order || family || statuses) {
+    if (order || family || statuses || bounds !== undefined) {
       const row = species.byCode.get(e.code)
       if (!row) return false
       if (order && row.ord !== order) return false
       if (family && row.fam !== family) return false
       if (statuses && !statuses.has(row.iu ?? 'NE')) return false
+      if (bounds === null || (bounds && (row.to < bounds.lo || row.to > bounds.hi))) return false
     }
-    if (places || continents) {
-      const keys = places ? keysOf(seen, e) : undefined
-      const hit = (places && places.some((k) => keys!.has(k))) || (continents && inContinents(seen, e, continents))
-      if (!hit) return false
+    const months = where && seen?.byCode.get(e.code)?.months
+    if (months && where) {
+      if (!seenWhere(months, where)) return false
+    } else {
+      if (places || continents) {
+        const keys = places ? keysOf(seen, e) : undefined
+        const hit = (places && places.some((k) => keys!.has(k))) || (continents && inContinents(seen, e, continents))
+        if (!hit) return false
+      }
+      if ((from || to) && !inRange(e.date, from, to)) return false
     }
     if (year && yearOf(e) !== year) return false
-    if ((from || to) && !inRange(e.date, from, to)) return false
     return true
   }
 }
@@ -191,6 +216,10 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
   const next: Filter = { ...f }
   if (next.order && row?.ord !== next.order) { delete next.order; delete next.family }
   if (next.family && row?.fam !== next.family) delete next.family
+  if (next.group && row && species.groups) {
+    const g = species.groups.get(next.group)
+    if (!g || row.to < g.lo || row.to > g.hi) delete next.group
+  }
   const keys = keysOf(seen, e)
   if (hasPlaces(next) && !filterPlaceKeys(next).some((k) => keys.has(k)) && !(next.continents?.length && inContinents(seen, e, next.continents))) {
     delete next.countries
@@ -199,7 +228,17 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
     delete next.continents
   }
   if (next.year && yearOf(e) !== next.year) delete next.year
-  if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) { delete next.from; delete next.to }
+  if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) {
+    // Basis 'seen': any sighting in the range keeps it (a month set, else the lifer date as above).
+    const months = next.basis === 'seen' ? seen?.byCode.get(e.code)?.months : undefined
+    if (!(months && seenWhere(months, makeWhere(undefined, undefined, next.from, next.to)))) { delete next.from; delete next.to }
+  }
+  // Each dimension alone includes the bird; under basis 'seen' the places and the range together may still not (Canada in
+  // 2019, a range of 2026 the bird was seen in only in Egypt): the range goes.
+  if (next.basis === 'seen' && (next.from || next.to) && hasPlaces(next) && !matcher({ ...next, order: undefined, family: undefined, group: undefined, statuses: undefined }, species, new Set(), seen)(e)) {
+    delete next.from
+    delete next.to
+  }
   const cat = statusCatOf(row)
   if (next.statuses?.length && !(cat && next.statuses.includes(cat))) delete next.statuses
   for (const k of Object.keys(next) as (keyof Filter)[]) if (!next[k]) delete next[k]
@@ -318,6 +357,8 @@ export type PlaceCounts = {
 /** The counts for every level (see PlaceCounts). `seen`: the seen-here index (else lifer places). */
 export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): PlaceCounts {
   const m = matcher(f, species, new Set(SKIP.country), seen)
+  // Basis 'seen' with a range: a place counts only for the species seen THERE in the period.
+  const when = f.basis === 'seen' && (f.from || f.to) ? makeWhere(undefined, undefined, f.from, f.to) : undefined
   const countries = new Map<string, CountryTally>()
   const counties = new Map<string, Map<string, Tally>>()
   const continents = new Map<ContinentId, Tally>()
@@ -327,7 +368,10 @@ export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex,
   for (let i = 0; i < list.length; i++) {
     const e = list[i]
     if (!m(e)) continue
+    const months = when && seen?.byCode.get(e.code)?.months
+    const here = months && when ? keysSeenIn(months, when) : undefined
     for (const p of seenOf(seen, e)) {
+      if (here && !here.has(p.sub2 ? `${p.sub1 ?? p.country}|${p.sub2}` : (p.sub1 ?? p.country))) continue
       const cont = CONTINENT_OF[p.country]
       if (cont) {
         let t = continents.get(cont)

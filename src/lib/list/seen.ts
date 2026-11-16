@@ -14,7 +14,9 @@
 // separators. About 30 bytes per place, a county key with pipes included. The earlier "YYYY-MM,…|region" shape still
 // decodes; its dashes tell the two apart.
 // Missing means an older or life-list-only source; [] means a full source had no dated, located sightings.
-// The seen-here index below still indexes earliest dates only; part B will wire the month sets into filtering.
+// buildSeen decodes the month sets once per list into `SeenEntry.months` (month ordinals per place, see sighting.ts),
+// which basis "seen" (filters.ts) and the card's sighting inside the filter read. Only records that carry seenMonths
+// feed it; a species none of whose records do has no `months` and falls back to its earliest dates and its lifer.
 //
 // Rules: a species removed by hand, or hidden by "hide heard only" / "hide found dead", has no places (it is not on the
 // list). "Research grade only" drops the casual iNaturalist records as buildList does, record by record: a species keeps
@@ -24,7 +26,10 @@ import type { Edits, ListEntry, Place, Rules, SourceRecord } from './model'
 import { keysOfPlace } from './place-keys'
 
 export type SeenPlace = { country: string; sub1?: string; sub2?: string; date?: string }
-export type SeenEntry = { places: SeenPlace[]; keys: Set<string> }
+/** One place's months of sightings: `key` "region[|county]", its place, its filter keys, month ordinals (year * 12 + month - 1) ascending. */
+export type PlaceMonths = { key: string; place: SeenPlace; keys: readonly string[]; ords: readonly number[] }
+/** `months`: every month seen at each place, from the records that carry seenMonths; undefined when none does. */
+export type SeenEntry = { places: SeenPlace[]; keys: Set<string>; months?: PlaceMonths[] }
 /**
  * Per species on the list: its places and their filter keys ("c:CA", "s:CA-BC", "k:CA-BC|Capital").
  * `full`: some record carries seen-here (else every place is a lifer place: the Places panel says so). `sig` changes
@@ -137,6 +142,22 @@ export class SeenAgg {
     years.set(year, (years.get(year) ?? 0) | mask)
   }
 
+  /** `code`'s months per place as ascending month ordinals (year * 12 + month - 1), or undefined when it has none. */
+  monthOrdinals(code: string): Map<string, number[]> | undefined {
+    const places = this.monthsBy.get(code)
+    if (!places?.size) return undefined
+    const out = new Map<string, number[]>()
+    for (const [key, years] of places) {
+      const ords: number[] = []
+      for (const y of [...years.keys()].sort((a, b) => a - b)) {
+        const mask = years.get(y)!
+        for (let m = 0; m < 12; m++) if (mask & (1 << m)) ords.push(y * 12 + m)
+      }
+      if (ords.length) out.set(key, ords)
+    }
+    return out.size ? out : undefined
+  }
+
   /** Compact, deterministic per-place month sets (see the file comment); undefined means no month information. */
   getMonths(code: string): string[] | undefined {
     const places = this.monthsBy.get(code)
@@ -247,10 +268,19 @@ function knownPlace(key: string): KnownPlace {
 export function buildSeen(records: SourceRecord[], edits: Edits, rules: Rules, list: ListEntry[]): SeenIndex {
   const onList = new Set(list.map((e) => e.code))
   const agg = new SeenAgg()
+  // Months come only from records that carry seenMonths (agg's own months are just each place's earliest date).
+  const mon = new SeenAgg()
   let full = false
   const add = (r: SourceRecord) => {
     if (!onList.has(r.code)) return
     if (rules.researchOnly && r.research === false) return
+    if (Array.isArray(r.seenMonths)) {
+      for (const s of r.seenMonths) {
+        const d = decodeSeenMonths(s)
+        if (!d) continue
+        mon.addMonths(r.code, d.place.sub2 ? `${d.place.sub1 ?? d.place.country}|${d.place.sub2}` : (d.place.sub1 ?? d.place.country), d.months)
+      }
+    }
     if (Array.isArray(r.seen)) {
       full = true
       for (const s of r.seen) {
@@ -283,7 +313,19 @@ export function buildSeen(records: SourceRecord[], edits: Edits, rules: Rules, l
       places.push(d ? { ...at.place, date: d } : { ...at.place })
       for (const key of at.keys) keys.add(key)
     }
-    byCode.set(e.code, { places, keys })
+    const ords = mon.monthOrdinals(e.code)
+    let months: PlaceMonths[] | undefined
+    if (ords) {
+      months = []
+      for (const [k, o] of ords) {
+        h = hash(hash(h, '#'), k)
+        for (const n of o) h = Math.imul(h ^ n, 16777619) >>> 0
+        const at = knownPlace(k)
+        if (at) months.push({ key: k, place: at.place, keys: at.keys, ords: o })
+      }
+      if (!months.length) months = undefined
+    }
+    byCode.set(e.code, months ? { places, keys, months } : { places, keys })
   }
   return { byCode, full, sig: `${byCode.size}:${h.toString(16)}` }
 }

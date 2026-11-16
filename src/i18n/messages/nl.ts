@@ -187,6 +187,13 @@ export const nl: Messages = {
         end: 'Eindmaand',
         empty: 'Deze lijst heeft geen datums, dus er is geen tijdlijn.',
       },
+      basis: {
+        label: 'Vogel tellen op',
+        first: 'Eerste keer',
+        any: 'Elke keer',
+        seenIn: 'Gezien in {places}',
+        seenTime: 'Gezien: {time}',
+      },
     },
     places: {
       head: { country: 'Landen', province: 'Staten en provincies', county: 'Graafschappen' },

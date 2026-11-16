@@ -3,8 +3,11 @@
 // non-interactive bubble over the bird under the mouse, the bird with keyboard focus, or a bird picked from the
 // search. It takes no pointer events and is hidden from screen readers (the bird's own label carries the facts);
 // a click or tap still opens the card, with its edit actions.
-import { useLayoutEffect, useRef, type RefObject } from 'react'
+import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react'
+import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
+import type { SeenIndex } from '@/lib/list/seen'
+import { entryInFilter } from '@/lib/list/sighting'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { BirdFacts } from './BirdCard'
 import { tipPosition } from './tip-position'
@@ -15,11 +18,15 @@ type Props = {
   row: SpeciesRow
   regions: Regions
   sci?: boolean
+  /** The filter and seen-here index: inside a Places or Time filter the date and place are the first sighting there (the card's rule). */
+  filter?: Filter
+  seen?: SeenIndex
   /** The positioned wrapper the tip is placed in; the bird (`.eb-bird[data-code]`, its rect with its scale) is in it. */
   wrap: RefObject<HTMLElement | null>
 }
 
-export function BirdTip({ entry, row, regions, sci, wrap }: Props) {
+export function BirdTip({ entry, row, regions, sci, wrap, filter, seen }: Props) {
+  const shown = useMemo(() => entryInFilter(entry, filter, seen), [entry, filter, seen])
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const el = ref.current
@@ -49,7 +56,7 @@ export function BirdTip({ entry, row, regions, sci, wrap }: Props) {
   }, [wrap, entry.code])
   return (
     <div ref={ref} className="eb-card eb-tip" aria-hidden="true" data-testid="bird-tip">
-      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} heading={false} />
+      <BirdFacts entry={shown} row={row} regions={regions} sci={sci} heading={false} />
     </div>
   )
 }

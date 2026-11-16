@@ -40,7 +40,7 @@ import { IUCN_COLORS, type IucnCat } from '@/lib/species/iucn'
 import { MARK_COUNT_AIR_PX, MARK_INSET_PX, MARK_PX, markShown } from '@/lib/species/status-mark'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
-import { continentNames, namesLabel, placesLabel, statusLabel } from '@/lib/list/filter-summary'
+import { continentNames, namesLabel, placesLabel, seenLabels, statusLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
 import type { ListEntry } from '@/lib/list/model'
@@ -85,7 +85,7 @@ export function latestText(latest: { com: string; date?: string }, t: Pick<Ui, '
 }
 
 /**
- * The current filter in words, in `t`'s language, birds then status then places then time: "Egypt · 2026", "Herons · Canada + Egypt",
+ * The current filter in words, in `t`'s language, birds (a group, an order or family) then status then places then time: "Egypt · 2026", "Herons · Canada + Egypt",
  * "Herons · Threatened · Canada" (filter-summary.ts statusLabel); a range reads
  * "Mar 2020 to Jun 2021" (timeline.ts rangeLabel). With `regions`, places at every level by their short names
  * ("Owls · British Columbia"); without, the countries only. Country names are whatever `regions` and `countryName` say
@@ -94,19 +94,21 @@ export function latestText(latest: { com: string; date?: string }, t: Pick<Ui, '
  */
 export function filterLabel(
   f: Filter,
-  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'>; /** A family's name to show (default: English). */ familyName?: (row: SpeciesRow) => string },
+  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'>; /** A family's name to show (default: English). */ familyName?: (row: SpeciesRow) => string; /** A bird group's name in the UI language (Filter.group). */ groupName?: (id: string) => string | undefined },
   t: ShareStrings,
 ): string | undefined {
   // Places: "Africa + Canada", "Canada + Egypt", "Capital and 2 more" (continents first).
   const place = ctx.regions ? placesLabel(f, ctx.regions, t) : namesLabel([...continentNames(f.continents, t), ...(f.countries ?? []).map(ctx.countryName)], t)
   const parts: string[] = []
+  if (f.group) parts.push(ctx.groupName?.(f.group) ?? f.group)
   if (f.family) { const r = ctx.species.rows.find((x) => x.fam === f.family); parts.push(r ? (ctx.familyName?.(r) ?? r.famCom) || f.family : f.family) }
   else if (f.order) parts.push(orderLabel(f.order, t))
   const status = statusLabel(f.statuses, t)
   if (status) parts.push(status)
-  if (place) parts.push(place)
-  const range = rangeLabel(f.from, f.to, t)
-  if (range) parts.push(range)
+  // Basis 'seen': "Seen in Canada · 2026" (a range alone: "Seen: 2026").
+  const said = seenLabels(f, place, rangeLabel(f.from, f.to, t), t)
+  if (said.place) parts.push(said.place)
+  if (said.range) parts.push(said.range)
   else if (f.year) parts.push(f.year)
   return parts.length ? parts.join(' · ') : undefined
 }

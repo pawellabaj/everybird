@@ -7,7 +7,7 @@ import type { ContinentId } from '@/lib/places/continents'
 import { THREATENED } from '@/lib/species/iucn'
 import type { StatusFilterCat } from '@/lib/species/status-filter'
 import type { Regions } from '@/lib/species/types'
-import { filterPlaceKeys, hasPlaces, type Filter } from './filters'
+import { filterPlaceKeys, hasPlaces, seenBasis, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
 import type { Saved } from './storage'
 import { monthName, monthShort, rangeLabel } from './timeline'
@@ -73,11 +73,30 @@ export function statusLabel(statuses: readonly StatusFilterCat[] | undefined, t:
 
 const year = (m: string) => m.slice(0, 4)
 
+/** Time words under basis 'seen': "Seen: 2026" ("Seen: from 2022"); as they are otherwise (and for no words). */
+function seenTime(f: Filter, time: string | undefined, t: Pick<Ui, 'filters'>): string | undefined {
+  return time && f.basis === 'seen' ? fmt(t.filters.basis.seenTime, { time }) : time
+}
+
+/**
+ * The share image's place and time words for the basis: with places and a range under basis 'seen' the places read
+ * "Seen in Canada" and the range stays ("2026"); a range alone reads "Seen: 2026". Without a range, or under the first-seen
+ * basis, both stand as given.
+ */
+export function seenLabels(f: Filter, place: string | undefined, range: string | undefined, t: Pick<Ui, 'filters'>): { place?: string; range?: string } {
+  if (!seenBasis(f) || !range) return { place, range }
+  if (place) return { place: fmt(t.filters.basis.seenIn, { places: place }), range }
+  return { range: fmt(t.filters.basis.seenTime, { time: range }) }
+}
+
 /**
  * The Time button's short summary: a range by years ("2022–2024", "2022" within one
  * year, "Sep 2021" for one month, "from 2022", "to 2024"); undefined with no time chosen.
  */
 export function timeSummary(f: Filter, t: Ui): string | undefined {
+  return seenTime(f, plainTimeSummary(f, t), t)
+}
+function plainTimeSummary(f: Filter, t: Ui): string | undefined {
   const { from, to } = f
   const tl = t.filters.timeline
   if (from && to) {
@@ -91,6 +110,9 @@ export function timeSummary(f: Filter, t: Ui): string | undefined {
 
 /** The Time button's accessible description: "March 2020 to June 2021", "September 2021". */
 export function timeSpoken(f: Filter, t: Ui): string | undefined {
+  return seenTime(f, plainTimeSpoken(f, t), t)
+}
+function plainTimeSpoken(f: Filter, t: Ui): string | undefined {
   const { from, to } = f
   const tl = t.filters.timeline
   if (from && to) return from === to ? monthName(from, t) : fmt(tl.range, { from: monthName(from, t), to: monthName(to, t) })

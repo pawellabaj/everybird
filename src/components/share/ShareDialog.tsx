@@ -96,7 +96,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const shown = useMemo(() => (fk ? applyFilter(known, filter, species, seen) : known), [known, filter, fk, species, seen])
   const label = useMemo(() => {
     const named = regionsIn(regions, lang)
-    return labelFor(filter, { species, countryName: (iso) => countryName(iso, lang, regions), regions: named, familyName }, t)
+    return labelFor(filter, { species, countryName: (iso) => countryName(iso, lang, regions), regions: named, familyName, groupName: (id) => species.groups?.get(id)?.name[lang] }, t)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
   }, [filter, species, regions, lang, t, names])
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])

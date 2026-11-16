@@ -1,12 +1,15 @@
 'use client'
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { trapTab, useEscapeCapture, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
 import { formatMass, formatMonth } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { regionsIn } from '@/lib/i18n-places'
 import { formatPlace } from '@/lib/import/places'
+import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
+import type { SeenIndex } from '@/lib/list/seen'
+import { entryInFilter } from '@/lib/list/sighting'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { displayName } from '@/lib/species/names'
 import { useNames } from '@/lib/species/use-names'
@@ -31,6 +34,12 @@ type Props = {
   returnFocus?: HTMLElement | null
   /** Scientific names lead (the Scientific switch). */
   sci?: boolean
+  /**
+   * The collage's filter and seen-here index: with a Places or Time filter on, the date and place lines show the first
+   * sighting inside the filter (month precision, sighting.ts), else the lifer's.
+   */
+  filter?: Filter
+  seen?: SeenIndex
   /** For this many ms the popover re-places itself every frame (its bird is still travelling to its spot). */
   follow?: number
 }
@@ -52,11 +61,12 @@ export function massLabel(row: SpeciesRow, t: Ui): string {
 /** The mass as the card and the list show it: "~4.3 g" for an estimate ("~4,3 g" in es). */
 export const massValue = (row: SpeciesRow, t: Ui) => `${row.gSrc === 'family' || row.gSrc === 'order' ? '~' : ''}${formatMass(row.g, t.num)}`
 
-export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow }: Props) {
+export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow, filter, seen }: Props) {
   const row = species.byCode.get(entry.code)
   const { t } = useI18n()
   useNames() // the card's name follows the names file and the English switch
   const sheet = useIsSheet()
+  const shown = useMemo(() => entryInFilter(entry, filter, seen), [entry, filter, seen])
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
   const anchorRef = useRef(anchor)
@@ -169,7 +179,7 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
       tabIndex={-1}
       onKeyDown={trap}
     >
-      <BirdFacts entry={entry} row={row} regions={regions} sci={sci} statusTip>
+      <BirdFacts entry={shown} row={row} regions={regions} sci={sci} statusTip>
         <button type="button" className="eb-card-close" aria-label={t.card.close} onClick={onClose}>
           <CloseIcon />
         </button>
@@ -190,7 +200,7 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
  * it on the left; on the right, in a column that never shrinks below its content (`.eb-card-side`), the body mass and,
  * under it, a species' Red List pill alone (then `children`, the card's close button); then the date line (with the
  * marks in words) and the place, both mono. `heading` names the bird with an h2 (the card) or a plain paragraph (the
- * tooltip). The card's pill is a button whose tip names the category, the tooltip's a plain aria-hidden span.
+ * tooltip). The date and place are the entry's: callers inside a Places or Time filter pass `entryInFilter`'s entry. The card's pill is a button whose tip names the category, the tooltip's a plain aria-hidden span.
  */
 export function BirdFacts({ entry, row, regions, sci = false, heading = true, statusTip = false, children }: {
   entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean

@@ -187,6 +187,13 @@ export const es: Messages = {
         end: 'Mes final',
         empty: 'Esta lista no tiene fechas, así que no hay línea de tiempo.',
       },
+      basis: {
+        label: 'Contar cada ave por',
+        first: 'Primera vez',
+        any: 'Cualquier vez',
+        seenIn: 'Vistas en {places}',
+        seenTime: 'Vistas: {time}',
+      },
     },
     places: {
       head: { country: 'Países', province: 'Estados y provincias', county: 'Condados' },

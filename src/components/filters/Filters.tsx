@@ -249,7 +249,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const buttonRef = useRef<HTMLButtonElement>(null)
   const sections = useFilterSections(state, species, hide)
   const { filter } = state
-  const chips = useMemo(() => filterChips(filter, regionsIn(regions, lang), t), [filter, regions, lang, t])
+  const chips = useMemo(() => filterChips(filter, regionsIn(regions, lang), t, (id) => species.groups?.get(id)?.name[lang]), [filter, regions, lang, t, species.groups])
   const panelId = `${base}-filters`
   const onOpen = useCallback((o: FiltersOpen | null) => {
     if (o) opener.current = null // closing keeps it: focus goes back to the chip that opened the panel

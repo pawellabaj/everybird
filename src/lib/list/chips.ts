@@ -31,12 +31,13 @@ type Names = Pick<Regions, 'countries' | 'sub1'>
 export const continentToken = (id: string) => `continent:${id}`
 
 /**
- * The filter's chips: places (continents first, then the place keys in `filterPlaceKeys` order; a continent counts as
+ * The filter's chips: the bird group (`groupName` says its name in the language), places (continents first, then the place keys in `filterPlaceKeys` order; a continent counts as
  * one place), then time, then statuses (in Red List order, NE last). Place names come from `regions` (pass the
  * language's, src/lib/i18n-places.ts regionsIn); the rest from `t`.
  */
-export function filterChips(f: Filter, regions: Names, t: Ui): Chip[] {
+export function filterChips(f: Filter, regions: Names, t: Ui, groupName?: (id: string) => string | undefined): Chip[] {
   const out: Chip[] = []
+  if (f.group) out.push({ kind: 'group', label: groupName?.(f.group) ?? f.group, token: f.group })
   const keys = filterPlaceKeys(f)
   const continents = (f.continents ?? []).filter(isContinentId)
   const count = keys.length + continents.length
@@ -59,10 +60,19 @@ export function filterChips(f: Filter, regions: Names, t: Ui): Chip[] {
 
 /** The filter without what `chip` stands for; a chip of any other kind leaves it as it is. */
 export function withoutFilterChip(f: Filter, chip: Chip): Filter {
+  if (chip.kind === 'group') {
+    const next: Filter = { ...f }
+    delete next.group
+    return next
+  }
   if (chip.kind === 'place' && chip.token === ALL) return clearPlaces(f)
   if (chip.kind === 'place' && chip.token.startsWith('continent:')) return withContinents(f, (f.continents ?? []).filter((c) => continentToken(c) !== chip.token))
   if (chip.kind === 'place') return withPlaces(f, filterPlaceKeys(f).filter((k) => k !== chip.token))
-  if (chip.kind === 'date') return timeless(f)
+  if (chip.kind === 'date') {
+    const next = timeless(f)
+    delete next.basis // the chip said "Seen: …": removing it removes that choice too
+    return next
+  }
   if (chip.kind === 'status') return withStatuses(f, chip.token === ALL ? [] : (f.statuses ?? []).filter((c) => c !== chip.token))
   return f
 }
