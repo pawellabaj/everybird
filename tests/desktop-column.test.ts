@@ -8,7 +8,7 @@ import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { CREDIT_MIN, DESKTOP_SIDE, IMAGE_SCALE, IMAGE_SIZE, cardDims, cardLayout, clearStickerCache, drawShareImage, imagePackSpec, prepareCard, renderShareImage, type CardFormat } from '@/lib/share/image'
+import { CREDIT_MIN, DESKTOP_SIDE, FOOTER_LIFT, IMAGE_SCALE, IMAGE_SIZE, cardDims, cardLayout, clearStickerCache, drawShareImage, imagePackSpec, prepareCard, renderShareImage, type CardFormat } from '@/lib/share/image'
 import { entries, installStubs, NOW, pack, species } from './fixtures/share-image-harness'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -180,8 +180,7 @@ describe('the latest lifer switch does not rearrange the collage', () => {
       expect(off.tiles.map((t) => bird(t.url))).toEqual(on.tiles.map((t) => bird(t.url)))
       const rank = (xs: number[]) => xs.map((v) => xs.filter((u) => u < v - 1e-6).length)
       for (const k of [0, 1]) expect(rank(off.tiles.map((t) => mid(t)[k]))).toEqual(rank(on.tiles.map((t) => mid(t)[k])))
-      if (f === 'desktop') expect(off.tiles).toEqual(on.tiles) // the same frame: nothing moves at all
-      else expect(off.L.collage.h).toBeGreaterThan(on.L.collage.h)
+      expect(off.L.collage.h).toBeGreaterThan(on.L.collage.h) // every format: the same pack, fitted into the taller area
     })
   }
 })
@@ -220,5 +219,25 @@ describe('long latest-lifer names on the desktop footer', () => {
     expect(L.rule.y).toBeLessThan(L.footer.y - 20) // above the label's top
     expect(L.latest!.y).toBeGreaterThan(L.rule.y)
     expect(1080 - (L.latest!.y + L.latest!.icon)).toBeGreaterThanOrEqual(BOTTOM_CLEAR)
+  })
+  it('lifer off: the hairline is 20 above the footer line (no gap), the collage taller by the 20 that frees', () => {
+    const on = cardLayout('desktop', { name: false, filter: false, latest: true, count: 185 })
+    const off = cardLayout('desktop', { name: false, filter: false, latest: false, count: 185 })
+    expect(off.rule.y).toBe(off.footer.y - 20)
+    expect(on.rule.y).toBe(on.footer.y - 40)
+    expect(off.collage.h - on.collage.h).toBe(20)
+    expect(off.footer.y).toBe(on.footer.y)
+    expect(1080 - (off.footer.y + off.footer.size)).toBeGreaterThanOrEqual(BOTTOM_CLEAR)
+  })
+  it('lifer on: the wordmark and credit caps are centred on the two-line block (equal air above and below)', async () => {
+    installStubs()
+    const card = await prepareCard({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: en.ui }, 2)
+    const { L } = card
+    const baseline = L.footer.y + L.footer.size * 0.8 - FOOTER_LIFT
+    const capsMid = baseline - 0.35 * L.footer.size // Cabinet caps are about 0.7 em tall
+    const blockTop = L.footer.y + L.footer.size * 0.8 - 44 // the label's cap top
+    const blockBottom = L.footer.y + L.footer.size * 0.8 // the name's baseline
+    expect(capsMid).toBeCloseTo((blockTop + blockBottom) / 2, 0)
+    expect(capsMid).toBeCloseTo(L.latest!.y + L.latest!.icon / 2, 0)
   })
 })

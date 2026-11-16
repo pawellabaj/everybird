@@ -178,6 +178,8 @@ const LATEST_ONE_LINE: Partial<Record<CardFormat, true>> = { desktop: true }
  * lines inside the footer's line, right-aligned: the mono label over the name (the name on the footer's baseline), the
  * sticker to their left, centred on the pair. A name too wide for the room left shrinks to nameMin (80%) before it is clipped.
  */
+/** How far the wordmark and the credit line are lifted when the two-line row is on, to centre their caps on the row's block. */
+export const FOOTER_LIFT = 11.5
 const ONE_LINE = { icon: 40, label: 20, name: 30, gap: 14, nameMin: 0.8 }
 /** The gap between the footer line and the latest row on its right. */
 const FOOTER_GAP = 32
@@ -313,8 +315,9 @@ export function cardLayout(format: CardFormat, c: CardContent, dims?: readonly [
   let rule: { y: number }
   let latest: CardLayout['latest']
   if (oneLine) {
-    // The label sits above the baseline (the pair spans footer.y - 20 to about footer.y + 30), so the hairline is 40 above the footer line.
-    rule = { y: footer.y - 40 }
+    // With the row: the label's caps start at footer.y - 20, so the hairline is 40 above the footer line (20 of air over the
+    // row). Without it the hairline is 20 above, as a one-line footer needs, and the collage fits the same pack to the room.
+    rule = { y: footer.y - (c.latest ? 40 : 20) }
     latest = c.latest ? { x: X, y: footer.y - 18, icon: ONE_LINE.icon, tw: 0, label: ONE_LINE.label, name: ONE_LINE.name, oneLine } : undefined
   } else {
     rule = { y: footer.y - 30 }
@@ -933,7 +936,7 @@ export function paintCard(ctx: CanvasRenderingContext2D, card: PreparedCard, img
   }
 
   // The footer (placed by prepareCard): the hairline, the wordmark, the line beside or under it.
-  const base = L.footer.y + L.footer.size * 0.8
+  const base = L.footer.y + L.footer.size * 0.8 - (card.oneLine ? FOOTER_LIFT : 0) // lifted to the lifer block's middle when it is on
   ctx.fillStyle = C.hairline
   ctx.fillRect(X0, L.rule.y - shift, maxW, 2)
   ctx.textBaseline = 'alphabetic'
