@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesUnplacedFor, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { countHead, countriesLabel, filtersCount, filtersSpoken, panelHead, placesLabel, placesNoteFor, placesSpoken, placesUnplacedFor, showLabel, statusLabel, statusSpoken, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
@@ -21,16 +21,12 @@ describe('countriesLabel (share image)', () => {
   })
 })
 
-describe('the bar buttons', () => {
-  it('Places: the number checked; spoken as the names', () => {
-    expect(placesSummary({})).toBeUndefined()
-    expect(placesSummary({ countries: ['CA', 'EG'] })).toBe('2')
+describe('the Filters button’s words', () => {
+  it('Places: spoken as the names', () => {
     expect(placesSpoken({ countries: ['CA', 'EG'] }, regions)).toBe('Canada, Egypt')
     expect(placesSpoken({}, regions)).toBeUndefined()
   })
-  it('Places at every level: counted together; spoken in full, "; " between places once a province or county is in', () => {
-    expect(placesSummary({ countries: ['KE'], provinces: ['CA-BC'], counties: ['CA-ON|Ottawa'] })).toBe('3')
-    expect(placesSummary({ provinces: ['CA-BC'] })).toBe('1')
+  it('Places at every level: spoken in full, "; " between places once a province or county is in', () => {
     expect(placesSpoken({ countries: ['KE'], provinces: ['CA-BC'] }, regions)).toBe('Kenya; British Columbia, Canada')
     expect(placesSpoken({ counties: ['CA-BC|Capital'] }, regions)).toBe('Capital, British Columbia')
   })
@@ -94,10 +90,7 @@ describe('Status in words', () => {
     expect(statusLabel(['VU', 'EN', 'CR'], es.ui)).toBe('Amenazadas')
     expect(statusLabel(['EN', 'CR'], nl.ui)).toBe('Bedreigd + Ernstig bedreigd')
   })
-  it('the button: the number checked; spoken as the full names in IUCN_CATS order', () => {
-    expect(statusSummary({})).toBeUndefined()
-    expect(statusSummary({ statuses: [] })).toBeUndefined()
-    expect(statusSummary({ statuses: ['VU', 'EN'] })).toBe('2')
+  it('spoken as the full names in IUCN_CATS order', () => {
     expect(statusSpoken({}, t)).toBeUndefined()
     expect(statusSpoken({ statuses: ['VU', 'EN'] }, t)).toBe('Vulnerable, Endangered')
     expect(statusSpoken({ statuses: ['CR', 'EX', 'DD'] }, t)).toBe('Critically Endangered, Extinct, Data Deficient')
@@ -151,5 +144,44 @@ describe('observation.org: the unplaced line, and no MyEBirdData pitch without e
   it('only records place a bird: a hand tick with a place (edits.added) does not', () => {
     const s = { ...saved({ 'obsorg-list': [listed('a')] }), edits: { removed: [], added: [{ code: 'a', place: { country: 'NL' } }] } }
     expect(placesUnplacedFor(s)).toBe('add')
+  })
+})
+
+describe('countHead', () => {
+  it('count first, " · N checked" only when some are', () => {
+    expect(countHead(20, 'country', 7, t)).toBe('20 countries · 7 checked')
+    expect(countHead(20, 'country', 0, t)).toBe('20 countries')
+    expect(countHead(1, 'country', 0, t)).toBe('1 country')
+    expect(countHead(8, 'province', 1, t)).toBe('8 states and provinces · 1 checked')
+    expect(countHead(1, 'province', 0, t)).toBe('1 state or province')
+    expect(countHead(14, 'county', 0, t)).toBe('14 counties')
+    expect(countHead(5, 'status', 2, t)).toBe('5 categories · 2 checked')
+    expect(countHead(1200, 'country', 0, t)).toBe('1,200 countries')
+  })
+})
+
+describe('the Filters button and panel', () => {
+  const r = { countries: { KE: 'Kenya', CA: 'Canada', EG: 'Egypt', PE: 'Peru' }, sub1: { 'CA-BC': 'British Columbia' } }
+  it('filtersCount counts sections, not values', () => {
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'] })).toBe(1)
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'], from: '2020-01' })).toBe(2)
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'], from: '2020-01', statuses: ['VU'] })).toBe(3)
+    expect(filtersCount({ order: 'X' })).toBe(0)
+  })
+  it('filtersSpoken names each section in full', () => {
+    expect(filtersSpoken({ countries: ['KE'], provinces: ['CA-BC'], from: '2020-03', to: '2021-06', statuses: ['VU'] }, r, t)).toBe(
+      'Places: Kenya; British Columbia, Canada. Time: March 2020 to June 2021. Conservation status: Vulnerable',
+    )
+    expect(filtersSpoken({ countries: ['KE'], from: '2020-03', statuses: ['VU'] }, r, es.ui)).toBe('Lugares: Kenya. Fechas: desde marzo de 2020. Estado de conservación: Vulnerable')
+    expect(filtersSpoken({}, r, t)).toBeUndefined()
+  })
+  it('panelHead and showLabel', () => {
+    expect(panelHead(3, 118, t)).toBe('Filters · 3 · 118 species')
+    expect(panelHead(0, 1089, t)).toBe('Filters · 1,089 species')
+    expect(showLabel(118, t)).toBe('Show 118 species')
+    expect(showLabel(1, t)).toBe('Show 1 species')
+    expect(panelHead(3, 118, es.ui)).toBe('Filtros · 3 · 118 especies')
+    expect(showLabel(1, nl.ui)).toBe('1 soort tonen')
+    expect(countHead(7, 'country', 2, pt.ui)).toBe('7 países · 2 com marca')
   })
 })

@@ -175,8 +175,8 @@ export const EN_UI = {
       loadFailed: "Couldn't load the bird data. Check your connection and reload the page.",
     },
   },
-  /** The taxonomy filter (FilterBar, LevelRow, SheetPicker, PickerSheet, Chip), the Places and Time buttons
-   *  (FilterDropdowns, filter-summary.ts) and the Time panel (Timeline, timeline.ts). */
+  /** The taxonomy filter (FilterBar, LevelRow, SheetPicker, PickerSheet, Chip), the Filters button, panel and chips
+   *  (Filters, filter-summary.ts) and the Time panel (Timeline, timeline.ts). */
   filters: {
     label: 'Filters',
     nav: 'Filter by group',
@@ -187,14 +187,31 @@ export const EN_UI = {
     choose: { order: 'Choose an order', family: 'Choose a family', country: 'Choose a country', year: 'Choose a year' },
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
-    /** The two buttons in the controls bar and their group. */
-    dock: 'Places, time and conservation status',
+    /** The Filters sections' names (the panel, the chips and the button's spoken text). */
     places: 'Places',
     time: 'Time',
     status: 'Conservation status',
-    /** The bar's short form (under 540px of bar, on phones). */
-    statusShort: 'Status',
     clear: 'Clear',
+    /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
+    panel: {
+      chips: 'Active filters',
+      statusNote: 'IUCN Red List categories (global)',
+      head: 'Filters · {n} · {species}',
+      headNone: 'Filters · {species}',
+      show: 'Show {species}',
+      manyPlaces: '{n} places',
+      manyStatuses: '{n} statuses',
+      openChip: 'Show {label} in Filters',
+      clearChip: 'Remove all {label}',
+    },
+    /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
+    countHead: {
+      country: { one: '{n} country', other: '{n} countries' },
+      province: { one: '{n} state or province', other: '{n} states and provinces' },
+      county: { one: '{n} county', other: '{n} counties' },
+      status: { one: '{n} category', other: '{n} categories' },
+      checked: '{n} checked',
+    },
     timeline: {
       /** Full month names, January first (the sliders' value text, the Time button's spoken text). */
       months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
@@ -263,7 +280,6 @@ export const EN_UI = {
   },
   /** The Status panel (StatusList). {n} is formatted. */
   status: {
-    head: 'Categories · {n}',
     threatenedNote: '{n} threatened: Vulnerable, Endangered or Critically Endangered.',
     list: 'Categories',
     none: 'No categories here under the other filters.',

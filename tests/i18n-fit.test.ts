@@ -16,7 +16,7 @@ const OTHERS = { es, pt, nl } as const
 const TIGHT = [
   'collage.controls.collage', 'collage.controls.list', 'collage.controls.heaviestFirst', 'collage.controls.lightestFirst',
   'collage.controls.heaviest', 'collage.controls.lightest', 'collage.controls.trueSize', 'collage.controls.sci',
-  'filters.places', 'filters.time', 'filters.clear', 'filters.timeline.sumFrom', 'filters.timeline.sumTo',
+  'filters.label', 'filters.clear', 'filters.timeline.sumFrom', 'filters.timeline.sumTo',
   'import.add', 'import.replace', 'import.remove', 'import.inat.refresh', 'import.inat.cancel', 'tick.button',
   'share.format.story', 'share.format.post', 'share.format.square', 'share.shareImage', 'share.download', 'share.copyLink',
   'share.showLatest', 'count.label',

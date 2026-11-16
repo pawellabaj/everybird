@@ -1,7 +1,7 @@
 'use client'
 // What the Places panel's parts share (PlacesList.tsx and PlacesDrill.tsx): a level's rows, one checkbox row, the
 // search field, the level's words, and the panel's props. A leaf: it imports neither the shell, the drill nor
-// FilterDropdowns, so none of them import each other in a cycle.
+// Filters, so none of them import each other in a cycle.
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'

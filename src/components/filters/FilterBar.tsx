@@ -5,7 +5,7 @@
 // stays, with the choice in Accent and the other chips stepped back. On phones the row is one button ("Choose an
 // order 18") that opens the chips in a sheet.
 // Taxonomy (orders, then families) is the only filter outside the controls bar: Places and Time are the bar's
-// dropdowns (FilterDropdowns.tsx). The same on every page: the landing's sample, the birder's collage, a shared one.
+// Filters panel (Filters.tsx). The same on every page: the landing's sample, the birder's collage, a shared one.
 import { memo, useMemo } from 'react'
 import { useIsSheet } from '@/components/dialog-utils'
 import { useI18n } from '@/i18n/I18nProvider'

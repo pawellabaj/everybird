@@ -53,7 +53,8 @@ export function useHoldTopBar(clear?: () => HTMLElement | null | undefined): voi
 /** Keep Tab inside `root` (a modal). Call from the root's onKeyDown. */
 export function trapTab(e: ReactKeyboardEvent, root: HTMLElement | null): void {
   if (e.key !== 'Tab' || !root) return
-  const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE))
+  // In document order (a selector list may return its matches grouped by selector, as jsdom's does).
+  const items = Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).sort((x, y) => (x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
   if (!items.length) return
   const first = items[0], last = items[items.length - 1]
   if (e.shiftKey && (document.activeElement === first || document.activeElement === root)) {

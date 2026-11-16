@@ -149,12 +149,30 @@ export const pt: Messages = {
       rank: { order: 'Ordens', family: 'Famílias', country: 'Países', year: 'Anos' },
       choose: { order: 'Escolha uma ordem', family: 'Escolha uma família', country: 'Escolha um país', year: 'Escolha um ano' },
       remove: 'Remover o filtro {label}',
-      dock: 'Lugares, datas e estado de conservação',
       places: 'Lugares',
       time: 'Datas',
       status: 'Estado de conservação',
-      statusShort: 'Estado',
       clear: 'Limpar',
+      /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
+      panel: {
+        chips: 'Filtros ativos',
+        statusNote: 'Categorias da Lista Vermelha da UICN (global)',
+        head: 'Filtros · {n} · {species}',
+        headNone: 'Filtros · {species}',
+        show: 'Mostrar {species}',
+        manyPlaces: '{n} lugares',
+        manyStatuses: '{n} estados',
+        openChip: 'Mostrar {label} em Filtros',
+        clearChip: 'Remover {label}',
+      },
+      /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
+      countHead: {
+        country: { one: '{n} país', other: '{n} países' },
+        province: { one: '{n} estado ou província', other: '{n} estados e províncias' },
+        county: { one: '{n} condado', other: '{n} condados' },
+        status: { one: '{n} categoria', other: '{n} categorias' },
+        checked: '{n} com marca',
+      },
       timeline: {
         months: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
         month: '{month} de {year}',
@@ -210,7 +228,6 @@ export const pt: Messages = {
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {
-      head: 'Categorias · {n}',
       threatenedNote: '{n} ameaçadas: Vulnerável, Em perigo ou Criticamente em perigo.',
       list: 'Categorias',
       none: 'Nenhuma categoria aqui com os outros filtros.',

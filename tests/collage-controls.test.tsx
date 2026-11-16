@@ -75,6 +75,16 @@ describe('controls bar', () => {
   })
 })
 
+describe('Filters and the search', () => {
+  it('opening the search closes the Filters popover (the magnifier press and the keyboard both)', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByTestId('filters-button'))
+    expect(screen.getByTestId('filters-panel')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Find a bird' }))
+    expect(screen.queryByTestId('filters-panel')).toBeNull()
+  })
+})
+
 describe('Scientific names', () => {
   it('lead in list rows, the card, the order chips and the breadcrumb, in italics marked as Latin', () => {
     render(<Harness />)

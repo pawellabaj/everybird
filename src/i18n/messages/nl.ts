@@ -149,12 +149,30 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
-      dock: 'Plaatsen, tijd en beschermingsstatus',
       places: 'Plaatsen',
       time: 'Tijd',
       status: 'Beschermingsstatus',
-      statusShort: 'Status',
       clear: 'Wissen',
+      /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
+      panel: {
+        chips: 'Actieve filters',
+        statusNote: 'Categorieën van de IUCN Rode Lijst (wereldwijd)',
+        head: 'Filters · {n} · {species}',
+        headNone: 'Filters · {species}',
+        show: '{species} tonen',
+        manyPlaces: '{n} plaatsen',
+        manyStatuses: '{n} statussen',
+        openChip: '{label} tonen in Filters',
+        clearChip: '{label} verwijderen',
+      },
+      /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
+      countHead: {
+        country: { one: '{n} land', other: '{n} landen' },
+        province: { one: '{n} staat of provincie', other: '{n} staten en provincies' },
+        county: { one: '{n} graafschap', other: '{n} graafschappen' },
+        status: { one: '{n} categorie', other: '{n} categorieën' },
+        checked: '{n} aangevinkt',
+      },
       timeline: {
         months: ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
         month: '{month} {year}',
@@ -210,7 +228,6 @@ export const nl: Messages = {
     },
     /** The Status panel (StatusList). {n} is formatted. */
     status: {
-      head: 'Categorieën · {n}',
       threatenedNote: '{n} bedreigd: Kwetsbaar, Bedreigd of Ernstig bedreigd.',
       list: 'Categorieën',
       none: 'Geen categorieën hier met de andere filters.',

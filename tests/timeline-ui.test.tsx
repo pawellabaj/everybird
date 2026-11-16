@@ -21,6 +21,7 @@ function Harness({ onPreview, initial = {} }: { onPreview?: (r: unknown) => void
   const [filter, setFilter] = useState<Filter>(initial)
   return (
     <>
+      {onPreview && <button type="button" onClick={() => setFilter({})}>outside clear</button>}
       <Timeline entries={entries} filter={filter} species={species} months={months} today={today} onFilter={setFilter} onPreview={onPreview} />
       <output data-testid="filter">{JSON.stringify(filter)}</output>
     </>
@@ -150,4 +151,27 @@ describe('Timeline', () => {
     render(<Timeline entries={[e('a')]} filter={{}} species={species} months={[]} today={today} onFilter={vi.fn()} />)
     expect(screen.getByTestId('timeline-empty')).toHaveTextContent('This list has no dates')
   })
+
+  it('a pending key step is dropped when the range is cleared elsewhere (the chip x): no commit, preview ended', () => {
+    const onPreview = vi.fn()
+    render(<Harness onPreview={onPreview} initial={{ from: '2020-03' }} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Start month' }), { key: 'ArrowRight' })
+    onPreview.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'outside clear' }))
+    expect(onPreview).toHaveBeenLastCalledWith(null)
+    settle()
+    expect(filterOf()).toEqual({}) // not resurrected
+  })
+
+  it('unmounting with a pending key step commits it', () => {
+    const onFilter = vi.fn()
+    const onPreview = vi.fn()
+    const { unmount } = render(<Timeline entries={entries} filter={{}} species={species} months={months} today={today} onFilter={onFilter} onPreview={onPreview} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Start month' }), { key: 'ArrowRight' })
+    expect(onFilter).not.toHaveBeenCalled()
+    unmount()
+    expect(onFilter).toHaveBeenCalledWith({ from: '2020-02' })
+    expect(onPreview).toHaveBeenLastCalledWith(null)
+  })
+
 })

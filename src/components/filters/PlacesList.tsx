@@ -1,5 +1,5 @@
 'use client'
-// The Places panel's body (the Places dropdown in FilterDropdowns.tsx): the lifer-only note, then the places drilled
+// The Places panel's body (the Places section of Filters.tsx): the lifer-only note, then the places drilled
 // in place, one level at a time (PlacesDrill.tsx; Yusuf chose the drill-down over expandable rows, 2026-11-15). What
 // it shares lives in places-shared.tsx: a level's rows, one checkbox row, the search field, the level's words. The
 // filter is written only through togglePlace / withPlaces (filters.ts); test ids: `country-<ISO2>` and `place-<key>`

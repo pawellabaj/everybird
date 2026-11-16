@@ -218,12 +218,11 @@ describe('the Collage page (/)', () => {
     expect(within(bar).getByRole('link', { name: 'Settings' })).not.toHaveAttribute('aria-current')
     expect(within(bar).getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about')
     expect(within(bar).getByRole('switch', { name: 'Dark mode' })).toBeInTheDocument()
-    // Places and Time are dropdowns in the controls bar (closed); the order chips wrap under it, as /lifelist's. No Birds
+    // One Filters button in the controls bar (closed); the order chips wrap under it, as /lifelist's. No Birds
     // button, no sideways strip.
     const filters = screen.getByTestId('filter-bar')
-    expect(screen.getByTestId('filter-tab-places')).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.getByTestId('filter-tab-time')).toHaveAttribute('aria-expanded', 'false')
-    expect(filters).not.toContainElement(screen.getByTestId('filter-tab-places'))
+    expect(screen.getByTestId('filters-button')).toHaveAttribute('aria-expanded', 'false')
+    expect(filters).not.toContainElement(screen.getByTestId('filters-button'))
     expect(within(filters).getByRole('group', { name: 'Orders' })).toBeInTheDocument()
     expect(screen.queryByTestId('filter-strip')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Birds' })).toBeNull()
@@ -262,15 +261,16 @@ describe('the conservation status on /', () => {
     await waitFor(() => expect(stats()).toHaveTextContent(/^5 species/))
     // gilfli VU + yerwar EN; norfli LC and the two without a status don't count.
     expect(stats()).toHaveTextContent('2 threatened (Vulnerable, Endangered or Critically Endangered)')
-    fireEvent.click(screen.getByTestId('filter-tab-status'))
-    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
+    fireEvent.click(screen.getByTestId('filters-button'))
+    const panel = screen.getByRole('group', { name: 'Conservation status' })
     expect(within(panel).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
     fireEvent.click(within(panel).getByTestId('status-VU'))
     fireEvent.click(within(panel).getByTestId('status-EN'))
     await waitFor(() => expect(stats()).toHaveTextContent(/^2 of 5 species · 2 families$/))
     expect(stats()).not.toHaveTextContent('threatened') // only on the unfiltered line
-    expect(screen.getByTestId('filter-tab-status').querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
-    expect(screen.getByTestId('filter-tab-status')).toHaveAccessibleName(/^Conservation status: /)
+    expect(within(screen.getByTestId('filter-chips')).getByTestId('chip-status-VU')).toBeInTheDocument()
+    expect(within(screen.getByTestId('filter-chips')).getByTestId('chip-status-EN')).toBeInTheDocument()
+    expect(screen.getByTestId('filters-button')).toHaveAccessibleName(/^Filters: Conservation status: /)
     // The list view shows what applyFilter (the layout client's resolve) returns for the same filter.
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     const shown = Array.from(document.querySelectorAll<HTMLElement>('.eb-lrow [data-code]')).map((b) => b.dataset.code).sort()
@@ -287,7 +287,7 @@ describe('the conservation status on /', () => {
     await mount({ path: '/', stored: (s) => { s.records.ebird = [{ code: 'norfli', source: 'ebird', date: '2020-01-01', place: { country: 'CA' } }] } })
     await waitFor(() => expect(stats()).toHaveTextContent(/^1 species/))
     expect(stats()).not.toHaveTextContent('threatened')
-    expect(screen.getByTestId('filter-tab-status')).toBeInTheDocument() // LC is a status
+    expect(screen.getByTestId('filters-button')).toBeInTheDocument() // LC is a status
   })
 })
 

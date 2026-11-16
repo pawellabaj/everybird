@@ -53,7 +53,6 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   const dragging = useRef<{ which: 'lo' | 'hi' | null; x: number } | null>(null) // the handle a press drags
   const latest = useRef({ filter, months, onFilter, onPreview })
   useLayoutEffect(() => { latest.current = { filter, months, onFilter, onPreview } })
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   /** Commit the previewed range: the filter changes (one re-pack) and the preview ends. */
   const commit = useCallback(() => {
@@ -87,6 +86,22 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
     prev?.(null)
     setDrag(null)
   }, [])
+
+  // A range pending from a key step is dropped when the filter's range changes from outside (the time chip's x, Clear elsewhere).
+  const ownRange = useRef(`${filter.from ?? ''}|${filter.to ?? ''}`)
+  useEffect(() => {
+    const k = `${filter.from ?? ''}|${filter.to ?? ''}`
+    if (k === ownRange.current) return
+    ownRange.current = k
+    if (!pending.current) return
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    pending.current = null
+    latest.current.onPreview?.(null)
+    setDrag(null)
+  }, [filter.from, filter.to])
+  // Unmounting (the panel closing) with a range pending: the last key step was meant, so it is committed.
+  useEffect(() => () => { if (pending.current) commit(); else if (timer.current) clearTimeout(timer.current) }, [commit])
 
   // The track and its width (a month's width decides where the year labels fit).
   const track = useRef<HTMLDivElement>(null)

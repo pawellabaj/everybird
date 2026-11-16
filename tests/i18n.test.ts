@@ -16,7 +16,7 @@ const ALLOW_SAME = [
   'eBird', 'iNaturalist', 'CSV', 'JSON', 'Everybird', 'GitHub', 'Collage',
   // Words the languages share: pt "Story" (Instagram's word in Brazil), nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
   // Flamingos, pt Seriemas, nl Hoatzin, nl Trogons); nl's full month needs no "de" ("maart 2020").
-  'Filters', 'Families', '{n} families', 'Story', 'Post', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
+  'Filters', 'Filters · {n} · {species}', 'Filters · {species}', 'Families', '{n} families', 'Story', 'Post', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
   // Templates with no words: the summary line's joins (ui.import.summary).
   '{head}: {parts}.', '{head}, {all}.',
   // About's credits: es and nl keep "Stickers" and "API" as they are; nl "Credits" and "Code".

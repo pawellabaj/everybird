@@ -1,6 +1,7 @@
-// What the Places, Time and Status buttons in the controls bar say about the active filter, and the places and
+// What the Filters button in the controls bar and its chips say about the active filter, and the places and
 // status labels the share image uses. Pure, so the bar, the share image and the tests agree.
-import { fmt } from '@/i18n/core'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
 import type { Ui } from '@/i18n/messages/en'
 import { THREATENED, type IucnCat } from '@/lib/species/iucn'
 import type { Regions } from '@/lib/species/types'
@@ -29,12 +30,6 @@ export function placesLabel(f: Filter, regions: Names, t: Pick<Ui, 'places'>): s
   return countriesLabel(keys, (k) => placeName(k, regions), t)
 }
 
-/** The Places button's short summary: the number of checked places at every level ("3"), or undefined for none. */
-export function placesSummary(f: Filter): string | undefined {
-  const n = filterPlaceKeys(f).length
-  return n ? String(n) : undefined
-}
-
 /**
  * The Places button's accessible description of the filter, each place with its parent: "Canada, Egypt" for
  * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas). The names
@@ -47,12 +42,7 @@ export function placesSpoken(f: Filter, regions: Names): string | undefined {
   return keys.map((k) => placeNameLong(k, regions)).join(sep)
 }
 
-/** The Status button's short summary: the number of checked categories ("2"), or undefined for none. */
-export function statusSummary(f: Filter): string | undefined {
-  return f.statuses?.length ? String(f.statuses.length) : undefined
-}
-
-/** The Status button's accessible description: the full names in `IUCN_CATS` order ("Vulnerable, Endangered"), in `t`'s language. */
+/** The Filters button's accessible description of the status filter: the full names in `IUCN_CATS` order ("Vulnerable, Endangered"), in `t`'s language. */
 export function statusSpoken(f: Filter, t: Pick<Ui, 'iucn'>): string | undefined {
   return f.statuses?.length ? f.statuses.map((c) => t.iucn.names[c]).join(', ') : undefined
 }
@@ -143,4 +133,39 @@ export function placesUnplacedFor(saved: Pick<Saved, 'records'> & { edits?: Pick
   }
   if (!listed.some((r) => !placed.has(r.code))) return undefined
   return saved.records.obsorg?.length ? 'plain' : 'add'
+}
+
+/** A panel section's head: the count first, then " · N checked" only when some are ("20 countries · 7 checked"). */
+export function countHead(n: number, kind: 'country' | 'province' | 'county' | 'status', checked: number, t: Ui): string {
+  const head = plural(t.filters.countHead[kind], n, { n: formatInt(n, t.num) })
+  return checked > 0 ? `${head} · ${fmt(t.filters.countHead.checked, { n: formatInt(checked, t.num) })}` : head
+}
+
+/** The N in "Filters · N": the filter groups in use (Places, Time, Conservation status), 0 to 3, not checked boxes. */
+export function filtersCount(f: Filter): number {
+  return (filterPlaceKeys(f).length ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
+}
+
+/** The Filters button's accessible description: each section in use, "Places: Kenya. Time: March 2020 to June 2021"; undefined for none. */
+export function filtersSpoken(f: Filter, regions: Names, t: Ui): string | undefined {
+  const parts: string[] = []
+  const places = placesSpoken(f, regions)
+  if (places) parts.push(`${t.filters.places}: ${places}`)
+  if (f.from || f.to) parts.push(`${t.filters.time}: ${timeSpoken(f, t)}`)
+  const status = statusSpoken(f, t)
+  if (status) parts.push(`${t.filters.status}: ${status}`)
+  return parts.length ? parts.join('. ') : undefined
+}
+
+const speciesOf = (shown: number, t: Ui) => plural(t.collage.stats.species, shown, { n: formatInt(shown, t.num) })
+
+/** The panel's head: "Filters · 3 · 118 species", or "Filters · 118 species" with no filter in use. */
+export function panelHead(n: number, shown: number, t: Ui): string {
+  const species = speciesOf(shown, t)
+  return n > 0 ? fmt(t.filters.panel.head, { n: formatInt(n, t.num), species }) : fmt(t.filters.panel.headNone, { species })
+}
+
+/** The sheet's bottom button: "Show 118 species". */
+export function showLabel(shown: number, t: Ui): string {
+  return fmt(t.filters.panel.show, { species: speciesOf(shown, t) })
 }

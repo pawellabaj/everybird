@@ -1,14 +1,12 @@
 'use client'
 // The one horizontal bar above the filters, as LifeList's dock (framer-site), with Photography's search: Collage /
 // List tabs on the left; then four groups at even gaps: the view tabs | True size in collage view (or the list's
-// direction in list view) and Scientific | the Places, Time and Conservation status dropdowns (FilterDropdowns.tsx; the last only
-// when the list has Red List statuses) | the magnifier. The magnifier turns the dock into the search field
-// (DockSearch.tsx); everything else sits under it, inert, while it is open. Under 820px of bar (1080px with the third drop) the
-// dropdowns take a second row of their own, under 600px split evenly (app.css); under
+// direction in list view) and Scientific | the one Filters button (Filters.tsx) | the magnifier. The magnifier turns the dock into the search field
+// (DockSearch.tsx); everything else sits under it, inert, while it is open. Under 820px of bar the
+// Filters button takes a second row of its own, under 600px filling it (app.css); under
 // 460px the tabs are icons only; under 540px the switches shorten ("True", "Sci."; "Heaviest" in list view), and
-// under 330px and 310px everything tightens, so row one never breaks between 280 and 1200px of bar (e2e
-// dock-sweep.spec). On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
-// one is the icons, the two switches (or "Heaviest") and the magnifier; row two Places, Time and Status.
+// under 330px and 310px everything tightens, so row one never breaks between 280 and 1200px of bar. On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
+// one is the icons, the two switches (or "Heaviest") and the magnifier; row two the Filters button.
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, CollageIcon, ListIcon } from '@/components/collage/icons'
 import { useI18n } from '@/i18n/I18nProvider'
@@ -25,11 +23,15 @@ type Props = {
   onSci: (on: boolean) => void
   /** The search (left out: no magnifier). */
   search?: DockSearchProps
-  /** The Places and Time dropdowns; `inert` while the search covers the bar. */
+  /** The Filters button; `inert` while the search covers the bar. */
   filters?: (inert: boolean) => ReactNode
+  /** After the dock, inside the wrap: the active-filter chips, then the Filters popover (it anchors under them). */
+  below?: ReactNode
+  /** The search is opening (pointer or keyboard): the caller closes whatever else is open over the bar. */
+  onFind?: () => void
 }
 
-export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters }: Props) {
+export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters, below, onFind }: Props) {
   const [finding, setFinding] = useState(false)
   const { t } = useI18n()
   const c = t.collage.controls
@@ -87,9 +89,10 @@ export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, on
           </button>
         </div>
         {filters?.(finding)}
-        {search && <div className="eb-dock-end" inert={finding}><SearchButton open={finding} onOpen={() => setFinding(true)} buttonRef={findBtn} /></div>}
+        {search && <div className="eb-dock-end" inert={finding}><SearchButton open={finding} onOpen={() => { onFind?.(); setFinding(true) }} buttonRef={findBtn} /></div>}
         {search && <DockSearchField {...search} onPick={onPick} open={finding} onClose={close} within={wrap} />}
       </div>
+      {below}
     </div>
   )
 }

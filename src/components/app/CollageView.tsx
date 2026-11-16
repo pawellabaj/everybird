@@ -9,7 +9,7 @@ import { Collage, revealBird } from '@/components/collage/Collage'
 import { reduced } from '@/components/collage/collage-motion'
 import { ListView } from '@/components/collage/ListView'
 import { FilterBar } from '@/components/filters/FilterBar'
-import { FilterDropdowns, type Panel, type PlacesNote } from '@/components/filters/FilterDropdowns'
+import { useFiltersUi, type FilterSection, type PlacesNote } from '@/components/filters/Filters'
 import { fmt, plural, rich } from '@/i18n/core'
 import { formatInt, formatMonth } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
@@ -43,8 +43,8 @@ type Props = {
   label: string
   /** Extra actions in the bird card (EditBird on the birder's own collage). `close` closes the card. */
   cardActions?: (entry: ListEntry, close: () => void) => ReactNode
-  /** The Places and Time dropdowns to leave out. */
-  hidePanels?: readonly Panel[]
+  /** The Filters panel's sections to leave out (a shared link that carries no places or dates). */
+  hideSections?: readonly FilterSection[]
   /** Every place on the list is a lifer place: the Places dropdown says so, and how to get more (the birder's own collage). */
   placesNote?: PlacesNote
   /** Some birds on the observation.org life list have no places: the Places dropdown says so (the birder's own collage). */
@@ -112,7 +112,7 @@ function latestLine(name: string, date: string | undefined, t: Ui): ReactNode {
   return rich(fmt(t.collage.legend.latestOn, { name, date: shown }), { time: (chunk) => <time dateTime={date}>{chunk}</time> })
 }
 
-export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, placesUnplaced, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
+export function CollageView({ state, dispatch, species, regions, label, cardActions, hideSections, placesNote, placesUnplaced, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
   const { list, filter, mode, view, massOrder, sci, seen } = state
   const { t } = useI18n()
   useNames() // the legend's latest lifer, the search results and the filters follow the names
@@ -120,7 +120,6 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const wrap = useRef<HTMLDivElement>(null)
   const [pick, setPick] = useState<{ code: string; anchor: HTMLElement | null } | null>(null)
   const [tip, setTip] = useState<string | null>(null)
-  const [panel, setPanel] = useState<Panel | null>(null)
 
   const entries = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
   // The timeline's months (first lifer to today).
@@ -147,6 +146,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
 
+  const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, placesUnplaced, time, threatLine, shown: shownList.length })
   const close = useCallback(() => setPick(null), [])
   const onPickBird = useCallback((code: string) => {
     const el = box.current?.querySelector<HTMLElement>(`.eb-bird[data-code="${code}"]`) ?? null
@@ -235,11 +235,13 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         sci={sci}
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
-        filters={(inert) => (
-          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} placesUnplaced={placesUnplaced} time={time} inert={inert} threatLine={threatLine} />
-        )}
+        filters={filtersUi.button}
+        below={filtersUi.below}
+        onFind={filtersUi.close}
       />
 
+      {/* Everything under the dock: dimmed and inert while the Filters popover is open (a press there closes it). */}
+      <div className="eb-view-below" inert={filtersUi.dimmed || undefined} data-dim={filtersUi.dimmed || undefined}>
       <FilterBar state={state} dispatch={dispatch} species={species} />
       {filterNote}
 
@@ -265,6 +267,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
           {sizes}
         </p>
         <p>{t.collage.legend.marks}</p>
+      </div>
       </div>
 
       {picked && pick && (

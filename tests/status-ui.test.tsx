@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { useReducer, useState } from 'react'
+import { useReducer } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollageView } from '@/components/app/CollageView'
-import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
+import type { FilterSection } from '@/components/filters/Filters'
+import { FiltersDock } from './filters-dock'
 import { STATUS_ICON } from '@/components/filters/status-icon'
 import { StatusList } from '@/components/filters/StatusList'
 import { IucnBadge, IucnPill } from '@/components/collage/IucnPill'
@@ -33,15 +34,12 @@ function seeded(codes: string[]): AppState {
   return reduce(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide, threatLine }: { codes?: string[]; hide?: readonly Panel[]; threatLine?: number }) {
+function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide, threatLine }: { codes?: string[]; hide?: readonly FilterSection[]; threatLine?: number }) {
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(codes))
-  const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
     <>
-      <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} time={time} hide={hide} threatLine={threatLine} />
-      </div>
+      <FiltersDock state={state} dispatch={dispatch} species={species} regions={regions} time={time} hide={hide} threatLine={threatLine} />
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Passeriformes', family: 'Turdidae' } })}>thrushes only</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
@@ -49,28 +47,26 @@ function Harness({ codes = ['duck1', 'owl1', 'crow1', 'robin1'], hide, threatLin
   )
 }
 const filterOf = () => JSON.parse(screen.getByTestId('filter').textContent || '{}')
-const statusBtn = () => screen.getByTestId('filter-tab-status')
+const statusBtn = () => screen.getByTestId('filters-button')
+const statusPanel = () => screen.getByRole('group', { name: 'Conservation status' })
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-describe('Status: a dropdown in the controls bar', () => {
-  it('a Status button after Time; its panel lists the categories on the list, in Red List order, with counts', () => {
+describe('Status: a section of the Filters panel', () => {
+  it('the Filters button opens a Conservation status section that lists the categories on the list, in Red List order, with counts', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    const group = screen.getByRole('group', { name: 'Places, time and conservation status' })
-    expect(group).toHaveClass('eb-dock-filters')
-    expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
-    // app.css's three-drop rules key on a third drop in the group (.eb-dock-drop:nth-child(3)): Status is it.
-    expect(group.querySelector('.eb-dock-drop:nth-child(3)')).toBe(statusBtn())
-    expect(statusBtn()).toHaveAccessibleName('Conservation status')
+    expect(statusBtn()).toHaveAccessibleName('Filters')
     fireEvent.click(statusBtn())
-    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
+    const panel = screen.getByRole('dialog', { name: 'Filters' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
-    expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
-    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(panel).toContainElement(statusPanel())
+    expect(screen.getByText(/3 categories/)).toBeInTheDocument()
+    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(within(statusPanel()).getByTestId('status-note')).toHaveTextContent('IUCN Red List categories (global)')
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
     // The source note lives only on About.
     expect(screen.queryByText(/Global IUCN Red List categories/)).toBeNull()
@@ -91,12 +87,11 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ statuses: ['VU', 'EN'] })
     expect(screen.getByTestId('status-VU')).toBeChecked()
-    // The visible label is the long form with the short "Status" beside it (app.css shows one by container query).
-    expect(statusBtn().querySelector('.eb-long')).toHaveTextContent('Conservation status')
-    expect(statusBtn().querySelector('.eb-short')).toHaveTextContent('Status')
-    expect(statusBtn().querySelector('.eb-short')).toHaveAttribute('aria-hidden', 'true')
-    expect(statusBtn().querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
-    expect(statusBtn()).toHaveAccessibleName('Conservation status: Vulnerable, Endangered')
+    // One group in use: "Filters · 1", and two chips.
+    expect(statusBtn().querySelector('.eb-drop-sum')).toHaveTextContent('· 1')
+    expect(statusBtn()).toHaveAccessibleName('Filters: Conservation status: Vulnerable, Endangered')
+    expect(screen.getByTestId('chip-status-VU')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-status-EN')).toBeInTheDocument()
     // The counts are under the other filters: checking a category changes none of them.
     expect(screen.getByRole('checkbox', { name: 'Least Concern, 1 species' })).not.toBeChecked()
     fireEvent.click(screen.getByTestId('status-clear'))
@@ -111,28 +106,28 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByTestId('status-EN'))
     fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
     expect(filterOf()).toEqual({ order: 'Strigiformes', statuses: ['EN'] })
-    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU', 'status-EN'])
+    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU', 'status-EN'])
     expect(screen.getByTestId('status-EN')).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Endangered, 0 species' })).toBeInTheDocument()
-    expect(screen.getByText(/Categories · 2/)).toBeInTheDocument()
+    expect(screen.getByText(/2 categories · 1 checked/)).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ order: 'Strigiformes' })
   })
 
-  it('no Status button on a list where no species has a status', () => {
+  it('no Status section on a list where no species has a status', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness codes={['robin1']} />)
-    expect(screen.queryByTestId('filter-tab-status')).toBeNull()
-    expect(screen.getByTestId('filter-tab-places')).toBeInTheDocument()
-    // Two drops: none of app.css's three-drop rules applies, so the bar is as it was before Status.
-    expect(document.querySelector('.eb-dock-filters .eb-dock-drop:nth-child(3)')).toBeNull()
+    fireEvent.click(statusBtn())
+    expect(screen.queryByRole('group', { name: 'Conservation status' })).toBeNull()
+    expect(screen.getByRole('group', { name: 'Places' })).toBeInTheDocument()
   })
 
-  it('hide may name status: no Status button on a list that has statuses', () => {
+  it('hide may name status: no Status section on a list that has statuses', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness hide={['status']} />)
-    expect(screen.queryByTestId('filter-tab-status')).toBeNull()
-    expect(screen.getByTestId('filter-tab-time')).toBeInTheDocument()
+    fireEvent.click(statusBtn())
+    expect(screen.queryByRole('group', { name: 'Conservation status' })).toBeNull()
+    expect(screen.getByRole('group', { name: 'Time' })).toBeInTheDocument()
   })
 
   it('under a filter that leaves no bird with a category, the panel says so', () => {
@@ -140,17 +135,17 @@ describe('Status: a dropdown in the controls bar', () => {
     render(<Harness />)
     fireEvent.click(screen.getByRole('button', { name: 'thrushes only' }))
     fireEvent.click(statusBtn())
-    expect(screen.queryAllByRole('checkbox')).toEqual([])
-    expect(screen.getByText(/Categories · 0/)).toBeInTheDocument()
+    expect(within(statusPanel()).queryAllByRole('checkbox')).toEqual([])
+    expect(screen.getByText(/0 categories/)).toBeInTheDocument()
     expect(screen.getByText('No categories here under the other filters.')).toBeInTheDocument()
   })
 
-  it('Esc closes the panel and focus returns to the Status button; at phone width it is the bottom sheet', () => {
+  it('Esc closes the panel and focus returns to the Filters button; at phone width it is the bottom sheet', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness />)
     statusBtn().focus()
     fireEvent.click(statusBtn())
-    expect(screen.getByRole('dialog', { name: 'Conservation status' })).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toContainElement(document.activeElement as HTMLElement)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(statusBtn()).toHaveFocus()
@@ -159,7 +154,7 @@ describe('Status: a dropdown in the controls bar', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
     fireEvent.click(statusBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Conservation status' })
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(within(sheet).getByTestId('status-LC')).toBeInTheDocument()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
@@ -199,15 +194,18 @@ describe('IucnPill', () => {
   })
 })
 
-describe('The Conservation status button’s glyph', () => {
-  it('is Phosphor Leaf, one constant shared with the How it works scene; Places and Time keep their own', () => {
+describe('The Conservation status section’s glyph', () => {
+  it('the section title carries STATUS_ICON, one constant shared with the How it works scene; Places and Time keep their own', () => {
+    vi.stubGlobal('innerWidth', 1000)
     const { container } = render(<STATUS_ICON />)
     const leaf = container.querySelector('svg')!.innerHTML
     cleanup()
     render(<Harness />)
-    expect(statusBtn().querySelector('svg')!.innerHTML).toBe(leaf)
-    expect(screen.getByTestId('filter-tab-places').querySelector('svg')!.innerHTML).not.toBe(leaf)
-    expect(screen.getByTestId('filter-tab-time').querySelector('svg')!.innerHTML).not.toBe(leaf)
+    fireEvent.click(statusBtn())
+    const glyph = (name: string) => screen.getByRole('group', { name }).querySelector('.eb-fsec-title svg')!.innerHTML
+    expect(glyph('Conservation status')).toBe(leaf)
+    expect(glyph('Places')).not.toBe(leaf)
+    expect(glyph('Time')).not.toBe(leaf)
   })
 })
 
@@ -217,7 +215,7 @@ describe('The threatened count (?v=threat:<letter>)', () => {
     sessionStorage.removeItem('everybird:variants')
   })
 
-  it('FilterDropdowns passes threatLine on to the Status panel', () => {
+  it('the panel passes threatLine on to the Status panel', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness threatLine={2} />)
     fireEvent.click(statusBtn())
@@ -272,7 +270,7 @@ describe('The threatened count (?v=threat:<letter>)', () => {
     expect(stats()).toHaveTextContent('1 of 4 species · 1 family')
     fireEvent.click(statusBtn())
     // Owls only: one VU under the filter, but the line is the list's (VU owl1 + EN crow1).
-    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU'])
+    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU'])
     expect(screen.getByTestId('status-threatened')).toHaveTextContent('2 threatened: Vulnerable, Endangered or Critically Endangered.')
   })
 })
