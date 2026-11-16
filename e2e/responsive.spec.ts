@@ -113,6 +113,71 @@ for (const width of [320, 390, 430, 440, 600] as const) {
   });
 }
 
+/** Every drop's label in the bar: its text, and whether it is cut (an ellipsis: scrollWidth over clientWidth). */
+async function dropLabels(page: Page) {
+  return page.evaluate(() => {
+    const row = document.querySelector<HTMLElement>(".eb-dock-filters")!;
+    return {
+      labels: Array.from(row.querySelectorAll<HTMLElement>(".eb-drop-label")).map((l) => ({
+        text: l.innerText.trim(), cut: l.scrollWidth > l.clientWidth,
+      })),
+      row: row.scrollWidth - row.clientWidth,
+      dock: document.querySelector<HTMLElement>(".eb-dock")!.scrollWidth - document.querySelector<HTMLElement>(".eb-dock")!.clientWidth,
+    };
+  });
+}
+
+// The three-drop phone row sizes by content (app.css, the three-drop `@container (max-width: 599px)` block; pinned in
+// tests/dock-css.test.ts): with Status, two places and a Time range all set, every active label reads in full at 390.
+// The landing sample has Red List statuses (LC and NT), so Status shows. Written in Round 4 and not run by agents.
+test.describe("390px phone, three drops active", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  test("active labels read in full: Places · 2, Time · a range, Status · 1, nothing cut and the row doesn't overflow", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("filter-tab-status")).toBeVisible();
+    const pressRow = (panel: ReturnType<Page["getByTestId"]>, input: ReturnType<Page["locator"]>) =>
+      panel.locator("label.eb-check", { has: input }).locator(".eb-check-name");
+
+    // Status first (the other panels count under it): the first category the sample has.
+    await page.getByTestId("filter-tab-status").tap();
+    const status = page.getByTestId("filter-panel-status");
+    await pressRow(status, status.locator('input[data-testid^="status-"]').first()).tap();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("filter-tab-status")).toContainText("Status · 1");
+
+    // Time: the start a year on, from the keyboard.
+    await page.getByTestId("filter-tab-time").tap();
+    const lo = page.getByRole("slider", { name: "Start month" });
+    await lo.focus();
+    await page.keyboard.press("PageUp");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("filter-tab-time")).toContainText(/Time · \d{4}/);
+
+    // Places: two countries.
+    await page.getByTestId("filter-tab-places").tap();
+    const places = page.getByTestId("filter-panel-places");
+    const countries = places.locator('input[data-testid^="country-"]');
+    await pressRow(places, countries.nth(0)).tap();
+    await pressRow(places, countries.nth(1)).tap();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("filter-tab-places")).toContainText("Places · 2");
+
+    const m = await dropLabels(page);
+    expect(m.labels.map((l) => l.text)).toEqual([
+      expect.stringMatching(/^Places · 2$/), expect.stringMatching(/^Time · \d{4}(–\d{4})?$/), expect.stringMatching(/^Status · 1$/),
+    ]);
+    for (const l of m.labels) expect(l.cut, `"${l.text}" is cut`).toBe(false);
+    expect(m.row).toBeLessThanOrEqual(0);
+    expect(m.dock).toBeLessThanOrEqual(0);
+    // Still two rows, the three drops in the second, each a 44px press.
+    const b = await bar(page);
+    expect(b.rows, JSON.stringify(b.rows)).toHaveLength(2);
+    expect(b.page).toBeLessThanOrEqual(0);
+    const widths = await page.locator(".eb-dock-filters .eb-dock-drop").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width));
+    for (const w of widths) expect(w).toBeGreaterThanOrEqual(44);
+  });
+});
+
 /** The order chips' rows, whether each chip is wholly inside the viewport, and anything that scrolls sideways. */
 async function chips(page: Page) {
   return page.evaluate(() => {

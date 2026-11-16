@@ -92,6 +92,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
               aria-haspopup="dialog"
               aria-label={said ? `${label}: ${said}` : label}
               data-active={s ? '' : undefined}
+              data-drop={id}
               data-testid={`filter-tab-${id}`}
               onClick={() => onOpen(open === id ? null : id)}
             >

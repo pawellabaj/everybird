@@ -28,7 +28,7 @@ describe('the Red List pill CSS', () => {
     expect(css).toMatch(/\.eb-iucn:focus-visible \+ \.eb-iucn-tip/)
     expect(css).toMatch(/@media \(hover: hover\) and \(pointer: fine\)\s*\{\s*\.eb-iucn:hover \+ \.eb-iucn-tip/)
   })
-  it('variant a stacks mass over pill on the right; variant b is one row, the tip left-aligned', () => {
+  it('variant a stacks mass over pill on the right; variant b is one row', () => {
     expect(rule('.eb-card-meta')).toMatch(/flex-direction:\s*column/)
     expect(rule('.eb-card-meta')).toMatch(/align-items:\s*flex-end/)
     expect(rule('[data-pill="b"] .eb-card-meta')).toMatch(/flex-direction:\s*row/)
