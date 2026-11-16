@@ -94,8 +94,15 @@ describe('LanguageMenu', () => {
     const menu = screen.getByRole('menu', { name: 'Idioma' })
     const items = screen.getAllByRole('menuitemradio')
     expect(menu).toContainElement(items[0])
-    expect(items.map((i) => i.textContent)).toEqual(['English', 'Español', 'Português', 'Nederlands'])
-    expect(items.map((i) => i.getAttribute('lang'))).toEqual(['en', 'es', 'pt-BR', 'nl'])
+    const names = items.map((i) => i.querySelector('[lang]')!)
+    expect(names.map((n) => n.textContent)).toEqual(['English', 'Español', 'Português', 'Nederlands'])
+    expect(names.map((n) => n.getAttribute('lang'))).toEqual(['en', 'es', 'pt-BR', 'nl'])
+    // Each row's code sits on the right, aria-hidden; the current one shows a check instead, and only its name is marked.
+    expect(items.map((i) => i.querySelector('.eb-langcode')?.textContent ?? null)).toEqual(['EN', null, 'PT', 'NL'])
+    expect(items.map((i) => i.querySelector('.eb-langcode')?.getAttribute('aria-hidden') ?? null)).toEqual(['true', null, 'true', 'true'])
+    expect(items.map((i) => i.querySelector('svg') !== null)).toEqual([false, true, false, false])
+    expect(items[1].querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
+    expect(names.map((n) => n.hasAttribute('data-current'))).toEqual([false, true, false, false])
     expect(items.map((i) => i.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false', 'false'])
     // Opening focuses the checked item.
     expect(items[1]).toHaveFocus()
