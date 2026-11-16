@@ -88,6 +88,38 @@ describe('ported date grammar at month precision', () => {
   })
 })
 
+describe('"ago" phrases name one calendar year or month (today is 2026-11-15)', () => {
+  it.each([
+    ['en', '2 years ago', '2024-01', '2024-12'], ['en', 'a year ago', '2025-01', '2025-12'], ['en', 'twelve years ago', '2014-01', '2014-12'],
+    ['en', '3 months ago', '2026-08', '2026-08'], ['en', 'a month ago', '2026-10', '2026-10'], ['en', '12 months ago', '2025-11', '2025-11'],
+    ['es', 'hace 2 años', '2024-01', '2024-12'], ['es', 'hace un año', '2025-01', '2025-12'], ['es', 'hace dos años', '2024-01', '2024-12'],
+    ['es', 'hace 3 meses', '2026-08', '2026-08'], ['es', 'hace un mes', '2026-10', '2026-10'],
+    ['pt', 'há 2 anos', '2024-01', '2024-12'], ['pt', 'ha 2 anos', '2024-01', '2024-12'], ['pt', 'há um ano', '2025-01', '2025-12'],
+    ['pt', 'há 3 meses', '2026-08', '2026-08'], ['pt', 'há um mês', '2026-10', '2026-10'], ['pt', 'há três meses', '2026-08', '2026-08'],
+    ['nl', '2 jaar geleden', '2024-01', '2024-12'], ['nl', 'een jaar geleden', '2025-01', '2025-12'], ['nl', 'twee jaar geleden', '2024-01', '2024-12'],
+    ['nl', '3 maanden geleden', '2026-08', '2026-08'], ['nl', 'een maand geleden', '2026-10', '2026-10'],
+  ] as const)('%s: %s', (lang, q, from, to) => expect(span(q, lang)).toEqual([from, to]))
+  it('sets the seen basis and consumes the whole phrase, so the rest is left alone', () => {
+    expect(parse('2 years ago')).toMatchObject({ filter: { from: '2024-01', to: '2024-12', basis: 'seen' }, rest: '' })
+    expect(parse('a month ago')).toMatchObject({ filter: { from: '2026-10', to: '2026-10', basis: 'seen' }, rest: '' })
+    expect(parse('hace 2 años', 'es')).toMatchObject({ rest: '' })
+    expect(parse('lifers 3 months ago').filter).toMatchObject({ basis: 'lifer', from: '2026-08', to: '2026-08' })
+  })
+  it('reads inside a longer query and leaves the other words to the parser', () => {
+    const r = parse('herons 2 years ago in Canada')
+    expect(r.filter).toMatchObject({ countries: ['CA'], from: '2024-01', to: '2024-12', basis: 'seen' })
+    expect(r.rest).not.toMatch(/ago|years/)
+  })
+  it('leaves plain numbers and unfinished phrases untouched', () => {
+    expect(parse('2 herons')).toMatchObject({ filter: {}, rest: '2' })
+    expect(parse('2 herons').chips.some((c) => c.kind === 'date')).toBe(false)
+    expect(parse('2 years in Canada').filter.from).toBeUndefined()
+    expect(parse('ago 2 years').filter.from).toBeUndefined()
+    expect(parse('13 years ago').filter.from).toBeUndefined()
+    expect(parse('hace 2 herons', 'es').filter.from).toBeUndefined()
+  })
+})
+
 describe('places and taxonomy', () => {
   it('resolves country aliases, full codes and exact county names', () => {
     expect(parse('USA UK UAE').filter.countries).toEqual(['AE', 'GB', 'US'])
