@@ -98,8 +98,8 @@ const enc = (o: unknown) => Buffer.from(typeof o === 'string' ? o : JSON.stringi
 async function keys() {
   const pair = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify'])
   const jwk = { ...(await crypto.subtle.exportKey('jwk', pair.publicKey)), kid: 'k1' } as Jwk
-  const sign = async (claims: Record<string, unknown>, kp = pair.privateKey, kid = 'k1') => {
-    const head = enc({ alg: 'RS256', kid }), body = enc({ iss: 'https://' + TEAM, aud: [AUD], email: 'me@example.com', exp: Math.floor(Date.now() / 1000) + 600, ...claims })
+  const sign = async (claims: Record<string, unknown>, kp = pair.privateKey, kid = 'k1', alg = 'RS256') => {
+    const head = enc({ alg, kid }), body = enc({ iss: 'https://' + TEAM, aud: [AUD], email: 'me@example.com', exp: Math.floor(Date.now() / 1000) + 600, ...claims })
     const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', kp, new TextEncoder().encode(head + '.' + body))
     return head + '.' + body + '.' + Buffer.from(sig).toString('base64url')
   }
@@ -119,6 +119,9 @@ describe('the Access gate', () => {
       ['email not allowed', await k.sign({ email: 'eve@example.com' })], ['no email', await k.sign({ email: undefined })], ['expired', await k.sign({ exp: 1 })],
       ['signed by another key', await k.sign({}, (await other.sign({}), (await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign'])).privateKey))],
       ['unknown kid', await k.sign({}, undefined, 'k2')],
+      ['not yet valid', await k.sign({ nbf: Math.floor(Date.now() / 1000) + 3600 })],
+      ['no exp', await k.sign({ exp: undefined })],
+      ['alg not RS256 (validly signed)', await k.sign({}, undefined, 'k1', 'RS512')], ['alg none', await k.sign({}, undefined, 'k1', 'none')],
     ]
     for (const [name, t] of bad) expect(await verifyAccess(t, ENV, k.jwks), name).toBeNull()
     const ok = await k.sign({})
