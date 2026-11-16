@@ -14,7 +14,7 @@ import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { useNames } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import { searchCollage, type CollageHit } from '@/lib/species/name-search'
 import { orderLabel } from '@/lib/species/orders'
 

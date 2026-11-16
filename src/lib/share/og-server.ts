@@ -23,9 +23,10 @@ export function serverSpecies(): Promise<Map<string, SpeciesRow>> {
 const namesByBase = new Map<string, Promise<Record<string, string>>>()
 /**
  * The card's local bird names for a URL's language: the base set (es, pt_BR, nl; never a regional one, since the card
- * is cached a year per URL), read from disk like the species file. English, and a failure, give none (English names).
+ * is cached a year per URL), read from disk like the species file. English gives none (`{}`); a failed read gives `null`, which the card treats as
+ * incomplete (cached a minute, not a year, with English names).
  */
-export function serverNames(lang: string): Promise<Record<string, string>> {
+export function serverNames(lang: string): Promise<Record<string, string> | null> {
   const base = baseOfLang(lang)
   if (!base) return Promise.resolve({})
   let p = namesByBase.get(base)
@@ -34,7 +35,7 @@ export function serverNames(lang: string): Promise<Record<string, string>> {
     namesByBase.set(base, p)
     p.catch(() => { namesByBase.delete(base) })
   }
-  return p.catch(() => ({}))
+  return p.catch(() => null)
 }
 
 const maskTables = new Map<string, Promise<MaskTable>>()

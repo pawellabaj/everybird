@@ -12,6 +12,7 @@ import { DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, ShareNetwork, S
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import { countryName, regionsIn } from '@/lib/i18n-places'
 import { track } from '@/lib/analytics'
@@ -26,7 +27,8 @@ import {
 import type { ShareLevel } from '@/lib/share/link'
 import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { displayName, familyName, useNames } from '@/lib/species/names'
+import { displayName, familyName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import type { Regions } from '@/lib/species/types'
 import '@/components/app/app.css'
 import '@/components/collage/collage.css'
@@ -114,7 +116,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${format}|${trimmed}|${theme}|${withLatest}|${lang}`
+  const key = `${format}|${trimmed}|${theme}|${withLatest}|${lang}|${names}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   useEffect(() => {
@@ -230,7 +232,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     // Counted once the link exists, whether the clipboard takes it or the birder copies it by hand.
     track('link_copied', { level })
     // The note's sentences, joined by a space: why the link carries less (a large list), then the birds left out.
-    const why = [levelReason(level, t), dropped ? plural(t.share.dropped, dropped) : ''].filter(Boolean)
+    const why = [levelReason(level, t), dropped ? plural(t.share.dropped, dropped, { n: formatInt(dropped, t.num) }) : ''].filter(Boolean)
     let ok = await copied
     if (!ok && typeof clip?.writeText === 'function') ok = await clip.writeText(url).then(() => true, () => false)
     if (ok) return setNote({ text: [t.share.copied, ...why].join(' ') })

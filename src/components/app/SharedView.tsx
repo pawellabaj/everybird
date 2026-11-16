@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useI18n } from '@/i18n/I18nProvider'
-import { loadRegions, stripBracket } from '@/lib/import/places'
+import { loadRegions } from '@/lib/import/places'
 import { initialState, makeReducer } from '@/lib/list/store'
 import { emptySaved } from '@/lib/list/storage'
 import { loadSpecies, type SpeciesIndex } from '@/lib/species/load'
-import { useLoadNames } from '@/lib/species/names'
+import { useLoadNames } from '@/lib/species/use-names'
 import type { Regions } from '@/lib/species/types'
 import { payloadToRecords } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
@@ -46,8 +46,8 @@ function Loaded({ payload, species, regions }: { payload: SharePayload; species:
   const { t } = useI18n()
   const shown = useMemo(() => payloadToRecords(payload, regions), [payload, regions])
   const reducer = useMemo(
-    () => makeReducer({ species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso) }),
-    [species, regions],
+    () => makeReducer({ species }),
+    [species],
   )
   const [state, dispatch] = useReducer(reducer, undefined, () => {
     const saved = emptySaved()

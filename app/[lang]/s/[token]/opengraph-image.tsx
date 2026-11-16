@@ -76,7 +76,7 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   // The card's words in the URL's language (base names only: the card is cached a year per URL). No date stamp here.
   const t = getMessages(lang).ui
   const [payload, fonts] = [tryDecodeShare(token), ogFonts()]
-  let placed: Placed[] = [], expected = 0, failed = false, latest: { name: string; date?: string } | undefined
+  let placed: Placed[] = [], expected = 0, failed = false, namesFailed = false, latest: { name: string; date?: string } | undefined
   if (payload) {
     try {
       const species = await serverSpecies()
@@ -88,7 +88,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
       const row = top && species.get(top.code)
       // The latest lifer row: a mono label with the month over the bird's name, as the share images.
       const local = await serverNames(lang)
-      if (top && row) latest = { name: local[row.code] ?? row.com, date: formatMonth(top.date, t.date.months) || undefined }
+      namesFailed = local === null // English names stand in, cached briefly
+      if (top && row) latest = { name: local?.[row.code] ?? row.com, date: formatMonth(top.date, t.date.months) || undefined }
     } catch (e) {
       failed = true // the text card stands in: cached briefly, not for a year
       console.warn('og image: collage unavailable, rendering the text card', e) // still a valid image
@@ -153,5 +154,5 @@ export default async function Image({ params }: { params: Promise<{ lang: string
       </div>
     </>
   )
-  return new ImageResponse(frame(body), { ...OG_SIZE, ...ogResponseOptions(await fonts, { placed: placed.length, expected, failed, broken: !payload }) })
+  return new ImageResponse(frame(body), { ...OG_SIZE, ...ogResponseOptions(await fonts, { placed: placed.length, expected, failed, broken: !payload, namesFailed }) })
 }

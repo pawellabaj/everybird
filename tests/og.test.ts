@@ -151,6 +151,10 @@ describe('ogResponseOptions', () => {
     expect(ogResponseOptions(f, { placed: 0, expected: 0, failed: true }).headers['cache-control']).toBe(OG_CACHE_DEGRADED)
     expect(ogResponseOptions(f, { placed: 0, expected: 0 }).headers['cache-control']).toBe(OG_CACHE_COMPLETE)
   })
+  it('a names file that failed to load (the card shows English names) gets the short cache', () => {
+    expect(ogResponseOptions(f, { placed: 0, expected: 0, namesFailed: true }).headers['cache-control']).toBe(OG_CACHE_DEGRADED)
+    expect(ogResponseOptions(f, { placed: 0, expected: 0, namesFailed: false }).headers['cache-control']).toBe(OG_CACHE_COMPLETE)
+  })
   it('a broken token (no payload) gets the short cache', () => {
     expect(ogResponseOptions(f, { placed: 0, expected: 0, broken: true }).headers['cache-control']).toBe(OG_CACHE_DEGRADED)
   })
@@ -233,12 +237,12 @@ describe('the link preview footer', () => {
 describe('the link preview names', () => {
   const file = (l: string) => (JSON.parse(readFileSync(resolve(__dirname, `../public/data/names.${l}.v1.json`), 'utf8')) as { names: Record<string, string> }).names
   it("uses the URL language's base names, never a regional set", async () => {
-    expect((await serverNames('es')).amerob).toBe(file('es').amerob)
-    expect((await serverNames('es')).amerob).toBe('Zorzal americano')
-    const pt = await serverNames('pt')
+    expect((await serverNames('es'))!.amerob).toBe(file('es').amerob)
+    expect((await serverNames('es'))!.amerob).toBe('Zorzal americano')
+    const pt = (await serverNames('pt'))!
     expect(pt.houspa).toBe(file('pt_BR').houspa)
     expect(pt.houspa).not.toBe(file('pt_PT').houspa) // pt_PT says "Pardal-do-telhado"
-    expect((await serverNames('nl')).houspa).toBe('Huismus')
+    expect((await serverNames('nl'))!.houspa).toBe('Huismus')
   })
   it('English has none (the card draws the English name)', async () => {
     expect(await serverNames('en')).toEqual({})

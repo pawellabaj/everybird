@@ -5,7 +5,8 @@ import { plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { displayName, useNames } from '@/lib/species/names'
+import { displayName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import type { SpeciesRow } from '@/lib/species/types'
 
 type Props = {

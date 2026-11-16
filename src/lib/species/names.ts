@@ -2,11 +2,9 @@
 // site reads a name from (displayName / familyName). English has no file. The names are display only: import
 // matching, links and backups stay English and scientific. "Show bird names in English" (localStorage
 // `everybird:en-names`, per device) makes every display site show English again.
-import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { fetchData } from '@/lib/data-url'
 import type { DataFile } from '@/lib/data-files'
 import type { ListEntry } from '@/lib/list/model'
-import { useI18n } from '@/i18n/I18nProvider'
 import { primarySubtag, type Lang } from '@/i18n/langs'
 import { familyLang, REGION_LOCALE, type NameLocale } from './name-locales'
 import type { SpeciesRow } from './types'
@@ -101,24 +99,24 @@ export function setEnglishNames(on: boolean): void {
   bump()
 }
 
-function subscribe(f: () => void): () => void {
-  enCache = null // a mount re-reads storage (it may have changed while nothing listened)
+let stopStorage: (() => void) | null = null
+
+/**
+ * Subscribe to changes (a set arrives, the switch flips). One page-level `storage` listener (another tab flipped the
+ * switch) serves every subscriber: added when the first subscribes, removed with the last. Each event bumps once.
+ */
+export function subscribeNames(f: () => void): () => void {
+  if (listeners.size === 0) {
+    enCache = null // nothing listened, so storage may have changed meanwhile: read it again
+    const onStorage = (e: StorageEvent) => { if (e.key === EN_NAMES_KEY || e.key === null) { enCache = null; bump() } }
+    window.addEventListener('storage', onStorage)
+    stopStorage = () => window.removeEventListener('storage', onStorage)
+  }
   listeners.add(f)
-  const onStorage = (e: StorageEvent) => { if (e.key === EN_NAMES_KEY || e.key === null) { enCache = null; bump() } }
-  window.addEventListener('storage', onStorage)
   return () => {
     listeners.delete(f)
-    window.removeEventListener('storage', onStorage)
+    if (listeners.size === 0) { stopStorage?.(); stopStorage = null }
   }
-}
-
-/** Re-render when the names change (a set arrives, the locale changes, the switch flips); returns the version. */
-export function useNames(): number {
-  return useSyncExternalStore(subscribe, namesVersion, () => 0)
-}
-/** The English switch's value for a component: off on the server and while hydrating, then stored. */
-export function useEnNames(): boolean {
-  return useSyncExternalStore(subscribe, englishNames, () => false)
 }
 
 /** Show a set only when no names are loaded yet (the sample's own names until the names file arrives). */
@@ -135,22 +133,6 @@ export function displayName(r: Pick<SpeciesRow, 'code' | 'com'>): string {
 export function localName(code: string): string | undefined {
   return current && !englishNames() ? current.names[code] : undefined
 }
-/**
- * Load the names for the UI language, the browser's languages and the list's top country (recomputed when the list
- * changes), and make them current. English clears them. A failed load leaves what showed before (English).
- */
-export function useLoadNames(list: readonly ListEntry[]): void {
-  const { lang } = useI18n()
-  const top = useMemo(() => topCountry(list), [list])
-  useEffect(() => {
-    const l = pickNameLocale(lang, navigator.languages?.length ? navigator.languages : [navigator.language], top)
-    if (!l) { setNames(null); return }
-    let live = true
-    loadNames(l).then((s) => { if (live) setNames(s) }, () => {})
-    return () => { live = false }
-  }, [lang, top])
-}
-
 /** A code's name to show (its row's, else the code), for messages built from codes. */
 export function nameOfCode(byCode: { get(code: string): Pick<SpeciesRow, 'code' | 'com'> | undefined }, code: string): string {
   const r = byCode.get(code)

@@ -9,7 +9,7 @@ import { slotSource, SLOTS, type ImportResult, type Slot } from '@/lib/list/mode
 import type { EbirdDetails, InatDetails, Saved } from '@/lib/list/storage'
 import { useEverybird, type Action, type AppState, type EverybirdMeta } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { useLoadNames } from '@/lib/species/names'
+import { useLoadNames } from '@/lib/species/use-names'
 import type { Regions } from '@/lib/species/types'
 import { useAppPath } from '@/i18n/path'
 import { useImportJobs, type ImportJobs } from './use-import-jobs'
