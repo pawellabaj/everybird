@@ -145,13 +145,16 @@ test.describe("390px phone, three drops active", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("filter-tab-status")).toContainText("Status · 1");
 
-    // Time: the start a year on, from the keyboard.
+    // Time: a range of years from the keyboard, the start a year on and the end a year back (the start alone reads
+    // "from 2019"). Keys commit KEY_COMMIT_MS after the last one, and closing the panel cancels a pending commit, so
+    // wait for the button to say the range before Escape (as flows.spec.ts).
     await page.getByTestId("filter-tab-time").tap();
-    const lo = page.getByRole("slider", { name: "Start month" });
-    await lo.focus();
+    await page.getByRole("slider", { name: "Start month" }).focus();
     await page.keyboard.press("PageUp");
+    await page.getByRole("slider", { name: "End month" }).focus();
+    await page.keyboard.press("PageDown");
+    await expect(page.getByTestId("filter-tab-time")).toContainText(/Time · \d{4}–\d{4}/);
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("filter-tab-time")).toContainText(/Time · \d{4}/);
 
     // Places: two countries.
     await page.getByTestId("filter-tab-places").tap();
@@ -164,7 +167,7 @@ test.describe("390px phone, three drops active", () => {
 
     const m = await dropLabels(page);
     expect(m.labels.map((l) => l.text)).toEqual([
-      expect.stringMatching(/^Places · 2$/), expect.stringMatching(/^Time · \d{4}(–\d{4})?$/), expect.stringMatching(/^Status · 1$/),
+      expect.stringMatching(/^Places · 2$/), expect.stringMatching(/^Time · \d{4}–\d{4}$/), expect.stringMatching(/^Status · 1$/),
     ]);
     for (const l of m.labels) expect(l.cut, `"${l.text}" is cut`).toBe(false);
     expect(m.row).toBeLessThanOrEqual(0);

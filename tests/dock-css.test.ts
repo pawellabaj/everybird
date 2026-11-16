@@ -111,8 +111,12 @@ describe("the controls bar's CSS: three drops", () => {
     // Sized by content, not thirds: each grows into what is left, Places and Status never shrink (their number is never
     // cut), each a 44px press.
     expect(row, "see e2e/responsive.spec.ts 'active labels read in full'").toMatch(
-      new RegExp(`${esc(THREE)} \\.eb-dock-filters \\.eb-dock-drop \\{ flex: 1 0 auto; min-width: 44px; \\}`),
+      new RegExp(`${esc(THREE)} \\.eb-dock-filters \\.eb-dock-drop \\{ flex: 1 0 auto; min-width: 44px; padding: 0 8px; \\}`),
     );
+    // An active drop pads 6 a side (the measured widths in app.css: all three active fit down to ~328px of bar, a
+    // 360px phone), at the same weight as the 319px and <300px rules that follow and still win.
+    expect(row, "see e2e/responsive.spec.ts").toMatch(new RegExp(`${esc(THREE)} \\.eb-dock-filters ${esc("[data-active]")} \\{ padding: 0 6px; \\}`));
+    expect(block(css, /@media \(max-width: 299px\)/)).toMatch(/\.eb-dock-filters \.eb-dock-drop \{[^}]*padding: 0 4px/);
     // Only Time may give way (down to its 44px press), so the longest summary is the one that ellipses on a 320px phone.
     expect(row, "see e2e/responsive.spec.ts").toMatch(new RegExp(`${esc(THREE)} \\.eb-dock-filters ${esc('[data-drop="time"]')} \\{ flex-shrink: 1; \\}`));
     // An active drop drops its glyph: the accent text and the summary say it.

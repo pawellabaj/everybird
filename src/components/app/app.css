@@ -136,7 +136,7 @@
 /* Three drops (Places, Time and Status: the list has Red List statuses). Every rule below is for a dock holding a third
    drop only, under :where() so it weighs no more than the two-drop rule it follows: without Status the bar is exactly
    as before. Widths from this file, the bar's 14px Satoshi taken as 7.5px a character (half
-   an em at 15px, a deliberate over-estimate; the other comments here take 14px as 7):
+   an em at 15px, a deliberate over-estimate for this break; the phone row below is measured):
    the dock 1 + 4 + 4 + 1 = 10; groups 3 gaps of 4 + 8 margin before the drops and before the search = 28;
    a tab 14 + 20 + 8 + text + 16: Collage 110.5, List 88, + 4 = 202.5;
    a switch 14 + text + 10 + 34 + 12: True size 137.5, Scientific 145, + 4 = 286.5 (list view: Heaviest first
@@ -156,27 +156,30 @@
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3)))[data-finding] .eb-dock-filters { display: none; }
 }
 /* Under 600px of bar, with three drops, row two sizes by content, not in thirds: thirds would cut an active label (at
-   390 each third is (358 − 2 − 8 − 8) / 3 = 113, and "Time · 2022–2024" needs 140 with its glyph gone). Taken at
-   7.5px a character (Satoshi 600 at 14px, an over-estimate as above), padding 10 + 10 and no caret (the 599px row):
-     resting, glyph 18 + gap 8: Places 10 + 26 + 45 + 10 = 91, Time 76, Status 91;
-     active, no glyph (the accent text and the summary say it): "Places · 12" 82.5 + 20 = 102.5, "Time · 2022–2024"
-     (the longest summary: timeSummary's years, "from 2022", "to 2024" or "Sep 2021" are no longer) 120 + 20 = 140,
-     "Status · 3" (at most 8 categories, one digit) 75 + 20 = 95.
-   All three active at 390: 102.5 + 140 + 95 = 337.5 of 340, so every label reads whole; any mix with resting drops is
-   narrower (Time active with both resting: 140 + 91 + 91 = 322). Each grows into what's left, so the row fills.
-   Places and Status never shrink (their number is never cut); only Time may, down to a 44px press, and only it
-   ellipses where the row is too short (a 320px phone, 270 of row with no glyphs and 6px padding: 94.5 + 87 + 132 =
-   313.5, so all three active reads "Time · 20…"; Places and Status stay whole; under about 360px of bar all three
-   active cut Time the same way). The grid under 300px of page resets
-   these to its own content-sized `flex: 0 1 auto` (later, same weight). */
+   390 each third is (358 − 2 − 8 − 8) / 3 = 113, and "Time · 2022–2024" needs 144). Widths measured from Satoshi's
+   advance widths at 14px (hmtx; tabular digits 0.66em, the en dash 0.98em, the middle dot 0.33em): resting labels in
+   Medium (500), active ones in Bold (the 600 they ask for draws as 700: only 400, 500 and 700 load). No caret (the
+   599px row). Here the drops pad 8 a side, and an active one 6 a side with its glyph hidden (its Accent text and
+   summary say it):
+     resting, glyph 18 + gap 8: Places 8 + 26 + 40.8 + 8 = 82.8, Time 72.7, Status 80.7;
+     active: "Places · 12" 72.8 + 12 = 84.8, "Time · 2022–2024" (the longest summary: "from 2022" 115.9, "Sep 2021"
+     109.6, "to 2024" 98) 131.7 + 12 = 143.7, "Status · 3" (at most 8 categories, one digit) 61.6 + 12 = 73.6.
+   The row is the bar less 18. The widest mixes: Places · 12 and Time active, Status resting, 84.8 + 143.7 + 80.7 =
+   309.2 (bar 328); Time alone active 143.7 + 82.8 + 80.7 = 307.2 (bar 326); all three active 302.1 (bar 321). So
+   every label reads whole down to 328px of bar (a 360px phone, its bar 328, just holds the widest mix; at 375 and 390
+   there is 15 and 30 to spare). Each grows into what's left, so the row fills. Places and Status never shrink (their
+   number is never cut); only Time may, down to a 44px press, and only it ellipses where the row is too short (under
+   328px of bar with the widest mix; under 320 the glyphs go and every drop pads 6, below). The grid under 300px of
+   page resets these to its own content-sized `flex: 0 1 auto` and 4px padding (later, same weight). */
 @container (max-width: 599px) {
-  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 1 0 auto; min-width: 44px; }
+  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 1 0 auto; min-width: 44px; padding: 0 8px; }
+  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters [data-active] { padding: 0 6px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters [data-drop="time"] { flex-shrink: 1; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop[data-active] svg { display: none; }
 }
-/* The row is the bar less 2 + 8 + 8 (its border, 4px padding either side, two 4px gaps). Resting with their glyphs the
-   three need 91 + 76 + 91 = 258, so the glyphs must go under 258 + 18 = 276px of bar; with room for an active label
-   they go under 320 (a 320px phone's 288px bar: 270 of row against bare labels with 6px padding at 57 + 44 (Time's press) + 57). */
+/* Resting with their glyphs the three need 82.8 + 72.7 + 80.7 = 236.2, so the glyphs must go under 236.2 + 18 = 255px
+   of bar; with room for active labels they go under 320 (a 320px phone's 288px bar: 270 of row against bare labels at
+   6px padding, Places 52.8, Time 44 (its press), Status 50.7; all three active 302.1 there, so Time ellipses). */
 @container (max-width: 319px) {
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop svg { display: none; }
@@ -415,10 +418,10 @@
   .eb-dock-tools { grid-area: 1 / 2 / 2 / 4; justify-self: end; margin-left: 0; }
   .eb-dock-filters { grid-area: 2 / 1 / 3 / 3; margin: 0 0 -4px -4px; border-top: 1px solid var(--hairline); align-self: stretch; }
   .eb-dock-end { grid-area: 2 / 3; margin: 0 -4px -4px 0; padding: 4px; border-top: 1px solid var(--hairline); align-self: stretch; display: flex; align-items: center; }
-  /* Three drops beside the magnifier: thirds don't fit, so each takes its label's width, spread across the cell. At 260
+  /* Three drops beside the magnifier: no room to grow, so each takes its label's width, spread across the cell. At 260
      the dock is 228, its content 218, the magnifier's column 36 (the 310px container rule) + 8 − 4 = 40, so the
-     drops' cell is 218 − 40 + 4 − 8 = 174 inside, less two gaps 166: Places 45 + 8, Time 44 (held at 44 here: the
-     599px row's min-width: 0 would leave it 38, under a 44px press), Status 45 + 8 = 150. Never a wrap: a label that
+     drops' cell is 218 − 40 + 4 − 8 = 174 inside, less two gaps 166: Places 45 + 8, Time 44 (held at 44 here, as in
+     the content-sized phone row above: its label's own width would be 38, under a 44px press), Status 45 + 8 = 150. Never a wrap: a label that
      can't fit ellipses (above). */
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters { justify-content: space-between; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; min-width: 44px; padding: 0 4px; }
