@@ -1,6 +1,6 @@
 // The desktop wallpaper's size follows the viewer's screen (desktopSize): the height stays 1080 and the width is 1080 ×
 // the screen's shape, so the OS's "fill" has nothing to crop. The text keeps the normal margins and the vertical clearance
-// (60 at the top, 110 at the bottom). The other formats, and the desktop with no usable screen (16:9), are pinned against
+// (60 at the top, 120 at the bottom). The other formats, and the desktop with no usable screen (16:9), are pinned against
 // the layouts and draw calls from before this change (the hashes below were taken from them).
 import { createHash } from 'node:crypto'
 import { en } from '@/i18n/messages/en'
@@ -8,15 +8,15 @@ import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CREDIT_MIN, IMAGE_SCALE, cardDims, cardLayout, clearStickerCache, desktopSize, drawShareImage, prepareCard, screenAspect, type CardFormat } from '@/lib/share/image'
+import { CREDIT_MIN, IMAGE_SCALE, cardDims, cardLayout, clearStickerCache, currentScreenAspect, desktopSize, drawShareImage, imageShape, prepareCard, renderShareImage, screenAspect, type CardFormat } from '@/lib/share/image'
 import { entries, installStubs, NOW, pack, species } from './fixtures/share-image-harness'
 
 afterEach(() => vi.unstubAllGlobals())
 
 const MACBOOK_14 = 1512 / 982
 const M = 64
-/** The laptop text clearance: at least 60 from the top, 110 from the bottom (menu bar and notch, Dock and taskbar). */
-const TOP_CLEAR = 60, BOTTOM_CLEAR = 110
+/** The text clearance: at least 60 from the top (menu bar, notch), 120 from the bottom (Windows taskbar at 100 to 150%, Dock). */
+const TOP_CLEAR = 60, BOTTOM_CLEAR = 120
 
 describe('desktopSize', () => {
   it('is the screen shape at 1080 high, the width rounded', () => {
@@ -58,7 +58,7 @@ const CONTENTS = [
   { name: true, filter: false, latest: false },
   { name: false, filter: false, latest: false },
 ]
-const SHAPES: (number | undefined)[] = [MACBOOK_14, 1.33, 2.4, 1920 / 1080, undefined]
+const SHAPES: (number | undefined)[] = [MACBOOK_14, 1.54, 16 / 10, 1.33, 2.4, 1920 / 1080, undefined]
 
 describe('the desktop text stays in the laptop safe zone', () => {
   for (const aspect of SHAPES) {
@@ -93,6 +93,22 @@ describe('the desktop text stays in the laptop safe zone', () => {
     expect(logs.size).toBeGreaterThan(0)
     expect(canvas.width / canvas.height).toBeCloseTo(MACBOOK_14, 2)
     expect(IMAGE_SCALE.desktop).toBe(2)
+  })
+
+  it('the real export (renderShareImage) on a mocked 1512 × 982 screen, devicePixelRatio 2, is 3326 × 2160 as well', async () => {
+    installStubs()
+    vi.stubGlobal('window', { screen: { width: 1512, height: 982 }, devicePixelRatio: 2 })
+    // The dialog reads the shape once with currentScreenAspect and passes it to renderShareImage; the canvas gets a toBlob.
+    const real = document.createElement
+    document.createElement = ((tag: string) => {
+      const c = real(tag) as unknown as { width: number; height: number; toBlob?: (cb: (b: Blob | null) => void) => void }
+      c.toBlob = (cb) => cb(new Blob([`${c.width}x${c.height}`]))
+      return c
+    }) as typeof document.createElement
+    const blob = await renderShareImage({ format: imageShape('story', 'horizontal'), theme: 'light', entries, species, pack, now: NOW, strings: en.ui, screenAspect: currentScreenAspect() })
+    const [w, h] = (await blob.text()).split('x').map(Number)
+    expect([w, h]).toEqual([3326, 2160])
+    expect(w / h).toBeCloseTo(1512 / 982, 2)
   })
 
   it('with no usable screen it draws the 16:9 image, 3840 × 2160', async () => {
@@ -131,7 +147,7 @@ describe('the one-line footer in the narrowest and widest desktop', () => {
 
 // The hashes of every layout and every draw call from before this change (cardLayout and drawShareImage on the harness,
 // over the content combinations, counts and themes below). A hash per format: the image formats are unchanged, and so is
-// the desktop with no usable screen.
+// the desktop with no usable screen (its bottom safe line moved from 120 to 126 units, so its two hashes are new).
 const BEFORE: Record<CardFormat | 'desktop', { layout: string; draws: string }> = {
   story: { layout: '42ea58674d4ee8d18505c49684fe983e7edf1b10', draws: 'b0ded4d027f4cc596410b35a1f4846b52e62ea3c' },
   post: { layout: '6385621f4f386188b50d6ff70c67618f6e3644a4', draws: '0518e41faffdfefc76fe286a74296ab4e54c8c56' },
@@ -139,7 +155,7 @@ const BEFORE: Record<CardFormat | 'desktop', { layout: string; draws: string }> 
   wide: { layout: '4e9d6e75750df1125d6ac5c9c4159790b8af3f4b', draws: '44f52e9bb3bdd87d450385258b9e77289f5ce407' },
   print: { layout: 'bd2bbab39ecbf7d82d9e7aadffb714b7f2601f7c', draws: '1357a1f83954c8b9461ead75455dc42a4f2d1c7b' },
   printLandscape: { layout: '68b608dbefd61791383888516529cf2b1644805a', draws: 'b8db39bea513454e900b6c67feffea8f96cfee20' },
-  desktop: { layout: '39c2e55ad22b18f3712a3b660f0852163a8387c2', draws: '36d34566acfdfd7ff74a84379e15813543de2cb6' },
+  desktop: { layout: '4f60241ca72f8f8835e1fa4ed7497c35e7dbd5e0', draws: '720f259a76b13582e7c57cb359c492279cacf315' },
 }
 const sha = (s: string) => createHash('sha1').update(s).digest('hex')
 

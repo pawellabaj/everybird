@@ -90,6 +90,10 @@ export function screenAspect(screen: { width: number; height: number } | undefin
   if (!screen || !(screen.width > 0) || !(screen.height > 0)) return undefined
   return screen.width / screen.height
 }
+/** The viewer's screen shape now (window.screen's CSS size; CSS px, so devicePixelRatio and page zoom don't change it), or undefined off the client. */
+export function currentScreenAspect(): number | undefined {
+  return screenAspect(typeof window === 'undefined' ? undefined : window.screen)
+}
 /**
  * Device px per design unit when the image is drawn, so the PNG is the design size × IMAGE_SCALE: the desktop image is
  * twice its design (3840 × 2160 at 16:9; sharp on a 4K or Retina screen), the others 1:1 with their design. A poster has no entry: it draws at its
@@ -169,8 +173,8 @@ const M = 64
 export const SAFE: Record<CardFormat, { top: number; bottom: number }> = {
   story: { top: 160, bottom: 156 }, post: { top: M, bottom: M }, square: { top: M, bottom: M }, print: { top: M, bottom: M },
   // A desktop wallpaper keeps clear of the menu bar (about 37 units at the top of a 1080-unit screen: 72 leaves air under
-  // it) and the Dock (about 90 at the bottom: the footer line ends 120 above the edge); the sides keep M.
-  desktop: { top: 72, bottom: 120 }, wide: { top: M, bottom: M }, printLandscape: { top: M, bottom: M },
+  // it) and the Dock or a Windows taskbar at 100 to 150% (about 90 to 135 at the bottom: the footer line ends 126 above the edge and the latest lifer row's sticker 120); the sides keep M.
+  desktop: { top: 72, bottom: 126 }, wide: { top: M, bottom: M }, printLandscape: { top: M, bottom: M },
 }
 /** Where the title starts (the collage starts at SAFE.top when there's no title). */
 export const TITLE_TOP: Record<CardFormat, number> = { story: 184, post: M, square: M, print: M, desktop: 72, wide: M, printLandscape: M }

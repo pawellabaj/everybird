@@ -18,8 +18,8 @@ function rule(selector: string, after = ''): string {
 describe('the share dialog: the orientation switch clears the options box', () => {
   it('keeps no explicit min-height on the format column (it would let the grid squeeze its row)', () => {
     expect(rule('.eb-share-formats')).not.toMatch(/min-height/)
-    // Its own two rows are what make it 116px: the first at least 54px, the second the orientation switch.
-    expect(rule('.eb-share-formats')).toMatch(/grid-template-rows:\s*minmax\(54px, auto\) auto/)
+    // Its own two rows are what make it 116px: the first the orientation switch, the second at least 54px.
+    expect(rule('.eb-share-formats')).toMatch(/grid-template-rows:\s*auto minmax\(54px, auto\)/)
   })
   it("gives the desktop body a max-content first row, so the format column's rows can't be squeezed", () => {
     const body = rule('.eb-share-body', '  .eb-share-scrim .eb-share { max-height')

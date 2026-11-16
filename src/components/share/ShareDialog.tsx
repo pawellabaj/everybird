@@ -1,6 +1,6 @@
 'use client'
-// The share dialog: story, post or square image with a live preview (a Vertical | Horizontal switch under the format control
-// flips every format at once: desktop, wide and landscape posters; Square has no horizontal shape, so its switch is off), the image options (the optional collage title,
+// The share dialog: story, post or square image with a live preview (a Vertical | Horizontal switch above the format control
+// swaps the formats: Story, Post, Square, or Desktop, Post (5:4), Square, and the landscape poster), the image options (the optional collage title,
 // Saved.name verbatim, and the "Show latest lifer" switch, on at every open; off gives the row's room to the collage),
 // four actions (Share image: the system share sheet when it takes files, else a download; Download image; Copy link;
 // Print a poster) and last, in the bottom right corner, Buy Me a Coffee's static button (self-hosted, never on the images).
@@ -33,7 +33,7 @@ import { PRINT_SIZES, printCm, printDesign, printFileStem, printPx, type PrintSi
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import {
-  NAME_MAX_LEN, SHARE_CREDIT, abortError, cardDims, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage, screenAspect,
+  NAME_MAX_LEN, SHARE_CREDIT, abortError, cardDims, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage, currentScreenAspect,
   type CardFormat, type FormatSlot, type ImagePack, type Orientation,
 } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
@@ -54,7 +54,8 @@ type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesI
 const RENDER_DELAY_MS = 250
 /** The format buttons: each slot's ratio and icon in each orientation (the square is square in both). */
 const FORMATS: { id: FormatSlot; hint: Record<Orientation, string>; icon: Record<Orientation, Icon> }[] = [
-  { id: 'story', hint: { vertical: '9:16', horizontal: '16:9' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
+  // The horizontal story is the desktop wallpaper: no ratio, its shape follows the screen (desktopSize).
+  { id: 'story', hint: { vertical: '9:16', horizontal: '' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
   { id: 'post', hint: { vertical: '4:5', horizontal: '5:4' }, icon: { vertical: FrameCorners, horizontal: FrameCorners } },
   { id: 'square', hint: { vertical: '1:1', horizontal: '1:1' }, icon: { vertical: Square, horizontal: Square } },
 ]
@@ -93,11 +94,11 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const shape = imageShape(format, orientation)
   // The viewer's screen shape, read once when the dialog opens: the desktop image's width follows it (desktopSize), so the
   // preview, the pack and the PNG all use the same one.
-  const [screenShape] = useState(() => screenAspect(typeof window === 'undefined' ? undefined : window.screen))
+  const [screenShape] = useState(() => currentScreenAspect())
   const [mode, setMode] = useState<'share' | 'print'>('share')
   const [size, setSize] = useState<PrintSize>('A2')
   const print = mode === 'print'
-  // Square has no horizontal shape: its switch is disabled. In print mode the slot doesn't apply, so the switch is on.
+  // Square is the same in both orientations (its image doesn't change; the dialog keeps its narrow layout for it).
   const squareShare = !print && format === 'square'
   // Horizontal (a desktop or wide image, or a landscape poster) lays out wide: the dialog widens and the preview takes
   // the width left beside the controls' column (share.css, data-layout). Vertical keeps its narrower dialog.
@@ -539,6 +540,16 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
           {/* Its own column on top of the controls beside the preview; above the preview on phones (share.css). In print
               mode the way back to the share images takes its place. */}
           <div className="eb-share-formats">
+            <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
+              {ORIENTATIONS.map((o) => (
+                <button
+                  key={o} type="button" className="eb-seg-btn" aria-pressed={orientation === o}
+                  onClick={() => setOrientation(o)}
+                >
+                  {t.share.orientation[o]}
+                </button>
+              ))}
+            </div>
             {print ? (
               <button ref={backRef} type="button" className="eb-btn eb-btn-quiet" onClick={() => switchMode('share')}>
                 <ArrowLeft aria-hidden="true" focusable="false" />
@@ -551,27 +562,17 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
                   const name = landscape && id === 'story' ? t.share.format.desktop : t.share.format[id]
                   const Glyph = icon[orientation]
                   return (
-                    <button key={id} type="button" className="eb-seg-btn" aria-label={fmt(t.share.formatName, { name, ratio: hint[orientation] })} aria-pressed={format === id} onClick={() => setFormat(id)}>
+                    <button key={id} type="button" className="eb-seg-btn" aria-label={hint[orientation] ? fmt(t.share.formatName, { name, ratio: hint[orientation] }) : name} aria-pressed={format === id} onClick={() => setFormat(id)}>
                       <Glyph aria-hidden="true" focusable="false" />
                       <span className="eb-seg-text">
                         <span className="eb-seg-label">{name}</span>
-                        <span className="eb-share-hint">{hint[orientation]}</span>
+                        {hint[orientation] && <span className="eb-share-hint">{hint[orientation]}</span>}
                       </span>
                     </button>
                   )
                 })}
               </div>
             )}
-            <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
-              {ORIENTATIONS.map((o) => (
-                <button
-                  key={o} type="button" className="eb-seg-btn" aria-pressed={orientation === o}
-                  disabled={squareShare} onClick={() => setOrientation(o)}
-                >
-                  {t.share.orientation[o]}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits

@@ -710,29 +710,29 @@ describe('share dialog: the poster module fails to load', () => {
 })
 
 describe('the orientation switch', () => {
-  it('starts Vertical; Horizontal turns the story into Desktop (16:9) and the post into 5:4', async () => {
+  it('starts Vertical; Horizontal turns the story into Desktop (no ratio) and the post into 5:4', async () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     expect(screen.getByRole('button', { name: 'Vertical' })).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(renders).toHaveLength(1))
     expect(vi.mocked(image.renderShareImage).mock.calls[0][0]).toMatchObject({ format: 'story' })
     fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
     expect(screen.getByRole('button', { name: 'Horizontal' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'Desktop, 16:9' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Desktop' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Post, 5:4' })).toBeInTheDocument()
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'desktop' }))
     fireEvent.click(screen.getByRole('button', { name: 'Post, 5:4' }))
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'wide' }))
   })
 
-  it('Square disables the switch; the chosen orientation holds while the dialog is open', async () => {
+  it('Square keeps the switch on; the chosen orientation holds while the dialog is open', async () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Square, 1:1' }))
     const horizontal = screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement
-    expect(horizontal.disabled).toBe(true)
+    expect(horizontal.disabled).toBe(false)
     expect(horizontal).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'square' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Desktop, 16:9' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Desktop' }))
     expect((screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement).disabled).toBe(false)
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'desktop' }))
   })
