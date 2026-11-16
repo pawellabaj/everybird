@@ -51,8 +51,9 @@ export function parseLsTree(text: string): Map<string, string> {
 
 /**
  * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, forms and raw
- * IUCN status and its cited source), as a digest. Optional forms, status and source are appended only when present, preserving older digests for
- * records without them. Digest the raw status so a possibly-extinct flag change is build-relevant too.
+ * IUCN status and its cited source), as a digest. Optional forms, status and source are appended only when present,
+ * preserving older digests for records without them. Digest the raw status so a possibly-extinct flag change is
+ * build-relevant too.
  */
 export function recordDigest(h: HuashuRecord): string {
   const fields: unknown[] = [

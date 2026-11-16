@@ -119,7 +119,7 @@ export type Box = [x: number, y: number, w: number, h: number]
 /** The made-up list: ${TOTAL} species, every one drawn in the demo; ${FAMILIES} families. */
 export const TOTAL = ${TOTAL}
 export const FAMILIES = ${FAMILIES}
-/** Its threatened species (VU, EN or CR in species.v1.json \`iu\`), as the stats line counts them. */
+/** The list's threatened species (VU, EN or CR in species.v1.json \`iu\`), as the stats line counts them. */
 export const THREATENED = ${threatened}
 export const BIRDS: string[] = ${JSON.stringify(BIRDS)}
 export const HERONS: string[] = ${JSON.stringify(HERONS)}
