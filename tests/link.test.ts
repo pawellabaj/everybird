@@ -139,6 +139,22 @@ describe('share links', () => {
     expect(payloadToRecords(decodeShare(tokens[0]), regions).records[0].place).toMatchObject({ country: 'CA', sub2: 'Okanagan-Similkameen' })
   })
 
+  it('a link made with the old short country names still splits its places', () => {
+    const regions = { v: 1 as const, countries: { FK: 'Falkland Islands', VC: 'Saint Vincent and the Grenadines' }, sub1: {} }
+    const p: SharePayload = {
+      v: 1,
+      places: ['Falkland Is.', 'Saint George, St. Vin. and Gren.', 'Falkland Islands'],
+      countries: ['FK', 'VC', 'FK'],
+      birds: [{ code: 'a', p: 0 }, { code: 'b', p: 1 }, { code: 'c', p: 2 }],
+    }
+    const { records } = payloadToRecords(p, regions)
+    expect(records[0].place).toEqual({ country: 'FK' })
+    expect(records[1].place?.country).toBe('VC')
+    expect(records[1].place?.sub1).toBeDefined()
+    expect(records[1].place?.sub2).toBeUndefined()
+    expect(records[2].place).toEqual({ country: 'FK' })
+  })
+
   it('decodes the frozen v1 fixture', () => {
     // NEVER regenerate tests/fixtures/share/v1-frozen.txt. It is a link someone may already have shared; if this
     // test fails, the decoder broke old links. Fix the decoder, not the fixture.
