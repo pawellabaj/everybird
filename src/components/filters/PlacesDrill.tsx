@@ -1,7 +1,7 @@
 'use client'
-// The Places panel, design a (the default): one level at a time, drilled in place. "Countries · 12" heads the
+// The Places panel, design a (the default): one level at a time, drilled in place. "12 countries" heads the
 // countries; a row with places under it ends in a drill button (the site's chevron turned to point in). Drilled,
-// the head names the level ("States and provinces · 8", "Counties · 14"), the breadcrumb "All countries / Canada /
+// the head names the level ("8 states and provinces", "14 counties"), the breadcrumb "All countries / Canada /
 // British Columbia" steps back, and the first row, "All of Canada", is the parent's own checkbox. Drilling in
 // focuses "All of …"; a step back focuses the drill button of the row it came from (scrolled into view); Esc closes the panel from any
 // level (DropPanel). The search field and its query are per level.
@@ -9,7 +9,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
 import { filterPlaceKeys, hasPlaces, placeRows, togglePlace, withPlaces } from '@/lib/list/filters'
 import { parentKey, placeName } from '@/lib/list/place-keys'
-import { emptyHere, fmt, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
+import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
+import { emptyHere, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyProps) {
   const { filter } = state
@@ -75,7 +76,7 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
   return (
     <>
       <div className="eb-places-head" ref={headRef}>
-        <span className="eb-mono">{LEVEL_HEAD[level]} · {fmt(rows.length)}</span>
+        <span className="eb-mono">{countHead(rows.length, COUNT_WORDS[level], rows.filter((r) => checked.has(r.value)).length)}</span>
         {hasPlaces(filter) && (
           <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(withPlaces(filter, []))}>Clear</button>
         )}

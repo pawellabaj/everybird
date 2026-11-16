@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { COUNT_WORDS, countHead, countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
@@ -80,5 +80,18 @@ describe('Status in words', () => {
     expect(statusLabel(['VU', 'EN'])).toBe('Vulnerable + Endangered')
     expect(statusLabel(['NT', 'VU', 'EN', 'CR'])).toBe('Near Threatened and 3 more')
     expect(statusLabel(['VU', 'EN', 'CR', 'EW'])).toBe('Vulnerable and 3 more')
+  })
+})
+
+describe('countHead', () => {
+  it('count first, " · N checked" only when some are', () => {
+    expect(countHead(20, COUNT_WORDS.country, 7)).toBe('20 countries · 7 checked')
+    expect(countHead(20, COUNT_WORDS.country, 0)).toBe('20 countries')
+    expect(countHead(1, COUNT_WORDS.country, 0)).toBe('1 country')
+    expect(countHead(8, COUNT_WORDS.province, 1)).toBe('8 states and provinces · 1 checked')
+    expect(countHead(1, COUNT_WORDS.province, 0)).toBe('1 state or province')
+    expect(countHead(14, COUNT_WORDS.county, 0)).toBe('14 counties')
+    expect(countHead(5, COUNT_WORDS.status, 2)).toBe('5 categories · 2 checked')
+    expect(countHead(1200, COUNT_WORDS.country, 0)).toBe('1,200 countries')
   })
 })

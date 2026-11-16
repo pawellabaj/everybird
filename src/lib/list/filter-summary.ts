@@ -118,3 +118,19 @@ export function placesNoteFor(saved: Pick<Saved, 'records'>, listLength: number,
   const full = saved.records.ebird ?? []
   return full.length && !full.some((r) => Array.isArray(r.seen)) ? 'reimport' : 'add'
 }
+
+export type CountWords = { one: string; other: string }
+
+/** The count-first heads' words ("20 countries", "1 state or province", "5 categories"), one and other. */
+export const COUNT_WORDS: Record<'country' | 'province' | 'county' | 'status', CountWords> = {
+  country: { one: 'country', other: 'countries' },
+  province: { one: 'state or province', other: 'states and provinces' },
+  county: { one: 'county', other: 'counties' },
+  status: { one: 'category', other: 'categories' },
+}
+
+/** A panel section's head: the count first, then " · N checked" only when some are ("20 countries · 7 checked"). */
+export function countHead(n: number, words: CountWords, checked: number): string {
+  const head = `${n.toLocaleString('en-US')} ${n === 1 ? words.one : words.other}`
+  return checked > 0 ? `${head} · ${checked.toLocaleString('en-US')} checked` : head
+}

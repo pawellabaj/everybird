@@ -69,7 +69,7 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(statusBtn())
     const panel = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
-    expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
+    expect(screen.getByText(/3 categories/)).toBeInTheDocument()
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
     // The source note lives only on About.
@@ -114,7 +114,7 @@ describe('Status: a dropdown in the controls bar', () => {
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU', 'status-EN'])
     expect(screen.getByTestId('status-EN')).toBeChecked()
     expect(screen.getByRole('checkbox', { name: 'Endangered, 0 species' })).toBeInTheDocument()
-    expect(screen.getByText(/Categories · 2/)).toBeInTheDocument()
+    expect(screen.getByText(/2 categories · 1 checked/)).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ order: 'Strigiformes' })
   })
@@ -141,7 +141,7 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'thrushes only' }))
     fireEvent.click(statusBtn())
     expect(screen.queryAllByRole('checkbox')).toEqual([])
-    expect(screen.getByText(/Categories · 0/)).toBeInTheDocument()
+    expect(screen.getByText(/0 categories/)).toBeInTheDocument()
     expect(screen.getByText('No categories here under the other filters.')).toBeInTheDocument()
   })
 

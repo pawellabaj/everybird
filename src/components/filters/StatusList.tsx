@@ -1,10 +1,11 @@
 'use client'
 // The Status panel's body (the Status dropdown in FilterDropdowns.tsx), on the Places panel's structure: the head
-// "Categories · N" with Clear, then one checklist of global IUCN Red List categories in Red List order,
+// "N categories" with Clear, then one checklist of global IUCN Red List categories in Red List order,
 // each row the box, the pill, the full name and the count (species under the OTHER filters, statusOptions). A checked
 // category another filter left with no species stays, at 0, so it can be unchecked. At most eight rows: no search.
 import { useMemo } from 'react'
 import { IucnPill } from '@/components/collage/IucnPill'
+import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
 import { statusOptions, toggleStatus, withStatuses, type Filter } from '@/lib/list/filters'
 import type { AppState } from '@/lib/list/store'
 import { IUCN_CATS, IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
@@ -32,7 +33,7 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
   return (
     <div className="eb-places">
       <div className="eb-places-head">
-        <span className="eb-mono">Categories · {fmt(rows.length)}</span>
+        <span className="eb-mono">{countHead(rows.length, COUNT_WORDS.status, checked.size)}</span>
         {checked.size > 0 && (
           <button type="button" className="eb-textbtn" data-testid="status-clear" onClick={() => onFilter(withStatuses(filter, []))}>Clear</button>
         )}
