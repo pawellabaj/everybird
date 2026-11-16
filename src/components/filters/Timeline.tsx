@@ -11,7 +11,7 @@ import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
-import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeShort, sliderKey, timeless, type Month } from '@/lib/list/timeline'
+import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeShort, sliderKey, timeless, yearLabels, type Month } from '@/lib/list/timeline'
 import { hasSeenMonths, type SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
 import './timeline.css'
@@ -206,16 +206,8 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   if (!N) return <p className="eb-note" data-testid="timeline-empty">{t.filters.timeline.empty}</p>
   const width = `max(100%, ${axis.units * MONTH_PX}px)`
   const unitPx = trackPx ? trackPx / axis.units : MONTH_PX
-  // Year labels where they fit: at least 30px after the previous one and before the end.
-  const years: { m: Month; i: number }[] = []
-  let lastX = -Infinity
-  months.forEach((m, i) => {
-    if (!(m.endsWith('-01') || i === 0)) return
-    const x = axis.start[i] * unitPx
-    if (x - lastX < 30 || (i > 0 && (axis.units - axis.start[i]) * unitPx <= 28)) return
-    years.push({ m, i })
-    lastX = x
-  })
+  // Year labels where they fit (yearLabels: no two touch, a partial first year gives way to the next).
+  const years = yearLabels(months, axis, unitPx)
 
   return (
     <div className="eb-time" data-testid="timeline">

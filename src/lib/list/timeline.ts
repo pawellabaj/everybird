@@ -96,6 +96,40 @@ export function monthAxis(counts: readonly number[], minGap = GAP_MIN_MONTHS, ga
   return { units: start[N], start, gaps }
 }
 
+/**
+ * The year labels the axis can show without touching: a label at each January and at the first month, dropped when its
+ * left edge is within the previous kept label's width (`chars` · `charPx`, plus the 3px rule padding and `gap`) of it, or
+ * when it is within `endClear` px of the strip's end. A partial first year (the strip starts after January) gives way to the
+ * next, full year rather than the other way round. `unitPx` is one axis unit in px.
+ */
+export function yearLabels(
+  months: readonly Month[],
+  axis: Pick<MonthAxis, 'units' | 'start'>,
+  unitPx: number,
+  { charPx = 6.6, gap = 6, pad = 3, endClear = 28 }: { charPx?: number; gap?: number; pad?: number; endClear?: number } = {},
+): { m: Month; i: number }[] {
+  const out: { m: Month; i: number }[] = []
+  let lastX = -Infinity
+  let lastW = 0
+  months.forEach((m, i) => {
+    const jan = m.endsWith('-01')
+    if (!(jan || i === 0)) return
+    const x = axis.start[i] * unitPx
+    if (i > 0 && (axis.units - axis.start[i]) * unitPx <= endClear) return
+    const w = m.slice(0, 4).length * charPx + pad
+    if (out.length && x - lastX < lastW + gap) {
+      // Only a partial first year (index 0, not January) is replaced by the later one.
+      const first = out[0]
+      if (out.length === 1 && first.i === 0 && !first.m.endsWith('-01') && jan) out.pop()
+      else return
+    }
+    out.push({ m, i })
+    lastX = x
+    lastW = w
+  })
+  return out
+}
+
 /** The month boundary (0..N) nearest to `frac` of the track's width. */
 export function boundaryAt(axis: MonthAxis, frac: number): number {
   const u = Math.min(1, Math.max(0, frac)) * axis.units

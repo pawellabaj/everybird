@@ -87,4 +87,18 @@ describe('ChipRow', () => {
     rerender(<ChipRow chips={[]} label="Active filters" onRemove={() => {}} />)
     expect(screen.queryByRole('group')).toBeNull()
   })
+
+  it('Clear all ends the row at two or more chips, only when given', () => {
+    const onClearAll = vi.fn()
+    const { rerender } = render(<ChipRow chips={three.slice(0, 1)} label="Active filters" onRemove={() => {}} onClearAll={onClearAll} />)
+    expect(screen.queryByTestId('chips-clear-all')).toBeNull()
+    rerender(<ChipRow chips={three.slice(0, 2)} label="Active filters" onRemove={() => {}} onClearAll={onClearAll} />)
+    const clear = screen.getByTestId('chips-clear-all')
+    expect(clear).toHaveAccessibleName('Clear all filters')
+    expect(clear).toHaveTextContent('Clear all')
+    fireEvent.click(clear)
+    expect(onClearAll).toHaveBeenCalledTimes(1)
+    rerender(<ChipRow chips={three} label="Active filters" onRemove={() => {}} />)
+    expect(screen.queryByTestId('chips-clear-all')).toBeNull()
+  })
 })
