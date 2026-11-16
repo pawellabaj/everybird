@@ -22,6 +22,10 @@ const TIGHT = [
   'share.showLatest', 'count.label',
 ]
 
+/** Settings' source-row buttons wrap under the row's text when they don't fit (SourceRow), so a whole word beats a
+ *  clipped one: these get at least 12 characters. */
+const ROOMY: Record<string, number> = { 'import.add': 12, 'import.remove': 12 }
+
 /** Short forms: at most the English short form + 2. */
 const SHORT = ['collage.controls.trueShort', 'collage.controls.sciShort']
 
@@ -38,7 +42,7 @@ describe('tight labels', () => {
       for (const path of TIGHT) {
         const e = get(en, path)
         const v = get(m, path)
-        const max = Math.max(e.length + 4, Math.ceil(e.length * 1.3))
+        const max = Math.max(e.length + 4, Math.ceil(e.length * 1.3), ROOMY[path] ?? 0)
         if (v.length > max) over.push(`${lang} ${path} "${v}" (en "${e}", max ${max})`)
       }
       for (const path of SHORT) {
