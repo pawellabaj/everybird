@@ -34,7 +34,7 @@ describe('the Filters button’s words', () => {
     expect(timeSummary({})).toBeUndefined()
     expect(timeSummary({ from: '2022-01', to: '2024-12' })).toBe('2022–2024')
     expect(timeSummary({ from: '2022-04', to: '2024-09' })).toBe('Apr 2022–Sep 2024')
-    expect(timeSummary({ from: '2022-01', to: '2024-09' })).toBe('2022–Sep 2024')
+    expect(timeSummary({ from: '2022-01', to: '2024-09' })).toBe('Jan 2022–Sep 2024')
     expect(timeSummary({ from: '2022-01', to: '2022-12' })).toBe('2022')
     expect(timeSummary({ from: '2021-09', to: '2021-09' })).toBe('Sep 2021')
     expect(timeSummary({ from: '2022-04' })).toBe('from Apr 2022')

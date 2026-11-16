@@ -171,7 +171,7 @@ export function rangeFilter(f: Filter, lo: number, hi: number, months: readonly 
 
 /**
  * The range as the Time chip, the Time button and the timeline's readout say it: whole years "2020–2024" ("2020" for
- * one), one month "Sep 2021", else months "Apr 2020–Sep 2024"; open ends "from Apr 2020" / "to Sep 2024" ("from 2020"
+ * one), one month "Sep 2021", else months on both sides "Apr 2020–Sep 2024" / "Jan 2020–Mar 2020"; open ends "from Apr 2020" / "to Sep 2024" ("from 2020"
  * when `from` is a January, "to 2024" when `to` is a December). Undefined with neither end.
  */
 export function rangeShort(from: Month | undefined, to: Month | undefined): string | undefined {
@@ -180,8 +180,9 @@ export function rangeShort(from: Month | undefined, to: Month | undefined): stri
   const end = (m: Month) => (m.endsWith('-12') ? y(m) : monthShort(m))
   if (from && to) {
     if (from === to) return monthShort(from)
-    if (from.endsWith('-01') && to.endsWith('-12') && y(from) === y(to)) return y(from)
-    return `${start(from)}–${end(to)}`
+    // Whole years only when both ends are: "2020–2024"; otherwise months on both sides ("Jan 2020–Mar 2020").
+    if (from.endsWith('-01') && to.endsWith('-12')) return y(from) === y(to) ? y(from) : `${y(from)}–${y(to)}`
+    return `${monthShort(from)}–${monthShort(to)}`
   }
   if (from) return `from ${start(from)}`
   if (to) return `to ${end(to)}`
