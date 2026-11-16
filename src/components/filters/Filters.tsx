@@ -57,14 +57,16 @@ type Shared = {
   sections: readonly FilterSection[]
   open: FiltersOpen | null
   onOpen: (o: FiltersOpen | null) => void
+  /** The bird group's name in the language (for the button's spoken text). */
+  groupName?: (id: string) => string | undefined
 }
 
 /** In the dock's `filters` slot. Renders null when `sections` is empty. */
-export function FiltersButton({ state, regions, sections, open, onOpen, inert, buttonRef, panelId }: Shared & { inert?: boolean; buttonRef: RefObject<HTMLButtonElement | null>; panelId: string }): ReactNode {
+export function FiltersButton({ state, regions, sections, open, onOpen, groupName, inert, buttonRef, panelId }: Shared & { inert?: boolean; buttonRef: RefObject<HTMLButtonElement | null>; panelId: string }): ReactNode {
   const { lang, t } = useI18n()
   if (!sections.length) return null
   const n = filtersCount(state.filter)
-  const said = filtersSpoken(state.filter, regionsIn(regions, lang), t)
+  const said = filtersSpoken(state.filter, regionsIn(regions, lang), t, groupName)
   return (
     <div className="eb-dock-filters" inert={inert}>
       <button
@@ -266,7 +268,8 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
     opener.current = el
     setOpen({ at: c.kind === 'place' ? 'places' : 'status' })
   }, [])
-  const shared = { state, regions, sections, open, onOpen }
+  const groupName = useCallback((id: string) => species.groups?.get(id)?.name[lang], [species.groups, lang])
+  const shared = { state, regions, sections, open, onOpen, groupName }
   const live = !!open && sections.length > 0
   return {
     button: (inert) => <FiltersButton {...shared} inert={inert} buttonRef={buttonRef} panelId={panelId} />,

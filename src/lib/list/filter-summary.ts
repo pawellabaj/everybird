@@ -165,14 +165,15 @@ export function countHead(n: number, kind: 'continent' | 'country' | 'province' 
   return checked > 0 ? `${head} · ${fmt(t.filters.countHead.checked, { n: formatInt(checked, t.num) })}` : head
 }
 
-/** The N in "Filters · N": the filter groups in use (Places, Time, Conservation status), 0 to 3, not checked boxes. */
+/** The N in "Filters · N": the filter groups in use (bird group, Places, Time, Conservation status), 0 to 4, not checked boxes; it matches the chips shown by kind. */
 export function filtersCount(f: Filter): number {
-  return (hasPlaces(f) ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
+  return (f.group ? 1 : 0) + (hasPlaces(f) ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
 }
 
 /** The Filters button's accessible description: each section in use, "Places: Kenya. Time: March 2020 to June 2021"; undefined for none. */
-export function filtersSpoken(f: Filter, regions: Names, t: Ui): string | undefined {
+export function filtersSpoken(f: Filter, regions: Names, t: Ui, groupName?: (id: string) => string | undefined): string | undefined {
   const parts: string[] = []
+  if (f.group) parts.push(`${t.filters.group}: ${groupName?.(f.group) ?? f.group}`)
   const places = placesSpoken(f, regions, t)
   if (places) parts.push(`${t.filters.places}: ${places}`)
   if (f.from || f.to) parts.push(`${t.filters.time}: ${timeSpoken(f, t)}`)

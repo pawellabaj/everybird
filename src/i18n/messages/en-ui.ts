@@ -188,6 +188,7 @@ export const EN_UI = {
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
     /** The Filters sections' names (the panel, the chips and the button's spoken text). */
+    group: 'Bird group',
     places: 'Places',
     time: 'Time',
     status: 'Conservation status',

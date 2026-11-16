@@ -149,6 +149,7 @@ export const pt: Messages = {
       rank: { order: 'Ordens', family: 'Famílias', country: 'Países', year: 'Anos' },
       choose: { order: 'Escolha uma ordem', family: 'Escolha uma família', country: 'Escolha um país', year: 'Escolha um ano' },
       remove: 'Remover o filtro {label}',
+      group: 'Grupo de aves',
       places: 'Lugares',
       time: 'Datas',
       status: 'Estado de conservação',
