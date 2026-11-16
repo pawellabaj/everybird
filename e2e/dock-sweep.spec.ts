@@ -2,8 +2,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { LANGS } from "../src/i18n/langs";
 
 // The controls bar answers to its own width (container queries on .eb-dockwrap). Swept from 280 to 1200px of bar in
-// 4px steps, in collage view and list view, with the three drops (Places, Time and Conservation status: the landing sample has Red
-// List statuses): row one (the view tabs, the tools, the search) never breaks, the drops sit in row one from 1080px
+// 4px steps, in collage view and list view, with the three drops (Places, Time and Red List: the landing sample has Red
+// List statuses): row one (the view tabs, the tools, the search) never breaks, the drops sit in row one from 1000px
 // and on a row of their own under it, no resting label is cut (nothing is filtered here), and the search never spills
 // out of the bar. Run at a desktop viewport so only the bar's own width decides.
 test.use({ viewport: { width: 1280, height: 900 } });
@@ -22,7 +22,7 @@ async function sweep(page: Page) {
       const d = dock.getBoundingClientRect(), end = dock.querySelector<HTMLElement>(".eb-dock-end")!.getBoundingClientRect();
       if (new Set(tops).size > 1) bad.push(`${w}:rows ${tops.join("/")}`);
       const drops = top(".eb-dock-filters");
-      if (w >= 1080 ? drops !== tops[0] : drops <= tops[0]) bad.push(`${w}:drops ${w >= 1080 ? "not in row one" : "not below row one"} ${drops}/${tops[0]}`);
+      if (w >= 1000 ? drops !== tops[0] : drops <= tops[0]) bad.push(`${w}:drops ${w >= 1000 ? "not in row one" : "not below row one"} ${drops}/${tops[0]}`);
       const cut = [...dock.querySelectorAll<HTMLElement>(".eb-drop-label")].filter((l) => l.scrollWidth > l.clientWidth).map((l) => l.textContent);
       if (cut.length) bad.push(`${w}:label cut ${cut.join(", ")}`);
       if (end.right > d.right - 1 + 0.5) bad.push(`${w}:search overflows ${Math.round(end.right - d.right)}`);

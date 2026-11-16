@@ -186,11 +186,11 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
 }
 
 /**
- * What the card and the hover tooltip say (LifeList's card, layout C): the name with its marks, the other name under
- * it, the body mass top-right (then `children`, the card's close button); then the date line (with the marks in
- * words) and the place, both mono. `heading` names the bird with an h2 (the card) or a plain paragraph (the tooltip).
- * A species with a Red List category gets its own line directly under the other name: the pill alone
- * (the card and the tooltip alike; the card's is a button whose tip names the category, the tooltip's a plain span).
+ * What the card and the hover tooltip say (LifeList's card, layout C): the name with its marks and the other name under
+ * it on the left; on the right, in a column that never shrinks below its content (`.eb-card-side`), the body mass and,
+ * under it, a species' Red List pill alone (then `children`, the card's close button); then the date line (with the
+ * marks in words) and the place, both mono. `heading` names the bird with an h2 (the card) or a plain paragraph (the
+ * tooltip). The card's pill is a button whose tip names the category, the tooltip's a plain aria-hidden span.
  */
 export function BirdFacts({ entry, row, regions, sci = false, heading = true, statusTip = false, children }: {
   entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean
@@ -213,9 +213,11 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
         <div className="eb-card-names">
           <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}<Marks entry={entry} /></Name>
           <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</p>
+        </div>
+        <div className="eb-card-side">
+          <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
           {badge}
         </div>
-        <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
         {children}
       </div>
       {(when.length > 0 || place) && (

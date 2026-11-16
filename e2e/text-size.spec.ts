@@ -194,7 +194,7 @@ for (const c of CASES) {
 }
 
 // Safari's aA bigger text is page zoom: a 390px phone at 150% / 200% lays the page out at 260 / 195 CSS px. No page
-// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places, Time and Status drop their glyphs).
+// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places, Time and Red List drop their glyphs).
 for (const width of [195, 260] as const) {
   test(`at ${width} CSS px (a 390px phone at aA ${width === 195 ? 200 : 150}%), no page scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
@@ -250,10 +250,10 @@ for (const [width, css] of [[195, ""], [260, ""], [300, ""], [390, "html { font-
 
 
 
-// Under 300px of page, three drops (Places, Time and Status; the landing sample has Red List statuses) share one row of
+// Under 300px of page, three drops (Places, Time and Red List; the landing sample has Red List statuses) share one row of
 // the grid and end inside the bar; at 260 every resting label is whole (at 195 one may ellipsis: app.css's arithmetic).
 for (const width of [195, 260] as const) {
-  test(`at ${width} CSS px Places, Time and Status share one row inside the bar`, async ({ page }) => {
+  test(`at ${width} CSS px Places, Time and Red List share one row inside the bar`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
     await expect(page.getByTestId("filter-tab-status")).toBeVisible();

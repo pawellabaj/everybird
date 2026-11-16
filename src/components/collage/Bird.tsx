@@ -1,8 +1,6 @@
 'use client'
 import { memo, type CSSProperties } from 'react'
-import type { IucnCat } from '@/lib/species/iucn'
 import { Sticker, stickerUrl } from './Sticker'
-import { StatusMark } from './StatusMark'
 
 export { stickerUrl }
 
@@ -23,8 +21,6 @@ type Props = {
   st: boolean
   ar: number
   sv?: string
-  /** The Red List category to mark the bird with (threatened birds only; never for motion). */
-  iu?: IucnCat
   init: BirdInit
   register: (code: string, el: HTMLButtonElement | null) => void
 }
@@ -35,7 +31,7 @@ type Props = {
  * the collage sees it near the viewport (Sticker `defer`, Collage's observer). Species without a sticker,
  * and stickers that fail to load, show the no-sticker outline (bird-outline.ts) in Line.
  */
-export const Bird = memo(function Bird({ code, name, st, ar, sv, iu, init, register }: Props) {
+export const Bird = memo(function Bird({ code, name, st, ar, sv, init, register }: Props) {
   return (
     <button
       ref={(el) => register(code, el)}
@@ -50,7 +46,6 @@ export const Bird = memo(function Bird({ code, name, st, ar, sv, iu, init, regis
       style={init.style}
     >
       <Sticker code={code} st={st} ar={ar} sv={sv} w={init.w} h={init.h} defer />
-      {iu && <StatusMark cat={iu} />}
     </button>
   )
 })

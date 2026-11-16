@@ -332,11 +332,11 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   await expect(scene.locator(".ebd-chips-label")).toHaveText("Orders")
   await expect(scene.locator(".ebd-path-link").first()).toHaveText("All birds")
   await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText("Choose an order")
-  // The controls bar: Places, Time and Status, in both designs
+  // The controls bar: Places, Time and Red List, in both designs
   for (const design of ["wide", "compact"]) {
     const drops = page.locator(`[data-poster="${design}"] .ebd-drop`)
     await expect(drops).toHaveCount(3)
-    await expect(drops.last()).toHaveText("Status")
+    await expect(drops.last()).toHaveText("Red List")
   }
   // The wide design's dock holds all three drops on its one row: nothing overflows the column
   const dock = await scene.locator(".ebd-dock").evaluate((d) => ({ client: d.clientWidth, scroll: d.scrollWidth }))

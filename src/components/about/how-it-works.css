@@ -206,10 +206,10 @@
 .ebd .ebd-track { position: relative; display: block; width: 24px; height: 14px; border-radius: 7px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .ebd .ebd-knob { position: absolute; left: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .ebd .ebd-drop { gap: 5px; }
-/* Three drops (Places, Time, Status) on the wide design's one row, in its 524px column. Estimated at Satoshi 12px, with
-   carets the dock is about 570: its padding and border 8, the tabs 62, the switches 195, the drops 87 + 79 + 87 and
+/* Three drops (Places, Time, Red List) on the wide design's one row, in its 524px column. Estimated at Satoshi 12px, with
+   carets the dock is about 570: its padding and border 8, the tabs 62, the switches 195, the drops 87 + 79 + 97 and
    their 2 gaps of 2, the margins before the drops and the magnifier 12, the magnifier 30, the dock's 3 gaps of 2. So
-   the drops have no caret (as on the product's phone row) and pad 7px with a 4px gap: 20 less each, about 510. */
+   the drops have no caret (as on the product's phone row) and pad 7px with a 4px gap: 20 less each, about 520. */
 .ebd .ss-stage:not([data-layout="compact"]) .ebd-drop { gap: 4px; padding: 0 7px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-dock { flex-wrap: wrap; row-gap: 3px; margin-top: 8px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-dock-filters {

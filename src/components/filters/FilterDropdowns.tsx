@@ -1,7 +1,6 @@
 'use client'
-// Places, Time and Conservation status: dropdown buttons in the controls bar, between Scientific and the search. Each
-// button says what it filters when active ("Places · 2", "Time · 2022–2024", "Conservation status · 2"; the bar's short
-// form, under 540px of bar and on phones, reads "Status · 2", the accessible name stays whole), so the bar itself shows every active
+// Places, Time and Red List: dropdown buttons in the controls bar, between Scientific and the search. Each
+// button says what it filters when active ("Places · 2", "Time · 2022–2024", "Red List · 2"), so the bar itself shows every active
 // place, time or status filter;
 // taxonomy sits under the bar (wrapped chips; the "Choose an order" picker on phones). A button opens its panel (one at a time; a second tap, Esc or a press outside
 // closes it and focus returns to the button): a popover under the bar on wider screens, a bottom sheet on phones.
@@ -11,7 +10,7 @@
 //    each sorted by count; several places at any levels may be checked (the collage keeps species seen in ANY of them); Clear clears every level; a search field
 //    once a level has more than SEARCH_FROM rows. A list whose places are all lifer places says so (PlacesNote).
 //  - Time: the timeline (Timeline.tsx): month bars, a year axis, a range of months; Clear.
-//  - Conservation status (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
+//  - Red List (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
 //    species on the list has a status (or one is checked), as `hide` leaves out what a shared link doesn't carry.
 import { CalendarBlank, CaretDown, GlobeHemisphereWest } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
@@ -61,10 +60,10 @@ type Props = {
 }
 
 /** The panels, Places first; their names from `t.filters`. */
-const panels = (t: Ui): { id: Panel; label: string; /** The bar's short form (under 540px of bar, on phones). */ short?: string; Icon: typeof GlobeHemisphereWest }[] => [
+const panels = (t: Ui): { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] => [
   { id: 'places', label: t.filters.places, Icon: GlobeHemisphereWest },
   { id: 'time', label: t.filters.time, Icon: CalendarBlank },
-  { id: 'status', label: t.filters.status, short: t.filters.statusShort, Icon: STATUS_ICON },
+  { id: 'status', label: t.filters.status, Icon: STATUS_ICON },
 ]
 
 export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, placesUnplaced, time, inert, threatLine }: Props) {
@@ -87,7 +86,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
   return (
     <>
       <div className="eb-dock-filters" role="group" aria-label={t.filters.dock} inert={inert}>
-        {shown.map(({ id, label, short, Icon }) => {
+        {shown.map(({ id, label, Icon }) => {
           const s = summary(id)
           const said = spoken(id)
           return (
@@ -107,12 +106,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
             >
               <Icon aria-hidden="true" focusable="false" />
               <span className="eb-drop-label">
-                {short ? (
-                  <>
-                    <span className="eb-long">{label}</span>
-                    <span className="eb-short" aria-hidden="true">{short}</span>
-                  </>
-                ) : label}
+                {label}
                 {s && <span className="eb-drop-sum"> · {s}</span>}
               </span>
               <CaretDown aria-hidden="true" focusable="false" className="eb-drop-caret" />

@@ -149,11 +149,10 @@ export const pt: Messages = {
       rank: { order: 'Ordens', family: 'Famílias', country: 'Países', year: 'Anos' },
       choose: { order: 'Escolha uma ordem', family: 'Escolha uma família', country: 'Escolha um país', year: 'Escolha um ano' },
       remove: 'Remover o filtro {label}',
-      dock: 'Lugares, datas e situação de conservação',
+      dock: 'Lugares, datas e Lista Vermelha',
       places: 'Lugares',
       time: 'Datas',
-      status: 'Situação de conservação',
-      statusShort: 'Situação',
+      status: 'Lista Vermelha',
       clear: 'Limpar',
       timeline: {
         months: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],

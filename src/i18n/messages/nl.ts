@@ -149,11 +149,10 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
-      dock: 'Plaatsen, tijd en beschermingsstatus',
+      dock: 'Plaatsen, tijd en Rode Lijst',
       places: 'Plaatsen',
       time: 'Tijd',
-      status: 'Beschermingsstatus',
-      statusShort: 'Status',
+      status: 'Rode Lijst',
       clear: 'Wissen',
       timeline: {
         months: ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],

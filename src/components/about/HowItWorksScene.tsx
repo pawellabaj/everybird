@@ -426,9 +426,9 @@ function CollagePage({ s, layout }: { s: S; layout: Layout }) {
   )
 }
 
-/** The controls bar (ControlsBar): one row on the wide page; on phones the short labels, Places, Time and Status on row two.
- *  A compressed one-row mock that uses the short label "Status" for the third drop (the product's button is named
- *  "Conservation status", short form "Status": FilterDropdowns' PANELS; tests/dock-css.test.ts keeps them in step). */
+/** The controls bar (ControlsBar): one row on the wide page; on phones the short labels, Places, Time and Red List on row two.
+ *  A compressed one-row mock whose third drop says "Red List", the product's button (FilterDropdowns' PANELS;
+ *  tests/dock-css.test.ts keeps them in step). */
 function Dock({ wide }: { wide: boolean }) {
   const { t } = useI18n()
   const ctl = t.collage.controls
@@ -439,7 +439,7 @@ function Dock({ wide }: { wide: boolean }) {
     <span className="ebd-dock-filters">
       <span className="ebd-tab ebd-drop"><GlobeHemisphereWest />{t.filters.places}</span>
       <span className="ebd-tab ebd-drop"><CalendarBlank />{t.filters.time}</span>
-      <span className="ebd-tab ebd-drop"><StatusIcon />{t.filters.statusShort}</span>
+      <span className="ebd-tab ebd-drop"><StatusIcon />{t.filters.status}</span>
     </span>
   )
   return (
