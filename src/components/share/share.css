@@ -18,15 +18,16 @@
      a: + 16 (the "Image options" label) + 8 + 8 (the group's gaps) - 16 (the gap they replace) = 425
      b: a's 425 + 2 x 12 (the box's padding) + 2 x 1 (its border) = 451; its first grid row is Share image | Download
      c: 409 + 8 (the group's gap) - 16 (the gap it replaces) = 401
-     Print mode adds the size control at the group's top: 54 (the control) + 6 + 21 (the size line) + 8 (the group's
-     gap) = 89 more, so a 514, b 540, c 490. Each keeps the primary action on the first screen, 26px above the
+     Print mode adds the size control at the group's top: 54 (the control) + 6 + 42 (the size line, two 21px lines on
+     a phone: "A1 · 59.4 × 84.1 cm · 7016 × 9933 px at 150 dpi" is about 340px at 14px) + 8 (the group's gap) = 110
+     more, so a 535, b 561, c 511. Each keeps the primary action on the first screen, 26px above the
      dialog's bottom edge, with the top of the next row (a, b) showing under it. */
   .eb-share[data-layout="a"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 425px, 600px)); }
   .eb-share[data-layout="b"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 451px, 600px)); }
   .eb-share[data-layout="c"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 401px, 600px)); }
-  .eb-share[data-layout="a"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 514px, 600px)); }
-  .eb-share[data-layout="b"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 540px, 600px)); }
-  .eb-share[data-layout="c"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 490px, 600px)); }
+  .eb-share[data-layout="a"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 535px, 600px)); }
+  .eb-share[data-layout="b"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 561px, 600px)); }
+  .eb-share[data-layout="c"][data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 511px, 600px)); }
 }
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
@@ -178,9 +179,13 @@
 .eb-share-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .15s var(--ease-ui); }
 .eb-share-pct { flex: none; min-width: 4ch; text-align: end; font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* The four actions (print mode's in the same places), 8px apart. A label wraps to a second line only where it must,
-   at 1.2 with 3px padding so two lines still make 44px. */
-.eb-share-actions { display: grid; gap: 8px; min-width: 0; }
-.eb-share-actions .eb-btn { min-width: 0; white-space: normal; text-align: center; line-height: 1.2; padding-block: 3px; }
+   at 1.2 with 3px padding so two lines still make 44px, centred; a word longer than its cell breaks rather than spill
+   (only at page zoom's narrowest widths, which the container queries below mostly spare it). The 15px font size is the
+   buttons' own, so the ch in the narrow grids below is their label's. */
+.eb-share-actions { display: grid; gap: 8px; min-width: 0; font-size: 15px; }
+.eb-share-actions .eb-btn {
+  min-width: 0; white-space: normal; text-align: center; line-height: 1.2; padding-block: 3px; overflow-wrap: break-word;
+}
 /* a: Share image across the column, then one row of equal quiet buttons (however many print mode has). */
 .eb-share-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .eb-share-row .eb-btn { padding-inline: 12px; }
@@ -188,21 +193,37 @@
 .eb-share[data-layout="b"] .eb-share-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .eb-share[data-layout="b"] .eb-share-progress { grid-column: 1 / -1; }
 .eb-share[data-layout="b"] .eb-share-actions .eb-btn { padding-inline: 12px; }
-/* c: Share image takes what the row leaves after three 44px icon buttons. */
+/* c: Share image takes what the row leaves after three 44px icon buttons. A disabled icon button keeps its pointer
+   events (the shared .eb-btn:disabled drops them), so its title still shows on hover; being disabled, a click does
+   nothing, and its border stays Hairline on hover. */
 .eb-share[data-layout="c"] .eb-share-actions { display: flex; }
 .eb-share[data-layout="c"] .eb-share-primary { flex: 1 1 auto; }
 .eb-share[data-layout="c"] .eb-btn.eb-share-primary { padding-inline: 14px; }
 .eb-share-icon { flex: none; width: 44px; padding: 0; }
 .eb-share-actions .eb-share-icon { padding: 0; }
+.eb-share-actions .eb-share-icon:disabled { pointer-events: auto; }
+@media (hover: hover) and (pointer: fine) { .eb-share-actions .eb-share-icon:disabled:hover { border-color: var(--hairline); } }
 /* The controls' column is a container: where the row runs short (a 300px column beside the preview, phones), the
-   row's icons go (a) and Share image's (c); narrower still (a 320px phone gives 248px) the padding tightens. */
+   icons go from a's row, b's grid and c's Share image; narrower still (a 320px phone gives 246px) the padding
+   tightens and a's row and b's grid become grids of cells at least 10ch wide (a little over "Download"), so a cell
+   that can't fit moves to a new row instead of squeezing its label (Safari's page zoom takes the column to about
+   186px). Under 240px c's Share image takes the whole row and the icon buttons move under it (so Download PNG keeps
+   room for its longest word). */
 @container (max-width: 379px) {
-  .eb-share-row .eb-btn svg, .eb-share[data-layout="c"] .eb-share-primary svg { display: none; }
+  .eb-share-row .eb-btn svg, .eb-share[data-layout="b"] .eb-share-actions .eb-btn svg,
+  .eb-share[data-layout="c"] .eb-share-primary svg { display: none; }
 }
 @container (max-width: 299px) {
-  .eb-share-row .eb-btn { padding-inline: 4px; }
+  .eb-share-row .eb-btn, .eb-share[data-layout="b"] .eb-share-actions .eb-btn { padding-inline: 4px; }
+  .eb-share-row, .eb-share[data-layout="b"] .eb-share-actions {
+    grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10ch), 1fr));
+  }
   .eb-share[data-layout="c"] .eb-share-actions { gap: 4px; }
   .eb-share[data-layout="c"] .eb-btn.eb-share-primary { padding-inline: 10px; }
+}
+@container (max-width: 239px) {
+  .eb-share[data-layout="c"] .eb-share-actions { flex-wrap: wrap; }
+  .eb-share[data-layout="c"] .eb-share-primary { flex-basis: 100%; }
 }
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 

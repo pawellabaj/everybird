@@ -429,14 +429,15 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     return () => clearTimeout(t)
   }, [shownFormat])
   // The actions, in the layout's pattern: the primary slot (Share image; in print mode Make poster, the progress row or
-  // Download PNG), then the quiet ones (a row of three in a, the 2x2 grid's other cells in b, 44px icon buttons in c).
+  // Download PNG; each its own key, so a change of state is a new element and the focus moves below run instead of
+  // focus staying on a renamed button), then the quiet ones (a row of three in a, the 2x2 grid's other cells in b, 44px icon buttons in c).
   const primary: ReactNode = !print ? (
-    <button type="button" className="eb-btn eb-share-primary" disabled={busy} onClick={() => void share()}>
+    <button key="share" type="button" className="eb-btn eb-share-primary" disabled={busy} onClick={() => void share()}>
       <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
       Share image
     </button>
   ) : makingNow ? (
-    <div className="eb-share-progress eb-share-primary">
+    <div key="progress" className="eb-share-progress eb-share-primary">
       <div
         className="eb-share-bar" role="progressbar" aria-label={PRINT_TEXT.making}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
@@ -447,12 +448,12 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       <button ref={cancelRef} type="button" className="eb-btn eb-btn-quiet" onClick={cancelPoster}>{PRINT_TEXT.cancel}</button>
     </div>
   ) : posterNow ? (
-    <button ref={pngRef} type="button" className="eb-btn eb-share-primary" onClick={() => void savePoster('png')}>
+    <button key="png" ref={pngRef} type="button" className="eb-btn eb-share-primary" onClick={() => void savePoster('png')}>
       <DownloadSimple aria-hidden="true" focusable="false" weight="bold" />
       {PRINT_TEXT.png}
     </button>
   ) : (
-    <button ref={makeRef} type="button" className="eb-btn eb-share-primary" onClick={() => void makePoster()}>
+    <button key="make" ref={makeRef} type="button" className="eb-btn eb-share-primary" onClick={() => void makePoster()}>
       <Printer aria-hidden="true" focusable="false" weight="bold" />
       {PRINT_TEXT.make}
     </button>

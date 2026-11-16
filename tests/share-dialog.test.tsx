@@ -475,8 +475,12 @@ describe('share dialog: print mode', () => {
     await startMake()
     const p = fakePoster({ file: vi.fn(async () => { throw new Error('encoder gone') }) })
     await act(async () => makes[0].resolve(p))
-    pressFocused('Download PNG') // a real click focuses the button, which then goes
+    // Focus is still on Back (fireEvent.click never moves it, so the make's focus moves had nothing to follow); a real
+    // click puts it on Download PNG, and only from there (lost when the button goes) does it follow Make poster back.
+    const png = screen.getByRole('button', { name: 'Download PNG' })
+    pressFocused('Download PNG')
     await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
+    expect(png.isConnected).toBe(false) // a new button (its own key), not Download PNG renamed under the focus
     expect(p.dispose).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
     const note = screen.getByTestId('share-note')
@@ -564,7 +568,9 @@ describe('share dialog: the poster module fails to load', () => {
     render(<FreshDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: /^Print/ }))
     await waitFor(() => expect(fail.left).toBe(1))
-    pressFocused('Make poster') // a real click focuses the button, which then goes
+    // Focus is on Back (print mode's arrival); a real click moves it to Make poster, which fireEvent.click doesn't, and
+    // only from there (lost when the button goes) does it follow the one that comes back.
+    pressFocused('Make poster')
     await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Couldn’t make the poster. Try again.'))
     expect(makes).toHaveLength(0)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
