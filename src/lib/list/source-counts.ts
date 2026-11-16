@@ -13,6 +13,7 @@ export function slottedRecords(saved: Saved): { slot: Slot; record: SourceRecord
     const slot = u.slot ?? u.source
     const record: SourceRecord = { code, source: slotSource(slot), date: u.date, place: u.place }
     if (u.seen) record.seen = u.seen
+    if (u.seenMonths) record.seenMonths = u.seenMonths
     out.push({ slot, record })
   }
   return out

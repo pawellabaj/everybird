@@ -23,6 +23,8 @@ export type SourceRecord = {
    * there. MyEBirdData and iNaturalist only; absent elsewhere (the lifer place then stands in).
    */
   seen?: string[]
+  /** Per place: "YYYY-MM,YYYY-MM|region[|county]", sorted unique months (seen.ts). Absent on older saves. */
+  seenMonths?: string[]
   /**
    * iNaturalist lumps some species eBird splits (willet, horned owl); the import picks one by a region rule
    * (inat-rules.ts). 'region': placed by where and when it was seen; 'default': the place could not tell.
@@ -43,6 +45,8 @@ export type Unmatched = {
   place?: Place
   /** Every place the name was seen (seen.ts encoding), so a row fixed by hand keeps its seen-here too. */
   seen?: string[]
+  /** Per place: "YYYY-MM,YYYY-MM|region[|county]", sorted unique months (seen.ts). Absent on older saves. */
+  seenMonths?: string[]
 }
 export type ImportResult = {
   records: SourceRecord[]

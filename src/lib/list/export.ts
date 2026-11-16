@@ -3,7 +3,7 @@ import type { Regions } from '@/lib/species/types'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { SLOTS, slotSource } from './model'
 import type { ListEntry, Slot, Source, SourceRecord } from './model'
-import { seenOf, type SeenIndex } from './seen'
+import { seenOf, decodeSeenMonths, type SeenIndex } from './seen'
 import { migrateSaved, type Saved, type SourceDetails } from './storage'
 
 const HEADER = ['eBird code', 'Common name', 'Scientific name', 'First date', 'Place', 'Country', 'Heard only', 'Found dead', 'Sources', 'Countries seen']
@@ -57,6 +57,7 @@ const isSlot = (k: unknown): k is Slot => SLOTS.includes(k as Slot)
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every((s) => typeof s === 'string')
 
+const validMonths = (x: unknown) => x === undefined || (isStrArr(x) && x.every((s) => decodeSeenMonths(s) !== undefined))
 const optStr = (x: unknown) => x === undefined || typeof x === 'string'
 const optCount = (x: unknown) => x === undefined || (typeof x === 'number' && Number.isFinite(x) && x >= 0)
 const EBIRD_KINDS = ['full-export', 'life-list']
@@ -82,14 +83,14 @@ export function fromJson(text: string): Saved {
   }
   if (!isObj(raw)) throw new Error('This is not an Everybird backup.')
   // v1 backups predate seen-here, v1 and v2 backups predate source details, v1 to v3 backups hold a person's name
-  // rather than the collage's title: migrateSaved brings them to v4.
-  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4) throw new Error('Unsupported backup version.')
+  // rather than the collage's title: migrateSaved brings them to v5. Seen months are optional, never inferred from first dates.
+  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4 && raw.v !== 5) throw new Error('Unsupported backup version.')
 
   if (!isObj(raw.records)) throw new Error('Backup has no records.')
   // Backups made before the second eBird slot have no 'ebird-list'; it starts empty.
   const records = { ebird: [], 'ebird-list': [], inat: [], manual: [] } as Record<Slot, SourceRecord[]>
   for (const [k, v] of Object.entries(raw.records)) {
-    if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen))))
+    if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen)) && validMonths(r.seenMonths)))
       throw new Error('Backup records are malformed.')
     records[k] = v as SourceRecord[]
   }
@@ -97,14 +98,14 @@ export function fromJson(text: string): Saved {
   const unmatched = raw.unmatched ?? []
   if (
     !Array.isArray(unmatched) ||
-    !unmatched.every((u) => isObj(u) && typeof u.row === 'number' && SOURCES.includes(u.source as Source) && (u.slot === undefined || (isSlot(u.slot) && slotSource(u.slot) === u.source)) && (u.seen === undefined || isStrArr(u.seen)))
+    !unmatched.every((u) => isObj(u) && typeof u.row === 'number' && SOURCES.includes(u.source as Source) && (u.slot === undefined || (isSlot(u.slot) && slotSource(u.slot) === u.source)) && (u.seen === undefined || isStrArr(u.seen)) && validMonths(u.seenMonths))
   )
     throw new Error('Backup unmatched rows are malformed.')
 
   const e = raw.edits
   if (!isObj(e) || !isStrArr(e.removed) || !Array.isArray(e.added) || !isObj(e.marks) || !isObj(e.fixes))
     throw new Error('Backup edits are malformed.')
-  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string')) throw new Error('Backup edits are malformed.')
+  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string' && validMonths(r.seenMonths))) throw new Error('Backup edits are malformed.')
 
   const r = raw.rules
   if (!isObj(r) || typeof r.hideHeard !== 'boolean' || typeof r.hideDead !== 'boolean' || typeof r.researchOnly !== 'boolean')

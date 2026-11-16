@@ -27,14 +27,15 @@ export type DetailsFor<S extends Slot> = S extends 'inat' ? InatDetails : S exte
 /**
  * The stored list. v2 (Task PL) added seen-here (`SourceRecord.seen`, `Unmatched.seen`); a v1 list is the same shape
  * without it. v3 added `sources` (each source's details); v1 and v2 lists migrate by their version number alone and
- * have no details until a source is imported again. The IndexedDB key keeps its v1 name.
+ * have no details until a source is imported again. v5 adds optional seenMonths per record; no history is inferred
+ * for old saves. The IndexedDB key keeps its v1 name.
  */
 /** The longest collage title (Settings > Name your collage): what a share link carries (link.ts NAME_MAX; a test keeps
  *  them equal). */
 export const NAME_MAX = TITLE_MAX
 
 export type Saved = {
-  v: 4
+  v: 5
   /** Records per slot (model.ts `Slot`): the two eBird files side by side, then iNaturalist and manual. */
   records: Record<Slot, SourceRecord[]>
   unmatched: Unmatched[]
@@ -54,7 +55,7 @@ export const STORAGE_KEY = 'everybird:v1'
 
 export function emptySaved(): Saved {
   return {
-    v: 4,
+    v: 5,
     records: { ebird: [], 'ebird-list': [], inat: [], manual: [] },
     unmatched: [],
     edits: { removed: [], added: [], marks: {}, fixes: {} },
@@ -102,16 +103,17 @@ export const LOAD_RETRY_MS = 150
  * that title once (`titleFromOldName`: a name that already reads like a title stays). Lists saved before the second
  * eBird slot have no records['ebird-list']; it is added empty. Their eBird records stay in 'ebird' and their fix keys
  * ("ebird:12") still match. Backups (export.ts fromJson) come through here too. Returns the same object when nothing
- * needed changing.
+ * needed changing. v4 -> v5 changes only the version: old records have no seenMonths until reimported.
  */
 export function migrateSaved(s: Saved): Saved {
   const missing = SLOTS.filter((k) => !Array.isArray((s.records as Partial<Saved['records']>)[k]))
-  const old = (s.v as number) < 4
+  const oldTitle = (s.v as number) < 4
+  const old = (s.v as number) < 5
   if (!missing.length && !old) return s
   const records = { ...s.records }
   for (const k of missing) records[k] = []
-  const out: Saved = { ...s, v: 4, records }
-  if (old && typeof s.name === 'string') {
+  const out: Saved = { ...s, v: 5, records }
+  if (oldTitle && typeof s.name === 'string') {
     const title = titleFromOldName(s.name)
     if (title) out.name = title
     else delete out.name

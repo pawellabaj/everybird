@@ -8,6 +8,10 @@
 // Records without it (the eBird life list download, ticks by hand, rows fixed by hand from older saves, lists saved
 // before seen-here) count their lifer place as their only place.
 //
+// `seenMonths` is kept separately as "YYYY-MM,YYYY-MM|region[|county]": one sorted month set per place.
+// Missing means an older or life-list-only source; [] means a full source had no dated, located sightings.
+// The seen-here index below still indexes earliest dates only; part B will wire the month sets into filtering.
+//
 // Rules: a species removed by hand, or hidden by "hide heard only" / "hide found dead", has no places (it is not on the
 // list). "Research grade only" drops the casual iNaturalist records as buildList does, record by record: a species keeps
 // the places of every record that still counts (an iNaturalist record counts when any of its observations is research
@@ -60,12 +64,44 @@ export function decodeSeen(s: string): SeenPlace | undefined {
   return out
 }
 
+const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/
+/** Decode one compact month set. Counties may contain pipes; the first pipe alone separates the months. */
+export function decodeSeenMonths(s: string): { place: SeenPlace; months: string[] } | undefined {
+  const at = s.indexOf('|')
+  if (at < 0) return undefined
+  const months = s.slice(0, at).split(',')
+  const place = decodeSeen(s.slice(at))
+  if (!place || !months.every((m) => MONTH.test(m))) return undefined
+  return { place, months }
+}
+
 /**
  * Accumulates seen-here per species while a file is read, one map entry per species and place (never the rows), and
  * writes it out in the stored encoding.
  */
 export class SeenAgg {
   private by = new Map<string, Map<string, string>>()
+  private monthsBy = new Map<string, Map<string, Set<string>>>()
+
+  /** Add all observed months at one place, including when an upstream aggregate kept only its earliest date. */
+  addMonths(code: string, key: string, months: Iterable<string>): void {
+    for (const month of months) {
+      if (!MONTH.test(month)) continue
+      let places = this.monthsBy.get(code)
+      if (!places) this.monthsBy.set(code, (places = new Map()))
+      let set = places.get(key)
+      if (!set) places.set(key, (set = new Set()))
+      set.add(month)
+    }
+  }
+
+  /** Compact, deterministic per-place month sets; undefined means this source has no month information. */
+  getMonths(code: string): string[] | undefined {
+    const places = this.monthsBy.get(code)
+    if (!places?.size) return undefined
+    return [...places].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
+      .map(([key, months]) => `${[...months].sort().join(',')}|${key}`)
+  }
 
   /** One sighting of `code` at `place` on `date`. Places without a country or province are ignored. */
   add(code: string, place: Place | undefined, date: string | undefined): void {
@@ -76,6 +112,7 @@ export class SeenAgg {
 
   /** `key` is "region" or "region|county" (already normalised). */
   addKey(code: string, key: string, date: string): void {
+    this.addMonths(code, key, [date.slice(0, 7)])
     let m = this.by.get(code)
     if (!m) this.by.set(code, (m = new Map()))
     const prev = m.get(key)
@@ -86,6 +123,7 @@ export class SeenAgg {
   merge(code: string, from: SeenAgg, fromCode: string): void {
     const m = from.by.get(fromCode)
     if (m) for (const [k, d] of m) this.addKey(code, k, d)
+    for (const [k, months] of from.monthsBy.get(fromCode) ?? []) this.addMonths(code, k, months)
   }
 
   /** `code`'s places ("region" or "region|county") and their earliest dates, or undefined when it has none. */
