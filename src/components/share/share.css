@@ -15,7 +15,7 @@
   .eb-share-preview { max-height: var(--cap); }
   /* The controls under the preview, from the 409px measured for the first ones (a title field, the switch and the
      first action row, 16px apart) and the CSS since: the options group's gaps are 8px, so 409 + 8 - 16 (the gap it
-     replaces) = 401, plus the "Dark image" switch under the title field's: a 44px row and an 8px gap = 453.
+     replaces) = 401, plus the "Dark image" switch under "Show latest lifer": a 44px row and an 8px gap = 453.
      Print mode adds the size control at the group's top: 54 (the control) + 6 + 42 (the size line, two 21px lines on
      a phone: "A1 · 59.4 × 84.1 cm · 7016 × 9933 px at 150 dpi" is about 340px at 14px) + 8 (the group's gap) = 110
      more, so 563. Each keeps the primary action on the first screen, 26px above the dialog's bottom edge, with the

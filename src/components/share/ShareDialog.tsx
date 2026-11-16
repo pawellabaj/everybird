@@ -9,7 +9,7 @@
 // The "Dark image" switch (starts at the app's theme, then the dialog's own) sets the look of the share images and the
 // poster alike. Print mode makes an A4 to A1 poster (A2 to start): the preview is the poster's 1080-wide image, "Make poster" runs
 // makePoster (its chunk is fetched when print mode opens) with progress and Cancel, then Download PNG and Download PDF
-// serve the one encode. Changing the size, title or switch, leaving print mode or closing the dialog cancels a make and
+// serve the one encode. Changing the size, title or either switch, leaving print mode or closing the dialog cancels a make and
 // drops a finished poster. Nothing in print mode is counted. "Share images" in the format control's place goes back.
 // The actions: Share image over a row of three quiet buttons. Print mode keeps the same pattern.
 import {

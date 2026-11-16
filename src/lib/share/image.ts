@@ -485,7 +485,7 @@ export type ShareImageOpts = {
   name?: string
   /** The page's theme. The print follows it too: dark is light ink on the dark paper. */
   theme: 'light' | 'dark'
-  /** The print's A size (print only; default A4): the card's height is printDesignH(size). */
+  /** The print's A size (print only; default A2): the card's height is printDesignH(size). */
   printSize?: PrintSize
   /** A pack made earlier by packForImage for this format, these entries, name-or-not and lifer-or-not (the dialog keeps them). */
   pack?: ImagePack
@@ -599,7 +599,7 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
   const name = opts.name?.trim() || undefined
   const footerLine = withStamp(FOOTER_LINE, stampDate(opts.now ?? new Date()))
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
-  const L = cardLayout(format, content, print ? printDesignH(opts.printSize ?? 'A4') : undefined)
+  const L = cardLayout(format, content, print ? printDesignH(opts.printSize ?? 'A2') : undefined)
   // Packed for the format's own frame (the print: at PRINT_DESIGN_H, one pack for every A size, as imagePackSpec).
   const pack = opts.pack ?? (await packForImage(shown, species, imagePackSpec(format, content), signal))
   if (signal?.aborted) throw abortError()
