@@ -29,3 +29,12 @@ describe("the stats Worker's row", () => {
     expect(Object.fromEntries(Object.entries(ALLOWED).map(([k, v]) => [k, [...v]]))).toEqual(APP_ALLOWED)
   })
 })
+
+describe('the horizontal share formats', () => {
+  it('the Worker allows desktop and wide for downloads and shares, matching the app', () => {
+    for (const event of ['image_downloaded', 'shared'] as const) {
+      expect([...ALLOWED[event]]).toEqual(APP_ALLOWED[event])
+      expect([...ALLOWED[event]]).toEqual(expect.arrayContaining(['desktop', 'wide']))
+    }
+  })
+})

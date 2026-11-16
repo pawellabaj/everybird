@@ -13,7 +13,6 @@ import { ALLOWED as APP_ALLOWED } from '@/lib/analytics'
 import { holeRects, rectGap, type Hole, type Rect } from '@/lib/layout/count-box'
 import { decodeMask, maskCell, type Mask } from '@/lib/layout/mask'
 import { packFrame, type PackBird, type PackResult } from '@/lib/layout/pack'
-import { ALLOWED as WORKER_ALLOWED } from '../workers/stats/src/event'
 import {
   IMAGE_SCALE, IMAGE_SIZE, SAFE, SPREAD, cardLayout, drawShareImage, fitPack, imageShape, isPrint, maxTileSide, packSpec,
   prepareCard, spreadY, type CardFormat, type ImagePack,
@@ -216,9 +215,9 @@ describe('the 4K desktop image', () => {
 })
 
 describe('analytics', () => {
-  it('the app and the Worker allow the horizontal formats for downloads and shares alike', () => {
+  // The Worker's side of this check lives in tests/stats-worker.test.ts (Vercel's upload leaves workers/ out).
+  it('the app allows the horizontal formats for downloads and shares alike', () => {
     for (const event of ['image_downloaded', 'shared'] as const) {
-      expect([...WORKER_ALLOWED[event]]).toEqual(APP_ALLOWED[event])
       expect(APP_ALLOWED[event]).toEqual(expect.arrayContaining(['desktop', 'wide']))
     }
   })
