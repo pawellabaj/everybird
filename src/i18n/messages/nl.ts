@@ -149,6 +149,7 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
+      group: 'Vogelgroep',
       places: 'Plaatsen',
       time: 'Tijd',
       status: 'Beschermingsstatus',

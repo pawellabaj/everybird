@@ -24,10 +24,12 @@ type Props<C extends ChipData> = {
   onEmpty?: () => void
   /** Given: a "Clear all" text button ends the row once two or more chips show; it clears every chip's value at once. */
   onClearAll?: () => void
+  /** Active filters in all (the chips plus a taxonomy choice the breadcrumb holds); Clear all shows from 2. Defaults to the chips. */
+  active?: number
   testId?: string
 }
 
-export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, onEmpty, onClearAll, testId }: Props<C>): ReactNode | null {
+export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, onEmpty, onClearAll, active, testId }: Props<C>): ReactNode | null {
   const { t } = useI18n()
   const rowRef = useRef<HTMLDivElement>(null)
   // The index of the chip a press just removed; read once by the effect below.
@@ -97,7 +99,7 @@ export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, on
           </Chip>
         )
       })}
-      {onClearAll && chips.length >= 2 && (
+      {onClearAll && (active ?? chips.length) >= 2 && (
         <button type="button" className="eb-textbtn" aria-label={t.filters.panel.clearAllLabel} data-testid="chips-clear-all" onClick={clearAll}>
           {t.filters.panel.clearAll}
         </button>

@@ -100,5 +100,8 @@ describe('ChipRow', () => {
     expect(onClearAll).toHaveBeenCalledTimes(1)
     rerender(<ChipRow chips={three} label="Active filters" onRemove={() => {}} />)
     expect(screen.queryByTestId('chips-clear-all')).toBeNull()
+    // One chip plus a taxonomy choice is two active filters.
+    rerender(<ChipRow chips={three.slice(0, 1)} active={2} label="Active filters" onRemove={() => {}} onClearAll={onClearAll} />)
+    expect(screen.getByTestId('chips-clear-all')).toBeInTheDocument()
   })
 })

@@ -165,7 +165,7 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
   const pick = (h: CollageHit) => { setQuery(''); setCursor(-1); onPick(h) }
   const apply = () => {
     if (!parsed) return
-    const next = applySmart(filter, parsed.filter, kinds, species)
+    const next = applySmart(filter, parsed.filter, kinds)
     // Without month sets "seen any time" changes nothing (and its labels would mislead): the dates stay lifer dates.
     if (!hasMonths) delete next.basis
     onApply(next)

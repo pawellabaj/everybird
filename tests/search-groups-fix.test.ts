@@ -2,10 +2,8 @@
 // an order or family outside it.
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
-import { applySmart } from '@/lib/search/apply'
 import { parseSmart, type SearchContext } from '@/lib/search/smart'
 import type { GroupsFile, SearchLang } from '@/lib/search/groups'
-import { buildSpeciesIndex } from '@/lib/species/load'
 
 const groupsFile: GroupsFile = JSON.parse(readFileSync('public/data/groups.v1.json', 'utf8'))
 const calls: string[] = []
@@ -50,26 +48,6 @@ describe('a group needs its whole name or synonym, not a word of it', () => {
     expect(parse('hawks BC').filter).toEqual({ group: 'vultures-hawks-and-allies', provinces: ['CA-BC'] })
     expect(parse('hawks bc').filter.provinces).toBeUndefined()
     expect(parse('hawks bc').rest).toBe('bc')
-  })
-})
-
-describe('applying a group drops an order or family outside it (D3)', () => {
-  const sp = (code: string, ord: string, fam: string, to: number) => ({ code, com: code, sci: code, ord, fam, famCom: fam, to, g: 10, gSrc: 'avonet', st: true, ar: 1, q: true }) as never
-  const index = {
-    ...buildSpeciesIndex([sp('a', 'Anseriformes', 'Anatidae', 5), sp('b', 'Passeriformes', 'Turdidae', 500), sp('c', 'Mixed', 'F1', 500), sp('d', 'Mixed', 'F2', 8)]),
-    groups: new Map([['waterfowl', { id: 'waterfowl', name: { en: 'Waterfowl', es: '', pt: '', nl: '' }, lo: 1, hi: 10 }]]),
-  }
-  const kinds = new Set(['group'] as const)
-  it('drops an order with nothing inside the group, and its family', () => {
-    expect(applySmart({ order: 'Passeriformes', family: 'Turdidae' }, { group: 'waterfowl' }, kinds, index)).toEqual({ group: 'waterfowl' })
-  })
-  it('drops only the family when the order reaches into the group', () => {
-    expect(applySmart({ order: 'Mixed', family: 'F1' }, { group: 'waterfowl' }, kinds, index)).toEqual({ order: 'Mixed', group: 'waterfowl' })
-    expect(applySmart({ order: 'Mixed', family: 'F2' }, { group: 'waterfowl' }, kinds, index)).toEqual({ order: 'Mixed', family: 'F2', group: 'waterfowl' })
-  })
-  it('keeps what is inside the group, and everything without a groups file', () => {
-    expect(applySmart({ order: 'Anseriformes', family: 'Anatidae' }, { group: 'waterfowl' }, kinds, index)).toEqual({ order: 'Anseriformes', family: 'Anatidae', group: 'waterfowl' })
-    expect(applySmart({ order: 'Passeriformes' }, { group: 'waterfowl' }, kinds)).toEqual({ order: 'Passeriformes', group: 'waterfowl' })
   })
 })
 

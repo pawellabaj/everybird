@@ -52,14 +52,6 @@ export function filterChips(f: Filter, regions: Names, t: Ui, groupName?: (id: s
   return out
 }
 
-/** The filter without any of the chips' values (group, places, time and its basis, statuses); order and family stay. */
-export function withoutFilterChips(f: Filter): Filter {
-  const next = clearPlaces(timeless(f))
-  delete next.basis
-  delete next.group
-  delete next.statuses
-  return next
-}
 
 /** The filter without what `chip` stands for; a chip of any other kind leaves it as it is. */
 export function withoutFilterChip(f: Filter, chip: Chip): Filter {
