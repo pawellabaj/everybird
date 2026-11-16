@@ -240,7 +240,7 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
         </div>
         {(understood.length > 0 || needsMonths || listOpen) && (
           // A press in the drop keeps focus in the field (as the options do): the chips and the button still click.
-          <div className="eb-drop" onPointerDown={(e) => e.preventDefault()}>
+          <div className="eb-find-drop" onPointerDown={(e) => e.preventDefault()}>
             {understood.length > 0 && (
               <div className="eb-understood">
                 <span className="eb-mono eb-understood-label" aria-hidden="true">{t.search.understood}</span>
