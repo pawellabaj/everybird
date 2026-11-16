@@ -81,6 +81,9 @@ export const nl: Messages = {
         orders: { one: '{n} orde', other: '{n} ordes' },
         families: { one: '{n} familie', other: '{n} families' },
         since: 'sinds {date}',
+        threatened: '{n} bedreigd',
+        threatenedGlobal: '{n} wereldwijd bedreigd',
+        threatenedSr: '(Kwetsbaar, Bedreigd of Ernstig bedreigd)',
       },
       arranging: 'stickers worden geschikt',
       legend: {
@@ -146,9 +149,10 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
-      dock: 'Plaatsen en tijd',
+      dock: 'Plaatsen, tijd en status',
       places: 'Plaatsen',
       time: 'Tijd',
+      status: 'Status',
       clear: 'Wissen',
       timeline: {
         months: ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'],
@@ -181,6 +185,30 @@ export const nl: Messages = {
         reimport: 'Plaatsen weet alleen waar je elke vogel voor het eerst hebt vastgelegd. <link>Importeer MyEBirdData opnieuw</link> om te filteren op elke plaats waar je elke vogel hebt vastgelegd.',
       },
       andMore: '{first} en nog {n}',
+    },
+    /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
+     *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+    iucn: {
+      names: {
+        LC: 'Niet bedreigd',
+        NT: 'Gevoelig',
+        VU: 'Kwetsbaar',
+        EN: 'Bedreigd',
+        CR: 'Ernstig bedreigd',
+        EW: 'Uitgestorven in het wild',
+        EX: 'Uitgestorven',
+        DD: 'Onvoldoende gegevens',
+      },
+      threatened: 'Bedreigd',
+      tip: '{cat}, {name} (Rode Lijst van de IUCN)',
+    },
+    /** The Status panel (StatusList). {n} is formatted. */
+    status: {
+      head: 'Categorieën · {n}',
+      note: 'Wereldwijde categorieën van de Rode Lijst van de IUCN. Vogels zonder categorie vallen af zodra je er een kiest.',
+      threatenedNote: '{n} bedreigd: Kwetsbaar, Bedreigd of Ernstig bedreigd.',
+      list: 'Categorieën',
+      none: 'Geen categorieën hier met de andere filters.',
     },
     card: {
       close: 'Sluiten',
@@ -295,6 +323,30 @@ export const nl: Messages = {
       latestLifer: 'Nieuwste soort',
       oldLinkTitle: 'Levenslijst van {name}',
       untitledTitle: { one: 'Een levenslijst: {n} soort', other: 'Een levenslijst: {n} soorten' },
+      /** The "Dark image" switch, and Download's short label in the row of quiet buttons. */
+      dark: 'Donkere afbeelding',
+      downloadShort: 'Downloaden',
+      /** Print mode (a poster in A1 to A4; the sizes, PNG, PDF and dpi stay as they are). */
+      print: {
+        print: 'Printen',
+        entry: 'Een poster printen',
+        size: 'Postergrootte',
+        sizeLine: '{size} · {w} × {h} cm · {pw} × {ph} px op 150 dpi',
+        make: 'Poster maken',
+        making: 'De poster wordt gemaakt',
+        makingNote: 'De poster wordt gemaakt.',
+        again: 'Opnieuw maken',
+        cancel: 'Annuleren',
+        png: 'PNG downloaden',
+        pdf: 'PDF downloaden',
+        ready: 'Je {size}-poster is klaar.',
+        missing: { one: '1 sticker is niet geladen en wordt als omtrek getekend. Maak de poster opnieuw om het nog eens te proberen.', other: '{n} stickers zijn niet geladen en worden als omtrek getekend. Maak de poster opnieuw om het nog eens te proberen.' },
+        soft: 'Sommige stickers komen voorlopig uit kleinere bestanden, dus de grootste vogels kunnen een beetje zacht uitvallen.',
+        failedMemory: 'De poster maken is niet gelukt. Probeer een kleiner formaat.',
+        failed: 'De poster maken is niet gelukt. Probeer het opnieuw.',
+        back: 'Afbeeldingen delen',
+        previewAlt: 'Voorbeeld van de {size}-poster',
+      },
     },
     import: {
       head: 'Je lijst',
@@ -471,7 +523,7 @@ export const nl: Messages = {
     /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
     about: {
       lede: 'Everybird maakt van de levenslijst van elke vogelaar een stickercollage.',
-      what: { head: 'Wat het is', body: 'Je levenslijst is al het verslag van een leven vol vogels. Everybird legt die neer als één collage: elke soort een sticker, op grootte naar lichaamsgewicht, met het aantal in het midden. Filter op groep, plaats of jaar en deel de collage als afbeelding of link.' },
+      what: { head: 'Wat het is', body: 'Je levenslijst is al het verslag van een leven vol vogels. Everybird legt hem uit als één collage: elke soort een sticker, geschaald op lichaamsgewicht, met het aantal in het midden. Filter op groep, plaats, jaar of beschermingsstatus en deel hem als afbeelding of link.' },
       how: {
         head: 'Hoe het werkt',
         steps: [
@@ -486,6 +538,10 @@ export const nl: Messages = {
         even: 'Elke sticker wordt geschaald op het gemiddelde lichaamsgewicht van de vogel, uit AVONET, naar de oppervlakte die hij op de pagina beslaat, zodat de sleep van een pauw of de poten van een reiger hem niet klein laten lijken. Standaard worden de groottes gelijkgetrokken: de oppervlakte volgt het gewicht tot de macht 0,4, zodat kleine vogels zichtbaar blijven naast grote.',
         true: 'Ware grootte gebruikt in plaats daarvan de derdemachtswortel van het gewicht voor de lengte. Vogels hebben ongeveer dezelfde dichtheid, dus gewicht volgt volume en de derdemachtswortel volgt lengte: een vogel die acht keer zwaarder is, wordt ongeveer twee keer zo lang getekend en beslaat vier keer de oppervlakte. Het is een schatting van de relatieve grootte, geen gemeten lengte. Slanke vogels met een lange hals kunnen wat klein lijken en gedrongen vogels wat groot, zwemhoudingen verbergen een deel van het lijf en elke soort gebruikt één gemiddeld gewicht, dus mannetjes, vrouwtjes en seizoenen worden niet onderscheiden.',
       },
+      status: {
+        head: 'Beschermingsstatus',
+        body: 'De status van elke soort is haar wereldwijde categorie op de Rode Lijst van de IUCN, uit {source}. Die is wereldwijd, niet regionaal: een vogel die bij jou algemeen is, kan wereldwijd bedreigd zijn, en andersom. Soorten zonder categorie tonen er geen.',
+      },
       credits: {
         head: 'Credits',
         madeBy: 'Gemaakt door <you>Yusuf Taleb</you>. Het groeide uit de <life>levenslijst op zijn site</life> en is gebouwd met het gul gedeelde werk van anderen.',
@@ -496,6 +552,7 @@ export const nl: Messages = {
           inspiration: 'Inspiratie',
           taxonomy: 'Taxonomie',
           masses: 'Lichaamsgewichten · CC BY 4.0',
+          redList: 'Rode Lijst-categorieën · CC BY 4.0',
           api: 'API',
           countries: 'Landnamen · Publiek domein',
           regions: 'Regionamen · LGPL-2.1',
@@ -511,6 +568,7 @@ export const nl: Messages = {
         taxonomyTitle: 'eBird en Clements',
         taxonomy: 'Vogelnamen, soorten en hun volgorde volgen de eBird/Clements-taxonomie, versie {version}, van het Cornell Lab of Ornithology. eBird-bestanden worden in je browser gelezen.',
         masses: 'De stickergroottes gebruiken lichaamsgewichten uit AVONET (Tobias et al. 2022, Ecology Letters), via de soortentabel van huashu.',
+        redList: 'Categorieën van de Rode Lijst van de IUCN zoals opgegeven voor BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via de soortentabel van huashu, onder de licentie <cc>CC BY 4.0</cc>. Everybird heeft ze aan eBird-soorten gekoppeld.',
         api: 'Waarnemingen komen uit de openbare API van iNaturalist, rechtstreeks vanuit je browser aangeroepen, ongeveer één keer per seconde.',
         countries: 'Landnamen en de meeste regionamen komen van Natural Earth.',
         regions: 'De rest van de namen van staten en provincies komt uit de ISO 3166-2-gegevens van Debian iso-codes, alleen gebruikt voor de namen.',

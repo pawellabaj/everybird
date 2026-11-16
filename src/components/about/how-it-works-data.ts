@@ -3,6 +3,8 @@ export type Box = [x: number, y: number, w: number, h: number]
 /** The made-up list: 112 species, every one drawn in the demo; 31 families. */
 export const TOTAL = 112
 export const FAMILIES = 31
+/** The list's threatened species (VU, EN or CR in species.v1.json `iu`), as the stats line counts them. */
+export const THREATENED = 1
 export const BIRDS: string[] = ["mutswa","cangoo","mallar3","wooduc","amewig","gadwal","norsho","gnwtea","buwtea","cintea","norpin","canvas","redhea","rinduc","lessca","buffle","hoomer","ribgul","killde","amhgul1","calgul","bongul","caster1","forter","sposan","greyel","lesyel","leasan","wilsni1","grbher3","greegr","bcnher","triher","snoegr","grnher","baleag","rethaw","coohaw","shshaw","reshaw","norhar2","osprey","swahaw","grhowl","brdowl","easowl1","pilwoo","dowwoo","haiwoo","rebwoo","norfli","blujay","amecro","comrav","stejay","easpho","eawpew","easkin","reevir1","eawvir1","buhvir","logshr","bkcchi","tuftit","carchi","barswa","treswa","purmar","nrwswa","whbnut","rebnut","brncre","carwre","houwre","winwre3","buggna","gockin","ruckin","amerob","easblu","herthr","woothr","grycat","normoc","brnthr","eursta","cedwax","houspa","amegfi","houfin","pinsis","sonspa","whtspa","daejun","chispa","fiespa","rewbla","grtgra","balori","easmea","bnhcow","yelwar1","comyel","yerwar","amered","ovenbi1","bawwar","norcar","robgro","indbun","scatan","horlar"]
 export const HERONS: string[] = ["grbher3","greegr","bcnher","triher","snoegr","grnher"]
 /** The latest lifer's name, English and per base language (es, pt_BR, nl; from public/data/names.<base>.v1.json, English where a file has none). */

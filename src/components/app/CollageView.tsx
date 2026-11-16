@@ -15,7 +15,7 @@ import { formatInt, formatMonth } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { latestLifer } from '@/lib/list/build-list'
-import { applyFilter, drillTo, filterKey, filterToShow } from '@/lib/list/filters'
+import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import { monthBins, todayMonth } from '@/lib/list/timeline'
 import type { Action, AppState } from '@/lib/list/store'
@@ -25,6 +25,7 @@ import { useNames } from '@/lib/species/use-names'
 import type { CollageHit } from '@/lib/species/name-search'
 import type { Regions } from '@/lib/species/types'
 import type { StateLayout } from '@/lib/layout/layout-client'
+import { useVariant } from '@/lib/variants'
 import { ControlsBar } from './ControlsBar'
 import { useCollageLayout } from './use-collage-layout'
 import './app.css'
@@ -58,6 +59,15 @@ type Props = {
 }
 
 const pad = (d: string) => (d.length === 4 ? `${d}-00-00` : d.length === 7 ? `${d}-00` : d)
+/** Preview variants of the threatened count: a "12 threatened" on the stats line, b "12 globally threatened", c in
+ *  the Status panel instead. */
+const THREAT_VARIANTS = ['a', 'b', 'c'] as const
+type ThreatVariant = (typeof THREAT_VARIANTS)[number]
+/** The stats line's threatened part ("12 threatened", "1,200 globally threatened"); screen readers hear
+ *  `t.collage.stats.threatenedSr` after it: the categories it counts, which the visible line leaves to the Status panel. */
+function threatText(count: number, threat: ThreatVariant, t: Ui): string {
+  return fmt(threat === 'b' ? t.collage.stats.threatenedGlobal : t.collage.stats.threatened, { n: formatInt(count, t.num) })
+}
 /** How long a bird picked from the search wears its Accent ring. */
 const RING_MS = 1600
 /** The collage's glide to a new layout (640 ms) and a little slack: then a bird picked from outside the view is shown. */
@@ -65,9 +75,12 @@ const GLIDE_MS = 760
 /** How long an out-of-view pick waits for its layout before it lapses. */
 const PENDING_MS = 4000
 
-/** "197 species · 20 orders · 50 families · since Jan 2020", or "12 of 197 species · 3 families" when filtered, in `t`'s
- *  language. */
-export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex, t: Ui): string {
+/**
+ * "197 species · 20 orders · 50 families · 12 threatened · since Jan 2020", or "12 of 197 species · 3 families" when
+ * filtered, in `t`'s language. The threatened count (VU + EN + CR) is left out at 0 and in variant c; b reads
+ * "12 globally threatened".
+ */
+export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex, t: Ui, threat: ThreatVariant = 'a'): string {
   const ords = new Set<string>(), fams = new Set<string>()
   for (const e of shown) {
     const r = species.byCode.get(e.code)
@@ -82,6 +95,8 @@ export function statsLine(all: ListEntry[], shown: ListEntry[], species: Species
   let first: string | undefined
   for (const e of all) if (e.date && (!first || pad(e.date) < pad(first))) first = e.date
   const parts = [count(s.species, all.length), count(s.orders, ords.size), count(s.families, fams.size)]
+  const threatened = threat === 'c' ? 0 : threatenedCount(all, species)
+  if (threatened > 0) parts.push(threatText(threatened, threat, t))
   const since = formatMonth(first, t.date.months)
   if (since) parts.push(fmt(s.since, { date: since }))
   return parts.join(' · ')
@@ -121,7 +136,11 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const time = useMemo(() => ({ entries, months, today, onPreview }), [entries, months, today, onPreview])
   const fk = filterKey(filter)
   const shownList = useMemo(() => (fk ? applyFilter(entries, filter, species, seen) : entries), [entries, filter, fk, species, seen])
-  const stats = useMemo(() => statsLine(entries, shownList, species, t), [entries, shownList, species, t])
+  const threat = useVariant('threat', THREAT_VARIANTS)
+  const stats = useMemo(() => statsLine(entries, shownList, species, t, threat), [entries, shownList, species, t, threat])
+  // Variant c: the count moves to the Status panel.
+  const threatPart = useMemo(() => (threat === 'c' ? undefined : threatText(threatenedCount(entries, species), threat, t)), [threat, entries, species, t])
+  const threatLine = useMemo(() => (threat === 'c' ? threatenedCount(entries, species) : undefined), [threat, entries, species])
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
 
@@ -199,7 +218,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
       <p className="eb-mono eb-stats" data-testid="collage-stats">
         {/* Each part keeps its words on one line ("since May 2022" never splits); the line wraps between parts. */}
         {(statsPrefix ? `${statsPrefix} · ${stats}` : stats).split(' · ').map((part, i) => (
-          <Fragment key={i}>{i > 0 && ' · '}<span className="eb-stat">{part}</span></Fragment>
+          <Fragment key={i}>{i > 0 && ' · '}<span className="eb-stat">{part}{part === threatPart && <span className="eb-sr"> {t.collage.stats.threatenedSr}</span>}</span></Fragment>
         ))}
       </p>
       {notice}
@@ -214,7 +233,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
         filters={(inert) => (
-          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} />
+          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} threatLine={threatLine} />
         )}
       />
 

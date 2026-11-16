@@ -106,6 +106,9 @@ export const EN_UI = {
       orders: { one: '{n} order', other: '{n} orders' },
       families: { one: '{n} family', other: '{n} families' },
       since: 'since {date}',
+      threatened: '{n} threatened',
+      threatenedGlobal: '{n} globally threatened',
+      threatenedSr: '(Vulnerable, Endangered or Critically Endangered)',
     },
     /** The stage's placeholder while the first layout is packed. */
     arranging: 'arranging the stickers',
@@ -185,9 +188,10 @@ export const EN_UI = {
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
     /** The two buttons in the controls bar and their group. */
-    dock: 'Places and time',
+    dock: 'Places, time and status',
     places: 'Places',
     time: 'Time',
+    status: 'Status',
     clear: 'Clear',
     timeline: {
       /** Full month names, January first (the sliders' value text, the Time button's spoken text). */
@@ -232,6 +236,30 @@ export const EN_UI = {
     },
     /** Three or more places on the share image ("Canada and 2 more"; two are joined by " + " in code). */
     andMore: '{first} and {n} more',
+  },
+  /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
+   *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+  iucn: {
+    names: {
+      LC: 'Least Concern',
+      NT: 'Near Threatened',
+      VU: 'Vulnerable',
+      EN: 'Endangered',
+      CR: 'Critically Endangered',
+      EW: 'Extinct in the Wild',
+      EX: 'Extinct',
+      DD: 'Data Deficient',
+    },
+    threatened: 'Threatened',
+    tip: '{cat}, {name} (IUCN Red List)',
+  },
+  /** The Status panel (StatusList). {n} is formatted. */
+  status: {
+    head: 'Categories · {n}',
+    note: 'Global IUCN Red List categories. Birds without one are left out once you pick a category.',
+    threatenedNote: '{n} threatened: Vulnerable, Endangered or Critically Endangered.',
+    list: 'Categories',
+    none: 'No categories here under the other filters.',
   },
   /** The bird card and the hover tooltip (BirdCard, BirdTip), the list view (ListView), the marks (Marks) and the
    *  card's edit actions (EditBird). */
@@ -365,6 +393,30 @@ export const EN_UI = {
     oldLinkTitle: "{name}'s life list",
     /** The shared page's document title for a link without a title ({n} formatted). */
     untitledTitle: { one: 'A life list: {n} species', other: 'A life list: {n} species' },
+    /** The "Dark image" switch, and Download's short label in the row of quiet buttons. */
+    dark: 'Dark image',
+    downloadShort: 'Download',
+    /** Print mode (a poster in A1 to A4; the sizes, PNG, PDF and dpi stay as they are). */
+    print: {
+      print: 'Print',
+      entry: 'Print a poster',
+      size: 'Poster size',
+      sizeLine: '{size} · {w} × {h} cm · {pw} × {ph} px at 150 dpi',
+      make: 'Make poster',
+      making: 'Making the poster',
+      makingNote: 'Making the poster.',
+      again: 'Make again',
+      cancel: 'Cancel',
+      png: 'Download PNG',
+      pdf: 'Download PDF',
+      ready: 'Your {size} poster is ready.',
+      missing: { one: '1 sticker didn’t load and is drawn as an outline. Make the poster again to retry.', other: '{n} stickers didn’t load and are drawn as outlines. Make the poster again to retry.' },
+      soft: 'Some stickers come from smaller files for now, so the biggest birds may print a little soft.',
+      failedMemory: 'Couldn’t make the poster. Try a smaller size.',
+      failed: 'Couldn’t make the poster. Try again.',
+      back: 'Share images',
+      previewAlt: 'Preview of the {size} poster',
+    },
   },
   /** Settings > Your list (ImportPanel, SourceLine, SourceMenu, EbirdDrop, InatForm, NotCounted, MatchReport,
    *  SpeciesSearch, source-counts.ts) and the import jobs' messages (use-import-jobs.ts). eBird, MyEBirdData and

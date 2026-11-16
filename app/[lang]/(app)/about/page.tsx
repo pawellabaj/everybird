@@ -8,6 +8,7 @@ import { PageHead } from '@/components/app/PageHead'
 import { fmt, rich } from '@/i18n/core'
 import { getMessages, langParam } from '@/i18n/server'
 import { COFFEE_URL, pageSeo, siteTitle } from '@/lib/site-meta'
+import { AVILIST, IUCN_SOURCE } from '@/lib/species/iucn'
 import '@/components/app/app.css'
 import './about.css'
 
@@ -86,6 +87,11 @@ export default async function AboutPage({ params }: { params: Promise<{ lang: st
         <p className="eb-prose">{a.size.true}</p>
       </section>
 
+      <section className="eb-block" aria-labelledby="eb-status-h">
+        <h2 id="eb-status-h" className="eb-h2">{a.status.head}</h2>
+        <p className="eb-prose">{fmt(a.status.body, { source: IUCN_SOURCE })}</p>
+      </section>
+
       <section id="credits" className="eb-block" aria-labelledby="eb-credits-h" tabIndex={-1}>
         <h2 id="eb-credits-h" className="eb-h2">{c.head}</h2>
         <p className="eb-prose">
@@ -115,6 +121,9 @@ export default async function AboutPage({ params }: { params: Promise<{ lang: st
           </Credit>
           <Credit label={c.label.masses} title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
             {c.masses}
+          </Credit>
+          <Credit label={c.label.redList} title={<A href={AVILIST.doi}>AviList</A>}>
+            {rich(fmt(c.redList, { birdlife: AVILIST.birdlife, version: AVILIST.version, year: String(AVILIST.year) }), { cc: link('https://creativecommons.org/licenses/by/4.0/') })}
           </Credit>
           <Credit label={c.label.api} title={<A href="https://api.inaturalist.org/v1/docs/">iNaturalist</A>}>
             {c.api}

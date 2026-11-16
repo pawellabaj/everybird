@@ -24,7 +24,7 @@ const page = {
   /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
   about: {
     lede: "Everybird turns any birder's life list into a sticker collage.",
-    what: { head: 'What it is', body: 'Your life list is already the record of a lifetime of birds. Everybird lays it out as one collage: every species a sticker, sized by its body mass, with the count in the middle. Filter it by group, place or year, then share it as an image or a link.' },
+    what: { head: 'What it is', body: 'Your life list is already the record of a lifetime of birds. Everybird lays it out as one collage: every species a sticker, sized by its body mass, with the count in the middle. Filter it by group, place, year or conservation status, then share it as an image or a link.' },
     how: {
       head: 'How it works',
       steps: [
@@ -39,6 +39,10 @@ const page = {
       even: "Each sticker is sized from the bird's average body mass, from AVONET, by the area it covers on the page, so a peafowl's train or a heron's legs don't make it read small. The default evens sizes out: the area follows mass to the power of 0.4, so small birds stay visible next to big ones.",
       true: "True size uses the cube root of mass for length instead. Birds are roughly similar in density, so mass tracks volume, and its cube root tracks length: a bird eight times heavier is drawn about twice as long, covering four times the area. It's an estimate of relative size, not a measured length. Slim, long-necked birds can look a little small and chunky ones a little big, swimming poses hide part of the body, and each species uses one average mass, so males, females and seasons aren't told apart.",
     },
+    status: {
+      head: 'Conservation status',
+      body: "Each species' status is its global IUCN Red List category, from {source}. It is global, not regional: a bird common where you live can still be threatened worldwide, and the other way round. Species without a category show none.",
+    },
     credits: {
       head: 'Credits',
       madeBy: "Made by <you>Yusuf Taleb</you>. It grew out of the <life>life list on his site</life>, and is built from other people's generous work.",
@@ -49,6 +53,7 @@ const page = {
         inspiration: 'Inspiration',
         taxonomy: 'Taxonomy',
         masses: 'Body masses · CC BY 4.0',
+        redList: 'Red List categories · CC BY 4.0',
         api: 'API',
         countries: 'Country names · Public domain',
         regions: 'Region names · LGPL-2.1',
@@ -64,6 +69,7 @@ const page = {
       taxonomyTitle: 'eBird and Clements',
       taxonomy: 'Bird names, species and their order follow the eBird/Clements taxonomy, version {version}, from the Cornell Lab of Ornithology. eBird files are read in your browser.',
       masses: "Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu's species table.",
+      redList: "IUCN Red List categories as given for BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via huashu's species table, licensed <cc>CC BY 4.0</cc>. Everybird matched them to eBird species.",
       api: "Observations come from iNaturalist's public API, called straight from your browser, about once a second.",
       countries: 'Country names and most region names come from Natural Earth.',
       regions: "The rest of the state and province names come from Debian's iso-codes ISO 3166-2 data, used for names only.",

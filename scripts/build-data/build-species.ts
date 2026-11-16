@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { restrictToShipped } from '../sync/huashu-lib'
 import { assertRawPinned, readLock } from './huashu-pin'
+import { IUCN_SOURCE, parseIucn, type IucnCat } from '../../src/lib/species/iucn'
 import type {
   HuashuForm, HuashuRecord, Overrides, SpeciesFile, SpeciesRow, TaxonCategory, TaxonomyFile, TaxonRow,
 } from '../../src/lib/species/types'
@@ -48,12 +49,46 @@ const isSameTaxon = (p: { relation?: string }) => p.relation === undefined || SA
 
 /**
  * A match through a form: the parent record with the form's sticker in place of its own, and no traits (the mass is
- * the parent's taxon, not the form's, so the species keeps its family or order fallback). `form` names the taxon.
+ * the parent's taxon, not the form's, so the species keeps its family or order fallback). No conservation status
+ * either: the parent's category describes another taxon. `form` names the taxon.
  */
 export function formMatch(parent: HuashuRecord, f: HuashuForm): HuashuRecord {
   const rec: HuashuRecord = { ...parent, sticker: f.sticker, form: f.taxon }
   delete rec.traits
+  delete rec.conservation
   return rec
+}
+
+/** Only the species' own same-concept record can supply its global Red List category. */
+export function statusOf(rec: HuashuRecord | undefined): { iu?: IucnCat; why?: 'concept' | 'unknown' } {
+  const raw = rec?.conservation?.iucn
+  if (!rec || rec.form !== undefined || raw === undefined) return {}
+  if (rec.taxonConcept !== 'same') return { why: 'concept' }
+  const iu = parseIucn(raw)
+  return iu ? { iu } : { why: 'unknown' }
+}
+
+/**
+ * The status sources huashu cites (`conservation.sources.iucn`), distinct values with their record counts, most
+ * common first. About credits IUCN_SOURCE, so a new BirdLife or AviList release upstream must show up here.
+ */
+export function iucnSources(huashu: readonly HuashuRecord[]): [string, number][] {
+  const n = new Map<string, number>()
+  for (const h of huashu) {
+    const s = h.conservation?.sources?.iucn
+    if (typeof s === 'string') n.set(s, (n.get(s) ?? 0) + 1)
+  }
+  return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+}
+
+/**
+ * Whether every cited source names each version in the credit (`BirdLife v10`, `AviList v2026`), as a whole token:
+ * `v10` matches neither `v100` nor `v10.1`, but a trailing period (`v10.`) is fine. No cited source at all is not a match.
+ */
+export function creditMatchesSources(sources: readonly string[], credit: string = IUCN_SOURCE): boolean {
+  const versions = (credit.match(/[A-Za-z]+ v\d+(?:\.\d+)*/g) ?? [])
+    .map((v) => new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\.?\\d)`))
+  return versions.length > 0 && sources.length > 0 && sources.every((s) => versions.every((v) => v.test(s)))
 }
 
 // Pure crosswalk: which huashu record (and so which sticker file) belongs to each eBird species. A record matches an
@@ -129,6 +164,20 @@ export function buildSpecies(
   const { matches, multi, sciFallback, viaOverride: overrideHuashu, lumped, viaForm } = matchHuashu(huashu, taxonomy, overrides)
   const species = taxonomy.filter((t) => t.cat === 'species').sort((a, b) => a.to - b.to)
   const noSticker: string[] = [], massFallback: string[] = []
+  const statusConcept: string[] = [], statusUnknown: string[] = [], statusBorrowed: string[] = []
+  // A status is the record's taxon's. A record named by hand (an override) or matched by several eBird species may be
+  // a broader or another taxon, so neither lends its status (forms never carry one: formMatch drops it). An override
+  // refuses only its own species' status: the record's own species, matched without one, keeps it.
+  const users = new Map<string, string[]>() // huashu id -> eBird codes matched to it, not through a form or an override
+  for (const [code, rec] of matches) {
+    if (rec.form === undefined && !overrides[code]?.huashu) users.set(rec.id, [...(users.get(rec.id) ?? []), code])
+  }
+  const borrowedWhy = (t: TaxonRow, rec: HuashuRecord | undefined): string | undefined => {
+    if (!rec || rec.form !== undefined) return undefined
+    if (overrides[t.code]?.huashu) return `hand-named override -> huashu ${rec.id}`
+    const others = (users.get(rec.id) ?? []).filter((c) => c !== t.code)
+    return others.length ? `huashu ${rec.id} is also matched by ${others.join(', ')}` : undefined
+  }
 
   type Pre = { t: TaxonRow; rec?: HuashuRecord; g?: number; gSrc?: SpeciesRow['gSrc'] }
   const pre: Pre[] = species.map((t) => {
@@ -150,6 +199,11 @@ export function buildSpecies(
   }
 
   const rows: SpeciesRow[] = pre.map((p) => {
+    const borrowed = borrowedWhy(p.t, p.rec)
+    const { iu, why } = borrowed ? {} : statusOf(p.rec)
+    if (borrowed && p.rec?.conservation?.iucn !== undefined) statusBorrowed.push(`${p.t.code} (${p.t.com}): ${borrowed}, ${p.rec.conservation.iucn}`)
+    if (why === 'concept') statusConcept.push(`${p.t.code} (${p.t.com}): ${p.rec!.taxonConcept}, ${p.rec!.conservation!.iucn}`)
+    if (why === 'unknown') statusUnknown.push(`${p.t.code} (${p.t.com}): ${p.rec!.conservation!.iucn}`)
     let { g, gSrc } = p
     if (g === undefined) {
       const f = fams.get(p.t.fam ?? ''), o = ords.get(p.t.ord ?? '')
@@ -163,6 +217,7 @@ export function buildSpecies(
       ord: p.t.ord ?? '', fam: p.t.fam ?? '', famCom: p.t.famCom ?? '', to: p.t.to,
       g: g!, gSrc: gSrc!,
       st: !!p.rec?.sticker, ar: 1, q: !!p.rec?.sticker?.meetsQualityBar,
+      ...(iu ? { iu } : {}),
     }
   })
 
@@ -173,6 +228,8 @@ export function buildSpecies(
   const list = (title: string, items: string[]) =>
     `## ${title} (${items.length})\n\n${items.length ? items.map((i) => `- ${i}`).join('\n') : '_none_'}\n`
   const massCount = (s: string) => rows.filter((r) => r.gSrc === s).length
+  const sources = iucnSources(huashu)
+  const creditOk = creditMatchesSources(sources.map(([s]) => s))
   const report = [
     '# Crosswalk report', '',
     `- Species rows: ${rows.length}`,
@@ -181,6 +238,7 @@ export function buildSpecies(
     `- Multi-candidate choices: ${multi.length}; scientific-name fallbacks: ${sciFallback.length}; huashu orphans: ${orphans.length}`,
     `- From huashu forms (a subspecies drawing of that very taxon): ${viaForm.length}`,
     `- No sticker because huashu has them only inside another species (lumped): ${lumped.length}`,
+    `- With an IUCN status: ${rows.filter((r) => r.iu).length}; About's credit "${IUCN_SOURCE}" matches huashu's sources: ${creditOk ? 'yes' : 'NO, update IUCN_SOURCE and About'}`,
     '',
     list('Multi-candidate choices', multi),
     list('Scientific-name fallbacks', sciFallback),
@@ -189,6 +247,10 @@ export function buildSpecies(
     list('Override huashu records used', overrideHuashu),
     list('No sticker', noSticker),
     list('Mass fallbacks', massFallback),
+    list("No status: huashu's taxon is not eBird's", statusConcept),
+    list("No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species)", statusBorrowed),
+    list('Unrecognised IUCN values', statusUnknown),
+    list('IUCN status sources cited by huashu (records)', sources.map(([s, n]) => `${s}: ${n}`)),
     list('Huashu records matching no eBird species', orphans),
   ].join('\n')
 
@@ -263,7 +325,8 @@ function main() {
   assertRawPinned(manifest, lock) // data/raw must be at the commit the committed data was synced to
   const taxa = loadEbirdTaxonomy(resolve(raw, 'ebird-taxonomy.json'))
   const overrides = JSON.parse(readFileSync(resolve(process.cwd(), 'data/overrides.json'), 'utf8')) as Overrides
-  const { file, report } = buildSpecies(loadHuashu(resolve(raw, 'huashu')), taxa, overrides, manifest)
+  const huashu = loadHuashu(resolve(raw, 'huashu'))
+  const { file, report } = buildSpecies(huashu, taxa, overrides, manifest)
 
   const outDir = resolve(process.cwd(), 'public/data')
   mkdirSync(outDir, { recursive: true })
@@ -290,7 +353,9 @@ function main() {
   }
   writeFileSync(resolve(outDir, 'taxonomy.v1.json'), JSON.stringify(taxonomyFile))
   writeFileSync(resolve(process.cwd(), 'data/build/crosswalk-report.md'), report)
-  console.log(report.split('\n').slice(0, 8).join('\n'))
+  console.log(report.split('\n').slice(0, 9).join('\n'))
+  const sources = iucnSources(huashu).map(([s]) => s)
+  if (!creditMatchesSources(sources)) console.warn(`IUCN_SOURCE "${IUCN_SOURCE}" no longer matches huashu's sources (${sources.join('; ')}): update it and About's credit`)
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main()

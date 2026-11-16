@@ -81,6 +81,9 @@ export const es: Messages = {
         orders: { one: '{n} orden', other: '{n} órdenes' },
         families: { one: '{n} familia', other: '{n} familias' },
         since: 'desde {date}',
+        threatened: '{n} amenazadas',
+        threatenedGlobal: '{n} amenazadas a escala mundial',
+        threatenedSr: '(Vulnerable, En peligro o En peligro crítico)',
       },
       arranging: 'colocando los stickers',
       legend: {
@@ -146,9 +149,10 @@ export const es: Messages = {
       rank: { order: 'Órdenes', family: 'Familias', country: 'Países', year: 'Años' },
       choose: { order: 'Elige un orden', family: 'Elige una familia', country: 'Elige un país', year: 'Elige un año' },
       remove: 'Quitar el filtro {label}',
-      dock: 'Lugares y fechas',
+      dock: 'Lugares, fechas y estado',
       places: 'Lugares',
       time: 'Fechas',
+      status: 'Estado',
       clear: 'Borrar',
       timeline: {
         months: ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'],
@@ -181,6 +185,30 @@ export const es: Messages = {
         reimport: 'Lugares solo sabe dónde registraste cada ave por primera vez. <link>Vuelve a importar MyEBirdData</link> para filtrar por todos los lugares donde registraste cada ave.',
       },
       andMore: '{first} y {n} más',
+    },
+    /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
+     *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+    iucn: {
+      names: {
+        LC: 'Preocupación menor',
+        NT: 'Casi amenazada',
+        VU: 'Vulnerable',
+        EN: 'En peligro',
+        CR: 'En peligro crítico',
+        EW: 'Extinta en estado silvestre',
+        EX: 'Extinta',
+        DD: 'Datos insuficientes',
+      },
+      threatened: 'Amenazadas',
+      tip: '{cat}, {name} (Lista Roja de la UICN)',
+    },
+    /** The Status panel (StatusList). {n} is formatted. */
+    status: {
+      head: 'Categorías · {n}',
+      note: 'Categorías globales de la Lista Roja de la UICN. Las aves sin categoría se dejan fuera en cuanto eliges una.',
+      threatenedNote: '{n} amenazadas: Vulnerable, En peligro o En peligro crítico.',
+      list: 'Categorías',
+      none: 'No hay categorías aquí con los otros filtros.',
     },
     card: {
       close: 'Cerrar',
@@ -295,6 +323,30 @@ export const es: Messages = {
       latestLifer: 'Última especie nueva',
       oldLinkTitle: 'Lista de vida de {name}',
       untitledTitle: { one: 'Una lista de vida: {n} especie', other: 'Una lista de vida: {n} especies' },
+      /** The "Dark image" switch, and Download's short label in the row of quiet buttons. */
+      dark: 'Imagen oscura',
+      downloadShort: 'Descargar',
+      /** Print mode (a poster in A1 to A4; the sizes, PNG, PDF and dpi stay as they are). */
+      print: {
+        print: 'Imprimir',
+        entry: 'Imprimir un póster',
+        size: 'Tamaño del póster',
+        sizeLine: '{size} · {w} × {h} cm · {pw} × {ph} px a 150 dpi',
+        make: 'Crear póster',
+        making: 'Creando el póster',
+        makingNote: 'Creando el póster.',
+        again: 'Crear de nuevo',
+        cancel: 'Cancelar',
+        png: 'Descargar PNG',
+        pdf: 'Descargar PDF',
+        ready: 'Tu póster {size} está listo.',
+        missing: { one: '1 sticker no se cargó y se dibuja como contorno. Crea el póster de nuevo para reintentarlo.', other: '{n} stickers no se cargaron y se dibujan como contornos. Crea el póster de nuevo para reintentarlo.' },
+        soft: 'Algunos stickers vienen de archivos más pequeños por ahora, así que las aves más grandes pueden salir un poco borrosas.',
+        failedMemory: 'No se pudo crear el póster. Prueba con un tamaño más pequeño.',
+        failed: 'No se pudo crear el póster. Inténtalo de nuevo.',
+        back: 'Imágenes para compartir',
+        previewAlt: 'Vista previa del póster {size}',
+      },
     },
     import: {
       head: 'Tu lista',
@@ -471,7 +523,7 @@ export const es: Messages = {
     /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
     about: {
       lede: 'Everybird convierte la lista de vida de cualquier observador de aves en un collage de stickers.',
-      what: { head: 'Qué es', body: 'Tu lista de vida ya es el registro de toda una vida de aves. Everybird la dispone en un solo collage: cada especie es un sticker, con el tamaño según su masa corporal, y el recuento en el centro. Fíltrala por grupo, lugar o año y compártela como imagen o como enlace.' },
+      what: { head: 'Qué es', body: 'Tu lista de vida ya es el registro de toda una vida de aves. Everybird la dispone en un solo collage: cada especie es un sticker, con el tamaño según su masa corporal, y el recuento en el centro. Fíltrala por grupo, lugar, año o estado de conservación y compártela como imagen o como enlace.' },
       how: {
         head: 'Cómo funciona',
         steps: [
@@ -486,6 +538,10 @@ export const es: Messages = {
         even: 'El tamaño de cada sticker sale de la masa corporal media del ave, según AVONET, y se aplica al área que ocupa en la página, de modo que la cola de un pavo real o las patas de una garza no la hacen parecer pequeña. Por defecto los tamaños se igualan: el área sigue la masa elevada a 0,4, así que las aves pequeñas se siguen viendo junto a las grandes.',
         true: 'Tamaño real usa en cambio la raíz cúbica de la masa para la longitud. Las aves tienen una densidad parecida, así que la masa sigue al volumen y su raíz cúbica sigue a la longitud: un ave ocho veces más pesada se dibuja con el doble de largo y cubre cuatro veces el área. Es una estimación del tamaño relativo, no una longitud medida. Las aves esbeltas y de cuello largo pueden verse un poco pequeñas y las rechonchas un poco grandes, las posturas de nado ocultan parte del cuerpo y cada especie usa una sola masa media, así que no se distinguen machos, hembras ni estaciones.',
       },
+      status: {
+        head: 'Estado de conservación',
+        body: 'El estado de cada especie es su categoría global de la Lista Roja de la UICN, según {source}. Es global, no regional: un ave común donde vives puede estar amenazada en el mundo, y al revés. Las especies sin categoría no muestran ninguna.',
+      },
       credits: {
         head: 'Créditos',
         madeBy: 'Hecho por <you>Yusuf Taleb</you>. Surgió de la <life>lista de vida de su sitio</life> y está hecho con el generoso trabajo de otras personas.',
@@ -496,6 +552,7 @@ export const es: Messages = {
           inspiration: 'Inspiración',
           taxonomy: 'Taxonomía',
           masses: 'Masas corporales · CC BY 4.0',
+          redList: 'Categorías de la Lista Roja · CC BY 4.0',
           api: 'API',
           countries: 'Nombres de países · Dominio público',
           regions: 'Nombres de regiones · LGPL-2.1',
@@ -511,6 +568,7 @@ export const es: Messages = {
         taxonomyTitle: 'eBird y Clements',
         taxonomy: 'Los nombres de las aves, las especies y su orden siguen la taxonomía eBird/Clements, versión {version}, del Laboratorio de Ornitología de Cornell. Los archivos de eBird se leen en tu navegador.',
         masses: 'Los tamaños de los stickers usan masas corporales de AVONET (Tobias et al. 2022, Ecology Letters), a través de la tabla de especies de huashu.',
+        redList: 'Categorías de la Lista Roja de la UICN tal como aparecen para BirdLife {birdlife} en AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), a través de la tabla de especies de huashu, con licencia <cc>CC BY 4.0</cc>. Everybird las asoció con las especies de eBird.',
         api: 'Las observaciones vienen de la API pública de iNaturalist, a la que se llama directamente desde tu navegador, más o menos una vez por segundo.',
         countries: 'Los nombres de los países y de la mayoría de las regiones vienen de Natural Earth.',
         regions: 'El resto de los nombres de estados y provincias vienen de los datos ISO 3166-2 de iso-codes de Debian, usados solo para los nombres.',

@@ -88,4 +88,9 @@ describe('the landing sample pack', () => {
     expect(f.loc.nl.names.houspa).toBe('Huismus')
     expect(fromPackFile(f).loc).toBe(f.loc)
   })
+
+  it('the landing sample has no threatened species, so its stats line carries no threatened count (e2e/import.spec.ts)', () => {
+    const pack = JSON.parse(readFileSync(join(process.cwd(), 'public/data/sample-pack.v1.json'), 'utf8')) as SamplePackFile
+    expect(pack.species.filter((r) => r.iu === 'VU' || r.iu === 'EN' || r.iu === 'CR').map((r) => r.code)).toEqual([])
+  })
 })

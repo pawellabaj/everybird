@@ -125,7 +125,7 @@ describe.each(LANGS)('About, the page in %s', (lang) => {
       expect(within(credits).getAllByRole('link', { name }).length, name).toBeGreaterThan(0)
     }
     expect(within(credits).getByRole('link', { name: 'huashu-bird-sticker' })).toHaveAttribute('href', 'https://github.com/alchaincyf/huashu-bird-sticker')
-    expect(within(credits).getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
+    expect(within(credits).getAllByRole('link', { name: 'CC BY 4.0' })[0]).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
     expect(text(credits)).toMatch(/Cornell Lab of Ornithology|Laboratorio de Ornitología de Cornell/)
     // The steps' first link is Settings, in the language
     expect(within(main).getByRole('link', { name: m.ui.shell.nav.settings })).toHaveAttribute('href', '/settings')

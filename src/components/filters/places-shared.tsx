@@ -57,11 +57,11 @@ export function placeCountsFor(state: AppState, species: SpeciesIndex): PlaceCou
 }
 
 /**
- * What a drilled level with no places says: the other filters (taxonomy, time) left it none, or, with none set, the
+ * What a drilled level with no places says: the other filters (taxonomy, time, status) left it none, or, with none set, the
  * list no longer has a bird seen there (a source was removed or replaced since the panel drilled in).
  */
 export function emptyHere(f: Filter, t: Ui): string {
-  return f.order || f.family || f.year || f.from || f.to ? t.places.emptyFiltered : t.places.emptyNow
+  return f.order || f.family || f.year || f.from || f.to || f.statuses?.length ? t.places.emptyFiltered : t.places.emptyNow
 }
 
 /**

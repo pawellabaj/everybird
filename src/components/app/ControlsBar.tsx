@@ -1,13 +1,14 @@
 'use client'
 // The one horizontal bar above the filters, as LifeList's dock (framer-site), with Photography's search: Collage /
 // List tabs on the left; then four groups at even gaps: the view tabs | True size in collage view (or the list's
-// direction in list view) and Scientific | the Places and Time dropdowns (FilterDropdowns.tsx) | the magnifier. The
-// magnifier turns the dock into the search field (DockSearch.tsx); everything else sits under it, inert, while it is
-// open. Under 600px of bar the Places and Time buttons take a second row of their own, split evenly (app.css); under
+// direction in list view) and Scientific | the Places, Time and Status dropdowns (FilterDropdowns.tsx; Status only
+// when the list has Red List statuses) | the magnifier. The magnifier turns the dock into the search field
+// (DockSearch.tsx); everything else sits under it, inert, while it is open. Under 820px of bar (980px with Status) the
+// dropdowns take a second row of their own, under 600px split evenly (app.css); under
 // 460px the tabs are icons only; under 540px the switches shorten ("True", "Sci."; "Heaviest" in list view), and
-// under 330px and 310px everything tightens, so row one never breaks between 280 and 900px of bar (e2e
+// under 330px and 310px everything tightens, so row one never breaks between 280 and 1100px of bar (e2e
 // dock-sweep.spec). On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
-// one is the icons, the two switches (or "Heaviest") and the magnifier; row two Places and Time.
+// one is the icons, the two switches (or "Heaviest") and the magnifier; row two Places, Time and Status.
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, CollageIcon, ListIcon } from '@/components/collage/icons'
 import { useI18n } from '@/i18n/I18nProvider'

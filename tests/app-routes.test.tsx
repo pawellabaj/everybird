@@ -24,15 +24,15 @@ vi.mock('next/link', () => ({
 }))
 
 const fx = vi.hoisted(() => {
-  const sp = (code: string, com: string, sci: string, ord: string, fam: string, famCom: string, to: number, g: number) => ({
-    code, com, sci, ord, fam, famCom, to, g, gSrc: 'avonet', st: true, ar: 1, q: true,
+  const sp = (code: string, com: string, sci: string, ord: string, fam: string, famCom: string, to: number, g: number, iu?: string) => ({
+    code, com, sci, ord, fam, famCom, to, g, gSrc: 'avonet', st: true, ar: 1, q: true, ...(iu ? { iu } : {}),
   })
   const species = [
     sp('snogoo', 'Snow Goose', 'Anser caerulescens', 'Anseriformes', 'Anatidae', 'Ducks, Geese, and Waterfowl', 1, 2700),
-    sp('norfli', 'Northern Flicker', 'Colaptes auratus', 'Piciformes', 'Picidae', 'Woodpeckers', 2, 140),
-    sp('gilfli', 'Gilded Flicker', 'Colaptes chrysoides', 'Piciformes', 'Picidae', 'Woodpeckers', 3, 120),
+    sp('norfli', 'Northern Flicker', 'Colaptes auratus', 'Piciformes', 'Picidae', 'Woodpeckers', 2, 140, 'LC'),
+    sp('gilfli', 'Gilded Flicker', 'Colaptes chrysoides', 'Piciformes', 'Picidae', 'Woodpeckers', 3, 120, 'VU'),
     sp('amerob', 'American Robin', 'Turdus migratorius', 'Passeriformes', 'Turdidae', 'Thrushes', 4, 77),
-    sp('yerwar', 'Yellow-rumped Warbler', 'Setophaga coronata', 'Passeriformes', 'Parulidae', 'New World Warblers', 5, 12),
+    sp('yerwar', 'Yellow-rumped Warbler', 'Setophaga coronata', 'Passeriformes', 'Parulidae', 'New World Warblers', 5, 12, 'EN'),
   ]
   const taxa = [
     ...species.map((s) => ({ code: s.code, sci: s.sci, com: s.com, cat: 'species', to: s.to })),
@@ -156,6 +156,7 @@ async function drop(file: File) {
 beforeEach(() => {
   vi.stubGlobal('innerWidth', 1024)
   vi.stubGlobal('scrollTo', () => {})
+  vi.stubGlobal('scrollBy', () => {})
 })
 afterEach(() => {
   cleanup()
@@ -241,6 +242,44 @@ describe('the Collage page (/)', () => {
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Add birds' })).toHaveAttribute('href', '/settings')
     expect(screen.queryByRole('button', { name: 'Download CSV' })).toBeNull() // the downloads live on Settings
+  })
+})
+
+describe('the conservation status on /', () => {
+  const stored = (s: import('@/lib/list/storage').Saved) => {
+    s.records.ebird = ['snogoo', 'norfli', 'gilfli', 'amerob', 'yerwar'].map((code) => ({ code, source: 'ebird' as const, date: '2020-01-01', place: { country: 'CA' } }))
+  }
+
+  it('the stats line counts the threatened species (VU + EN + CR); the Status panel filters; the layout resolves the same birds', async () => {
+    await mount({ path: '/', stored })
+    await waitFor(() => expect(stats()).toHaveTextContent(/^5 species/))
+    // gilfli VU + yerwar EN; norfli LC and the two without a status don't count.
+    expect(stats()).toHaveTextContent('2 threatened (Vulnerable, Endangered or Critically Endangered)')
+    fireEvent.click(screen.getByTestId('filter-tab-status'))
+    const panel = screen.getByRole('dialog', { name: 'Status' })
+    expect(within(panel).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    fireEvent.click(within(panel).getByTestId('status-VU'))
+    fireEvent.click(within(panel).getByTestId('status-EN'))
+    await waitFor(() => expect(stats()).toHaveTextContent(/^2 of 5 species · 2 families$/))
+    expect(stats()).not.toHaveTextContent('threatened') // only on the unfiltered line
+    expect(screen.getByTestId('filter-tab-status')).toHaveTextContent('Status · 2')
+    // The list view shows what applyFilter (the layout client's resolve) returns for the same filter.
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    const shown = Array.from(document.querySelectorAll<HTMLElement>('.eb-lrow [data-code]')).map((b) => b.dataset.code).sort()
+    const { applyFilter } = await import('@/lib/list/filters')
+    const { buildSpeciesIndex } = await import('@/lib/species/load')
+    const index = buildSpeciesIndex(fx.species as never)
+    const entries = ['snogoo', 'norfli', 'gilfli', 'amerob', 'yerwar'].map((code) => ({ code, date: '2020-01-01', place: { country: 'CA' } }))
+    const resolved = applyFilter(entries as never, { statuses: ['VU', 'EN'] }, index).map((e) => e.code).sort()
+    expect(resolved).toEqual(['gilfli', 'yerwar'])
+    expect(shown).toEqual(resolved)
+  })
+
+  it('a list without a threatened species has no count on its stats line', async () => {
+    await mount({ path: '/', stored: (s) => { s.records.ebird = [{ code: 'norfli', source: 'ebird', date: '2020-01-01', place: { country: 'CA' } }] } })
+    await waitFor(() => expect(stats()).toHaveTextContent(/^1 species/))
+    expect(stats()).not.toHaveTextContent('threatened')
+    expect(screen.getByTestId('filter-tab-status')).toBeInTheDocument() // LC is a status
   })
 })
 

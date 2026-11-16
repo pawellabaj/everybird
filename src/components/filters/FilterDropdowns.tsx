@@ -1,6 +1,7 @@
 'use client'
-// Places and Time: two dropdown buttons in the controls bar, between Scientific and the search. Each button says what
-// it filters when active ("Places · 2", "Time · 2022–2024"), so the bar itself shows every active place or time filter;
+// Places, Time and Status: dropdown buttons in the controls bar, between Scientific and the search. Each button says
+// what it filters when active ("Places · 2", "Time · 2022–2024", "Status · 2"), so the bar itself shows every active
+// place, time or status filter;
 // taxonomy sits under the bar (wrapped chips; the "Choose an order" picker on phones). A button opens its panel (one at a time; a second tap, Esc or a press outside
 // closes it and focus returns to the button): a popover under the bar on wider screens, a bottom sheet on phones.
 // Filters apply live.
@@ -9,15 +10,17 @@
 //    each sorted by count; several places at any levels may be checked (the collage keeps species seen in ANY of them); Clear clears every level; a search field
 //    once a level has more than SEARCH_FROM rows. A list whose places are all lifer places says so (PlacesNote).
 //  - Time: the timeline (Timeline.tsx): month bars, a year axis, a range of months; Clear.
-import { CalendarBlank, CaretDown, GlobeHemisphereWest } from '@phosphor-icons/react'
+//  - Status (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
+//    species on the list has a status (or one is checked), as `hide` leaves out what a shared link doesn't carry.
+import { CalendarBlank, CaretDown, GlobeHemisphereWest, Leaf } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { regionsIn } from '@/lib/i18n-places'
-import { placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { placesSpoken, placesSummary, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
@@ -26,10 +29,11 @@ import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
 import { PlacesList } from './PlacesList'
 import type { PlacesNote } from './places-shared'
+import { StatusList } from './StatusList'
 import { Timeline } from './Timeline'
 import './filters.css'
 
-export type Panel = 'places' | 'time'
+export type Panel = 'places' | 'time' | 'status'
 // The lifer-only notice's kinds and the search field's threshold live with the Places panel (places-shared.tsx).
 export { SEARCH_FROM, type PlacesNote } from './places-shared'
 
@@ -41,34 +45,40 @@ type Props = {
   /** The open panel (one at a time), kept by the parent. */
   open: Panel | null
   onOpen: (p: Panel | null) => void
-  /** Buttons to leave out (a shared link that carries no places or dates). */
+  /** Buttons to leave out (a shared link that carries no places or dates). Status also hides itself on a list with no statuses. */
   hide?: readonly Panel[]
   placesNote?: PlacesNote
   /** The Time panel's timeline: the known entries, the whole list's months, today. */
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   /** The search covers the bar: the buttons are inert. */
   inert?: boolean
+  /** The list's threatened count for the Status panel's line (the `threat` variant c; otherwise on the stats line). */
+  threatLine?: number
 }
 
-/** The two panels, Places first; their names from `t.filters`. */
+/** The panels, Places first; their names from `t.filters`. */
 const panels = (t: Ui): { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] => [
   { id: 'places', label: t.filters.places, Icon: GlobeHemisphereWest },
   { id: 'time', label: t.filters.time, Icon: CalendarBlank },
+  { id: 'status', label: t.filters.status, Icon: Leaf },
 ]
 
-export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert }: Props) {
+export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert, threatLine }: Props) {
   const base = useId()
   const sheet = useIsSheet()
   const { lang, t } = useI18n()
   const { filter } = state
   const buttons = useRef<Partial<Record<Panel, HTMLButtonElement | null>>>({})
-  const shown = panels(t).filter((p) => !hide?.includes(p.id))
+  // Status only when some species on the list has one, or a category is checked (so it can be cleared).
+  const listHasStatus = useMemo(() => state.list.some((e) => species.byCode.get(e.code)?.iu), [state.list, species])
+  const hasStatus = listHasStatus || !!filter.statuses?.length
+  const shown = panels(t).filter((p) => !hide?.includes(p.id) && (p.id !== 'status' || hasStatus))
   const current = shown.find((p) => p.id === open)
   if (!shown.length) return null
   const onFilter = (f: Filter) => dispatch({ type: 'filter', filter: f })
 
-  const summary = (p: Panel) => (p === 'places' ? placesSummary(filter) : timeSummary(filter, t))
-  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, regionsIn(regions, lang)) : timeSpoken(filter, t))
+  const summary = (p: Panel) => (p === 'places' ? placesSummary(filter) : p === 'time' ? timeSummary(filter, t) : statusSummary(filter))
+  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, regionsIn(regions, lang)) : p === 'time' ? timeSpoken(filter, t) : statusSpoken(filter, t))
 
   return (
     <>
@@ -87,6 +97,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
               aria-haspopup="dialog"
               aria-label={said ? `${label}: ${said}` : label}
               data-active={s ? '' : undefined}
+              data-drop={id}
               data-testid={`filter-tab-${id}`}
               onClick={() => onOpen(open === id ? null : id)}
             >
@@ -112,6 +123,8 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
         >
           {current.id === 'places' ? (
             <PlacesList state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
+          ) : current.id === 'status' ? (
+            <StatusList state={state} species={species} threatLine={threatLine} onFilter={onFilter} />
           ) : (
             <Timeline
               entries={time.entries}

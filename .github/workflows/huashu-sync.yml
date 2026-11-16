@@ -170,7 +170,10 @@ jobs:
           fi
           d="$RUNNER_TEMP/everybird-stickers"
           git clone --quiet --depth 1 --filter=blob:none --sparse "https://x-access-token:${STICKERS_REPO_TOKEN}@github.com/yusuftaleb/everybird-stickers.git" "$d"
-          cp -R "$OUT/stickers/v1" "$d/"
+          mkdir -p "$d/v1"
+          for s in 128 384; do
+            if [ -d "$OUT/stickers/v1/$s" ]; then cp -R "$OUT/stickers/v1/$s" "$d/v1/"; fi
+          done
           cd "$d"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

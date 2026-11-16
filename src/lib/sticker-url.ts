@@ -8,9 +8,12 @@
 // original URLs byte for byte.
 export const STICKER_BASE = (process.env.NEXT_PUBLIC_STICKER_BASE || 'https://stickers.yusuftaleb.com').replace(/\/+$/, '')
 export const SMALL = 128, LARGE = 384
+export const PRINT = 1024
+export const PRINT_FROM = 440
+export type StickerSize = typeof SMALL | typeof LARGE | typeof PRINT
 
 /** The file's path under the sticker base: `v1/128/crowa.webp`, or `v1/128/crowa.<sv>.webp` for a versioned sticker. */
-export function stickerPath(code: string, size: typeof SMALL | typeof LARGE, sv?: string): string {
+export function stickerPath(code: string, size: StickerSize, sv?: string): string {
   return `v1/${size}/${code}${sv ? `.${sv}` : ''}.webp`
 }
 
@@ -26,4 +29,13 @@ export function stickerUrl(code: string, cssPx: number, dpr: number, sv?: string
 export function stickerSrcSet(code: string, ar: number, sv?: string): string {
   const wf = Math.min(1, ar > 0 ? ar : 1)
   return `${STICKER_BASE}/${stickerPath(code, SMALL, sv)} ${Math.round(SMALL * wf)}w, ${STICKER_BASE}/${stickerPath(code, LARGE, sv)} ${Math.round(LARGE * wf)}w`
+}
+
+/** Print uses device pixels, with a same-species 384 fallback only for the R2-only print tier. */
+export function printStickerUrl(code: string, devicePx: number, sv?: string): { url: string; fallback: string | null } {
+  const size = devicePx <= SMALL ? SMALL : devicePx <= PRINT_FROM ? LARGE : PRINT
+  return {
+    url: `${STICKER_BASE}/${stickerPath(code, size, sv)}`,
+    fallback: size === PRINT ? `${STICKER_BASE}/${stickerPath(code, LARGE, sv)}` : null,
+  }
 }

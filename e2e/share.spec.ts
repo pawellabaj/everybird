@@ -211,7 +211,7 @@ test("Show latest lifer: on by default; off draws no latest lifer row, on draws 
   const clear = () => page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
   const sw = dialog.getByRole("switch", { name: "Show latest lifer" });
   await expect(sw).toHaveAttribute("aria-checked", "true");
-  // The dialog's last line: a plain Buy me a coffee link (never on the image).
+  // Bottom right of the controls: Buy Me a Coffee's static button image, its alt the link's name (never on the image).
   await expect(dialog.getByRole("link", { name: "Buy me a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
   await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
   await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
@@ -381,7 +381,7 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
           midY: b.y + b.height / 2, midX: b.x + b.width / 2, boxR: b.right,
           share: [share.x, share.y, share.width, share.height].map(Math.round).join(","),
           sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - formats.right, col: col.width, segX: seg.x, segY: seg.y,
-          swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
+          swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
           bw: box.clientWidth, bh: box.clientHeight, iw: img.getBoundingClientRect().width, ih: img.getBoundingClientRect().height,
           icons: getComputedStyle(icon).display !== "none",
         };
@@ -410,13 +410,14 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       }
       seen.push({ format, col: m.col, icons: m.icons, segX: m.segX, segY: m.segY, midY: m.midY, midX: m.midX, boxR: m.boxR, share: m.share });
       if (shots) {
+        const dark = dialog.getByRole("switch", { name: "Dark image" });
         for (const theme of ["light", "dark"]) {
-          await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+          if ((await dark.getAttribute("aria-checked")) !== String(theme === "dark")) await dark.click();
           await page.waitForTimeout(300); // the image re-renders in the theme
           await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
           await dialog.screenshot({ path: `${shots}/after-share-${width}-${format.toLowerCase()}-${theme}-${info.project.name}.png` });
         }
-        await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+        if ((await dark.getAttribute("aria-checked")) === "true") await dark.click();
       }
     }
     for (const s of seen.slice(1)) {
@@ -447,7 +448,7 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       const words = [...d.querySelectorAll(".eb-seg-label")].map((l) => l.getBoundingClientRect());
       const btns = [...d.querySelectorAll(".eb-seg-btn")].map((l) => l.getBoundingClientRect());
       return {
-        sw: d.scrollWidth, cw: d.clientWidth, swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
+        sw: d.scrollWidth, cw: d.clientWidth, swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
         wordOver: Math.max(...words.map((w, i) => Math.max(btns[i].left - w.left, w.right - btns[i].right))),
       };
     });

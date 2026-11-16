@@ -2,6 +2,7 @@
 // No file or network access here, so the unit tests (tests/huashu-sync.test.ts) cover all of it.
 import { createHash } from 'node:crypto'
 import type { HuashuRecord, SpeciesRow } from '../../src/lib/species/types'
+import { IUCN_SOURCE } from '../../src/lib/species/iucn'
 
 export const HUASHU_REPO = 'https://github.com/alchaincyf/huashu-bird-sticker'
 export const SPECIES_JSON = 'data/species.json'
@@ -49,9 +50,10 @@ export function parseLsTree(text: string): Map<string, string> {
 }
 
 /**
- * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, and the forms the
- * crosswalk can match by their former species), as a digest. A record without forms digests as it did before forms
- * were read, so only records with forms changed digest when they were added.
+ * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, forms and raw
+ * IUCN status and its cited source), as a digest. Optional forms, status and source are appended only when present,
+ * preserving older digests for records without them. Digest the raw status so a possibly-extinct flag change is
+ * build-relevant too.
  */
 export function recordDigest(h: HuashuRecord): string {
   const fields: unknown[] = [
@@ -62,6 +64,9 @@ export function recordDigest(h: HuashuRecord): string {
   if (h.forms?.length) {
     fields.push(h.forms.map((f) => [f.formerSpecies?.scientificName ?? null, f.sticker ? [f.sticker.file, !!f.sticker.meetsQualityBar] : null]))
   }
+  if (h.conservation?.iucn !== undefined) fields.push(['iucn', h.conservation.iucn])
+  // The cited source (a new BirdLife or AviList release) is build-relevant too: About's credit names its versions.
+  if (h.conservation?.sources?.iucn !== undefined) fields.push(['iucnSource', h.conservation.sources.iucn])
   return createHash('sha256').update(JSON.stringify(fields)).digest('hex').slice(0, 12)
 }
 
@@ -160,11 +165,12 @@ export function restrictToShipped(rows: SpeciesRow[], shipped: Record<string, st
 }
 
 /** Thresholds past which a diff looks like an upstream schema change rather than real edits. */
-export const LIMITS = { removed: 0.05, mass: 0.2, recordsLost: 0.2, malformed: 0.5 } as const
+export const LIMITS = { removed: 0.05, mass: 0.2, statusLost: 0.2, recordsLost: 0.2, malformed: 0.5 } as const
 
 /**
  * Reasons to stop instead of shipping: more than 5% of the published stickers removed, more than 20% of the species'
- * masses changed, more than 20% of the species.json records gone, or most records missing the fields the build reads.
+ * masses changed, more than 20% of the species that had an IUCN status losing it (a renamed `conservation.iucn`
+ * would drop every one), more than 20% of the species.json records gone, or most records missing the fields the build reads.
  * Empty when the diff looks like ordinary edits.
  */
 export function implausible(o: {
@@ -177,6 +183,9 @@ export function implausible(o: {
   const before = new Map(o.prevRows.map((r) => [r.code, r.g]))
   const mass = o.rows.filter((r) => before.has(r.code) && before.get(r.code) !== r.g).length
   if (o.rows.length && mass / o.rows.length > LIMITS.mass) out.push(`${mass} of ${o.rows.length} species masses would change (over ${LIMITS.mass * 100}%)`)
+  const hadStatus = new Set(o.prevRows.filter((r) => r.iu).map((r) => r.code))
+  const lost = o.rows.filter((r) => hadStatus.has(r.code) && !r.iu).length
+  if (hadStatus.size && lost / hadStatus.size > LIMITS.statusLost) out.push(`${lost} of ${hadStatus.size} species with an IUCN status would lose it (over ${LIMITS.statusLost * 100}%)`)
   if (o.huashu) {
     const n = o.huashu.length
     if (o.prevRecords && n < o.prevRecords * (1 - LIMITS.recordsLost)) out.push(`species.json has ${n} records, down from ${o.prevRecords}`)
@@ -208,8 +217,8 @@ export function nextVersions(prev: Record<string, string>, changes: readonly Sti
 }
 
 /**
- * Data changes other than the sticker itself, per code: mass (and its source), names, and the quality bar (unless the
- * sticker itself came or went, which the sticker change already says).
+ * Data changes other than the sticker itself, per code: mass (and its source), names, IUCN status, and the quality
+ * bar (unless the sticker itself came or went, which the sticker change already says).
  */
 export type RowChange = { code: string; fields: string[] }
 export function diffRows(prev: readonly SpeciesRow[], next: readonly SpeciesRow[]): RowChange[] {
@@ -222,6 +231,7 @@ export function diffRows(prev: readonly SpeciesRow[], next: readonly SpeciesRow[
     if (p.g !== r.g || p.gSrc !== r.gSrc) f.push(`mass ${fmtG(p.g)} (${p.gSrc}) → ${fmtG(r.g)} (${r.gSrc})`)
     if (p.q !== r.q && p.st === r.st) f.push(`quality bar ${p.q ? 'met' : 'not met'} → ${r.q ? 'met' : 'not met'}`)
     if (p.com !== r.com || p.sci !== r.sci) f.push(`name ${p.com} → ${r.com}`)
+    if (p.iu !== r.iu) f.push(`status ${p.iu ?? 'none'} → ${r.iu ?? 'none'}`)
     if (f.length) out.push({ code: r.code, fields: f })
   }
   return out
@@ -238,11 +248,16 @@ export type Summary = {
   /** Rebuilt stickers left for a later sync by the cap, and the cap. */
   deferred: number
   cap: number
+  /** The Red List sources huashu cites (with record counts) and whether About's credit (IUCN_SOURCE) still names their
+   * versions; only when the run read species.json. */
+  iucnCredit?: IucnCredit
 }
+export type IucnCredit = { sources: [string, number][]; ok: boolean }
 
 export function summarise(o: {
   from: string; to: string; stickers: readonly StickerChange[]; rows: readonly RowChange[]; records: RecordChanges
   names: ReadonlyMap<string, string>; website: ReadonlySet<string>; files: string[]; deferred?: number; cap?: number
+  iucnCredit?: IucnCredit
 }): Summary {
   const entries: SummaryEntry[] = []
   const rowsBy = new Map(o.rows.map((r) => [r.code, r.fields]))
@@ -257,7 +272,8 @@ export function summarise(o: {
   }
   const order = { changed: 0, new: 1, removed: 2, data: 3 }
   entries.sort((a, b) => order[a.kind] - order[b.kind] || (a.com < b.com ? -1 : a.com > b.com ? 1 : 0))
-  return { from: o.from, to: o.to, repo: HUASHU_REPO, entries, records: o.records, files: o.files, deferred: o.deferred ?? 0, cap: o.cap ?? 0 }
+  return { from: o.from, to: o.to, repo: HUASHU_REPO, entries, records: o.records, files: o.files, deferred: o.deferred ?? 0, cap: o.cap ?? 0,
+    ...(o.iucnCredit ? { iucnCredit: o.iucnCredit } : {}) }
 }
 const base = (p: string) => p.split('/').pop()!
 
@@ -272,6 +288,20 @@ export const TABLE_MAX = 300
 export const BODY_MAX = 60_000
 
 export type SheetInfo = { pages: number; rows: number }
+
+const creditLine = (c: IucnCredit) => {
+  const cited = c.sources.map(([src, k]) => `${src}: ${k}`).join('; ') || 'none'
+  return `- About's Red List credit ("${IUCN_SOURCE}"): ${c.ok ? `matches huashu's sources (${cited})` : `**does not match** huashu's sources (${cited}): update AVILIST in src/lib/species/iucn.ts (IUCN_SOURCE and About read it). This alone opens a sync PR; merging it records the new upstream commit (species.v1.json's huashuCommit, the data-file hashes), so later runs won't repeat it`}`
+}
+
+/**
+ * Whether a run that got this far opens a PR: it ships stickers, changes rows, or finds About's Red List credit no
+ * longer matching huashu's cited sources (a new BirdLife or AviList release with no category moved would otherwise
+ * go quiet every week while the credit goes stale).
+ */
+export function shouldOpenPr(o: { ship: readonly unknown[]; rowChanges: readonly unknown[]; iucnCredit?: IucnCredit }): boolean {
+  return o.ship.length > 0 || o.rowChanges.length > 0 || o.iucnCredit?.ok === false
+}
 
 /**
  * The pull request's body. ARTIFACT_URL stands for the run's artifact (summary.json and the paged before/after
@@ -289,9 +319,10 @@ export function renderPrBody(s: Summary, o: { sheets?: SheetInfo | null; tableMa
     '',
     `- Stickers: ${n.changed} changed, ${n.new} new, ${n.removed} removed (removed ones draw the outline)`,
     ...(s.deferred ? [`- Left for the next sync: ${s.deferred} more rebuilt stickers (this run ships at most ${s.cap}; merge this PR and the next run continues)`] : []),
-    `- Other data (mass, quality bar): ${n.data} species`,
+    `- Other data (mass, names, quality bar, status): ${n.data} species`,
     `- huashu records with build-relevant changes: ${s.records.changed.length} changed, ${s.records.added.length} added, ${s.records.removed.length} removed`,
     `- On the website's /lifelist: ${web.length ? web.map((e) => `\`${e.code}\``).join(', ') : 'none'}`,
+    ...(s.iucnCredit ? [creditLine(s.iucnCredit)] : []),
     '',
     `Artifacts: [summary.json and the before/after sheets](${ARTIFACT_URL})${o.sheets ? ` (old and new 128 px sticker side by side, ${o.sheets.rows} rows on ${o.sheets.pages} page${o.sheets.pages === 1 ? '' : 's'})` : ''}; kept 30 days.`,
     '',

@@ -21,6 +21,8 @@ const ALLOW_SAME = [
   '{head}: {parts}.', '{head}, {all}.',
   // About's credits: es and nl keep "Stickers" and "API" as they are; nl "Credits" and "Code".
   'Stickers · CC BY 4.0', 'API', 'Credits', 'Code · MIT',
+  // Red List: es "Vulnerable" and nl "Status" are the same word as English.
+  'Vulnerable', 'Status',
 ]
 
 const OTHERS = { es, pt, nl } as const

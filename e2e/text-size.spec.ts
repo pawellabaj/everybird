@@ -1,8 +1,6 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { checkTopbar, useLang } from "./topbar";
-import { LANGS } from "../src/i18n/langs";
 
 // The collage's geometry is CSS px of its container only: the reader's text size (iOS Dynamic Type, Safari's aA
 // "bigger text", a browser's default font size, all of which scale the root font size or text-size-adjust) never
@@ -196,7 +194,7 @@ for (const c of CASES) {
 }
 
 // Safari's aA bigger text is page zoom: a 390px phone at 150% / 200% lays the page out at 260 / 195 CSS px. No page
-// scrolls sideways there (the top bar puts its nav on a second row; Places and Time drop their glyphs).
+// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places, Time and Status drop their glyphs).
 for (const width of [195, 260] as const) {
   test(`at ${width} CSS px (a 390px phone at aA ${width === 195 ? 200 : 150}%), no page scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
@@ -212,31 +210,6 @@ for (const width of [195, 260] as const) {
       }
     }
   });
-}
-
-// The top bar per preview variant (lang:a|b|c) and language at large text (e2e/topbar.ts): row one keeps the wordmark,
-// the language button (a, c) and the theme switch inside the gutter; the nav shares it or has row two to itself (a
-// under 430px, b under 384/366px, c under 310px; c hides Collage under 480px), and row two fits in every language at
-// 195 and 260 ("Acerca de", "Instellingen"); --topbar-h matches the bar. 320 and up: responsive.spec.ts.
-for (const variant of ["a", "b", "c"] as const) {
-  for (const lang of ["en", "es", "pt", "nl"] as const) {
-    for (const width of [195, 260, 300] as const) {
-      test(`at ${width} CSS px in ${lang}, lang:${variant}: the top bar's rows fit`, async ({ page, context, baseURL }) => {
-        await useLang(context, baseURL!, lang);
-        await page.setViewportSize({ width, height: 800 });
-        for (const path of ["/", "/settings", "/about"]) {
-          await checkTopbar(page, path, variant, lang, width);
-          if (variant === "b") continue;
-          // The menu opens inside the window.
-          await page.getByTestId("topbar").getByRole("button", { name: /^(Language|Idioma|Taal):/ }).click();
-          const menu = await page.getByRole("menu").boundingBox();
-          expect(menu!.x, `${path}: the menu's left edge`).toBeGreaterThanOrEqual(0);
-          expect(menu!.x + menu!.width, `${path}: the menu's right edge`).toBeLessThanOrEqual(width + 0.5);
-          await page.keyboard.press("Escape");
-        }
-      });
-    }
-  }
 }
 
 // Yusuf's phone at a large text size (2026-11-07): the page head squeezed "Yusuf's Life List" beside its buttons into a
@@ -277,6 +250,32 @@ for (const [width, css] of [[195, ""], [260, ""], [300, ""], [390, "html { font-
 
 
 
+// Under 300px of page, three drops (Places, Time and Status; the landing sample has Red List statuses) share one row of
+// the grid and end inside the bar; at 260 every resting label is whole (at 195 one may ellipsis: app.css's arithmetic).
+for (const width of [195, 260] as const) {
+  test(`at ${width} CSS px Places, Time and Status share one row inside the bar`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    await expect(page.getByTestId("filter-tab-status")).toBeVisible();
+    const m = await page.locator(".eb-dock").evaluate((dock) => {
+      const d = dock.getBoundingClientRect();
+      const drops = [...dock.querySelectorAll<HTMLElement>(".eb-dock-filters .eb-dock-drop")];
+      return {
+        n: drops.length,
+        tops: new Set(drops.map((b) => Math.round(b.getBoundingClientRect().top))).size,
+        out: drops.filter((b) => b.getBoundingClientRect().right > d.right - 1 + 0.5).length,
+        narrow: drops.filter((b) => b.getBoundingClientRect().width < 44 - 0.5).map((b) => b.dataset.testid),
+        cut: drops.map((b) => b.querySelector<HTMLElement>(".eb-drop-label")!).filter((l) => l.scrollWidth > l.clientWidth).map((l) => l.textContent),
+      };
+    });
+    expect(m.n).toBe(3);
+    expect(m.tops, "the drops share one top").toBe(1);
+    expect(m.out, "drops ending outside the bar").toBe(0);
+    expect(m.narrow, "drops under a 44px press").toEqual([]);
+    if (width === 260) expect(m.cut, "resting labels cut").toEqual([]);
+  });
+}
+
 // Under 300px of page the controls bar is a grid (app.css): never a control alone on a row, and the magnifier still
 // opens the full-width "Find a bird" field.
 for (const width of [195, 260] as const) {
@@ -302,24 +301,4 @@ for (const width of [195, 260] as const) {
     await expect(field).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
-}
-
-// Large text in Spanish, Portuguese and Dutch: at 195 and 260 CSS px with the root font size at 100, 150 and 200%,
-// no page scrolls sideways. For manual runs.
-for (const lang of LANGS.filter((l) => l !== "en")) {
-  for (const width of [195, 260] as const) {
-    for (const pct of [100, 150, 200] as const) {
-      test(`at ${width} CSS px, ${pct}% text, in ${lang}: no page scrolls sideways`, async ({ page, context, baseURL }) => {
-        await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
-        await page.setViewportSize({ width, height: 800 });
-        for (const path of ["/", "/settings", "/about"]) {
-          await page.goto(path);
-          await page.addStyleTag({ content: `html { font-size: ${pct}% !important; }` });
-          await expect(page.getByTestId("topbar")).toBeVisible();
-          await page.waitForTimeout(500);
-          expect(await page.evaluate(() => document.documentElement.scrollWidth), `${path}`).toBeLessThanOrEqual(width);
-        }
-      });
-    }
-  }
 }

@@ -81,6 +81,9 @@ export const pt: Messages = {
         orders: { one: '{n} ordem', other: '{n} ordens' },
         families: { one: '{n} família', other: '{n} famílias' },
         since: 'desde {date}',
+        threatened: '{n} ameaçadas',
+        threatenedGlobal: '{n} ameaçadas no mundo',
+        threatenedSr: '(Vulnerável, Em perigo ou Criticamente em perigo)',
       },
       arranging: 'organizando os adesivos',
       legend: {
@@ -146,9 +149,10 @@ export const pt: Messages = {
       rank: { order: 'Ordens', family: 'Famílias', country: 'Países', year: 'Anos' },
       choose: { order: 'Escolha uma ordem', family: 'Escolha uma família', country: 'Escolha um país', year: 'Escolha um ano' },
       remove: 'Remover o filtro {label}',
-      dock: 'Lugares e datas',
+      dock: 'Lugares, datas e situação',
       places: 'Lugares',
       time: 'Datas',
+      status: 'Situação',
       clear: 'Limpar',
       timeline: {
         months: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
@@ -181,6 +185,30 @@ export const pt: Messages = {
         reimport: 'Lugares só sabe onde você registrou cada ave pela primeira vez. <link>Importe o MyEBirdData de novo</link> para filtrar por todos os lugares onde você registrou cada ave.',
       },
       andMore: '{first} e mais {n}',
+    },
+    /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
+     *  Vulnerable + Endangered + Critically Endangered, and the card pill's accessible name ({cat} the code). */
+    iucn: {
+      names: {
+        LC: 'Pouco preocupante',
+        NT: 'Quase ameaçada',
+        VU: 'Vulnerável',
+        EN: 'Em perigo',
+        CR: 'Criticamente em perigo',
+        EW: 'Extinta na natureza',
+        EX: 'Extinta',
+        DD: 'Dados insuficientes',
+      },
+      threatened: 'Ameaçadas',
+      tip: '{cat}, {name} (Lista Vermelha da IUCN)',
+    },
+    /** The Status panel (StatusList). {n} is formatted. */
+    status: {
+      head: 'Categorias · {n}',
+      note: 'Categorias globais da Lista Vermelha da IUCN. As aves sem categoria ficam de fora assim que você escolhe uma.',
+      threatenedNote: '{n} ameaçadas: Vulnerável, Em perigo ou Criticamente em perigo.',
+      list: 'Categorias',
+      none: 'Nenhuma categoria aqui com os outros filtros.',
     },
     card: {
       close: 'Fechar',
@@ -295,6 +323,30 @@ export const pt: Messages = {
       latestLifer: 'Última espécie nova',
       oldLinkTitle: 'Lista de vida de {name}',
       untitledTitle: { one: 'Uma lista de vida: {n} espécie', other: 'Uma lista de vida: {n} espécies' },
+      /** The "Dark image" switch, and Download's short label in the row of quiet buttons. */
+      dark: 'Imagem escura',
+      downloadShort: 'Baixar',
+      /** Print mode (a poster in A1 to A4; the sizes, PNG, PDF and dpi stay as they are). */
+      print: {
+        print: 'Imprimir',
+        entry: 'Imprimir um pôster',
+        size: 'Tamanho do pôster',
+        sizeLine: '{size} · {w} × {h} cm · {pw} × {ph} px a 150 dpi',
+        make: 'Criar pôster',
+        making: 'Criando o pôster',
+        makingNote: 'Criando o pôster.',
+        again: 'Criar de novo',
+        cancel: 'Cancelar',
+        png: 'Baixar PNG',
+        pdf: 'Baixar PDF',
+        ready: 'Seu pôster {size} está pronto.',
+        missing: { one: '1 adesivo não carregou e foi desenhado como contorno. Crie o pôster de novo para tentar outra vez.', other: '{n} adesivos não carregaram e foram desenhados como contornos. Crie o pôster de novo para tentar outra vez.' },
+        soft: 'Alguns adesivos vêm de arquivos menores por enquanto, então as aves maiores podem sair um pouco borradas.',
+        failedMemory: 'Não foi possível criar o pôster. Tente um tamanho menor.',
+        failed: 'Não foi possível criar o pôster. Tente de novo.',
+        back: 'Imagens para compartilhar',
+        previewAlt: 'Prévia do pôster {size}',
+      },
     },
     import: {
       head: 'Sua lista',
@@ -471,7 +523,7 @@ export const pt: Messages = {
     /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
     about: {
       lede: 'O Everybird transforma a lista de vida de qualquer observador de aves em uma colagem de adesivos.',
-      what: { head: 'O que é', body: 'Sua lista de vida já é o registro de uma vida inteira de aves. O Everybird a organiza em uma única colagem: cada espécie é um adesivo, com o tamanho dado pela massa corporal, e a contagem no centro. Filtre por grupo, lugar ou ano e compartilhe como imagem ou link.' },
+      what: { head: 'O que é', body: 'Sua lista de vida já é o registro de uma vida inteira de aves. O Everybird a organiza em uma só colagem: cada espécie é um adesivo, com o tamanho segundo sua massa corporal, e a contagem no centro. Filtre por grupo, lugar, ano ou situação de conservação e compartilhe como imagem ou como link.' },
       how: {
         head: 'Como funciona',
         steps: [
@@ -486,6 +538,10 @@ export const pt: Messages = {
         even: 'O tamanho de cada adesivo vem da massa corporal média da ave, segundo o AVONET, aplicada à área que ele ocupa na página, para que a cauda de um pavão ou as pernas de uma garça não o façam parecer pequeno. O padrão equilibra os tamanhos: a área acompanha a massa elevada a 0,4, e assim as aves pequenas continuam visíveis ao lado das grandes.',
         true: 'O Tamanho real usa a raiz cúbica da massa para o comprimento. As aves têm densidade parecida, então a massa acompanha o volume e sua raiz cúbica acompanha o comprimento: uma ave oito vezes mais pesada é desenhada com cerca do dobro do comprimento e cobre quatro vezes a área. É uma estimativa do tamanho relativo, não um comprimento medido. Aves esguias e de pescoço comprido podem parecer um pouco pequenas e as robustas um pouco grandes, poses de nado escondem parte do corpo e cada espécie usa uma única massa média, então machos, fêmeas e estações não se distinguem.',
       },
+      status: {
+        head: 'Situação de conservação',
+        body: 'A situação de cada espécie é sua categoria global da Lista Vermelha da IUCN, segundo {source}. Ela é global, não regional: uma ave comum onde você mora pode estar ameaçada no mundo, e o contrário também. Espécies sem categoria não mostram nenhuma.',
+      },
       credits: {
         head: 'Créditos',
         madeBy: 'Feito por <you>Yusuf Taleb</you>. Ele nasceu da <life>lista de vida do site dele</life> e é construído com o generoso trabalho de outras pessoas.',
@@ -496,6 +552,7 @@ export const pt: Messages = {
           inspiration: 'Inspiração',
           taxonomy: 'Taxonomia',
           masses: 'Massas corporais · CC BY 4.0',
+          redList: 'Categorias da Lista Vermelha · CC BY 4.0',
           api: 'API',
           countries: 'Nomes de países · Domínio público',
           regions: 'Nomes de regiões · LGPL-2.1',
@@ -511,6 +568,7 @@ export const pt: Messages = {
         taxonomyTitle: 'eBird e Clements',
         taxonomy: 'Os nomes das aves, as espécies e a ordem delas seguem a taxonomia eBird/Clements, versão {version}, do Cornell Lab of Ornithology. Os arquivos do eBird são lidos no seu navegador.',
         masses: 'Os tamanhos dos adesivos usam massas corporais do AVONET (Tobias et al. 2022, Ecology Letters), pela tabela de espécies do huashu.',
+        redList: 'Categorias da Lista Vermelha da IUCN como constam para a BirdLife {birdlife} no AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), pela tabela de espécies do huashu, com licença <cc>CC BY 4.0</cc>. O Everybird as associou às espécies do eBird.',
         api: 'As observações vêm da API pública do iNaturalist, chamada direto do seu navegador, cerca de uma vez por segundo.',
         countries: 'Os nomes dos países e da maioria das regiões vêm do Natural Earth.',
         regions: 'O restante dos nomes de estados e províncias vem dos dados ISO 3166-2 do iso-codes do Debian, usados apenas para os nomes.',

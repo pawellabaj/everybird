@@ -96,8 +96,9 @@ Fix the override, wait for upstream, or (if the change is real) run the workflow
   limit; `summary.json` has every entry).
 - An artifact `huashu-sync-<commit>` (linked from the PR body, kept 30 days): `summary.json` and
   `sheets/sheet-NNN.png`, the old and new 128 px sticker side by side, 60 rows a page, website species first.
-- The rebuilt stickers in R2 as `v1/{128,384}/<code>.<sv>.webp`: new keys, so nothing live changes before merging. The
+- The rebuilt stickers in R2 as `v1/{128,384,1024}/<code>.<sv>.webp`: new keys, so nothing live changes before merging. The
   upload never overwrites a versioned key and skips what a failed earlier run already sent.
+  The 1024 px print tier is R2-only; the Pages commit copies only 128/384. Building print adds about 0.1–0.2 s per rebuilt sticker.
 - When a species on yusuftaleb.com/lifelist (`data/website-lifelist-codes.json`) changed: one open issue "Website
   /lifelist stickers changed upstream". While the same change is unmerged its body (or its last comment) is rewritten;
   a new change is added as a comment.

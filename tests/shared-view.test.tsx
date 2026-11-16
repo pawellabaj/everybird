@@ -1,15 +1,28 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SharedView, missingFilters } from '@/components/app/SharedView'
 import { formatPlace } from '@/lib/import/places'
 import { dateToYm, payloadToRecords, ymToDate } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
+import { resetCaches } from '@/lib/species/load'
 
-const row = (code: string, to: number) => ({ code, com: code, sci: code, ord: 'Passeriformes', fam: 'Corvidae', famCom: 'Crows', to, g: 1, gSrc: 'family', st: true, ar: 1, q: true })
+const row = (code: string, to: number, iu?: string) => ({ code, com: code, sci: code, ord: 'Passeriformes', fam: 'Corvidae', famCom: 'Crows', to, g: 1, gSrc: 'family', st: true, ar: 1, q: true, ...(iu ? { iu } : {}) })
 const regions = { v: 1 as const, countries: { CA: 'Canada', EG: 'Egypt [x]' }, sub1: { 'CA-BC': 'British Columbia' } }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  resetCaches() // each test serves its own species file
+})
+
+function serve(species: object) {
+  vi.stubGlobal('fetch', async (u: string | URL) => {
+    const url = String(u)
+    const body = url.includes('species.v1') ? species : url.includes('regions.v1') ? regions : null
+    return body ? new Response(JSON.stringify(body)) : new Response('no', { status: 404 })
+  })
+}
 
 describe('shared view', () => {
   it('converts months and years both ways', () => {
@@ -75,5 +88,25 @@ describe('shared view', () => {
     expect(screen.queryByRole('button', { name: 'Time' })).toBeNull()
     expect(screen.getByRole('group', { name: 'Orders' })).toBeTruthy()
     expect(open).not.toHaveBeenCalled()
+  })
+
+  it('Status filters a link whose birds have statuses', async () => {
+    vi.stubGlobal('innerWidth', 1000)
+    serve({ v: 1, species: [row('a', 1, 'LC'), row('b', 2, 'VU'), row('c', 3, 'VU'), row('d', 4, 'EN'), row('e', 5)] })
+    render(<SharedView payload={{ v: 1, birds: ['a', 'b', 'c', 'd', 'e'].map((code) => ({ code })) }} />)
+    await waitFor(() => expect(screen.getByTestId('collage-stats').textContent).toMatch(/^5 species/))
+    expect(screen.getByTestId('collage-stats').textContent).toContain('3 threatened')
+    fireEvent.click(screen.getByTestId('filter-tab-status'))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Status' })).getByTestId('status-VU'))
+    await waitFor(() => expect(screen.getByTestId('collage-stats').textContent).toBe('2 of 5 species · 1 family'))
+    expect(screen.getByTestId('filter-tab-status').textContent).toContain('Status · 1')
+  })
+
+  it('no Status button on a link whose birds have no status', async () => {
+    serve({ v: 1, species: [row('a', 1), row('b', 2)] })
+    render(<SharedView payload={{ v: 1, birds: [{ code: 'a' }, { code: 'b' }] }} />)
+    await waitFor(() => expect(screen.getByTestId('collage-stats').textContent).toContain('2 species'))
+    expect(screen.queryByTestId('filter-tab-status')).toBeNull()
+    expect(screen.getByTestId('collage-stats').textContent).not.toContain('threatened')
   })
 })

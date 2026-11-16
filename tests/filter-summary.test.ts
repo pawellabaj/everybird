@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
@@ -83,5 +83,32 @@ describe('placesNoteFor (the lifer-only notice)', () => {
   })
   it('only the life list download or ticks by hand: add MyEBirdData or iNaturalist', () => {
     expect(placesNoteFor(saved([], [rec()]), 1, false)).toBe('add')
+  })
+})
+
+describe('Status in words', () => {
+  it('in each language: the full names and the Threatened label', () => {
+    expect(statusSpoken({ statuses: ['VU', 'EN'] }, es.ui)).toBe('Vulnerable, En peligro')
+    expect(statusSpoken({ statuses: ['VU', 'EN'] }, pt.ui)).toBe('Vulnerável, Em perigo')
+    expect(statusSpoken({ statuses: ['VU', 'EN'] }, nl.ui)).toBe('Kwetsbaar, Bedreigd')
+    expect(statusLabel(['VU', 'EN', 'CR'], es.ui)).toBe('Amenazadas')
+    expect(statusLabel(['EN', 'CR'], nl.ui)).toBe('Bedreigd + Ernstig bedreigd')
+  })
+  it('the button: the number checked; spoken as the full names in IUCN_CATS order', () => {
+    expect(statusSummary({})).toBeUndefined()
+    expect(statusSummary({ statuses: [] })).toBeUndefined()
+    expect(statusSummary({ statuses: ['VU', 'EN'] })).toBe('2')
+    expect(statusSpoken({}, t)).toBeUndefined()
+    expect(statusSpoken({ statuses: ['VU', 'EN'] }, t)).toBe('Vulnerable, Endangered')
+    expect(statusSpoken({ statuses: ['CR', 'EX', 'DD'] }, t)).toBe('Critically Endangered, Extinct, Data Deficient')
+  })
+  it('the share label: exactly VU, EN and CR read "Threatened"; else one, two joined by +, or "and N more"', () => {
+    expect(statusLabel(undefined, t)).toBeUndefined()
+    expect(statusLabel([], t)).toBeUndefined()
+    expect(statusLabel(['VU', 'EN', 'CR'], t)).toBe('Threatened')
+    expect(statusLabel(['EN'], t)).toBe('Endangered')
+    expect(statusLabel(['VU', 'EN'], t)).toBe('Vulnerable + Endangered')
+    expect(statusLabel(['NT', 'VU', 'EN', 'CR'], t)).toBe('Near Threatened and 3 more')
+    expect(statusLabel(['VU', 'EN', 'CR', 'EW'], t)).toBe('Vulnerable and 3 more')
   })
 })

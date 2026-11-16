@@ -5,9 +5,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BirdCard } from '@/components/collage/BirdCard'
+import { BirdCard, BirdFacts } from '@/components/collage/BirdCard'
 import { ListView } from '@/components/collage/ListView'
 import type { ListEntry } from '@/lib/list/model'
+import { IUCN_COLORS } from '@/lib/species/iucn'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { ControlsBar } from '@/components/app/ControlsBar'
@@ -153,6 +154,101 @@ describe('BirdCard small print', () => {
     unmount()
     const { container } = render(<BirdCard entry={entry('willet3')} species={idx} regions={regions} onClose={() => {}} />)
     expect(container.querySelector('.eb-card-note')).toBeNull()
+  })
+})
+
+describe('BirdCard Red List pill', () => {
+  const base = row('statb1', 'Status Bird', 1, 2400)
+  const card = (o: Partial<SpeciesRow>) => (
+    <BirdCard entry={entry('statb1', { date: '2024-05-01' })} species={buildSpeciesIndex([{ ...base, ...o }])} regions={regions} onClose={() => {}} />
+  )
+  const renderCard = (o: Partial<SpeciesRow>) => {
+    setWidth(1000)
+    return render(card(o))
+  }
+  const withVariant = (v: string) => history.replaceState(null, '', `/?v=pill:${v}`)
+  afterEach(() => {
+    history.replaceState(null, '', '/')
+    sessionStorage.removeItem('everybird:variants')
+  })
+
+  it('the card shows the Red List pill under the mass; a press shows the full name', () => {
+    renderCard({ iu: 'VU' })
+    const pill = screen.getByTestId('iucn-pill')
+    expect(pill).toHaveTextContent('VU')
+    expect(pill).toHaveAccessibleName('VU, Vulnerable (IUCN Red List)')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+    const wrap = screen.getByTestId('iucn-wrap')
+    expect(wrap).not.toHaveAttribute('data-open')
+    // The tip is visual only (the button's name already says it) and the button points at it.
+    const tip = wrap.querySelector('.eb-iucn-tip')!
+    expect(tip).toHaveAttribute('aria-hidden', 'true')
+    expect(pill).toHaveAttribute('aria-controls', tip.id)
+    fireEvent.click(pill)
+    expect(pill).toHaveAttribute('aria-expanded', 'true')
+    expect(wrap).toHaveAttribute('data-open')
+    expect(wrap).toHaveTextContent('Vulnerable')
+    fireEvent.click(pill)
+    expect(wrap).not.toHaveAttribute('data-open')
+    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
+    // Variant a (the default): mass, then pill, in the head's right column.
+    const meta = screen.getByRole('dialog').querySelector('.eb-card-meta')!
+    expect(meta.firstElementChild).toHaveClass('eb-card-mass')
+    expect(meta.lastElementChild).toBe(wrap)
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-pill', 'a')
+  })
+
+  it('variant b puts the pill on the mass line, before it', () => {
+    withVariant('b')
+    renderCard({ iu: 'EN' })
+    expect(screen.getByRole('dialog')).toHaveAttribute('data-pill', 'b')
+    const meta = screen.getByRole('dialog').querySelector('.eb-card-meta')!
+    expect(meta.firstElementChild).toBe(screen.getByTestId('iucn-wrap'))
+    expect(meta.lastElementChild).toHaveClass('eb-card-mass')
+    expect(screen.getByTestId('iucn-pill')).toHaveAccessibleName('EN, Endangered (IUCN Red List)')
+  })
+
+  it('an open tip closes when focus leaves the pill or on a press elsewhere in the card', () => {
+    renderCard({ iu: 'NT' })
+    const pill = screen.getByTestId('iucn-pill')
+    const wrap = screen.getByTestId('iucn-wrap')
+    fireEvent.click(pill)
+    expect(wrap).toHaveAttribute('data-open')
+    fireEvent.blur(pill)
+    expect(wrap).not.toHaveAttribute('data-open')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(pill)
+    fireEvent.pointerDown(screen.getByText('Status Bird'))
+    expect(wrap).not.toHaveAttribute('data-open')
+    // A press on the pill itself doesn't count as outside.
+    fireEvent.click(pill)
+    fireEvent.pointerDown(pill)
+    expect(wrap).toHaveAttribute('data-open')
+  })
+
+  it('Esc still closes the card with the tip open', () => {
+    setWidth(1000)
+    const onClose = vi.fn()
+    render(<BirdCard entry={entry('statb1')} species={buildSpeciesIndex([{ ...base, iu: 'CR' }])} regions={regions} onClose={onClose} />)
+    fireEvent.click(screen.getByTestId('iucn-pill'))
+    fireEvent.keyDown(screen.getByTestId('iucn-pill'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('no pill for a species without a status, and never in the hover tooltip', () => {
+    renderCard({})
+    expect(screen.queryByTestId('iucn-pill')).toBeNull()
+    cleanup()
+    render(<BirdFacts entry={entry('statb1')} row={{ ...base, iu: 'EN' }} regions={regions} heading={false} />)
+    expect(screen.queryByTestId('iucn-pill')).toBeNull()
+  })
+
+  it('the pill text is IUCN_COLORS’ fixed colour, never a theme token', () => {
+    for (const cat of ['VU', 'CR', 'EW', 'EX'] as const) {
+      cleanup()
+      renderCard({ iu: cat })
+      expect(screen.getByTestId('iucn-pill').style.getPropertyValue('--iucn-text')).toBe(IUCN_COLORS[cat].text)
+    }
   })
 })
 
