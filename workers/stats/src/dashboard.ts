@@ -28,6 +28,7 @@ export function parseParams(q: URLSearchParams, today: string): Params | string 
 
 const PD = "COUNT(DISTINCT day || '|' || NULLIF(vid, ''))" // person-days; rows from before the Worker had ids carry ''
 const VID = "COUNT(DISTINCT NULLIF(vid, ''))"
+const pdIf = (name: string) => `COUNT(DISTINCT CASE WHEN name = '${name}' THEN day || '|' || NULLIF(vid, '') END)` // person-days with one event (a fixed name, never user input)
 
 /** The statements, in the order shape() reads them. The previous period is the equal-length span just before `from`. */
 export function statements(p: Params): Stmt[] {
@@ -37,18 +38,20 @@ export function statements(p: Params): Stmt[] {
   const cb = p.country ? [p.country] : []
   const wide = [prevFrom, p.to, ...cb]
   const cur = [p.from, p.to, ...cb]
-  // People per day: only the range itself, plus the day before `to` for the headline's comparison on a one-day range.
-  const ppl = [p.from === p.to ? addDays(p.to, -1) : p.from, p.to, ...cb]
   const w = 'WHERE day BETWEEN ? AND ?'
   return [
     { sql: `SELECT day, name, COUNT(*) AS n FROM events ${w}${c} GROUP BY day, name`, binds: wide },
-    { sql: `SELECT day, ${VID} AS people FROM events ${w}${c} GROUP BY day`, binds: ppl },
+    { sql: `SELECT day, ${VID} AS people FROM events ${w}${c} GROUP BY day`, binds: wide },
     { sql: `SELECT name, value, COUNT(*) AS n, ${PD} AS pd FROM events ${w}${c} GROUP BY name, value`, binds: cur },
     { sql: `SELECT CASE WHEN name IN ('image_downloaded', 'poster_downloaded') THEN 'downloaded' ELSE name END AS step, ${PD} AS pd FROM events ${w}${c} GROUP BY step`, binds: cur },
     { sql: `SELECT country, COUNT(*) AS n, ${PD} AS pd FROM events ${w} GROUP BY country ORDER BY pd DESC, country`, binds: [p.from, p.to] },
     { sql: `SELECT device, ${PD} AS pd FROM events ${w}${c} GROUP BY device ORDER BY pd DESC`, binds: cur },
     { sql: `SELECT lang, ${PD} AS pd FROM events ${w} AND name = 'visit' AND lang <> ''${c} GROUP BY lang ORDER BY pd DESC`, binds: cur },
-    { sql: 'SELECT MIN(day) AS d FROM events', binds: [] },
+    // Since launch (whole site, any range): the first day and the all-time totals, then the busiest day by people.
+    { sql: "SELECT MIN(day) AS d, SUM(name = 'collage_made') AS collages, SUM(name = 'image_downloaded') AS images, SUM(name = 'poster_made') AS posters FROM events", binds: [] },
+    { sql: `SELECT day, ${VID} AS people FROM events GROUP BY day ORDER BY people DESC, day LIMIT 1`, binds: [] },
+    // Rates: person-days with each action over all person-days, for the range and country.
+    { sql: `SELECT ${PD} AS pd, ${pdIf('collage_made')} AS collage, ${pdIf('shared')} AS shared, ${pdIf('poster_made')} AS poster FROM events ${w}${c}`, binds: cur },
   ]
 }
 
@@ -58,8 +61,8 @@ const num = (v: unknown) => Number(v ?? 0)
 
 /** The JSON the page draws. `results` are the rows of statements(p), in order. */
 export function shape(p: Params, results: Row[][], now = new Date()) {
-  const [daily, people, values, steps, countries, devices, langs, min] = results
-  const first = (min?.[0]?.d as string | null | undefined) ?? null
+  const [daily, people, values, steps, countries, devices, langs, launch, peak, rates] = results
+  const first = (launch?.[0]?.d as string | null | undefined) ?? null
   const from = first && first > p.from ? (first > p.to ? p.to : first) : p.from
   const len = (ms(p.to) - ms(p.from)) / 86_400_000 + 1
   const prevFrom = addDays(p.from, -len), prevTo = addDays(p.from, -1)
@@ -74,10 +77,12 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
   const on = (d: string, names: readonly string[]) => names.reduce((t, n) => t + (perDay.get(d)?.[n] ?? 0), 0)
   const tiles = {} as Record<Metric, { value: number; prev: number }>
   for (const k of Object.keys(METRICS) as Metric[]) tiles[k] = { value: sum(p.from, p.to, METRICS[k]), prev: sum(prevFrom, prevTo, METRICS[k]) }
-  const days: { d: string; people: number; collages: number; downloads: number; shares: number; posters: number }[] = []
-  for (let d = from; d <= p.to; d = addDays(d, 1)) {
-    days.push({ d, people: peopleOn.get(d) ?? 0, collages: on(d, METRICS.collages), downloads: on(d, METRICS.downloads), shares: on(d, METRICS.shares), posters: on(d, METRICS.posters) })
-  }
+  type Day = { d: string; people: number; collages: number; images: number; posterDownloads: number; downloads: number; shares: number; posters: number }
+  const point = (d: string): Day => ({ d, people: peopleOn.get(d) ?? 0, collages: on(d, METRICS.collages), images: on(d, METRICS.images), posterDownloads: on(d, METRICS.posterDownloads), downloads: on(d, METRICS.downloads), shares: on(d, METRICS.shares), posters: on(d, METRICS.posters) })
+  const days: Day[] = []
+  for (let d = from; d <= p.to; d = addDays(d, 1)) days.push(point(d))
+  // The same days one period earlier, index for index, for "compare"; none when "All" starts at the first day with data.
+  const prevDays = from === p.from ? days.map((x) => point(addDays(x.d, -len))) : []
   const by = (name: string) => values.filter((r) => r.name === name).map((r) => ({ k: r.value as string, n: num(r.n) })).sort((a, b) => b.n - a.n)
   const step = (s: string) => num(steps.find((r) => r.step === s)?.pd)
   const visit = (v: string) => num(values.find((r) => r.name === 'visit' && r.value === v)?.pd)
@@ -86,6 +91,9 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
     range: { from, to: p.to, country: p.country, prevFrom, prevTo, days: days.length },
     tiles: { peopleLast: { value: peopleOn.get(p.to) ?? 0, prev: peopleOn.get(addDays(p.to, -1)) ?? 0, day: p.to }, ...tiles },
     days,
+    prevDays,
+    rates: { pd: num(rates?.[0]?.pd), collage: num(rates?.[0]?.collage), downloaded: step('downloaded'), shared: num(rates?.[0]?.shared), poster: num(rates?.[0]?.poster) },
+    launch: { since: first, collages: num(launch?.[0]?.collages), images: num(launch?.[0]?.images), posters: num(launch?.[0]?.posters), peak: peak?.[0] ? { day: peak[0].day as string, people: num(peak[0].people) } : null },
     funnel: [
       { k: 'landing', n: visit('landing') }, { k: 'settings', n: visit('settings') }, { k: 'collage', n: visit('collage') },
       { k: 'collage_made', n: step('collage_made') }, { k: 'downloaded', n: step('downloaded') },
