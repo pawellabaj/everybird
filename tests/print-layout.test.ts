@@ -58,15 +58,18 @@ describe('the print card', () => {
       .toBeCloseTo(952 / cardLayout('print', { name: false, filter: false, latest: true, count: 197 }).collage.h, 6)
   })
 
-  it('M margins, the credit and the stamp in its footer, light whatever the theme', async () => {
+  it('M margins, the credit and the stamp in its footer, the theme\'s colours', async () => {
     const card = await prepareCard({ format: 'print', printSize: 'A2', theme: 'dark', entries, species, pack, now: new Date(2026, 10, 15) }, printScale('A2'))
     expect(card.L.collage.x).toBe(64)
     expect(card.L.W - card.L.collage.x - card.L.collage.w).toBe(64)
     expect(card.L.H).toBeCloseTo(printDesignH('A2'), 6)
     expect(card.footerLine).toContain('stickers by huashu')
     expect(card.footerLine).toMatch(/ · 15 Nov 2026$/)
-    expect(card.colors).toEqual(SHARE_COLORS.light)
-    expect(card.colors.paper).toBe('#f6f4ef')
+    expect(card.colors).toEqual(SHARE_COLORS.dark)
+    expect(card.colors.paper).toBe('#1e1e24')
+    const light = await prepareCard({ format: 'print', printSize: 'A2', theme: 'light', entries, species, pack, now: new Date(2026, 10, 15) }, printScale('A2'))
+    expect(light.colors).toEqual(SHARE_COLORS.light)
+    expect(light.colors.paper).toBe('#f6f4ef')
     expect(card.credit.size).toBeGreaterThanOrEqual(17)
   })
 

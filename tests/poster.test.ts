@@ -23,7 +23,7 @@ const pack: ImagePack = {
   boxes: new Map(CODES.map((c, i) => [c, i === 0 ? [470, 0, 40, 40] : [i % 2 ? 100 : 700, (i - 1) * 105, 200, 100]])),
 }
 const NOW = new Date(2026, 10, 15)
-const opts = (size: PrintSize, extra: Partial<PosterOpts> = {}): PosterOpts => ({ size, entries, species, pack, now: NOW, ...extra })
+const opts = (size: PrintSize, extra: Partial<PosterOpts> = {}): PosterOpts => ({ size, theme: 'light', entries, species, pack, now: NOW, ...extra })
 // Many birds: a dense band of 48 small ones at the top (more than 12 gets queue at once) and 24 spread down the frame.
 const MANY = Array.from({ length: 72 }, (_, i) => `synmany${i}`)
 const manySpecies = buildSpeciesIndex(MANY.map((c, i) => row(c, i + 1)))
@@ -35,7 +35,7 @@ const manyPack: ImagePack = {
     : [100 + ((i - 48) % 4) * 220, 200 + Math.floor((i - 48) / 4) * 130, 120, 60]])),
 }
 const manyOpts = (size: PrintSize, extra: Partial<PosterOpts> = {}): PosterOpts =>
-  ({ size, entries: manyEntries, species: manySpecies, pack: manyPack, now: NOW, ...extra })
+  ({ size, theme: 'light', entries: manyEntries, species: manySpecies, pack: manyPack, now: NOW, ...extra })
 const manyCard = (size: PrintSize) =>
   prepareCard({ format: 'print', theme: 'light', printSize: size, entries: manyEntries, species: manySpecies, pack: manyPack, now: NOW }, printScale(size))
 const card = (size: PrintSize) => prepareCard({ format: 'print', theme: 'light', printSize: size, entries, species, pack, now: NOW }, printScale(size))
@@ -175,6 +175,18 @@ describe('makePoster', () => {
     expect(e.rows).toHaveLength(17)
     expect([poster.size, poster.bytes, poster.soft, poster.missing]).toEqual(['A1', 1234, 1, 2])
     expect([f.canvas.width, f.canvas.height]).toEqual([1, 1]) // shrunk once done
+  })
+
+  it('paints the strips on the theme\'s paper: light #f6f4ef, dark #1e1e24', async () => {
+    for (const [theme, paper] of [['light', '#f6f4ef'], ['dark', '#1e1e24']] as const) {
+      const { deps, f } = setup()
+      const fills: unknown[] = []
+      const ctx = new Proxy(f.ctx, {
+        get: (t, p) => (p === 'fillRect' ? () => { fills.push((t as unknown as Record<string, unknown>).fillStyle) } : Reflect.get(t, p)),
+      })
+      await makePoster(opts('A4', { theme }), () => {}, { ...deps, strip: (w) => ({ ctx, read: (n) => new Uint8ClampedArray(w * n * 4) }) })
+      expect(fills[0]).toBe(paper)
+    }
   })
 
   it('every sticker fetched is released by the end; none is held past the strip after its last', async () => {

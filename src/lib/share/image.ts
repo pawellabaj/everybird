@@ -25,7 +25,7 @@
 // line goes) and paintCard only draws it, in 1080-wide design units under the caller's transform, culling tiles to a
 // y-range (tileInRange) but never text. drawShareImage is the two on one canvas at identity.
 // The print poster ('print', print.ts) is the same card 1080 units wide and as tall as its A size (printDesignH), with
-// 64px margins all round, always light, packed once at PRINT_DESIGN_H; prepareCard's `scale` (device px per unit)
+// 64px margins all round, in the dialog's theme, packed once at PRINT_DESIGN_H; prepareCard's `scale` (device px per unit)
 // picks its sticker tier (printStickerUrl: 1024 with the 384 fallback for big tiles), and the poster paints it in strips.
 import { SHARE_ORIGIN } from '@/lib/share/origin'
 import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
@@ -483,7 +483,7 @@ export type ShareImageOpts = {
   species: SpeciesIndex
   filterLabel?: string
   name?: string
-  /** The page's theme. The print ignores it: a poster is always light (ink on paper). */
+  /** The page's theme. The print follows it too: dark is light ink on the dark paper. */
   theme: 'light' | 'dark'
   /** The print's A size (print only; default A4): the card's height is printDesignH(size). */
   printSize?: PrintSize
@@ -590,7 +590,7 @@ type CardDraft = Omit<PreparedCard, 'brandW' | 'credit' | 'shift'>
 async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft> {
   const { format, entries, species, theme, signal } = opts
   const print = format === 'print'
-  const colors: ShareColors = print ? SHARE_COLORS.light : SHARE_COLORS[theme]
+  const colors: ShareColors = SHARE_COLORS[theme]
   const shown = entries.filter((e) => species.byCode.has(e.code))
   const latestE = latestLifer(shown, (c) => species.byCode.get(c)?.to ?? Number.MAX_SAFE_INTEGER)
   const latestRow = latestE && species.byCode.get(latestE.code)!

@@ -17,7 +17,7 @@ import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, STRIP_AREA, STRIP_DESIGN_ROWS, pri
 import { createPrintStickers, type PrintStickers } from './print-stickers'
 import type { PrintWorkerReply, PrintWorkerRequest } from './print.worker'
 
-export type PosterOpts = Omit<ShareImageOpts, 'format' | 'theme' | 'printSize' | 'signal'> & { size: PrintSize; signal?: AbortSignal }
+export type PosterOpts = Omit<ShareImageOpts, 'format' | 'printSize' | 'signal'> & { size: PrintSize; signal?: AbortSignal }
 
 export type Poster = {
   size: PrintSize
@@ -222,7 +222,7 @@ export async function makePoster(
     check()
     const k = printScale(size)
     const [width, height] = PRINT_PX[size]
-    const card = await prepareCard({ ...rest, format: 'print', theme: 'light', printSize: size, signal }, k).catch((error: unknown) => {
+    const card = await prepareCard({ ...rest, format: 'print', printSize: size, signal }, k).catch((error: unknown) => {
       throw error instanceof Error && error.message === NO_CANVAS ? memoryError() : error
     })
     check()

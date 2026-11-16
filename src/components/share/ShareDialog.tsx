@@ -6,24 +6,23 @@
 // The link encoder (and its ~111 KB species index) is a separate chunk, fetched when the dialog opens, so a Copy link
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
-// Print mode makes an A4 to A1 poster (always light): the preview is the poster's 1080-wide image, "Make poster" runs
+// The "Dark image" switch (starts at the app's theme, then the dialog's own) sets the look of the share images and the
+// poster alike. Print mode makes an A4 to A1 poster (A2 to start): the preview is the poster's 1080-wide image, "Make poster" runs
 // makePoster (its chunk is fetched when print mode opens) with progress and Cancel, then Download PNG and Download PDF
 // serve the one encode. Changing the size, title or switch, leaving print mode or closing the dialog cancels a make and
 // drops a finished poster. Nothing in print mode is counted. "Share images" in the format control's place goes back.
-// How the actions sit is a preview variant (`?v=sharelayout:a|b|c`): Share image over a row of three quiet buttons (a),
-// a 2x2 grid (b), or Share image beside three quiet icon buttons (c). Print mode keeps the same pattern.
+// The actions: Share image over a row of three quiet buttons. Print mode keeps the same pattern.
 import {
   ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon,
 } from '@phosphor-icons/react'
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
-import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
+import { currentTheme, type Theme } from '@/lib/theme'
 import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
 import { PRINT_CM, PRINT_PX, PRINT_SIZES, printDesignH, type PrintSize } from '@/lib/share/print'
 import type { Poster } from '@/lib/share/poster'
-import { useVariant } from '@/lib/variants'
 import { stripBracket } from '@/lib/import/places'
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
@@ -77,7 +76,7 @@ const PRINT_TEXT = {
 const readyNote = (p: Poster) =>
   [PRINT_TEXT.ready(p.size), p.soft > 0 ? PRINT_TEXT.soft : '', p.missing > 0 ? PRINT_TEXT.missing(p.missing) : ''].filter(Boolean).join(' ')
 
-/** A quiet action: a full label (its accessible name), a shorter one for layout a's row, an icon (alone in layout c). */
+/** A quiet action: a full label (its accessible name), a shorter one for the row, an icon. */
 type QuietAction = { label: string; short?: string; icon: Icon; onClick: () => void; disabled?: boolean; ref?: RefObject<HTMLButtonElement | null> }
 
 const LEVEL_NOTE: Record<ShareLevel, string> = {
@@ -87,29 +86,24 @@ const LEVEL_NOTE: Record<ShareLevel, string> = {
   species: 'Link copied. Your list is large, so the link carries the species only, without dates or places.',
 }
 
-/** The page's current theme (light unless the visitor switched to dark): the image follows it. */
-function useTheme(): Theme {
-  return useSyncExternalStore(subscribeTheme, currentTheme, () => 'light' as const)
-}
-
 export default function ShareDialog({ state, species, regions, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const nameId = useId()
-  const optionsId = useId()
   useEscapeCapture(onClose)
   useFocusInAndBack(ref)
   useHoldTopBar()
 
   const { list, filter, saved, seen } = state
   const [format, setFormat] = useState<ImageFormat>('story')
-  const layout = useVariant('sharelayout', ['a', 'b', 'c'] as const)
   const [mode, setMode] = useState<'share' | 'print'>('share')
-  const [size, setSize] = useState<PrintSize>('A4')
+  const [size, setSize] = useState<PrintSize>('A2')
   const print = mode === 'print'
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
-  const theme = useTheme()
+  // The look of everything the dialog makes: the app's theme when the dialog opens, then this dialog's own choice.
+  const [dark, setDark] = useState(() => currentTheme() === 'dark')
+  const theme: Theme = dark ? 'dark' : 'light'
 
   // What the image shows: the current view (the filter applied), and the filter in words.
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
@@ -148,7 +142,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
   // The image: re-rendered (debounced) when the format, name, theme or the latest lifer switch changes. `current` is the newest render;
   // a render superseded before it starts rejects with an AbortError. In print mode it is the poster's preview (the
-  // size instead of the format, always light, so the theme isn't in its key).
+  // size instead of the format).
   const [preview, setPreview] = useState<{ url: string; format: CardFormat; size: PrintSize; key: string } | null>(null)
   const [failedKey, setFailedKey] = useState<string | null>(null)
   const current = useRef<Promise<Blob> | null>(null)
@@ -157,13 +151,11 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = print ? `print|${size}|${trimmed}|${withLatest}` : `${format}|${trimmed}|${theme}|${withLatest}`
+  const key = print ? `print|${size}|${trimmed}|${theme}|${withLatest}` : `${format}|${trimmed}|${theme}|${withLatest}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
-  // What the render depends on: in print mode neither the share format nor the page theme, so switching either there
-  // never starts a needless render.
+  // What the render depends on: in print mode not the share format, so switching it there never starts a needless render.
   const cardFormat: CardFormat = print ? 'print' : format
-  const imageTheme: Theme = print ? 'light' : theme
   useEffect(() => {
     let live = true
     let cancel = () => {}
@@ -176,7 +168,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       .then(() => packFor(cardFormat, !!trimmed, withLatest))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
-        theme: imageTheme, pack, latest: withLatest, signal: life.current?.signal,
+        theme, pack, latest: withLatest, signal: life.current?.signal,
       }))
     current.current = job
     job.then(
@@ -194,7 +186,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, print, size, cardFormat, trimmed, imageTheme, withLatest, packFor, shown, species, label])
+  }, [key, print, size, cardFormat, trimmed, theme, withLatest, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
@@ -213,7 +205,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
   // The poster: one make at a time, for `posterKey`. A new key, leaving print mode or closing the dialog cancels the
   // make and drops the poster (its encoder ends with it).
-  const posterKey = `print|${size}|${trimmed}|${withLatest}|${fk}`
+  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${fk}`
   const [poster, setPoster] = useState<{ key: string; p: Poster } | null>(null)
   const [making, setMaking] = useState<{ key: string; done: number; total: number } | null>(null)
   const makeCtl = useRef<AbortController | null>(null)
@@ -274,7 +266,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       const pack = await packFor('print', !!trimmed, withLatest)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
-        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, signal: ctl.signal },
+        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, signal: ctl.signal },
         (done, total) => { if (!ctl.signal.aborted) setMaking({ key: forKey, done, total }) },
       )
       if (ctl.signal.aborted) { p.dispose(); return }
@@ -428,9 +420,9 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     const t = setTimeout(() => { delete el.dataset.resizing }, 400)
     return () => clearTimeout(t)
   }, [shownFormat])
-  // The actions, in the layout's pattern: the primary slot (Share image; in print mode Make poster, the progress row or
+  // The actions: the primary slot (Share image; in print mode Make poster, the progress row or
   // Download PNG; each its own key, so a change of state is a new element and the focus moves below run instead of
-  // focus staying on a renamed button), then the quiet ones (a row of three in a, the 2x2 grid's other cells in b, 44px icon buttons in c).
+  // focus staying on a renamed button), then the quiet ones (a row of three).
   const primary: ReactNode = !print ? (
     <button key="share" type="button" className="eb-btn eb-share-primary" disabled={busy} onClick={() => void share()}>
       <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
@@ -472,14 +464,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       ]
   const quietButton = ({ label: text, short, icon: Glyph, onClick, disabled, ref: btnRef }: QuietAction) => {
     const glyph = <Glyph aria-hidden="true" focusable="false" />
-    if (layout === 'c') {
-      return (
-        <button key={text} ref={btnRef} type="button" className="eb-btn eb-btn-quiet eb-share-icon" aria-label={text} title={text} disabled={disabled} onClick={onClick}>
-          {glyph}
-        </button>
-      )
-    }
-    const shorter = layout === 'a' && short ? short : null
+    const shorter = short ?? null
     return (
       <button key={text} ref={btnRef} type="button" className="eb-btn eb-btn-quiet" aria-label={shorter ? text : undefined} disabled={disabled} onClick={onClick}>
         {glyph}
@@ -493,7 +478,6 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
         ref={ref}
         className="eb-share"
         data-mode={mode}
-        data-layout={layout}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -547,13 +531,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
           </div>
 
           <div className="eb-share-controls">
-            {/* The image options: in print mode the size first, then the title and the switch. Layouts a and b name the
-                group ("Image options"; b also boxes it), c just keeps them together. */}
-            <div
-              className="eb-share-options"
-              {...(layout === 'c' ? {} : { role: 'group', 'aria-labelledby': optionsId })}
-            >
-              {layout !== 'c' && <span id={optionsId} className="eb-share-label">Image options</span>}
+            {/* The image options: in print mode the size first, then the title and the two switches. */}
+            <div className="eb-share-options">
               {print && (
                 <div className="eb-share-field">
                   <div className="eb-seg eb-share-sizes" role="group" aria-label={PRINT_TEXT.size}>
@@ -587,11 +566,16 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                   <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
                 </button>
               )}
+
+              <button type="button" role="switch" aria-checked={dark} className="eb-switch eb-share-switch" onClick={() => setDark((v) => !v)}>
+                <span>Dark image</span>
+                <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+              </button>
             </div>
 
             <div className="eb-share-actions">
               {primary}
-              {layout === 'a' ? <div className="eb-share-row">{quiet.map(quietButton)}</div> : quiet.map(quietButton)}
+              <div className="eb-share-row">{quiet.map(quietButton)}</div>
             </div>
 
             <p className={note?.error ? 'eb-error' : 'eb-note'} role="status" data-testid="share-note">{note?.text ?? ''}</p>
