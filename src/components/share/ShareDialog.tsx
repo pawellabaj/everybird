@@ -1,18 +1,21 @@
 'use client'
-// The share dialog: story, post or square image with a live preview, Share image (the system share sheet when it takes
-// files, else a download), Download image, Copy link, the optional collage title (Saved.name, verbatim) and the "Show
-// latest lifer" switch (on at every open; off gives the row's room to the collage), and last a quiet "Buy me a coffee" link
-// (never on the images).
+// The share dialog: story, post or square image with a live preview, the image options (the optional collage title,
+// Saved.name verbatim, and the "Show latest lifer" switch, on at every open; off gives the row's room to the collage),
+// four actions (Share image: the system share sheet when it takes files, else a download; Download image; Copy link;
+// Print a poster) and last, in the bottom right corner, Buy Me a Coffee's static button (self-hosted, never on the images).
 // The link encoder (and its ~111 KB species index) is a separate chunk, fetched when the dialog opens, so a Copy link
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
 // Print mode makes an A4 to A1 poster (always light): the preview is the poster's 1080-wide image, "Make poster" runs
 // makePoster (its chunk is fetched when print mode opens) with progress and Cancel, then Download PNG and Download PDF
 // serve the one encode. Changing the size, title or switch, leaving print mode or closing the dialog cancels a make and
-// drops a finished poster. Nothing in print mode is counted. The entry is a preview variant (`?v=print:a|b|c`): a 4th
-// format (a), a quiet button in the actions (b) or a text line under them (c).
-import { ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon } from '@phosphor-icons/react'
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+// drops a finished poster. Nothing in print mode is counted. "Share images" in the format control's place goes back.
+// How the actions sit is a preview variant (`?v=sharelayout:a|b|c`): Share image over a row of three quiet buttons (a),
+// a 2x2 grid (b), or Share image beside three quiet icon buttons (c). Print mode keeps the same pattern.
+import {
+  ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon,
+} from '@phosphor-icons/react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
@@ -49,8 +52,8 @@ type PosterModule = typeof import('@/lib/share/poster')
 
 // Every print string in one place, so they can move to the message files as they are.
 const PRINT_TEXT = {
-  print: 'Print',
-  hint: 'A4–A1', // a range, so an en dash
+  print: 'Print', // the entry's short label in layout a's row
+  entry: 'Print a poster',
   size: 'Poster size',
   sizeLine: (s: PrintSize, w: number, h: number, pw: number, ph: number) => `${s} · ${w} × ${h} cm · ${pw} × ${ph} px at 150 dpi`,
   make: 'Make poster',
@@ -68,13 +71,14 @@ const PRINT_TEXT = {
   soft: 'Some stickers come from smaller files for now, so the biggest birds may print a little soft.',
   failedMemory: 'Couldn’t make the poster. Try a smaller size.', // the poster didn't fit in memory
   failed: 'Couldn’t make the poster. Try again.', // any other failure
-  entryButton: 'Print a poster', // variant b
-  entryLine: 'Print a poster, A4 to A1', // variant c
   back: 'Share images',
   previewAlt: (s: PrintSize) => `Preview of the ${s} poster`,
 }
 const readyNote = (p: Poster) =>
   [PRINT_TEXT.ready(p.size), p.soft > 0 ? PRINT_TEXT.soft : '', p.missing > 0 ? PRINT_TEXT.missing(p.missing) : ''].filter(Boolean).join(' ')
+
+/** A quiet action: a full label (its accessible name), a shorter one for layout a's row, an icon (alone in layout c). */
+type QuietAction = { label: string; short?: string; icon: Icon; onClick: () => void; disabled?: boolean; ref?: RefObject<HTMLButtonElement | null> }
 
 const LEVEL_NOTE: Record<ShareLevel, string> = {
   regions: 'Link copied.',
@@ -92,13 +96,14 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const nameId = useId()
+  const optionsId = useId()
   useEscapeCapture(onClose)
   useFocusInAndBack(ref)
   useHoldTopBar()
 
   const { list, filter, saved, seen } = state
   const [format, setFormat] = useState<ImageFormat>('story')
-  const entry = useVariant('print', ['a', 'b', 'c'] as const)
+  const layout = useVariant('sharelayout', ['a', 'b', 'c'] as const)
   const [mode, setMode] = useState<'share' | 'print'>('share')
   const [size, setSize] = useState<PrintSize>('A4')
   const print = mode === 'print'
@@ -253,7 +258,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     if (m === mode) return
     setMode(m)
     setNote(null)
-    if (entry !== 'a') focusNext.current = m === 'print' ? 'back' : 'entry'
+    focusNext.current = m === 'print' ? 'back' : 'entry'
   }
 
   const makePoster = async () => {
@@ -423,12 +428,71 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     const t = setTimeout(() => { delete el.dataset.resizing }, 400)
     return () => clearTimeout(t)
   }, [shownFormat])
+  // The actions, in the layout's pattern: the primary slot (Share image; in print mode Make poster, the progress row or
+  // Download PNG), then the quiet ones (a row of three in a, the 2x2 grid's other cells in b, 44px icon buttons in c).
+  const primary: ReactNode = !print ? (
+    <button type="button" className="eb-btn eb-share-primary" disabled={busy} onClick={() => void share()}>
+      <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
+      Share image
+    </button>
+  ) : makingNow ? (
+    <div className="eb-share-progress eb-share-primary">
+      <div
+        className="eb-share-bar" role="progressbar" aria-label={PRINT_TEXT.making}
+        aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+      >
+        <span className="eb-share-bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="eb-share-pct" aria-hidden="true">{pct}%</span>
+      <button ref={cancelRef} type="button" className="eb-btn eb-btn-quiet" onClick={cancelPoster}>{PRINT_TEXT.cancel}</button>
+    </div>
+  ) : posterNow ? (
+    <button ref={pngRef} type="button" className="eb-btn eb-share-primary" onClick={() => void savePoster('png')}>
+      <DownloadSimple aria-hidden="true" focusable="false" weight="bold" />
+      {PRINT_TEXT.png}
+    </button>
+  ) : (
+    <button ref={makeRef} type="button" className="eb-btn eb-share-primary" onClick={() => void makePoster()}>
+      <Printer aria-hidden="true" focusable="false" weight="bold" />
+      {PRINT_TEXT.make}
+    </button>
+  )
+  const copy: QuietAction = { label: 'Copy link', icon: LinkSimple, onClick: () => void copyLink() }
+  const quiet: QuietAction[] = !print
+    ? [
+        { label: 'Download image', short: 'Download', icon: DownloadSimple, disabled: busy, onClick: () => void download() },
+        copy,
+        { label: PRINT_TEXT.entry, short: PRINT_TEXT.print, icon: Printer, ref: entryRef, onClick: () => switchMode('print') },
+      ]
+    : [
+        ...(posterNow ? [{ label: PRINT_TEXT.pdf, icon: FilePdf, onClick: () => void savePoster('pdf') }] : []),
+        copy,
+        ...(posterNow && posterNow.missing > 0 ? [{ label: PRINT_TEXT.again, icon: ArrowClockwise, onClick: remake }] : []),
+      ]
+  const quietButton = ({ label: text, short, icon: Glyph, onClick, disabled, ref: btnRef }: QuietAction) => {
+    const glyph = <Glyph aria-hidden="true" focusable="false" />
+    if (layout === 'c') {
+      return (
+        <button key={text} ref={btnRef} type="button" className="eb-btn eb-btn-quiet eb-share-icon" aria-label={text} title={text} disabled={disabled} onClick={onClick}>
+          {glyph}
+        </button>
+      )
+    }
+    const shorter = layout === 'a' && short ? short : null
+    return (
+      <button key={text} ref={btnRef} type="button" className="eb-btn eb-btn-quiet" aria-label={shorter ? text : undefined} disabled={disabled} onClick={onClick}>
+        {glyph}
+        {shorter ?? text}
+      </button>
+    )
+  }
   return (
     <div className="eb-share-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
         ref={ref}
         className="eb-share"
         data-mode={mode}
+        data-layout={layout}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -444,17 +508,17 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
         <div className="eb-share-body">
           {/* Its own column on top of the controls beside the preview; above the preview on phones (share.css). In print
-              mode under variants b and c, the way back to the share images takes its place. */}
+              mode the way back to the share images takes its place. */}
           <div className="eb-share-formats">
-            {print && entry !== 'a' ? (
+            {print ? (
               <button ref={backRef} type="button" className="eb-btn eb-btn-quiet" onClick={() => switchMode('share')}>
                 <ArrowLeft aria-hidden="true" focusable="false" />
                 {PRINT_TEXT.back}
               </button>
             ) : (
-              <div className={entry === 'a' ? 'eb-seg eb-seg-4' : 'eb-seg'} role="group" aria-label="Image format">
+              <div className="eb-seg" role="group" aria-label="Image format">
                 {FORMATS.map(({ id, label: text, hint, icon: Glyph }) => (
-                  <button key={id} type="button" className="eb-seg-btn" aria-pressed={!print && format === id} onClick={() => { setFormat(id); switchMode('share') }}>
+                  <button key={id} type="button" className="eb-seg-btn" aria-pressed={format === id} onClick={() => setFormat(id)}>
                     <Glyph aria-hidden="true" focusable="false" />
                     <span className="eb-seg-text">
                       <span className="eb-seg-label">{text}</span>
@@ -462,15 +526,6 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
                     </span>
                   </button>
                 ))}
-                {entry === 'a' && (
-                  <button type="button" className="eb-seg-btn" aria-pressed={print} onClick={() => switchMode('print')}>
-                    <Printer aria-hidden="true" focusable="false" />
-                    <span className="eb-seg-text">
-                      <span className="eb-seg-label">{PRINT_TEXT.print}</span>
-                      <span className="eb-share-hint">{PRINT_TEXT.hint}</span>
-                    </span>
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -491,117 +546,65 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
           </div>
 
           <div className="eb-share-controls">
-            {print && (
-              <div className="eb-share-field">
-                <div className="eb-seg eb-share-sizes" role="group" aria-label={PRINT_TEXT.size}>
-                  {PRINT_SIZES.map((s) => (
-                    <button key={s} type="button" className="eb-seg-btn" aria-pressed={size === s} onClick={() => setSize(s)}>
-                      <span className="eb-seg-label">{s}</span>
-                    </button>
-                  ))}
+            {/* The image options: in print mode the size first, then the title and the switch. Layouts a and b name the
+                group ("Image options"; b also boxes it), c just keeps them together. */}
+            <div
+              className="eb-share-options"
+              {...(layout === 'c' ? {} : { role: 'group', 'aria-labelledby': optionsId })}
+            >
+              {layout !== 'c' && <span id={optionsId} className="eb-share-label">Image options</span>}
+              {print && (
+                <div className="eb-share-field">
+                  <div className="eb-seg eb-share-sizes" role="group" aria-label={PRINT_TEXT.size}>
+                    {PRINT_SIZES.map((s) => (
+                      <button key={s} type="button" className="eb-seg-btn" aria-pressed={size === s} onClick={() => setSize(s)}>
+                        <span className="eb-seg-label">{s}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="eb-note">{PRINT_TEXT.sizeLine(size, cmW, cmH, pxW, pxH)}</p>
                 </div>
-                <p className="eb-note">{PRINT_TEXT.sizeLine(size, cmW, cmH, pxW, pxH)}</p>
-              </div>
-            )}
+              )}
 
-            <div className="eb-share-field">
-              <label htmlFor={nameId} className="eb-share-label">Collage title</label>
-              <input
-                id={nameId}
-                className="eb-share-input"
-                type="text"
-                autoComplete="off"
-                maxLength={NAME_MAX_LEN}
-                placeholder="Optional, shown on the image"
-                value={name}
-                onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
-              />
+              <div className="eb-share-field">
+                <label htmlFor={nameId} className="eb-share-label">Collage title</label>
+                <input
+                  id={nameId}
+                  className="eb-share-input"
+                  type="text"
+                  autoComplete="off"
+                  maxLength={NAME_MAX_LEN}
+                  placeholder="Optional, shown on the image"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
+                />
+              </div>
+
+              {hasLatest && (
+                <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
+                  <span>Show latest lifer</span>
+                  <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+                </button>
+              )}
             </div>
 
-            {hasLatest && (
-              <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
-                <span>Show latest lifer</span>
-                <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
-              </button>
-            )}
-
-            {print ? (
-              <div className="eb-share-actions">
-                {makingNow ? (
-                  <div className="eb-share-progress">
-                    <div
-                      className="eb-share-bar" role="progressbar" aria-label={PRINT_TEXT.making}
-                      aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
-                    >
-                      <span className="eb-share-bar-fill" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="eb-share-pct" aria-hidden="true">{pct}%</span>
-                    <button ref={cancelRef} type="button" className="eb-btn eb-btn-quiet" onClick={cancelPoster}>{PRINT_TEXT.cancel}</button>
-                  </div>
-                ) : posterNow ? (
-                  <>
-                    <button ref={pngRef} type="button" className="eb-btn" onClick={() => void savePoster('png')}>
-                      <DownloadSimple aria-hidden="true" focusable="false" weight="bold" />
-                      {PRINT_TEXT.png}
-                    </button>
-                    <button type="button" className="eb-btn eb-btn-quiet" onClick={() => void savePoster('pdf')}>
-                      <DownloadSimple aria-hidden="true" focusable="false" />
-                      {PRINT_TEXT.pdf}
-                    </button>
-                    {posterNow.missing > 0 && (
-                      <button type="button" className="eb-btn eb-btn-quiet" onClick={remake}>
-                        <ArrowClockwise aria-hidden="true" focusable="false" />
-                        {PRINT_TEXT.again}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <button ref={makeRef} type="button" className="eb-btn" onClick={() => void makePoster()}>
-                    <Printer aria-hidden="true" focusable="false" weight="bold" />
-                    {PRINT_TEXT.make}
-                  </button>
-                )}
-                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => void copyLink()}>
-                  <LinkSimple aria-hidden="true" focusable="false" />
-                  Copy link
-                </button>
-              </div>
-            ) : (
-              <div className="eb-share-actions">
-                <button type="button" className="eb-btn" disabled={busy} onClick={() => void share()}>
-                  <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
-                  Share image
-                </button>
-                <button type="button" className="eb-btn eb-btn-quiet" disabled={busy} onClick={() => void download()}>
-                  <DownloadSimple aria-hidden="true" focusable="false" />
-                  Download image
-                </button>
-                <button type="button" className="eb-btn eb-btn-quiet" onClick={() => void copyLink()}>
-                  <LinkSimple aria-hidden="true" focusable="false" />
-                  Copy link
-                </button>
-                {entry === 'b' && (
-                  <button ref={entryRef} type="button" className="eb-btn eb-btn-quiet" onClick={() => switchMode('print')}>
-                    <Printer aria-hidden="true" focusable="false" />
-                    {PRINT_TEXT.entryButton}
-                  </button>
-                )}
-              </div>
-            )}
-            {!print && entry === 'c' && (
-              <p className="eb-note">
-                <button ref={entryRef} type="button" className="eb-share-textlink" onClick={() => switchMode('print')}>{PRINT_TEXT.entryLine}</button>
-              </p>
-            )}
+            <div className="eb-share-actions">
+              {primary}
+              {layout === 'a' ? <div className="eb-share-row">{quiet.map(quietButton)}</div> : quiet.map(quietButton)}
+            </div>
 
             <p className={note?.error ? 'eb-error' : 'eb-note'} role="status" data-testid="share-note">{note?.text ?? ''}</p>
             {manual && (
               <input ref={manualRef} className="eb-share-input" type="text" readOnly value={manual} aria-label="Share link" onFocus={(e) => e.currentTarget.select()} />
             )}
             {fk && <p className="eb-note">The image shows the current filter.</p>}
-            <p className="eb-note eb-share-coffee">
-              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
-            </p>
+            {/* Buy Me a Coffee's standard static button, self-hosted as on About (no script, nothing from their servers),
+                at 32px tall in the column's bottom right corner; never on the images. */}
+            <a className="eb-share-coffee" href={COFFEE_URL} target="_blank" rel="noopener noreferrer">
+              {/* A fixed static image: next/image has nothing to optimise here. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/buy-me-a-coffee.png" width={114} height={32} alt="Buy me a coffee" />
+            </a>
           </div>
         </div>
       </div>

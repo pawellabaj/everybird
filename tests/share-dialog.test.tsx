@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ShareDialog from '@/components/share/ShareDialog'
 import * as image from '@/lib/share/image'
@@ -42,6 +42,12 @@ const species = buildSpeciesIndex([row('ostric2', 1), row('emu1', 2)])
 const regions = { v: 1 as const, countries: { CA: 'Canada' }, sub1: {} }
 const entry = (code: string): ListEntry => ({ code, date: '2020-05', place: { country: 'CA' }, heard: false, dead: false, media: false, sources: ['ebird'] })
 const stateWith = (list: ListEntry[]) => ({ ...initialState(), list })
+/** A click as a pointer gives it: the button takes focus first (fireEvent.click alone leaves focus where it was). */
+const pressFocused = (name: string) => {
+  const b = screen.getByRole('button', { name })
+  b.focus()
+  fireEvent.click(b)
+}
 
 beforeEach(() => {
   renders.length = 0
@@ -179,13 +185,61 @@ describe('share dialog', () => {
     expect(screen.getByRole('switch', { name: 'Show latest lifer' })).toHaveAttribute('aria-checked', 'true')
   })
 
-  it('ends with a quiet Buy me a coffee link (a plain link, new tab), never part of the image', () => {
+  it('ends with Buy Me a Coffee\'s static button, self-hosted, linking to the page in a new tab', () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     const link = screen.getByRole('link', { name: 'Buy me a coffee' })
     expect(link).toHaveAttribute('href', 'https://buymeacoffee.com/yusuftaleb')
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
-    expect(link.querySelector('img, svg')).toBeNull()
+    const img = link.querySelector('img')!
+    expect(img).toHaveAttribute('src', '/buy-me-a-coffee.png')
+    expect(img).toHaveAttribute('alt', 'Buy me a coffee')
+    expect(img).toHaveAttribute('height', '32')
+    expect(link.parentElement!.lastElementChild).toBe(link) // last in the controls column
+  })
+
+  describe.each(['a', 'b', 'c'])('layout %s', (v) => {
+    beforeEach(() => history.replaceState(null, '', `/?v=sharelayout:${v}`))
+
+    it('shows the four actions by name; Print a poster opens print mode, Share images goes back, focus following', async () => {
+      render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+      for (const name of ['Share image', 'Download image', 'Copy link', 'Print a poster']) {
+        expect(screen.getByRole('button', { name })).toBeInTheDocument()
+      }
+      expect(screen.getByRole('group', { name: 'Image format' }).querySelectorAll('button')).toHaveLength(3)
+      fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+      expect(screen.getByRole('group', { name: 'Poster size' })).toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Image format' })).toBeNull()
+      expect(screen.getByRole('button', { name: 'Make poster' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Share image' })).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Print a poster' })).toBeNull()
+      const back = screen.getByRole('button', { name: 'Share images' })
+      await waitFor(() => expect(back).toHaveFocus())
+      fireEvent.click(back)
+      expect(screen.getByRole('group', { name: 'Image format' })).toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Print a poster' })).toHaveFocus())
+    })
+
+    it(v === 'c' ? 'puts the switch right after the title field' : 'groups the title and the switch under "Image options"', () => {
+      render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+      const field = screen.getByLabelText('Collage title').closest('.eb-share-field')!
+      const sw = screen.getByRole('switch', { name: 'Show latest lifer' })
+      expect(field.nextElementSibling).toBe(sw)
+      if (v === 'c') {
+        expect(screen.queryByRole('group', { name: 'Image options' })).toBeNull()
+        expect(screen.queryByText('Image options')).toBeNull()
+      } else {
+        const group = screen.getByRole('group', { name: 'Image options' })
+        expect(within(group).getByLabelText('Collage title')).toBeInTheDocument()
+        expect(within(group).getByRole('switch', { name: 'Show latest lifer' })).toBe(sw)
+        // In print mode the size control joins the group, above the title.
+        fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+        const sizes = within(screen.getByRole('group', { name: 'Image options' })).getByRole('group', { name: 'Poster size' })
+        expect(sizes.compareDocumentPosition(screen.getByLabelText('Collage title')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      }
+    })
   })
 
   it('has no note about what the link carries (About explains it)', () => {
@@ -217,16 +271,12 @@ describe('share dialog: print mode', () => {
     await waitFor(() => expect(makes).toHaveLength(1))
   }
 
-  it('variant a: Print is a 4th format; choosing it shows Poster size A4–A1, A4 pressed, and Make poster', async () => {
+  it('Print a poster (the row\'s short "Print" by default) shows Poster size A4–A1, A4 pressed, and Make poster', async () => {
     open()
-    const formats = screen.getByRole('group', { name: 'Image format' })
-    expect(formats).toHaveClass('eb-seg-4')
-    expect(formats.querySelectorAll('button')).toHaveLength(4)
-    expect(screen.getByRole('button', { name: /^Print/ }).textContent).toBe('PrintA4–A1')
+    expect(screen.getByRole('button', { name: 'Print a poster' }).textContent).toBe('Print')
+    expect(screen.getByRole('button', { name: 'Download image' }).textContent).toBe('Download')
     expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
     toPrint()
-    expect(screen.getByRole('button', { name: /^Print/ })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /^Story/ })).toHaveAttribute('aria-pressed', 'false')
     const sizes = screen.getByRole('group', { name: 'Poster size' })
     expect([...sizes.querySelectorAll('button')].map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual(
       [['A4', 'true'], ['A3', 'false'], ['A2', 'false'], ['A1', 'false']])
@@ -244,31 +294,10 @@ describe('share dialog: print mode', () => {
     const img = screen.getByAltText('Preview of the A2 poster')
     expect(img).toHaveAttribute('width', '1080')
     expect(img).toHaveAttribute('height', String(Math.round(1080 * 3508 / 2480)))
-    // A share format leaves print mode.
-    fireEvent.click(screen.getByRole('button', { name: /^Post/ }))
+    // Share images leaves print mode.
+    fireEvent.click(screen.getByRole('button', { name: 'Share images' }))
     expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Share image' })).toBeInTheDocument()
-  })
-
-  it.each([
-    ['b', 'Print a poster'],
-    ['c', 'Print a poster, A4 to A1'],
-  ])('variant %s: a "%s" entry opens print mode; Share images goes back', async (v, label) => {
-    history.replaceState(null, '', `/?v=print:${v}`)
-    open()
-    const formats = screen.getByRole('group', { name: 'Image format' })
-    expect(formats).not.toHaveClass('eb-seg-4')
-    expect(formats.querySelectorAll('button')).toHaveLength(3)
-    fireEvent.click(screen.getByRole('button', { name: label }))
-    expect(screen.getByRole('group', { name: 'Poster size' })).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Image format' })).toBeNull()
-    const back = screen.getByRole('button', { name: 'Share images' })
-    await waitFor(() => expect(back).toHaveFocus())
-    expect(screen.queryByRole('button', { name: label })).toBeNull()
-    fireEvent.click(back)
-    expect(screen.getByRole('group', { name: 'Image format' })).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: 'Poster size' })).toBeNull()
-    await waitFor(() => expect(screen.getByRole('button', { name: label })).toHaveFocus())
   })
 
   it('Make poster shows a progressbar with Cancel; when done, Download PNG and Download PDF save everybird-a4.png/.pdf at once', async () => {
@@ -346,16 +375,16 @@ describe('share dialog: print mode', () => {
     }
   })
 
-  it('leaving print mode aborts a make (variant a) and drops a finished poster (variant b)', async () => {
+  it('leaving print mode aborts a make and drops a finished poster', async () => {
     const first = open()
     toPrint()
     await startMake()
-    fireEvent.click(screen.getByRole('button', { name: /^Post/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Share images' }))
     expect(makes[0].opts.signal?.aborted).toBe(true)
     first.unmount()
 
     makes.length = 0
-    history.replaceState(null, '', '/?v=print:b')
+    history.replaceState(null, '', '/?v=sharelayout:b')
     open()
     fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
     await startMake()
@@ -446,7 +475,7 @@ describe('share dialog: print mode', () => {
     await startMake()
     const p = fakePoster({ file: vi.fn(async () => { throw new Error('encoder gone') }) })
     await act(async () => makes[0].resolve(p))
-    fireEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
+    pressFocused('Download PNG') // a real click focuses the button, which then goes
     await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
     expect(p.dispose).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: 'Download PNG' })).toBeNull()
@@ -535,7 +564,7 @@ describe('share dialog: the poster module fails to load', () => {
     render(<FreshDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: /^Print/ }))
     await waitFor(() => expect(fail.left).toBe(1))
-    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    pressFocused('Make poster') // a real click focuses the button, which then goes
     await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Couldn’t make the poster. Try again.'))
     expect(makes).toHaveLength(0)
     await waitFor(() => expect(screen.getByRole('button', { name: 'Make poster' })).toHaveFocus())
