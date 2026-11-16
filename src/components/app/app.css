@@ -374,9 +374,20 @@
 .eb-menuitem:focus { outline: none; }
 .eb-menuitem:focus-visible, .eb-menuitem:focus { background: var(--surface); }
 @media (hover: hover) and (pointer: fine) { .eb-menuitem:hover { background: var(--surface); } }
-/* The language menu: never wider than the window. */
-.eb-langmenu { min-width: min(200px, calc(100vw - 16px)); max-width: calc(100vw - 16px); }
-.eb-langmenu .eb-menuitem { justify-content: space-between; gap: 16px; }
+/* The language menu: a quiet popover, as wide as its widest row, its right edge on the button's; never wider than the window.
+   Rows are 40px (44px on touch), the name left and its code right in Muted mono; the current one has no fill, its name in
+   Accent at 600 and a check where the code was. A Surface fill only on a hovered or keyboard-focused row that isn't current. */
+.eb-langmenu { width: max-content; min-width: 0; max-width: calc(100vw - 16px); }
+.eb-langmenu .eb-menuitem { justify-content: space-between; gap: 16px; min-height: 40px; padding: 0 10px; }
+@media (pointer: coarse) { .eb-langmenu .eb-menuitem { min-height: 44px; } }
+.eb-langmenu .eb-menuitem:focus { background: none; }
+.eb-langmenu .eb-menuitem[aria-checked="false"]:focus-visible { background: var(--surface); }
+@media (hover: hover) and (pointer: fine) {
+  .eb-langmenu .eb-menuitem[aria-checked="false"]:hover { background: var(--surface); }
+  .eb-langmenu .eb-menuitem[aria-checked="true"]:hover { background: none; }
+}
+.eb-langname[data-current] { color: var(--accent); font-weight: 600; }
+.eb-langcode { color: var(--muted); font-size: 12px; line-height: 1; letter-spacing: .06em; }
 .eb-langmenu .eb-menuitem svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
 @media (hover: hover) and (pointer: fine) {
   .eb-nav-link:hover { opacity: 1; }

@@ -188,6 +188,7 @@ export const EN_UI = {
     /** A removable chip's aria-label. */
     remove: 'Remove {label} filter',
     /** The Filters sections' names (the panel, the chips and the button's spoken text). */
+    group: 'Bird group',
     places: 'Places',
     time: 'Time',
     status: 'Conservation status',
@@ -202,6 +203,8 @@ export const EN_UI = {
       manyStatuses: '{n} statuses',
       openChip: 'Show {label} in Filters',
       clearChip: 'Remove all {label}',
+      clearAll: 'Clear all',
+      clearAllLabel: 'Clear all filters',
     },
     /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
     countHead: {

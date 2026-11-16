@@ -149,6 +149,7 @@ export const pt: Messages = {
       rank: { order: 'Ordens', family: 'Famílias', country: 'Países', year: 'Anos' },
       choose: { order: 'Escolha uma ordem', family: 'Escolha uma família', country: 'Escolha um país', year: 'Escolha um ano' },
       remove: 'Remover o filtro {label}',
+      group: 'Grupo de aves',
       places: 'Lugares',
       time: 'Datas',
       status: 'Estado de conservação',
@@ -163,6 +164,8 @@ export const pt: Messages = {
         manyStatuses: '{n} estados',
         openChip: 'Mostrar {label} em Filtros',
         clearChip: 'Remover {label}',
+        clearAll: 'Limpar tudo',
+        clearAllLabel: 'Limpar todos os filtros',
       },
       /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
       countHead: {

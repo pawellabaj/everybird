@@ -61,13 +61,9 @@ describe('applySmart', () => {
     expect(next.continents).toBeUndefined()
   })
 
-  it('a kind the query does not set keeps its fields', () => {
-    const current = { group: 'waterfowl', statuses: ['VU' as const], countries: ['MX'] }
-    const next = applySmart(current, parse('2026').filter, kindsOf('2026'))
-    expect(next.group).toBe('waterfowl')
-    expect(next.statuses).toEqual(['VU'])
-    expect(next.countries).toEqual(['MX'])
-    expect(next.from).toBe('2026-01')
+  it('a kind the query does not set is not kept: a search replaces every filter', () => {
+    const current = { group: 'waterfowl', statuses: ['VU' as const], countries: ['MX'], order: 'Passeriformes', from: '2020-01' }
+    expect(applySmart(current, parse('2026').filter, kindsOf('2026'))).toEqual({ from: '2026-01', to: '2026-12', basis: 'seen' })
   })
 
   it('lifers switch the basis, and the period goes with it', () => {

@@ -115,9 +115,9 @@ function LangList({ id, label, current, btn, onPick, onClose }: {
   return (
     <div ref={menu} id={id} className="eb-menu eb-langmenu" role="menu" aria-label={label} onKeyDown={onKey}>
       {LANGS.map((l) => (
-        <button key={l} type="button" role="menuitemradio" aria-checked={l === current} tabIndex={-1} lang={HTML_LANG[l]} className="eb-menuitem" onClick={() => onPick(l)}>
-          {LANG_NAMES[l]}
-          {l === current && <Check aria-hidden="true" focusable="false" weight="bold" />}
+        <button key={l} type="button" role="menuitemradio" aria-checked={l === current} tabIndex={-1} className="eb-menuitem" onClick={() => onPick(l)}>
+          <span className="eb-langname" lang={HTML_LANG[l]} data-current={l === current ? '' : undefined}>{LANG_NAMES[l]}</span>
+          {l === current ? <Check aria-hidden="true" focusable="false" weight="bold" /> : <span className="eb-mono eb-langcode" aria-hidden="true">{l.toUpperCase()}</span>}
         </button>
       ))}
     </div>

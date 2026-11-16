@@ -9,7 +9,6 @@
 import { memo, useMemo } from 'react'
 import { useIsSheet } from '@/components/dialog-utils'
 import { useI18n } from '@/i18n/I18nProvider'
-import { withoutFilterChip, type Chip as ChipData } from '@/lib/list/chips'
 import type { Ui } from '@/i18n/messages/en'
 import { options, type ChipOption, type Filter, type FilterLevel } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
@@ -17,7 +16,6 @@ import type { SpeciesIndex } from '@/lib/species/load'
 import { familyName } from '@/lib/species/names'
 import { useNames } from '@/lib/species/use-names'
 import { orderLabel } from '@/lib/species/orders'
-import { ChipRow } from './ChipRow'
 import { LevelRow } from './LevelRow'
 import './filters.css'
 
@@ -48,7 +46,7 @@ type Crumb = { label: string; latin: boolean; to?: Filter }
 
 export const FilterBar = memo(function FilterBar({ state, dispatch, species }: Props) {
   const sheet = useIsSheet()
-  const { lang, t } = useI18n()
+  const { t } = useI18n()
   const names = useNames() // family names follow the names file and the English switch
   const { list, filter, sci, seen } = state
   const BIRDS = birds(t)
@@ -62,10 +60,6 @@ export const FilterBar = memo(function FilterBar({ state, dispatch, species }: P
     return out
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
   }, [list, filter, species, seen, names])
-
-  // The bird group (smart search), on the taxonomy row as a removable chip; Understood-as chips and the Filters row carry it too.
-  const groupChips = useMemo<ChipData[]>(() => (filter.group ? [{ kind: 'group', label: species.groups?.get(filter.group)?.name[lang] ?? filter.group, token: filter.group }] : []), [filter.group, species.groups, lang])
-  const onRemoveGroup = (c: ChipData) => dispatch({ type: 'filter', filter: withoutFilterChip(filter, c) })
 
   const set = (level: Level, value: string | undefined) => dispatch({ type: 'filter', filter: withLevel(filter, level, value) })
   const toggle = (level: Level, value: string) => set(level, filter[level] === value ? undefined : value)
@@ -141,7 +135,6 @@ export const FilterBar = memo(function FilterBar({ state, dispatch, species }: P
 
   return (
     <section className="eb-filters" aria-label={t.filters.label} data-testid="filter-bar">
-      <ChipRow chips={groupChips} label={t.filters.panel.chips} testId="group-chips" onRemove={onRemoveGroup} />
       {levels(BIRDS)}
     </section>
   )

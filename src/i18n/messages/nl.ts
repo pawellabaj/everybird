@@ -149,6 +149,7 @@ export const nl: Messages = {
       rank: { order: 'Ordes', family: 'Families', country: 'Landen', year: 'Jaren' },
       choose: { order: 'Kies een orde', family: 'Kies een familie', country: 'Kies een land', year: 'Kies een jaar' },
       remove: 'Filter {label} verwijderen',
+      group: 'Vogelgroep',
       places: 'Plaatsen',
       time: 'Tijd',
       status: 'Beschermingsstatus',
@@ -163,6 +164,8 @@ export const nl: Messages = {
         manyStatuses: '{n} statussen',
         openChip: '{label} tonen in Filters',
         clearChip: '{label} verwijderen',
+        clearAll: 'Alles wissen',
+        clearAllLabel: 'Alle filters wissen',
       },
       /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
       countHead: {
