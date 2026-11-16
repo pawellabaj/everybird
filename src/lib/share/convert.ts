@@ -3,6 +3,7 @@ import { formatPlace, stripBracket } from '../import/places'
 import type { ListEntry, Place, SourceRecord } from '../list/model'
 import type { Regions } from '../species/types'
 import type { SharePayload } from './link'
+import { LEGACY_COUNTRY_NAMES } from './legacy-country-names'
 
 const BASE_YEAR = 1900
 const M_HEARD = 1, M_DEAD = 2, M_MEDIA = 4
@@ -80,9 +81,13 @@ export function payloadToRecords(p: SharePayload, regions: Regions): { records: 
     if (!display) return undefined
     const iso = p.countries?.[i]
     const country = iso && iso !== '--' ? iso : undefined
-    const cn = country && regions.countries[country] ? stripBracket(regions.countries[country]) : undefined
-    if (cn && display === cn) return { country }
-    if (!cn || !display.endsWith(`, ${cn}`)) return { country, sub1: keyFor(country, display) }
+    const current = country && regions.countries[country] ? stripBracket(regions.countries[country]) : undefined
+    // A link made before the full country names ends its places with the old short name.
+    const legacy = country ? LEGACY_COUNTRY_NAMES[country] : undefined
+    if (current && display === current) return { country }
+    if (legacy && display === legacy) return { country }
+    const cn = current && display.endsWith(`, ${current}`) ? current : legacy && display.endsWith(`, ${legacy}`) ? legacy : undefined
+    if (!cn) return { country, sub1: keyFor(country, display) }
     const sub = display.slice(0, -(cn.length + 2))
     const cut = sub.lastIndexOf(', ')
     if (cut < 0) return { country, sub1: keyFor(country, sub) }

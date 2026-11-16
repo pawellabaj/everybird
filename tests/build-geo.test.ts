@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Regions } from '../src/lib/species/types'
-import { renameRegions, REGION_RENAMES } from '../scripts/build-data/build-geo'
+import { countryName, renameRegions, REGION_RENAMES } from '../scripts/build-data/build-geo'
 
 const read = (f: string) => readFileSync(resolve(__dirname, '../public/data', f), 'utf8')
 const regions = JSON.parse(read('regions.v1.json')) as Regions
@@ -31,6 +31,19 @@ describe('regions', () => {
     expect(regions.sub1['ES-MD']).toBe('Community of Madrid')
     expect(regions.sub1['CZ-10']).toBe('Prague')
     expect(regions.sub1['US-VI']).toBe('U.S. Virgin Islands')
+  })
+  it('country names are full: no abbreviation dots, no "St-"', () => {
+    for (const [code, name] of Object.entries(regions.countries)) expect(name, code).not.toMatch(/\.|^St-/)
+    expect(regions.countries.GS).toBe('South Georgia and the South Sandwich Islands')
+    expect(regions.countries.CD).toBe('Democratic Republic of the Congo')
+    expect(regions.countries.FK).toBe('Falkland Islands')
+    expect(regions.countries.RU).toBe('Russia')
+  })
+  it('countryName keeps a short name, else NAME_LONG, else the table', () => {
+    expect(countryName('RU', { NAME: 'Russia', NAME_LONG: 'Russian Federation' })).toBe('Russia')
+    expect(countryName('BA', { NAME: 'Bosnia and Herz.', NAME_LONG: 'Bosnia and Herzegovina' })).toBe('Bosnia and Herzegovina')
+    expect(countryName('MF', { NAME: 'St-Martin', NAME_LONG: 'Saint-Martin' })).toBe('Saint-Martin')
+    expect(countryName('FK', { NAME: 'Falkland Is.', NAME_LONG: 'Falkland Islands / Malvinas' })).toBe('Falkland Islands')
   })
   it('renameRegions applies the hand-kept table and only to codes present', () => {
     const r = { v: 1 as const, countries: { ES: 'Spain' }, sub1: { 'ES-MD': 'Madrid, Comunidad de', 'ES-AN': 'Andalucía' } }
