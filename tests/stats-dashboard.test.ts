@@ -156,6 +156,8 @@ describe('the Worker routes', () => {
     expect(html).toContain('<title>Everybird stats</title>')
     expect(html).not.toMatch(/https?:\/\/(?!www\.w3\.org)/) // self-contained: no CDN, no fonts
     expect(html.length).toBeLessThan(30_000)
+    const script = /<script>([\s\S]*)<\/script>/.exec(html)?.[1] ?? ''
+    expect(() => new Function(script)).not.toThrow() // the inline JS parses (eslint and tsc don't see it)
     const data = await call('/dashboard/data?from=2026-11-01&to=2026-11-14&country=mx', { method: 'GET' }, t, { ...ENV }, k.jwks)
     expect(data.status).toBe(200)
     expect(data.headers.get('cache-control')).toBe('private, max-age=60')

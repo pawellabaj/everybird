@@ -10,11 +10,11 @@ The anonymous usage Worker for Everybird (`stats.yusuftaleb.com`).
 One page, no framework, no CDN, no web fonts, in the site's Paper/Ink style (light and dark follow the device).
 For the chosen range (Today, 7d, 14d, 30d, All; default 14 days) and an optional country it shows:
 
-1. Headline tiles: people on the last day, collages, images downloaded, shares, posters made, poster downloads, each with the change against the equal period just before.
+1. Headline tiles: people on the last day, collages, images downloaded, shares, posters made, poster downloads, each with the change against the equal period just before (none on All, whose previous period has no data).
 2. A daily bar chart with a metric switcher (People, Collages, Downloads, Shares, Posters). Hover or tap a bar for the exact value and date.
 3. The funnel: landing, settings, collage page, collage made, image or poster downloaded, as person-days and a share of the landing page.
 4. Breakdowns: image formats, poster sizes (portrait vs landscape), filters used, searches, interface language, browser language, devices, and the top 15 countries (a "Show all" toggle). Clicking a country filters the whole page; the chip next to the selector removes the filter.
-5. A footer with the refresh button and the last refresh time.
+5. A footer with the refresh button (it skips the browser's 60-second cache) and the last refresh time.
 
 Notes on the numbers: days are UTC; counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one UTC day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as a handful of GROUP BY queries run in one `DB.batch`, with `Cache-Control: private, max-age=60`.
 

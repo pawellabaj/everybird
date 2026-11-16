@@ -104,19 +104,23 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
   function utc(offset) { return new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10); }
   function dayLabel(d) { return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
   function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); return e; }
-  function region(c) { try { return c === 'XX' ? 'Unknown' : new Intl.DisplayNames(['en'], { type: 'region' }).of(c) || c; } catch (e) { return c; } }
-  function language(c) { try { return new Intl.DisplayNames(['en'], { type: 'language' }).of(c) || c; } catch (e) { return c; } }
+  function names(type) { try { return new Intl.DisplayNames(['en'], { type: type }); } catch (e) { return null; } }
+  var REGION = names('region'), LANGUAGE = names('language');
+  function region(c) { try { return c === 'XX' ? 'Unknown' : REGION && REGION.of(c) || c; } catch (e) { return c; } }
+  function language(c) { try { return LANGUAGE && LANGUAGE.of(c) || c; } catch (e) { return c; } }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
   function poster(k) { var l = /-l$/.test(k); return k.replace(/-l$/, '').toUpperCase() + (l ? ' landscape' : ' portrait'); }
 
-  function load() {
-    var to = utc(0), from = st.all ? '2020-01-01' : utc(1 - st.days);
+  var seq = 0;
+  function load(fresh) {
+    var to = utc(0), from = st.all ? '2020-01-01' : utc(1 - st.days), n = ++seq;
     var url = '/dashboard/data?from=' + from + '&to=' + to + (st.country ? '&country=' + st.country : '');
     $('err').textContent = '';
-    fetch(url, { credentials: 'same-origin' }).then(function (r) {
+    // Refresh skips the browser's 60 s cache; a late answer to an older request is dropped.
+    fetch(url, { credentials: 'same-origin', cache: fresh === true ? 'reload' : 'default' }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 404 ? 'Session expired: reload the page.' : 'Could not load (' + r.status + ').');
       return r.json();
-    }).then(function (d) { st.data = d; render(); }).catch(function (e) { $('err').textContent = e.message; });
+    }).then(function (d) { if (n === seq) { st.data = d; render(); } }).catch(function (e) { if (n === seq) $('err').textContent = e.message; });
   }
 
   function controls() {
@@ -153,7 +157,8 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     [['People · ' + (last ? 'today' : dayLabel(t.peopleLast.day)), t.peopleLast, 'vs day before'], ['Collages', t.collages], ['Images', t.images], ['Shares', t.shares], ['Posters', t.posters], ['Poster downloads', t.posterDownloads]].forEach(function (x) {
       var c = h('div', 'card tile'); c.appendChild(h('div', 'mono', x[0]));
       c.appendChild(h('div', 'num', fmt(x[1].value)));
-      c.appendChild(h('div', 'delta', delta(x[1].value, x[1].prev) + ' ' + (x[2] || 'vs previous')));
+      // "All" starts at the first day with data, so its previous period is empty: no comparison there.
+      c.appendChild(h('div', 'delta', st.all && !x[2] ? 'all time' : delta(x[1].value, x[1].prev) + ' ' + (x[2] || 'vs previous')));
       box.appendChild(c);
     });
   }
@@ -162,7 +167,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     var s = clear($('seg'));
     METRICS.forEach(function (m) {
       var b = h('button', null, m[1]); b.type = 'button'; b.setAttribute('aria-pressed', String(st.metric === m[0]));
-      b.onclick = function () { st.metric = m[0]; seg(); chart(); };
+      b.onclick = function () { st.metric = m[0]; seg(); if (st.data) chart(); };
       s.appendChild(b);
     });
   }
@@ -190,19 +195,21 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
       if (n === 0 && a.length > 1) tx.setAttribute('x', L); if (n === a.length - 1 && a.length > 1) tx.setAttribute('x', W - R);
       tx.textContent = dayLabel(days[i].d); svg.appendChild(tx);
     });
-    var tip = h('div', 'tip'); tip.hidden = true; var cur = -1;
+    var tip = h('div', 'tip'); tip.hidden = true;
     function at(ev) {
       var rect = svg.getBoundingClientRect(), x = (ev.clientX - rect.left) * W / rect.width;
       var i = Math.max(0, Math.min(days.length - 1, Math.floor((x - L) / slot)));
-      if (i !== cur) { if (cur >= 0) bars[cur].style.opacity = ''; cur = i; }
       bars.forEach(function (b, j) { b.style.opacity = j === i ? '1' : '.45'; });
       clear(tip); tip.appendChild(h('b', null, fmt(days[i][key]))); tip.appendChild(h('span', null, ' ' + label.toLowerCase() + ' · ' + dayLabel(days[i].d)));
       tip.hidden = false;
       var px = (L + slot * (i + .5)) * rect.width / W; tip.style.left = Math.max(60, Math.min(rect.width - 60, px)) + 'px';
       tip.style.top = Math.max(26, (H - B - (H - B - T) * days[i][key] / max) * rect.height / H - 6) + 'px';
     }
-    function off() { tip.hidden = true; cur = -1; bars.forEach(function (b) { b.style.opacity = ''; }); }
-    svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at); svg.addEventListener('pointerleave', off);
+    function off() { tip.hidden = true; bars.forEach(function (b) { b.style.opacity = ''; }); }
+    // A touch "leaves" as the finger lifts, so a tapped tip stays until a tap elsewhere (hideTip, below).
+    svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at);
+    svg.addEventListener('pointerleave', function (ev) { if (ev.pointerType !== 'touch') off(); });
+    hideTip = off;
     box.appendChild(svg); box.appendChild(tip);
     if (key === 'people') box.appendChild(h('p', 'sub', 'People = distinct anonymous visitors that day; ids change daily.'));
   }
@@ -216,7 +223,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
       var row = h(o.click ? 'button' : 'div', 'bar' + (o.mark && o.mark(x) ? ' f' : ''));
       if (o.click) { row.type = 'button'; row.onclick = function () { o.click(x); }; row.title = 'Filter to ' + (o.label ? o.label(x.k) : x.k); }
       row.appendChild(h('span', 'name', o.label ? o.label(x.k) : x.k));
-      var tr = h('span', 'track'), f = h('span', 'fill'); f.style.display = 'block'; f.style.width = (x.n / (o.of === 'total' ? total : max) * 100) + '%'; tr.appendChild(f); row.appendChild(tr);
+      var tr = h('span', 'track'), f = h('span', 'fill'); f.style.display = 'block'; f.style.width = (x.n / max * 100) + '%'; tr.appendChild(f); row.appendChild(tr);
       row.appendChild(h('span', 'val', fmt(x.n) + ' · ' + Math.round(x.n / total * 100) + '%'));
       parent.appendChild(row);
     });
@@ -258,7 +265,9 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     tiles(); chart(); funnel(); cards(); controls();
     $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to) + ' UTC';
   }
-  $('refresh').onclick = load;
+  var hideTip = null;
+  document.addEventListener('pointerdown', function (ev) { if (hideTip && !$('chart').contains(ev.target)) hideTip(); });
+  $('refresh').onclick = function () { load(true); };
   var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (st.data) chart(); }, 120); });
   seg(); controls(); load();
 })();
