@@ -1,7 +1,7 @@
 import type { Source } from '@/lib/list/model'
 import type { ImageFormat } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
-import { primarySubtag } from '@/i18n/langs'
+import { primarySubtag, type Lang } from '@/i18n/langs'
 
 /**
  * Everybird's anonymous counter (spec "My calls" 13). Each event is one tiny POST to Yusuf's Worker
@@ -23,7 +23,19 @@ export type AnalyticsEvents = {
   /** Handed to the system share sheet, which resolved. `link` is supported, but the dialog doesn't share links that way yet. */
   shared: { via: ImageFormat | 'link' }
   link_copied: { level: ShareLevel }
+  /** The reader switched the UI language (never on load or from the browser's default); the new language. */
+  ui_language: { lang: Lang }
+  /** A print poster finished rendering, by paper size. */
+  poster_made: { size: PosterSizeWire }
+  /** A poster file was saved. */
+  poster_downloaded: { format: 'png' | 'pdf' }
+  /** `smart`: a smart search's "Understood as" filters were applied; `bird`: a bird was picked from the results. */
+  search_applied: { kind: 'smart' | 'bird' }
+  /** A kind of filter was set, at most once per kind per page load (`trackFilterUsed`). */
+  filter_used: { kind: FilterKind }
 }
+export type PosterSizeWire = 'a4' | 'a3' | 'a2' | 'a1'
+export type FilterKind = 'place' | 'continent' | 'time' | 'status' | 'group' | 'taxonomy'
 export type EventName = keyof AnalyticsEvents
 
 export const STATS_ENDPOINT = 'https://stats.yusuftaleb.com/e'
@@ -40,6 +52,11 @@ export const ALLOWED: Record<EventName, readonly string[]> = {
   image_downloaded: ['story', 'post', 'square'],
   shared: ['story', 'post', 'square', 'link'],
   link_copied: ['full', 'compact', 'minimal', 'species'],
+  ui_language: ['en', 'es', 'pt', 'nl'],
+  poster_made: ['a4', 'a3', 'a2', 'a1'],
+  poster_downloaded: ['png', 'pdf'],
+  search_applied: ['smart', 'bird'],
+  filter_used: ['place', 'continent', 'time', 'status', 'group', 'taxonomy'],
 }
 export const WIRE_LEVEL: Record<ShareLevel, string> = { regions: 'full', countries: 'compact', dates: 'minimal', species: 'species' }
 
@@ -160,3 +177,17 @@ function safeSession(w: Window): Storage | null {
   try { return w.sessionStorage } catch { return null }
 }
 export { safeSession }
+
+const filterKindsSent = new Set<FilterKind>()
+
+/** `filter_used` for a kind, once per kind per page load (module memory only, nothing stored). */
+export function trackFilterUsed(kind: FilterKind): void {
+  if (filterKindsSent.has(kind)) return
+  filterKindsSent.add(kind)
+  track('filter_used', { kind })
+}
+
+/** Tests: forget which kinds were sent. */
+export function resetFilterUsed(): void {
+  filterKindsSent.clear()
+}

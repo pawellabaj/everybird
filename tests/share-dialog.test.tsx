@@ -660,7 +660,7 @@ describe('share dialog: print mode', () => {
     expect(makes[1].opts).toMatchObject({ theme: 'dark', size: 'A2' })
   })
 
-  it('print mode sends no analytics', async () => {
+  it('print mode counts the poster made and each download, never the share image events', async () => {
     open()
     toPrint()
     await startMake()
@@ -669,7 +669,11 @@ describe('share dialog: print mode', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Download PNG' }))
     fireEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
     await waitFor(() => expect(downloadBlob).toHaveBeenCalledTimes(2))
-    expect(track).not.toHaveBeenCalled()
+    const names = vi.mocked(track).mock.calls.map((c) => c[0])
+    expect(names.filter((n) => n === 'poster_made')).toHaveLength(1)
+    expect(track).toHaveBeenCalledWith('poster_downloaded', { format: 'png' })
+    expect(track).toHaveBeenCalledWith('poster_downloaded', { format: 'pdf' })
+    expect(names.every((n) => n.startsWith('poster_'))).toBe(true)
   })
 })
 

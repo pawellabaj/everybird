@@ -14,13 +14,18 @@ import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export const DB = 'everybird-events'
-export const EVENTS = ['visit', 'collage_made', 'image_downloaded', 'shared', 'link_copied'] as const
+export const EVENTS = ['visit', 'collage_made', 'image_downloaded', 'shared', 'link_copied', 'ui_language', 'poster_made', 'poster_downloaded', 'search_applied', 'filter_used'] as const
 const TITLES: Record<string, string> = {
   visit: 'Page views (visit)',
   collage_made: 'Collages made (collage_made, by source)',
   image_downloaded: 'Images downloaded (image_downloaded, by format)',
   shared: 'Shared through the share sheet (shared)',
   link_copied: 'Links copied (link_copied, by level)',
+  ui_language: 'UI language switched to (ui_language)',
+  poster_made: 'Posters made (poster_made, by size)',
+  poster_downloaded: 'Posters downloaded (poster_downloaded, by format)',
+  search_applied: 'Searches applied (search_applied: smart filters or a bird)',
+  filter_used: 'Filters used (filter_used, once per kind per page load)',
 }
 /** The Worker's link_copied values, in the app's words (src/lib/analytics.ts WIRE_LEVEL). */
 const VALUE_LABELS: Record<string, Record<string, string>> = {
@@ -51,7 +56,7 @@ export function parseArgs(argv: string[], now = new Date()): Args {
 export type QueryName = 'visitors' | 'visitsByDay' | 'byValue' | 'people' | 'byDevice' | 'countries' | 'byLanguage'
 
 /** The report's statements, in the order wrangler returns their results. */
-export function buildQueries(since: string, top: number): { name: QueryName; sql: string }[] {
+export function buildQueries(since: string, top: number, hasLang = true): { name: QueryName; sql: string }[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) throw new Error('bad since')
   if (!Number.isInteger(top) || top < 1) throw new Error('bad top')
   const w = `day >= '${since}'`
@@ -70,8 +75,18 @@ export function buildQueries(since: string, top: number): { name: QueryName; sql
       sql: `SELECT name, country, n, people FROM (SELECT name, country, COUNT(*) AS n, COUNT(DISTINCT ${vid}) AS people, ROW_NUMBER() OVER (PARTITION BY name ORDER BY COUNT(*) DESC, country) AS rk FROM events WHERE ${w} GROUP BY name, country) WHERE rk <= ${top} ORDER BY name, n DESC, country`,
     },
     // The browser language's primary subtag on visits (workers/stats lang, since 2026-11-15; '' before, or none sent).
-    { name: 'byLanguage', sql: `SELECT lang, COUNT(DISTINCT ${vid}) AS people, COUNT(*) AS visits FROM events WHERE ${w} AND name = 'visit' GROUP BY lang ORDER BY people DESC` },
+    // Left out while the live table has no lang column (before migrations/2026-11-15-lang.sql): see LANG_COLUMN_SQL.
+    ...(hasLang ? [{ name: 'byLanguage' as const, sql: `SELECT lang, COUNT(DISTINCT ${vid}) AS people, COUNT(*) AS visits FROM events WHERE ${w} AND name = 'visit' GROUP BY lang ORDER BY people DESC` }] : []),
   ]
+}
+
+/** Run first: one row when the events table has the lang column, none before the migration. */
+export const LANG_COLUMN_SQL = `SELECT name FROM pragma_table_info('events') WHERE name = 'lang'`
+
+/** Whether wrangler's --json answer to LANG_COLUMN_SQL found the column. */
+export function parseHasLang(stdout: string): boolean {
+  const out = JSON.parse(stdout) as { results?: unknown[] }[]
+  return Array.isArray(out) && (out[0]?.results?.length ?? 0) > 0
 }
 
 export function wranglerArgs(sql: string): string[] {
@@ -79,7 +94,7 @@ export function wranglerArgs(sql: string): string[] {
 }
 
 type Row = Record<string, string | number | null>
-export type Results = Record<QueryName, Row[]>
+export type Results = Record<Exclude<QueryName, 'byLanguage'>, Row[]> & { byLanguage?: Row[] }
 
 /** wrangler's --json output: one { results } per statement, in order. */
 export function parseWrangler(stdout: string, names: QueryName[]): Results {
@@ -137,7 +152,8 @@ export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): str
   }
 
   out.push('', 'Visitors by browser language')
-  if (!r.byLanguage.length) out.push('(none)')
+  if (!r.byLanguage) out.push('not recorded yet')
+  else if (!r.byLanguage.length) out.push('(none)')
   else out.push(table(['language', 'people', 'visits'], r.byLanguage.map((x) => [String(x.lang ?? '') || 'unknown', num(x.people), num(x.visits)])))
 
   for (const name of EVENTS) {
@@ -161,13 +177,19 @@ export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): str
 
 function main() {
   const args = parseArgs(process.argv.slice(2))
-  const queries = buildQueries(args.since, args.top)
-  const sql = queries.map((q) => `${q.sql};`).join('\n')
   const cwd = join(fileURLToPath(new URL('.', import.meta.url)), '../../workers/stats')
   if (args.printSql) {
-    console.log(`# cd ${cwd} && npx ${wranglerArgs('<sql>').join(' ')}\n${sql}`)
+    const all = buildQueries(args.since, args.top)
+    console.log(`# cd ${cwd} && npx ${wranglerArgs('<sql>').join(' ')}\n# first, a check for the lang column (the language query is left out when it is missing):\n${LANG_COLUMN_SQL};\n${all.map((q) => `${q.sql};`).join('\n')}`)
     return
   }
+  const probe = spawnSync('npx', wranglerArgs(LANG_COLUMN_SQL), { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  if (probe.status !== 0) {
+    console.error(probe.stderr || probe.stdout || `wrangler exited with ${probe.status}`)
+    process.exit(1)
+  }
+  const queries = buildQueries(args.since, args.top, parseHasLang(probe.stdout))
+  const sql = queries.map((q) => `${q.sql};`).join('\n')
   const run = spawnSync('npx', wranglerArgs(sql), { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   if (run.status !== 0) {
     console.error(run.stderr || run.stdout || `wrangler exited with ${run.status}`)

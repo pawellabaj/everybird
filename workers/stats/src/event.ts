@@ -8,6 +8,11 @@ export const ALLOWED: Record<string, Set<string>> = {
   image_downloaded: new Set(['story', 'post', 'square']),
   shared: new Set(['story', 'post', 'square', 'link']),
   link_copied: new Set(['full', 'compact', 'minimal', 'species']),
+  ui_language: new Set(['en', 'es', 'pt', 'nl']),
+  poster_made: new Set(['a4', 'a3', 'a2', 'a1']),
+  poster_downloaded: new Set(['png', 'pdf']),
+  search_applied: new Set(['smart', 'bird']),
+  filter_used: new Set(['place', 'continent', 'time', 'status', 'group', 'taxonomy']),
 }
 
 export type EventContext = { day: string; country: string; device: string; vid: string }

@@ -12,7 +12,7 @@
 // poster alike. Print mode makes an A4 to A1 poster (A2 to start): the preview is the poster's 1080-wide image, "Make poster" runs
 // makePoster (its chunk is fetched when print mode opens) with progress and Cancel, then Download PNG and Download PDF
 // serve the one encode. Changing the size, title or either switch, leaving print mode or closing the dialog cancels a make and
-// drops a finished poster. Nothing in print mode is counted. "Share images" in the format control's place goes back.
+// drops a finished poster. Counted: poster_made (by size) when a make finishes, poster_downloaded (png|pdf) when a file is saved; link_copied isn't. "Share images" in the format control's place goes back.
 // The actions: Share image over a row of three quiet buttons. Print mode keeps the same pattern.
 import {
   ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon,
@@ -23,7 +23,7 @@ import { fmt, plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import { countryName, regionsIn } from '@/lib/i18n-places'
-import { track } from '@/lib/analytics'
+import { track, type PosterSizeWire } from '@/lib/analytics'
 import { currentTheme, type Theme } from '@/lib/theme'
 import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
@@ -284,6 +284,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       setMaking(null)
       setNote({ text: readyNote(p), print: true })
       focusNext.current = 'png'
+      track('poster_made', { size: p.size.toLowerCase() as PosterSizeWire })
     } catch (e) {
       if (ctl.signal.aborted || (e as Error)?.name === 'AbortError') return
       const memory = (e as Error)?.message === 'poster-memory'
@@ -330,6 +331,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     }
     if (posterRef.current !== p) return // dropped while the file was made: never a stale poster
     downloadBlob(blob, file)
+    track('poster_downloaded', { format: kind })
     setNote({ text: fmt(t.share.saved, { file }), print: true })
   }
 

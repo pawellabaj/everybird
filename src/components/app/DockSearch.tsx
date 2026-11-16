@@ -21,6 +21,7 @@ import type { Ui } from '@/i18n/messages/en'
 import { regionsIn } from '@/lib/i18n-places'
 import type { Filter } from '@/lib/list/filters'
 import { timeSummary } from '@/lib/list/filter-summary'
+import { track } from '@/lib/analytics'
 import { applySmart, nameQuery, shownChips } from '@/lib/search/apply'
 import { parseSmart, withoutChip, type Chip as SmartChip } from '@/lib/search/smart'
 import { type BirdGroup } from '@/lib/search/groups'
@@ -162,13 +163,14 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
   }, [at])
 
   if (!open) return null
-  const pick = (h: CollageHit) => { setQuery(''); setCursor(-1); onPick(h) }
+  const pick = (h: CollageHit) => { setQuery(''); setCursor(-1); track('search_applied', { kind: 'bird' }); onPick(h) }
   const apply = () => {
     if (!parsed) return
     const next = applySmart(filter, parsed.filter, kinds)
     // Without month sets "seen any time" changes nothing (and its labels would mislead): the dates stay lifer dates.
     if (!hasMonths) delete next.basis
     onApply(next)
+    track('search_applied', { kind: 'smart' })
     setQuery('')
     setCursor(-1)
     onClose(true)

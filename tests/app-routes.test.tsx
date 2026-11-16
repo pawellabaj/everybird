@@ -60,7 +60,7 @@ vi.mock('@/lib/import/parse-client', async (orig) => {
   }
 })
 vi.mock('@/lib/import/inat', async (orig) => ({ ...(await orig<typeof import('@/lib/import/inat')>()), importInat: vi.fn() }))
-vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
+vi.mock('@/lib/analytics', () => ({ track: vi.fn(), trackFilterUsed: vi.fn() }))
 
 const HEADER = 'Row #,Taxon Order,Category,Common Name,Scientific Name,Count,Location,S/P,Date,LocID,SubID,Exotic,Countable'
 const ROWS = [

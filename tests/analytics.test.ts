@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  ALLOWED, PRODUCTION_HOST, STATS_ENDPOINT, WIRE_LEVEL, automatedRun, isTouchMac, optedOut, payloadFor, sendEvent, track,
+  ALLOWED, PRODUCTION_HOST, resetFilterUsed, trackFilterUsed, STATS_ENDPOINT, WIRE_LEVEL, automatedRun, isTouchMac, optedOut, payloadFor, sendEvent, track,
   type SendEnv, type StatsHookWindow,
 } from '@/lib/analytics'
 import type { ShareLevel } from '@/lib/share/link'
@@ -215,5 +215,31 @@ describe('automated runs never send', () => {
     expect(sendEvent('image_downloaded', { format: 'story' }, { hostname: PRODUCTION_HOST, navigator: nav, automated: true, hook })).toBe(true)
     expect(hook).toHaveBeenCalledOnce()
     expect(beacon).not.toHaveBeenCalled()
+  })
+})
+
+describe('the newer events', () => {
+  it('each value goes out as {n, p}, and an unknown one is dropped', () => {
+    for (const lang of ['en', 'es', 'pt', 'nl'] as const) expect(payloadFor('ui_language', { lang })).toEqual({ n: 'ui_language', p: lang })
+    for (const size of ['a4', 'a3', 'a2', 'a1'] as const) expect(payloadFor('poster_made', { size })).toEqual({ n: 'poster_made', p: size })
+    for (const format of ['png', 'pdf'] as const) expect(payloadFor('poster_downloaded', { format })).toEqual({ n: 'poster_downloaded', p: format })
+    for (const kind of ['smart', 'bird'] as const) expect(payloadFor('search_applied', { kind })).toEqual({ n: 'search_applied', p: kind })
+    for (const kind of ['place', 'continent', 'time', 'status', 'group', 'taxonomy'] as const) expect(payloadFor('filter_used', { kind })).toEqual({ n: 'filter_used', p: kind })
+    expect(payloadFor('ui_language', { lang: 'fr' as never })).toBeNull()
+    expect(payloadFor('poster_made', { size: 'A4' as never })).toBeNull()
+    expect(payloadFor('poster_downloaded', { format: 'jpg' as never })).toBeNull()
+    expect(payloadFor('search_applied', { kind: 'Snow Goose' as never })).toBeNull()
+    expect(payloadFor('filter_used', { kind: 'Canada' as never })).toBeNull()
+    expect(payloadFor('ui_language', { lang: 'es' }, false, 'es-MX')).toEqual({ n: 'ui_language', p: 'es' }) // no browser language off a visit
+  })
+  it('trackFilterUsed sends each kind once per page load', () => {
+    const bodies: string[] = []
+    ;(window as StatsHookWindow).__everybirdStats = (b) => bodies.push(b)
+    resetFilterUsed()
+    trackFilterUsed('place'); trackFilterUsed('place'); trackFilterUsed('time'); trackFilterUsed('place')
+    expect(bodies.map((b) => JSON.parse(b).p)).toEqual(['place', 'time'])
+    resetFilterUsed()
+    trackFilterUsed('place')
+    expect(bodies).toHaveLength(3)
   })
 })

@@ -2,6 +2,8 @@
 // The collage block shared by the landing sample, the birder's own collage and the shared view: the stats line, the
 // controls bar (view tabs, True size or the list's direction, Scientific, the search), the filters, the collage or
 // the list, the legend, the hover tooltip and the bird card. Composition after LifeList.tsx (framer-site).
+import { trackFilterUsed } from '@/lib/analytics'
+import { newlySetKinds } from '@/lib/list/filter-kinds'
 import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BirdCard } from '@/components/collage/BirdCard'
 import { BirdTip } from '@/components/collage/BirdTip'
@@ -153,6 +155,12 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
     return [...keys]
   }, [seen])
   const hasMonths = useMemo(() => hasSeenMonths(seen), [seen])
+  // Anonymous count of which kinds of filter get used (once per kind per page load; the kind only, never its value).
+  const prevFilter = useRef(filter)
+  useEffect(() => {
+    for (const kind of newlySetKinds(prevFilter.current, filter)) trackFilterUsed(kind)
+    prevFilter.current = filter
+  }, [filter])
   const onApply = useCallback((f: Filter) => dispatch({ type: 'filter', filter: f }), [dispatch])
 
   const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, placesUnplaced, time, threatLine, shown: shownList.length })

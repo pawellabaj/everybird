@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
-import { buildQueries, daysAgo, formatReport, parseArgs, parseWrangler, table, wranglerArgs, type Results } from '../scripts/stats/report'
+import { ALLOWED as APP_ALLOWED } from '@/lib/analytics'
+import { EVENTS, LANG_COLUMN_SQL, buildQueries, daysAgo, formatReport, parseArgs, parseHasLang, parseWrangler, table, wranglerArgs, type Results } from '../scripts/stats/report'
 
 const NOW = new Date('2026-11-06T12:00:00Z')
 
@@ -73,6 +74,27 @@ describe('buildQueries', () => {
 
   // The table as the live database has it before migrations/2026-11-15-lang.sql (schema.sql before the lang column).
   const OLD_CREATE = `CREATE TABLE IF NOT EXISTS events (day TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, country TEXT NOT NULL, device TEXT NOT NULL, vid TEXT NOT NULL DEFAULT '');`
+
+  it.skipIf(!sqlite)('works before the lang migration: the column check says no, the language query is left out, the report says so', () => {
+    const db = new sqlite!.DatabaseSync(':memory:')
+    db.exec(OLD_CREATE)
+    expect(parseHasLang(JSON.stringify([{ results: db.prepare(LANG_COLUMN_SQL).all() }]))).toBe(false)
+    db.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)').run('2026-11-14', 'filter_used', 'place', 'US', 'mac', 'x1')
+    const qs = buildQueries('2026-11-01', 5, false)
+    expect(qs.map((q) => q.name)).not.toContain('byLanguage')
+    const r = Object.fromEntries(qs.map((q) => [q.name, db.prepare(q.sql).all()])) as Results // every statement runs without lang
+    const text = formatReport(r, { since: '2026-11-01', top: 5 })
+    expect(text).toContain('Visitors by browser language\nnot recorded yet')
+    expect(text).toMatch(/Filters used[^\n]*\nvalue\s+events\s+people/)
+    expect(() => db.prepare(buildQueries('2026-11-01', 5).find((q) => q.name === 'byLanguage')!.sql).all()).toThrow(/lang/)
+    // After the migration the check finds it.
+    db.exec(readFileSync('workers/stats/migrations/2026-11-15-lang.sql', 'utf8'))
+    expect(parseHasLang(JSON.stringify([{ results: db.prepare(LANG_COLUMN_SQL).all() }]))).toBe(true)
+  })
+
+  it('lists every event the Worker accepts', () => {
+    expect([...EVENTS].sort()).toEqual(Object.keys(APP_ALLOWED).sort())
+  })
 
   it.skipIf(!sqlite)('the lang migration runs on the old table, keeps its rows, and byLanguage counts visits by browser language', () => {
     const db = new sqlite!.DatabaseSync(':memory:')
@@ -165,6 +187,21 @@ describe('the report', () => {
       '(none)',
       '',
       'Links copied (link_copied, by level)',
+      '(none)',
+      '',
+      'UI language switched to (ui_language)',
+      '(none)',
+      '',
+      'Posters made (poster_made, by size)',
+      '(none)',
+      '',
+      'Posters downloaded (poster_downloaded, by format)',
+      '(none)',
+      '',
+      'Searches applied (search_applied: smart filters or a bird)',
+      '(none)',
+      '',
+      'Filters used (filter_used, once per kind per page load)',
       '(none)',
     ].join('\n'))
   })
