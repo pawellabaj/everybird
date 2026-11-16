@@ -32,6 +32,7 @@ import {
 import type { ShareLevel } from '@/lib/share/link'
 import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { markShown } from '@/lib/species/status-mark'
 import type { Regions } from '@/lib/species/types'
 import '@/components/app/app.css'
 import '@/components/collage/collage.css'
@@ -101,6 +102,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const print = mode === 'print'
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
+  const [showStatus, setShowStatus] = useState(false) // off at every open
   // The look of everything the dialog makes: the app's theme when the dialog opens, then this dialog's own choice.
   const [dark, setDark] = useState(() => currentTheme() === 'dark')
   const theme: Theme = dark ? 'dark' : 'light'
@@ -115,6 +117,9 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   )
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
+  // The conservation status switch shows only when the view holds a threatened bird (VU, EN, CR), as the pill does.
+  const hasThreatened = useMemo(() => shown.some((e) => markShown(species.byCode.get(e.code)?.iu)), [shown, species])
+  const withStatus = hasThreatened && showStatus
 
   // One pack per format, name-or-not and lifer-or-not while the dialog is open (the view can't change underneath it; a
   // name takes a line off the collage and the latest lifer row gives one back, so each gets its own pack); workers end
@@ -151,7 +156,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = print ? `print|${size}|${trimmed}|${theme}|${withLatest}` : `${format}|${trimmed}|${theme}|${withLatest}`
+  const key = print ? `print|${size}|${trimmed}|${theme}|${withLatest}|${withStatus}` : `${format}|${trimmed}|${theme}|${withLatest}|${withStatus}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   // What the render depends on: in print mode not the share format, so switching it there never starts a needless render.
@@ -168,7 +173,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       .then(() => packFor(cardFormat, !!trimmed, withLatest))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
-        theme, pack, latest: withLatest, signal: life.current?.signal,
+        theme, pack, latest: withLatest, status: withStatus, signal: life.current?.signal,
       }))
     current.current = job
     job.then(
@@ -186,7 +191,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, print, size, cardFormat, trimmed, theme, withLatest, packFor, shown, species, label])
+  }, [key, print, size, cardFormat, trimmed, theme, withLatest, withStatus, packFor, shown, species, label])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
@@ -205,7 +210,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
   // The poster: one make at a time, for `posterKey`. A new key, leaving print mode or closing the dialog cancels the
   // make and drops the poster (its encoder ends with it).
-  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${fk}`
+  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${withStatus}|${fk}`
   const [poster, setPoster] = useState<{ key: string; p: Poster } | null>(null)
   const [making, setMaking] = useState<{ key: string; done: number; total: number } | null>(null)
   const makeCtl = useRef<AbortController | null>(null)
@@ -266,7 +271,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       const pack = await packFor('print', !!trimmed, withLatest)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
-        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, signal: ctl.signal },
+        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, status: withStatus, theme, signal: ctl.signal },
         (done, total) => { if (!ctl.signal.aborted) setMaking({ key: forKey, done, total }) },
       )
       if (ctl.signal.aborted) { p.dispose(); return }
@@ -563,6 +568,13 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
               {hasLatest && (
                 <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
                   <span>Show latest lifer</span>
+                  <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
+                </button>
+              )}
+
+              {hasThreatened && (
+                <button type="button" role="switch" aria-checked={showStatus} className="eb-switch eb-share-switch" onClick={() => setShowStatus((v) => !v)}>
+                  <span>Show conservation status</span>
                   <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
                 </button>
               )}

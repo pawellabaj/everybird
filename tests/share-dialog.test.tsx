@@ -623,3 +623,49 @@ describe('share dialog: the poster module fails to load', () => {
     vi.doMock('@/lib/share/poster', posterMock)
   })
 })
+
+describe('share dialog: conservation status', () => {
+  const sp = buildSpeciesIndex([{ ...row('ostric2', 1), iu: 'VU' }, { ...row('emu1', 2), iu: 'LC' }] as SpeciesRow[])
+  const open = (codes: string[]) => render(<ShareDialog state={stateWith(codes.map(entry))} dispatch={() => {}} species={sp} regions={regions} onClose={() => {}} />)
+  const lastOpts = () => vi.mocked(image.renderShareImage).mock.calls.at(-1)?.[0]
+
+  it('is hidden when the view holds no threatened bird', () => {
+    open(['emu1'])
+    expect(screen.queryByRole('switch', { name: 'Show conservation status' })).toBeNull()
+  })
+
+  it('shows off by default after "Show latest lifer", and the first render has no status', async () => {
+    open(['ostric2'])
+    const sw = screen.getByRole('switch', { name: 'Show conservation status' })
+    expect(sw).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: 'Show latest lifer' }).nextElementSibling).toBe(sw)
+    expect(sw.nextElementSibling).toBe(screen.getByRole('switch', { name: 'Dark image' }))
+    await waitFor(() => expect(renders).toHaveLength(1))
+    expect(lastOpts()).toMatchObject({ status: false })
+  })
+
+  it('toggling re-renders the preview with status: true', async () => {
+    open(['ostric2'])
+    await waitFor(() => expect(renders).toHaveLength(1))
+    fireEvent.click(screen.getByRole('switch', { name: 'Show conservation status' }))
+    expect(screen.getByRole('switch', { name: 'Show conservation status' })).toHaveAttribute('aria-checked', 'true')
+    await waitFor(() => expect(renders).toHaveLength(2))
+    expect(lastOpts()).toMatchObject({ format: 'story', status: true })
+  })
+
+  it('in print mode it re-renders, discards a made poster, and makePoster gets status', async () => {
+    open(['ostric2'])
+    fireEvent.click(screen.getByRole('button', { name: /^Print/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(1))
+    expect(makes[0].opts).toMatchObject({ status: false })
+    const p = fakePoster()
+    await act(async () => makes[0].resolve(p))
+    fireEvent.click(screen.getByRole('switch', { name: 'Show conservation status' }))
+    await waitFor(() => expect(lastOpts()).toMatchObject({ format: 'print', status: true }))
+    expect(p.dispose).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(2))
+    expect(makes[1].opts).toMatchObject({ status: true })
+  })
+})
