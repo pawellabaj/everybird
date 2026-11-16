@@ -33,15 +33,22 @@ describe('the Red List pill CSS', () => {
   })
   it('the card pill is a toggletip button: a 44px press clear of the close button, a tip that shows on press, focus and hover', () => {
     expect(rule('button.eb-iucn::after')).toMatch(/inset:\s*-13px -9px/)
+    // Right-aligned under the mass: the tip's right edge is the pill's.
+    expect(rule('.eb-iucn-tip')).toMatch(/right:\s*0/)
     expect(rule('.eb-iucn-tip')).toMatch(/pointer-events:\s*none/)
     expect(rules.some(([sel]) => sel.includes('.eb-iucn-wrap[data-open] .eb-iucn-tip') && sel.includes('.eb-iucn:focus-visible + .eb-iucn-tip'))).toBe(true)
     expect(rules.some(([sel]) => sel === '.eb-iucn:hover + .eb-iucn-tip')).toBe(true)
   })
-  it('the status line sits under the other name, left-aligned: no meta column, no 45% cap', () => {
+  it('the pill sits under the mass, right-aligned, in a head column that never shrinks below its content (so long names wrap on the left)', () => {
     expect(css).not.toMatch(/eb-card-meta|45%|min-content|data-pill/)
-    expect(rule('.eb-iucn-badge')).toMatch(/display:\s*flex/)
+    const side = rule('.eb-card-side')
+    expect(side).toMatch(/flex:\s*none/)
+    expect(side).toMatch(/flex-direction:\s*column/)
+    expect(side).toMatch(/align-items:\s*flex-end/)
+    expect(side).toMatch(/margin-left:\s*auto/)
+    expect(rule('.eb-card-names')).toMatch(/min-width:\s*0/)
+    expect(rule('.eb-iucn-badge')).toMatch(/justify-content:\s*flex-end/)
     expect(css).not.toMatch(/eb-iucn-name/)
-    expect(rule('.eb-card-mass')).toMatch(/margin-left:\s*auto/)
   })
 })
 

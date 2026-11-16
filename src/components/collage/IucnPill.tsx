@@ -20,9 +20,9 @@ export function IucnPill({ cat }: { cat: IucnCat }) {
 }
 
 /**
- * The status line of the bird card and the hover tooltip, under the other name: the pill alone. In the card (`tip`) it
- * is a button named "Red List: Least Concern" whose tip shows the full name; in the tooltip (no pointer events,
- * aria-hidden) it is the plain span. Never on list rows, search, share images or link previews.
+ * The pill of the bird card and the hover tooltip, under the body mass in the head's right column, the pill alone (no
+ * name). In the card (`tip`) it is a button named "Red List: Least Concern" whose tip shows the full name; in the
+ * tooltip (no pointer events, aria-hidden) it is the plain span. Never on search, share images or link previews.
  */
 export function IucnBadge({ cat, tip = false }: { cat: IucnCat; tip?: boolean }) {
   return (

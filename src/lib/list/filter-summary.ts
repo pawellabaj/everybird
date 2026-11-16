@@ -128,6 +128,7 @@ export function countHead(n: number, words: CountWords, checked: number): string
 export const FILTERS_UI = {
   button: 'Filters', dialog: 'Filters', chips: 'Active filters', close: 'Close',
   sections: { places: 'Places', time: 'Time', status: 'Conservation status' },
+  statusNote: 'IUCN Red List categories (global)',
   species: '{n} species', head: 'Filters · {n} · {species}', headNone: 'Filters · {species}', show: 'Show {species}',
   manyPlaces: '{n} places', manyStatuses: '{n} statuses',
   openChip: 'Show {label} in Filters', clearChip: 'Remove all {label}',

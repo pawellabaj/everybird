@@ -185,7 +185,7 @@ describe('BirdCard Red List pill', () => {
     sessionStorage.removeItem('everybird:variants')
   })
 
-  it('the card shows the pill alone on its own line: a button named "Red List: Vulnerable" with a toggletip', () => {
+  it('the card shows the pill alone, under the mass: a button named "Red List: Vulnerable" with a toggletip', () => {
     renderCard({ iu: 'VU' })
     const dlg = screen.getByRole('dialog')
     const badge = screen.getByTestId('iucn-badge')
@@ -211,11 +211,14 @@ describe('BirdCard Red List pill', () => {
     fireEvent.click(pill)
     fireEvent.blur(pill)
     expect(wrap).not.toHaveAttribute('data-open')
-    // Under the other name; the mass is the head's own child.
+    // Under the mass, in the head's right column; the names (name, other name) stay on the left without it.
+    const side = dlg.querySelector('.eb-card-side')!
+    expect(side.parentElement).toHaveClass('eb-card-head')
+    expect([...side.children]).toEqual([dlg.querySelector('.eb-card-mass'), badge])
     const names = dlg.querySelector('.eb-card-names')!
-    expect(names.lastElementChild).toBe(badge)
-    expect(badge.previousElementSibling).toHaveClass('eb-card-other')
-    expect(dlg.querySelector('.eb-card-head')!.contains(dlg.querySelector('.eb-card-mass'))).toBe(true)
+    expect(names.lastElementChild).toHaveClass('eb-card-other')
+    expect(names.contains(badge)).toBe(false)
+    expect(names.nextElementSibling).toBe(side)
   })
 
   it('every category reads "Red List: <name>" in full', () => {

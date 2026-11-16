@@ -66,6 +66,7 @@ describe('Status: a section of the Filters panel', () => {
     expect(panel).toContainElement(statusPanel())
     expect(screen.getByText(/3 categories/)).toBeInTheDocument()
     expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(within(statusPanel()).getByTestId('status-note')).toHaveTextContent('IUCN Red List categories (global)')
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
     // The source note lives only on About.
     expect(screen.queryByText(/Global IUCN Red List categories/)).toBeNull()
