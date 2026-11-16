@@ -63,7 +63,7 @@ button.bar:hover .fill { background: var(--accent); }
 .chartbox { position: relative; margin-top: 12px; }
 svg { display: block; width: 100%; touch-action: pan-y; }
 svg text { font: 500 11px var(--mono); fill: var(--muted); }
-.tip { position: absolute; pointer-events: none; background: var(--paper); border: 1px solid var(--line); border-radius: calc(8px * var(--corner)); padding: 6px 10px; font-size: 13px; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: 0 2px 8px rgb(0 0 0 / .08); }
+.tip { position: absolute; pointer-events: none; background: var(--paper); border: 1px solid var(--line); border-radius: calc(8px * var(--corner)); corner-shape: superellipse(2); padding: 6px 10px; font-size: 13px; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04); }
 .tip b { font-family: var(--display); font-size: 16px; }
 .empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
 .foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; }
