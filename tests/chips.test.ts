@@ -29,6 +29,9 @@ describe('filterChips', () => {
     expect(from.label).toBe('from 2022')
     expect(from.token).toBe('2022-01..')
     expect(filterChips({ from: '2021-09', to: '2021-09' }, r, t)[0].label).toBe('Sep 2021')
+    expect(filterChips({ from: '2020-04', to: '2024-09' }, r, t)[0].label).toBe('Apr 2020–Sep 2024')
+    expect(filterChips({ from: '2020-04' }, r, t)[0].label).toBe('from Apr 2020')
+    expect(filterChips({ to: '2024-09' }, r, t)[0].label).toBe('to Sep 2024')
   })
 
   it('spec 12: 7 places, a range and Endangered', () => {

@@ -210,7 +210,7 @@ export function useCollageLayout({ list, seen, filter, mode, species, container,
   const ords = useMemo(() => {
     if (!dragging || filter.basis !== 'seen') return null
     const w = whereOf({ ...filter, from: undefined, to: undefined })
-    const open = w ?? { keys: [], continents: [], lo: -Infinity, hi: Infinity }
+    const open = w ?? { keys: [], lo: -Infinity, hi: Infinity }
     return new Map(known.map((e) => [e.code, candidateOrds(e, seen, open)]))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the filter's places are `seenKey`; its range is what the drag changes
   }, [known, seen, dragging, seenKey, filter.basis])

@@ -277,3 +277,15 @@ describe('nf-9 review fixes: waterbird words', () => {
     expect(parse('aves aquáticas', 'pt').filter.group).not.toBe('waterfowl')
   })
 })
+
+describe('places under the continent model (nf-10 keys)', () => {
+  const regions = { v: 1 as const, countries: { CA: 'Canada', FR: 'France', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia', 'FR-973': 'French Guiana' } }
+  it('a listed country, province or overseas part parses to keys a continent-aware filter accepts', () => {
+    const listPlaces = ['n:NA', 'c:CA', 's:CA-BC', 'n:AF', 'c:KE', 'n:SA', 'c:FR@SA', 's:FR-973']
+    expect(parse('canada', 'en', { regions, listPlaces }).filter).toEqual({ countries: ['CA'] })
+    expect(parse('kenya', 'en', { regions, listPlaces }).filter).toEqual({ countries: ['KE'] })
+    expect(parse('french guiana', 'en', { regions, listPlaces }).filter).toEqual({ provinces: ['FR-973'] })
+    // A plain country key is valid in the continent model: France itself (Europe), whatever else the list holds.
+    expect(parse('france', 'en', { regions, listPlaces }).filter).toEqual({ countries: ['FR'] })
+  })
+})

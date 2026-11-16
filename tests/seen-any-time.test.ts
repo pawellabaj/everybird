@@ -98,7 +98,7 @@ describe('the Time drag\'s preview follows the seen rule (B2)', () => {
   const dates = new Map(list.map((e) => [e.code, e.date]))
 
   it('precomputed month ordinals inside the places, then a binary search', () => {
-    const w = makeWhere(['s:CA-BC'], [])
+    const w = makeWhere(['s:CA-BC'])
     const ords = new Map(list.map((e) => [e.code, candidateOrds(e, seen, w)]))
     expect(ords.get('owl')).toEqual([])
     expect(ords.get('loon')).toEqual([2019 * 12 + 2, 2021 * 12 + 6])
@@ -108,7 +108,7 @@ describe('the Time drag\'s preview follows the seen rule (B2)', () => {
     expect([...stillView(full, '', { dates, ords, from: '2019-01', to: '2019-12' }).visible]).toEqual(['loon'])
   })
   it('a year-only date covers its twelve months, and without places any sighting counts', () => {
-    const ords = new Map(list.map((e) => [e.code, candidateOrds(e, seen, makeWhere([], []))]))
+    const ords = new Map(list.map((e) => [e.code, candidateOrds(e, seen, makeWhere([]))]))
     expect(ords.get('wren')).toHaveLength(12)
     expect([...stillView(full, '', { dates, ords, from: '2018-06', to: '2018-06' }).visible]).toEqual(['wren'])
     expect([...stillView(full, '', { dates, ords, from: '2022-01', to: '2022-12' }).visible]).toEqual(['owl'])
@@ -124,5 +124,51 @@ describe('one "has months" check (D4)', () => {
     const none = buildSeen([records[0], records[2]], EMPTY_EDITS, DEFAULT_RULES, buildList([records[0], records[2]], EMPTY_EDITS, DEFAULT_RULES))
     expect(hasSeenMonths(none)).toBe(false)
     expect(hasSeenMonths(undefined)).toBe(false)
+  })
+})
+
+describe('"Seen any time" with the continent level (nf-10: continent keys n:XX, an overseas part c:FR@SA)', () => {
+  const place = (country: string, sub1?: string) => ({ country, ...(sub1 ? { sub1 } : {}) })
+  const at = (code: string, key: string, months: string[], p: { country: string; sub1?: string }): SourceRecord => {
+    const agg = new SeenAgg()
+    agg.addMonths(code, key, months)
+    agg.addKey(code, key, months[0])
+    return { code, source: 'inat', date: months[0] + '-01', place: p, seen: agg.get(code), seenMonths: agg.getMonths(code) }
+  }
+  // loon: a Canadian lifer in 2019, then iNaturalist months in Kenya (Africa) 2022-05 and in French Guiana (France's
+  // part on South America) 2023-02. wren: France itself (Europe) in 2020-06.
+  const recs: SourceRecord[] = [
+    { code: 'loon', source: 'ebird', date: '2019-03-15', place: place('CA') },
+    at('loon', 'KE', ['2022-05'], place('KE')),
+    at('loon', 'FR-973', ['2023-02'], place('FR', 'FR-973')),
+    at('wren', 'FR', ['2020-06'], place('FR')),
+  ]
+  const l = buildList(recs, EMPTY_EDITS, DEFAULT_RULES)
+  const s = buildSeen(recs, EMPTY_EDITS, DEFAULT_RULES, l)
+  const names = (f: object) => applyFilter(l, f, species, s).map((e) => e.code).sort()
+
+  it('a seen-basis filter on n:AF means seen in Africa in that period', () => {
+    expect(names({ continents: ['AF'], from: '2022-01', to: '2022-12', basis: 'seen' })).toEqual(['loon'])
+    // The loon's Africa sighting is in 2022 only: 2023 (Guiana) and 2019 (Canada) are not Africa.
+    expect(names({ continents: ['AF'], from: '2023-01', to: '2023-12', basis: 'seen' })).toEqual([])
+    expect(names({ continents: ['AF'], from: '2019-01', to: '2019-12', basis: 'seen' })).toEqual([])
+    // Without a period the continent alone is every bird seen there.
+    expect(names({ continents: ['AF'] })).toEqual(['loon'])
+    // The counts under it: the loon is counted in Kenya only.
+    const c = placeCounts(l, { from: '2022-01', to: '2022-12', basis: 'seen' }, species, s)
+    expect([...c.continents.keys()]).toEqual(['AF'])
+    expect([...c.countries.keys()]).toEqual(['KE'])
+  })
+  it('a seen-basis filter on c:FR@SA is French Guiana, not France in Europe', () => {
+    expect(names({ countries: ['FR@SA'], from: '2023-01', to: '2023-12', basis: 'seen' })).toEqual(['loon'])
+    expect(names({ countries: ['FR@SA'], from: '2020-01', to: '2020-12', basis: 'seen' })).toEqual([])
+    expect(names({ countries: ['FR'], from: '2020-01', to: '2020-12', basis: 'seen' })).toEqual(['wren'])
+    expect(names({ countries: ['FR'], from: '2023-01', to: '2023-12', basis: 'seen' })).toEqual([])
+    expect(names({ continents: ['SA'], from: '2023-01', to: '2023-12', basis: 'seen' })).toEqual(['loon'])
+    const c = placeCounts(l, { from: '2023-01', to: '2023-12', basis: 'seen' }, species, s)
+    expect([...c.countries.keys()]).toEqual(['FR@SA'])
+  })
+  it('the sighting shown on the card is the one inside the continent', () => {
+    expect(sightingIn(l.find((e) => e.code === 'loon') as ListEntry, { continents: ['AF'] }, s)).toEqual({ date: '2022-05', place: { country: 'KE' } })
   })
 })

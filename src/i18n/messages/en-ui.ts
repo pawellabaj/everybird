@@ -195,7 +195,6 @@ export const EN_UI = {
     /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
     panel: {
       chips: 'Active filters',
-      statusNote: 'IUCN Red List categories (global)',
       head: 'Filters · {n} · {species}',
       headNone: 'Filters · {species}',
       show: 'Show {species}',
@@ -206,6 +205,7 @@ export const EN_UI = {
     },
     /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
     countHead: {
+      continent: { one: '{n} continent', other: '{n} continents' },
       country: { one: '{n} country', other: '{n} countries' },
       province: { one: '{n} state or province', other: '{n} states and provinces' },
       county: { one: '{n} county', other: '{n} counties' },
@@ -243,16 +243,18 @@ export const EN_UI = {
   /** The Places panel (PlacesList, PlacesDrill, places-shared). Country names come from the data
    *  (src/lib/i18n-places.ts); province and county names are local names. */
   places: {
-    head: { country: 'Countries', province: 'States and provinces', county: 'Counties' },
-    find: { country: 'Find a country', province: 'Find a state or province', county: 'Find a county' },
-    noMatch: { country: 'No country matches.', province: 'No state or province matches.', county: 'No county matches.' },
+    head: { continent: 'Continents', country: 'Countries', province: 'States and provinces', county: 'Counties' },
+    find: { continent: 'Find a country', country: 'Find a country', province: 'Find a state or province', county: 'Find a county' },
+    noMatch: { continent: 'No country matches.', country: 'No country matches.', province: 'No state or province matches.', county: 'No county matches.' },
     allCountries: 'All countries',
+    /** The breadcrumb's first step when the top level lists the continents. */
+    allContinents: 'All continents',
     /** The drilled level's first row, the parent's own checkbox ("All of Canada"). */
     allOf: 'All of {place}',
     /** The drill buttons' aria-labels (design a). */
-    drill: { country: 'Show states and provinces in {place}', province: 'Show counties in {place}' },
+    drill: { continent: 'Show countries in {place}', country: 'Show states and provinces in {place}', province: 'Show counties in {place}' },
     /** The disclosure buttons' and open groups' names (design b). */
-    group: { country: 'States and provinces in {place}', province: 'Counties in {place}' },
+    group: { continent: 'Countries in {place}', country: 'States and provinces in {place}', province: 'Counties in {place}' },
     none: 'No places on this list.',
     emptyFiltered: 'No places here under the other filters.',
     emptyNow: 'No places here on your list now.',
@@ -268,8 +270,7 @@ export const EN_UI = {
     },
     /** Three or more places on the share image ("Canada and 2 more"; two are joined by " + " in code). */
     andMore: '{first} and {n} more',
-    /** The Places panel's continent chips: their group name and each continent's name by id (`CONTINENTS` in src/lib/places/continents.ts). */
-    continentsLabel: 'Continents',
+    /** Each continent's name by id (`CONTINENTS` in src/lib/places/continents.ts): the Places top level, its breadcrumb and the share image. */
     continents: { AF: 'Africa', AS: 'Asia', EU: 'Europe', NA: 'North America', SA: 'South America', OC: 'Oceania', AN: 'Antarctica' },
   },
   /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for

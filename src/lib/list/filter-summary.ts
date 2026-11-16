@@ -10,7 +10,7 @@ import type { Regions } from '@/lib/species/types'
 import { filterPlaceKeys, hasPlaces, seenBasis, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
 import type { Saved } from './storage'
-import { monthName, monthShort, rangeLabel } from './timeline'
+import { monthName, rangeLabel, rangeShort } from './timeline'
 
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
@@ -39,7 +39,7 @@ export function continentNames(continents: readonly ContinentId[] | undefined, t
  * order); undefined for none.
  */
 export function placesLabel(f: Filter, regions: Names, t: Pick<Ui, 'places'>): string | undefined {
-  return namesLabel([...continentNames(f.continents, t), ...filterPlaceKeys(f).map((k) => placeName(k, regions))], t)
+  return namesLabel([...new Set(filterPlaceKeys(f).map((k) => placeName(k, regions, t.places.continents)))], t)
 }
 
 /**
@@ -49,11 +49,11 @@ export function placesLabel(f: Filter, regions: Names, t: Pick<Ui, 'places'>): s
  * country names, src/lib/i18n-places.ts regionsIn) and `t`'s continents.
  */
 export function placesSpoken(f: Filter, regions: Names, t: Pick<Ui, 'places'>): string | undefined {
-  const keys = filterPlaceKeys(f)
+  const keys = filterPlaceKeys(f).filter((k) => !k.startsWith('n:'))
   const continents = continentNames(f.continents, t)
   if (!keys.length && !continents.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
-  const items = keys.length ? [keys.map((k) => placeNameLong(k, regions)).join(sep)] : []
+  const items = keys.length ? [keys.map((k) => placeNameLong(k, regions, t.places.continents)).join(sep)] : []
   return [...(continents.length ? [continents.join(', ')] : []), ...items].join('; ')
 }
 
@@ -70,8 +70,6 @@ export function statusLabel(statuses: readonly StatusFilterCat[] | undefined, t:
   if (statuses?.length === THREATENED.length && THREATENED.every((c) => statuses.includes(c))) return t.iucn.threatened
   return countriesLabel(statuses, (c) => t.iucn.names[c as StatusFilterCat], t)
 }
-
-const year = (m: string) => m.slice(0, 4)
 
 /** Time words under basis 'seen': "Seen: 2026" ("Seen: from 2022"); as they are otherwise (and for no words). */
 function seenTime(f: Filter, time: string | undefined, t: Pick<Ui, 'filters'>): string | undefined {
@@ -90,22 +88,11 @@ export function seenLabels(f: Filter, place: string | undefined, range: string |
 }
 
 /**
- * The Time button's short summary: a range by years ("2022–2024", "2022" within one
- * year, "Sep 2021" for one month, "from 2022", "to 2024"); undefined with no time chosen.
+ * The Time chip's and button's short summary, `rangeShort` (the timeline's readout wording): "2022–2024" for whole
+ * years, "Apr 2022–Sep 2024", "Sep 2021", "from Apr 2022", "to 2024"; undefined with no time chosen.
  */
 export function timeSummary(f: Filter, t: Ui): string | undefined {
-  return seenTime(f, plainTimeSummary(f, t), t)
-}
-function plainTimeSummary(f: Filter, t: Ui): string | undefined {
-  const { from, to } = f
-  const tl = t.filters.timeline
-  if (from && to) {
-    if (from === to) return monthShort(from, t)
-    return year(from) === year(to) ? year(from) : `${year(from)}–${year(to)}`
-  }
-  if (from) return fmt(tl.sumFrom, { year: year(from) })
-  if (to) return fmt(tl.sumTo, { year: year(to) })
-  return undefined
+  return seenTime(f, rangeShort(f.from, f.to, t), t)
 }
 
 /** The Time button's accessible description: "March 2020 to June 2021", "September 2021". */
@@ -173,7 +160,7 @@ export function placesUnplacedFor(saved: Pick<Saved, 'records'> & { edits?: Pick
 }
 
 /** A panel section's head: the count first, then " · N checked" only when some are ("20 countries · 7 checked"). */
-export function countHead(n: number, kind: 'country' | 'province' | 'county' | 'status', checked: number, t: Ui): string {
+export function countHead(n: number, kind: 'continent' | 'country' | 'province' | 'county' | 'status', checked: number, t: Ui): string {
   const head = plural(t.filters.countHead[kind], n, { n: formatInt(n, t.num) })
   return checked > 0 ? `${head} · ${fmt(t.filters.countHead.checked, { n: formatInt(checked, t.num) })}` : head
 }

@@ -1,6 +1,6 @@
 // Port of Nest Ledger's deterministic tokenizer/used-word parser, with Everybird's month precision and entities.
 import type { Filter } from '../list/filters'
-import { parsePlaceKey, placeName, keysOfPlace } from '../list/place-keys'
+import { parentKey, parsePlaceKey, placeName } from '../list/place-keys'
 import { countryNameMap, sub1Names, SUB1_ALIASES, OBSORG_SUB1_ALIASES } from '../places/names'
 import { searchKey } from '../species/name-search'
 import { ORDERS } from '../species/orders'
@@ -73,6 +73,11 @@ function tokenize(input: string, months: Map<string, number>): SearchWord[] {
   return out
 }
 
+/** A place key and every ancestor of it under the continent model (`k:` -> `s:` -> `c:` -> `n:`; an overseas part's country key is `c:FR@SA`). */
+function addWithAncestors(set: Set<string>, key: string) {
+  for (let k: string | undefined = key; k; k = parentKey(k)) set.add(k)
+}
+
 function places(ctx: SearchContext): Entity[] {
   const out = new Map<string, Entity>()
   const add = (value: string, aliases: string[], exactOnly = false, codes: string[] = []) => {
@@ -90,7 +95,7 @@ function places(ctx: SearchContext): Entity[] {
   for (const key of ctx.listPlaces) {
     const p = parsePlaceKey(key)
     if (!p) continue
-    for (const k of keysOfPlace({ country: p.country, sub1: p.sub1, sub2: p.county })) onList.add(k)
+    addWithAncestors(onList, key)
     if (p.level === 'county') add(key, [p.county!], true)
   }
   // Short sub1 suffixes ("BC" of CA-BC) are codes only for places on this list: exact, and only as typed in capitals.
@@ -116,7 +121,7 @@ export function parseSmart(input: string, ctx: SearchContext): { filter: SmartFi
   const onList = new Set<string>()
   for (const key of ctx.listPlaces) {
     const p = parsePlaceKey(key)
-    if (p) for (const k of keysOfPlace({ country: p.country, sub1: p.sub1, sub2: p.county })) onList.add(k)
+    if (p) addWithAncestors(onList, key)
   }
   const groupEntities: Entity[] = ctx.groups.map((g) => ({ value: g.id, name: g.name[ctx.lang] || g.name.en,
     aliases: unique(languages.flatMap((lang) => [g.name[lang], ...((synonyms as Record<string, Partial<Record<SearchLang, string[]>>>)[g.id]?.[lang] ?? [])])).map(searchKey),

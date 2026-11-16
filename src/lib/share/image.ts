@@ -98,7 +98,7 @@ export function filterLabel(
   t: ShareStrings,
 ): string | undefined {
   // Places: "Africa + Canada", "Canada + Egypt", "Capital and 2 more" (continents first).
-  const place = ctx.regions ? placesLabel(f, ctx.regions, t) : namesLabel([...continentNames(f.continents, t), ...(f.countries ?? []).map(ctx.countryName)], t)
+  const place = ctx.regions ? placesLabel(f, ctx.regions, t) : namesLabel([...continentNames(f.continents, t), ...(f.countries ?? []).map((c) => ctx.countryName(c.slice(0, 2)))], t)
   const parts: string[] = []
   if (f.group) parts.push(ctx.groupName?.(f.group) ?? f.group)
   if (f.family) { const r = ctx.species.rows.find((x) => x.fam === f.family); parts.push(r ? (ctx.familyName?.(r) ?? r.famCom) || f.family : f.family) }

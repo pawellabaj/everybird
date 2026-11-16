@@ -3,9 +3,8 @@
 import { fmt } from '@/i18n/core'
 import type { Ui } from '@/i18n/messages/en'
 import { formatInt } from '@/i18n/format'
-import { isContinentId } from '@/lib/places/continents'
 import type { Regions } from '@/lib/species/types'
-import { clearPlaces, filterPlaceKeys, withContinents, withPlaces, withStatuses, type Filter } from './filters'
+import { clearPlaces, filterPlaceKeys, withPlaces, withStatuses, type Filter } from './filters'
 import { placesSpoken, timeSpoken, timeSummary } from './filter-summary'
 import { placeName, placeNameLong } from './place-keys'
 import { timeless } from './timeline'
@@ -14,8 +13,8 @@ import { timeless } from './timeline'
 export type ChipKind = 'date' | 'place' | 'group' | 'order' | 'family' | 'status' | 'basis'
 
 /**
- * `token` is what the chip stands for: for a filter chip, the value it removes (a place key such as `c:CA`, a
- * continent as `continent:AF`, a category such as `VU`, `from..to` for time, or `ALL` for a collapsed chip). `spoken` is
+ * `token` is what the chip stands for: for a filter chip, the value it removes (a place key such as `c:CA` or
+ * `n:AF` for a continent, a category such as `VU`, `from..to` for time, or `ALL` for a collapsed chip). `spoken` is
  * its accessible name, when it differs.
  */
 export type Chip = { kind: ChipKind; label: string; token: string; spoken?: string }
@@ -27,25 +26,20 @@ export const MAX_CHIPS = 3
 
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
-/** The token of a continent's chip. */
-export const continentToken = (id: string) => `continent:${id}`
-
 /**
- * The filter's chips: the bird group (`groupName` says its name in the language), places (continents first, then the place keys in `filterPlaceKeys` order; a continent counts as
- * one place), then time, then statuses (in Red List order, NE last). Place names come from `regions` (pass the
- * language's, src/lib/i18n-places.ts regionsIn); the rest from `t`.
+ * The filter's chips: the bird group (`groupName` says its name in the language), places (the place keys in `filterPlaceKeys`
+ * order, continents first; a continent counts as one place), then time, then statuses (in Red List order, NE last). Place
+ * names come from `regions` (pass the language's, src/lib/i18n-places.ts regionsIn) and `t`'s continents; the rest from `t`.
  */
 export function filterChips(f: Filter, regions: Names, t: Ui, groupName?: (id: string) => string | undefined): Chip[] {
   const out: Chip[] = []
   if (f.group) out.push({ kind: 'group', label: groupName?.(f.group) ?? f.group, token: f.group })
   const keys = filterPlaceKeys(f)
-  const continents = (f.continents ?? []).filter(isContinentId)
-  const count = keys.length + continents.length
+  const count = keys.length
   if (count > MAX_CHIPS) {
     out.push({ kind: 'place', label: fmt(t.filters.panel.manyPlaces, { n: formatInt(count, t.num) }), token: ALL, spoken: placesSpoken(f, regions, t) })
   } else {
-    for (const id of continents) out.push({ kind: 'place', label: t.places.continents[id], token: continentToken(id) })
-    for (const k of keys) out.push({ kind: 'place', label: placeName(k, regions), token: k, spoken: placeNameLong(k, regions) })
+    for (const k of keys) out.push({ kind: 'place', label: placeName(k, regions, t.places.continents), token: k, spoken: placeNameLong(k, regions, t.places.continents) })
   }
   const time = timeSummary(f, t)
   if (time) out.push({ kind: 'date', label: time, token: `${f.from ?? ''}..${f.to ?? ''}`, spoken: timeSpoken(f, t) })
@@ -66,7 +60,6 @@ export function withoutFilterChip(f: Filter, chip: Chip): Filter {
     return next
   }
   if (chip.kind === 'place' && chip.token === ALL) return clearPlaces(f)
-  if (chip.kind === 'place' && chip.token.startsWith('continent:')) return withContinents(f, (f.continents ?? []).filter((c) => continentToken(c) !== chip.token))
   if (chip.kind === 'place') return withPlaces(f, filterPlaceKeys(f).filter((k) => k !== chip.token))
   if (chip.kind === 'date') {
     const next = timeless(f)

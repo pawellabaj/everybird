@@ -71,7 +71,7 @@ const page = {
       masses: "Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu's species table.",
       redList: "IUCN Red List categories as given for BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via huashu's species table, licensed <cc>CC BY 4.0</cc>. Everybird matched them to eBird species.",
       api: "Observations come from iNaturalist's public API, called straight from your browser, about once a second.",
-      countries: 'Country names and most region names come from Natural Earth.',
+      countries: 'Country names, most region names and the continent globes’ coastlines come from Natural Earth.',
       regions: "The rest of the state and province names come from Debian's iso-codes ISO 3166-2 data, used for names only.",
       fonts: 'Satoshi and Cabinet Grotesk by Indian Type Foundry, served by Fontshare.',
       mono: 'Geist Mono by Vercel, under the SIL Open Font License.',

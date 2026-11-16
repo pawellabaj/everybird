@@ -67,9 +67,12 @@ describe('basis: lifer (the default) and seen', () => {
     expect(codes({ countries: ['CA'], basis: 'seen' })).toEqual(codes({ countries: ['CA'] }))
   })
   it('a Places count under seen + range counts only species seen THERE in the period', () => {
-    const rowsFor = (f: object) => placeRows(placeCounts(list, f, species, seen), undefined, (k) => k).map((r) => [r.value, r.count])
-    expect(rowsFor({ from: '2019-01', to: '2019-12', basis: 'seen' })).toEqual([['c:EG', 1]])
-    expect(rowsFor({ from: '2026-01', to: '2026-12', basis: 'seen' })).toEqual([['c:CA', 2]])
+    // The top level is the continents (nf-10); the countries are one level down.
+    const rowsFor = (f: object, parent?: string) => placeRows(placeCounts(list, f, species, seen), parent, (k) => k).map((r) => [r.value, r.count])
+    expect(rowsFor({ from: '2019-01', to: '2019-12', basis: 'seen' })).toEqual([['n:AF', 1]])
+    expect(rowsFor({ from: '2019-01', to: '2019-12', basis: 'seen' }, 'n:AF')).toEqual([['c:EG', 1]])
+    expect(rowsFor({ from: '2026-01', to: '2026-12', basis: 'seen' })).toEqual([['n:NA', 2]])
+    expect(rowsFor({ from: '2026-01', to: '2026-12', basis: 'seen' }, 'n:NA')).toEqual([['c:CA', 2]])
   })
   it('the basis has a key only when it applies', () => {
     expect(filterKey({ basis: 'seen' })).toBe('')

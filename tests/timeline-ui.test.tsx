@@ -39,7 +39,7 @@ describe('Timeline', () => {
     const rects = screen.getByTestId('timeline').querySelectorAll('rect')
     expect(rects).toHaveLength(6)
     expect([...rects].map((r) => r.hasAttribute('data-empty'))).toEqual([false, true, false, true, true, true])
-    expect(screen.getByTestId('timeline-read')).toHaveTextContent('Jan 2020 to Jun 2020 · 5 species')
+    expect(screen.getByTestId('timeline-read')).toHaveTextContent('Jan 2020–Jun 2020 · 5 species')
     const lo = screen.getByRole('slider', { name: 'Start month' })
     expect(lo).toHaveAttribute('aria-valuemin', '0')
     expect(lo).toHaveAttribute('aria-valuemax', '5')
@@ -82,7 +82,7 @@ describe('Timeline', () => {
     fireEvent.pointerMove(hi, { pointerId: 1, clientX: 410 })
     fireEvent.pointerMove(hi, { pointerId: 1, clientX: 310 }) // 100px a month: the end of March
     expect(hi).toHaveAttribute('aria-valuetext', 'March 2020')
-    expect(screen.getByTestId('timeline-read')).toHaveTextContent('Jan 2020 to Mar 2020 · 4 species') // readout live
+    expect(screen.getByTestId('timeline-read')).toHaveTextContent('2020–Mar 2020 · 4 species') // readout live
     expect(onPreview).toHaveBeenLastCalledWith({ from: undefined, to: '2020-03' })
     act(() => vi.advanceTimersByTime(2000))
     expect(filterOf()).toEqual({}) // held: never committed

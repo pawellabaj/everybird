@@ -7,7 +7,6 @@
 // has), or the lifer's own date and place. So a species with months from one source and only a life-list lifer from
 // another counts for both. Month sets are sorted ordinals, so a range is one binary search per place; the dates are
 // compared with `inRange` (a year-only date matches when its year overlaps).
-import { CONTINENT_OF } from '@/lib/places/continents'
 import type { Filter } from './filters'
 import { inRange } from './in-range'
 import type { ListEntry, Place } from './model'
@@ -18,24 +17,24 @@ import { seenOf, type PlaceMonths, type SeenIndex, type SeenPlace } from './seen
 export const monthOrd = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1
 const monthOfOrd = (o: number): string => `${String(Math.floor(o / 12)).padStart(4, '0')}-${String((o % 12) + 1).padStart(2, '0')}`
 
-/** What a sighting must satisfy: in any of `keys` (place keys) or on any of `continents`, and in lo..hi (month ordinals, either end open). Neither keys nor continents: anywhere. */
-export type Where = { keys: readonly string[]; continents: readonly string[]; lo: number; hi: number; from?: string; to?: string }
+/** What a sighting must satisfy: in any of `keys` (place keys of any level, continents `n:AF` included), and in lo..hi (month ordinals, either end open). No keys: anywhere. */
+export type Where = { keys: readonly string[]; lo: number; hi: number; from?: string; to?: string }
 
-export function makeWhere(keys: readonly string[] | undefined, continents: readonly string[] | undefined, from?: string, to?: string): Where {
-  return { keys: keys ?? [], continents: continents ?? [], lo: from ? monthOrd(from) : -Infinity, hi: to ? monthOrd(to) : Infinity, from, to }
+export function makeWhere(keys: readonly string[] | undefined, from?: string, to?: string): Where {
+  return { keys: keys ?? [], lo: from ? monthOrd(from) : -Infinity, hi: to ? monthOrd(to) : Infinity, from, to }
 }
 
 /** The filter's places and range as a Where; undefined when it has neither (nothing to find a sighting in). */
 export function whereOf(f: Filter): Where | undefined {
-  const keys = [...(f.countries ?? []).map((c) => `c:${c}`), ...(f.provinces ?? []).map((s) => `s:${s}`), ...(f.counties ?? []).map((k) => `k:${k}`)]
-  if (!keys.length && !f.continents?.length && !f.from && !f.to) return undefined
-  return makeWhere(keys, f.continents, f.from, f.to)
+  const keys = [...(f.continents ?? []).map((n) => `n:${n}`), ...(f.countries ?? []).map((c) => `c:${c}`), ...(f.provinces ?? []).map((s) => `s:${s}`), ...(f.counties ?? []).map((k) => `k:${k}`)]
+  if (!keys.length && !f.from && !f.to) return undefined
+  return makeWhere(keys, f.from, f.to)
 }
 
 function placeHit(pm: PlaceMonths, w: Where): boolean {
-  if (!w.keys.length && !w.continents.length) return true
+  if (!w.keys.length) return true
   for (const k of pm.keys) if (w.keys.includes(k)) return true
-  return w.continents.length > 0 && w.continents.includes(CONTINENT_OF[pm.place.country])
+  return false
 }
 
 /** The first ordinal of `ords` (ascending) inside lo..hi, or undefined. */
@@ -70,9 +69,9 @@ type Candidate = { date?: string; place: SeenPlace; key: string }
 const keyOf = (p: SeenPlace): string => (p.sub2 ? `${p.sub1 ?? p.country}|${p.sub2}` : (p.sub1 ?? p.country))
 
 function placeOk(p: SeenPlace, w: Where): boolean {
-  if (!w.keys.length && !w.continents.length) return true
+  if (!w.keys.length) return true
   for (const k of keysOfPlace(p)) if (w.keys.includes(k)) return true
-  return w.continents.length > 0 && w.continents.includes(CONTINENT_OF[p.country])
+  return false
 }
 
 /**

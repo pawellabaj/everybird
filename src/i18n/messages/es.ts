@@ -156,7 +156,6 @@ export const es: Messages = {
       /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
       panel: {
         chips: 'Filtros activos',
-        statusNote: 'Categorías de la Lista Roja de la UICN (global)',
         head: 'Filtros · {n} · {species}',
         headNone: 'Filtros · {species}',
         show: 'Mostrar {species}',
@@ -167,6 +166,7 @@ export const es: Messages = {
       },
       /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
       countHead: {
+        continent: { one: '{n} continente', other: '{n} continentes' },
         country: { one: '{n} país', other: '{n} países' },
         province: { one: '{n} estado o provincia', other: '{n} estados y provincias' },
         county: { one: '{n} condado', other: '{n} condados' },
@@ -196,13 +196,15 @@ export const es: Messages = {
       },
     },
     places: {
-      head: { country: 'Países', province: 'Estados y provincias', county: 'Condados' },
-      find: { country: 'Buscar un país', province: 'Buscar un estado o provincia', county: 'Buscar un condado' },
-      noMatch: { country: 'Ningún país coincide.', province: 'Ningún estado o provincia coincide.', county: 'Ningún condado coincide.' },
+      head: { continent: 'Continentes', country: 'Países', province: 'Estados y provincias', county: 'Condados' },
+      find: { continent: 'Buscar un país', country: 'Buscar un país', province: 'Buscar un estado o provincia', county: 'Buscar un condado' },
+      noMatch: { continent: 'Ningún país coincide.', country: 'Ningún país coincide.', province: 'Ningún estado o provincia coincide.', county: 'Ningún condado coincide.' },
       allCountries: 'Todos los países',
+      /** The breadcrumb's first step when the top level lists the continents. */
+      allContinents: 'Todos los continentes',
       allOf: 'Todo en {place}',
-      drill: { country: 'Ver estados y provincias de {place}', province: 'Ver condados de {place}' },
-      group: { country: 'Estados y provincias de {place}', province: 'Condados de {place}' },
+      drill: { continent: 'Ver países de {place}', country: 'Ver estados y provincias de {place}', province: 'Ver condados de {place}' },
+      group: { continent: 'Países de {place}', country: 'Estados y provincias de {place}', province: 'Condados de {place}' },
       none: 'No hay lugares en esta lista.',
       emptyFiltered: 'No hay lugares aquí con los otros filtros.',
       emptyNow: 'Ya no hay lugares aquí en tu lista.',
@@ -216,7 +218,6 @@ export const es: Messages = {
         add: 'Las aves que solo están en tu lista de vida de observation.org no tienen lugares, así que un filtro de lugar las deja fuera. <link>Añade la exportación de observaciones</link> para situarlas por país y provincia.',
       },
       andMore: '{first} y {n} más',
-      continentsLabel: 'Continentes',
       continents: { AF: 'África', AS: 'Asia', EU: 'Europa', NA: 'América del Norte', SA: 'América del Sur', OC: 'Oceanía', AN: 'Antártida' },
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
@@ -645,7 +646,7 @@ export const es: Messages = {
         masses: 'Los tamaños de los stickers usan masas corporales de AVONET (Tobias et al. 2022, Ecology Letters), a través de la tabla de especies de huashu.',
         redList: 'Categorías de la Lista Roja de la UICN tal como aparecen para BirdLife {birdlife} en AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), a través de la tabla de especies de huashu, con licencia <cc>CC BY 4.0</cc>. Everybird las asoció con las especies de eBird.',
         api: 'Las observaciones vienen de la API pública de iNaturalist, a la que se llama directamente desde tu navegador, más o menos una vez por segundo.',
-        countries: 'Los nombres de los países y de la mayoría de las regiones vienen de Natural Earth.',
+        countries: 'Los nombres de los países, de la mayoría de las regiones y las costas de los globos de los continentes vienen de Natural Earth.',
         regions: 'El resto de los nombres de estados y provincias vienen de los datos ISO 3166-2 de iso-codes de Debian, usados solo para los nombres.',
         fonts: 'Satoshi y Cabinet Grotesk, de Indian Type Foundry, servidas por Fontshare.',
         mono: 'Geist Mono, de Vercel, con la licencia SIL Open Font License.',

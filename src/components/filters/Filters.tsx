@@ -155,7 +155,6 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
           <Icon aria-hidden="true" focusable="false" />
           {t.filters[s]}
         </h3>
-        {s === 'status' && <p className="eb-fsec-note" data-testid="status-note">{t.filters.panel.statusNote}</p>}
         {s === 'places' ? (
           <PlacesSection state={state} species={species} regions={regions} note={placesNote} unplaced={placesUnplaced} onFilter={onFilter} />
         ) : s === 'status' ? (

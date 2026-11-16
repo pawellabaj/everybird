@@ -156,7 +156,6 @@ export const nl: Messages = {
       /** The Filters panel's head and sheet button ({species} is "118 species"), the chip row and its chips. */
       panel: {
         chips: 'Actieve filters',
-        statusNote: 'Categorieën van de IUCN Rode Lijst (wereldwijd)',
         head: 'Filters · {n} · {species}',
         headNone: 'Filters · {species}',
         show: '{species} tonen',
@@ -167,6 +166,7 @@ export const nl: Messages = {
       },
       /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
       countHead: {
+        continent: { one: '{n} continent', other: '{n} continenten' },
         country: { one: '{n} land', other: '{n} landen' },
         province: { one: '{n} staat of provincie', other: '{n} staten en provincies' },
         county: { one: '{n} graafschap', other: '{n} graafschappen' },
@@ -196,13 +196,15 @@ export const nl: Messages = {
       },
     },
     places: {
-      head: { country: 'Landen', province: 'Staten en provincies', county: 'Graafschappen' },
-      find: { country: 'Zoek een land', province: 'Zoek een staat of provincie', county: 'Zoek een graafschap' },
-      noMatch: { country: 'Geen land gevonden.', province: 'Geen staat of provincie gevonden.', county: 'Geen graafschap gevonden.' },
+      head: { continent: 'Continenten', country: 'Landen', province: 'Staten en provincies', county: 'Graafschappen' },
+      find: { continent: 'Zoek een land', country: 'Zoek een land', province: 'Zoek een staat of provincie', county: 'Zoek een graafschap' },
+      noMatch: { continent: 'Geen land gevonden.', country: 'Geen land gevonden.', province: 'Geen staat of provincie gevonden.', county: 'Geen graafschap gevonden.' },
       allCountries: 'Alle landen',
+      /** The breadcrumb's first step when the top level lists the continents. */
+      allContinents: 'Alle continenten',
       allOf: 'Heel {place}',
-      drill: { country: 'Toon staten en provincies in {place}', province: 'Toon graafschappen in {place}' },
-      group: { country: 'Staten en provincies in {place}', province: 'Graafschappen in {place}' },
+      drill: { continent: 'Toon landen in {place}', country: 'Toon staten en provincies in {place}', province: 'Toon graafschappen in {place}' },
+      group: { continent: 'Landen in {place}', country: 'Staten en provincies in {place}', province: 'Graafschappen in {place}' },
       none: 'Geen plaatsen op deze lijst.',
       emptyFiltered: 'Geen plaatsen hier met de andere filters.',
       emptyNow: 'Geen plaatsen meer hier op je lijst.',
@@ -216,7 +218,6 @@ export const nl: Messages = {
         add: 'Vogels die alleen op je levenslijst van observation.org staan, hebben geen plaatsen, dus een plaatsfilter laat ze weg. <link>Voeg de export van je waarnemingen toe</link> om ze per land en provincie te plaatsen.',
       },
       andMore: '{first} en nog {n}',
-      continentsLabel: 'Continenten',
       continents: { AF: 'Afrika', AS: 'Azië', EU: 'Europa', NA: 'Noord-Amerika', SA: 'Zuid-Amerika', OC: 'Oceanië', AN: 'Antarctica' },
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
@@ -645,7 +646,7 @@ export const nl: Messages = {
         masses: 'De stickergroottes gebruiken lichaamsgewichten uit AVONET (Tobias et al. 2022, Ecology Letters), via de soortentabel van huashu.',
         redList: 'Categorieën van de Rode Lijst van de IUCN zoals opgegeven voor BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via de soortentabel van huashu, onder de licentie <cc>CC BY 4.0</cc>. Everybird heeft ze aan eBird-soorten gekoppeld.',
         api: 'Waarnemingen komen uit de openbare API van iNaturalist, rechtstreeks vanuit je browser aangeroepen, ongeveer één keer per seconde.',
-        countries: 'Landnamen en de meeste regionamen komen van Natural Earth.',
+        countries: 'Landnamen, de meeste regionamen en de kustlijnen van de continentbollen komen van Natural Earth.',
         regions: 'De rest van de namen van staten en provincies komt uit de ISO 3166-2-gegevens van Debian iso-codes, alleen gebruikt voor de namen.',
         fonts: 'Satoshi en Cabinet Grotesk van Indian Type Foundry, geleverd door Fontshare.',
         mono: 'Geist Mono van Vercel, onder de SIL Open Font License.',

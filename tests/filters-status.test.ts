@@ -59,9 +59,9 @@ describe('the Status filter', () => {
       { ...entry('robin'), place: { country: 'EG' } },
     ]
     const rows = (f: object) => placeRows(placeCounts(placed, f, species), undefined, (k) => k).map((o) => [o.value, o.count])
-    expect(rows({})).toEqual([['c:CA', 2], ['c:EG', 2]])
-    expect(rows({ statuses: ['VU', 'EN'] })).toEqual([['c:CA', 1], ['c:EG', 1]])
-    expect(rows({ statuses: ['LC'] })).toEqual([['c:CA', 1]])
+    expect(rows({})).toEqual([['n:AF', 2], ['n:NA', 2]])
+    expect(rows({ statuses: ['VU', 'EN'] })).toEqual([['n:AF', 1], ['n:NA', 1]])
+    expect(rows({ statuses: ['LC'] })).toEqual([['n:NA', 1]])
   })
   it('an empty drilled Places level names a status filter among the other filters', () => {
     expect(emptyHere({ statuses: ['VU'] }, en.ui)).toBe('No places here under the other filters.')

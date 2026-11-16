@@ -91,7 +91,8 @@ describe('provinces and counties', () => {
   })
   it('placeOptions: each level counted under the other filters, with its children', () => {
     const rowsOf = (f: object, parent?: string) => placeOptions(list, f, parent, species, (k) => k, seen).map((o) => [o.value, o.count, o.children])
-    expect(rowsOf({})).toEqual([['c:CA', 3, 2], ['c:MX', 2, 0], ['c:US', 1, 1]])
+    expect(rowsOf({})).toEqual([['n:NA', 3, 3]]) // one continent, three countries
+    expect(rowsOf({}, 'n:NA')).toEqual([['c:CA', 3, 2], ['c:MX', 2, 0], ['c:US', 1, 1]])
     expect(rowsOf({}, 'c:CA')).toEqual([['s:CA-BC', 2, 1], ['s:CA-ON', 1, 0]])
     expect(rowsOf({}, 's:CA-BC')).toEqual([['k:CA-BC|Capital', 1, 0]])
     expect(rowsOf({ order: 'Strigiformes' }, 'c:CA')).toEqual([['s:CA-ON', 1, 0]])
@@ -102,7 +103,8 @@ describe('provinces and counties', () => {
     const l = buildList(recs, EMPTY_EDITS, DEFAULT_RULES)
     const s = buildSeen(recs, EMPTY_EDITS, DEFAULT_RULES, l)
     const rowsOf = (parent?: string) => placeOptions(l, {}, parent, species, (k) => k, s).map((o) => [o.value, o.count, o.children])
-    expect(rowsOf()).toEqual([['c:KE', 1, 0]])
+    expect(rowsOf()).toEqual([['n:AF', 1, 1]])
+    expect(rowsOf('n:AF')).toEqual([['c:KE', 1, 0]])
     expect(rowsOf('c:KE')).toEqual([])
     expect(applyFilter(l, { countries: ['KE'] }, species, s).map((e) => e.code)).toEqual(['owl'])
     expect(applyFilter(l, { counties: ['KE|Some county'] }, species, s)).toEqual([])
@@ -180,7 +182,8 @@ describe('provinces and counties', () => {
     // Warm up once so the timing is the steady state, not the JIT.
     placeOptions(l, {}, undefined, big, lab, s)
     const at = [
-      time(() => expect(placeOptions(l, {}, undefined, big, lab, s)).toHaveLength(5)),
+      time(() => expect(placeOptions(l, {}, undefined, big, lab, s)).toHaveLength(3)),
+      time(() => expect(placeOptions(l, {}, 'n:NA', big, lab, s)).toHaveLength(3)),
       time(() => expect(placeOptions(l, {}, 'c:CA', big, lab, s)).toHaveLength(4)),
       time(() => expect(placeOptions(l, {}, 's:CA-P0', big, lab, s)).toHaveLength(5)),
       time(() => expect(applyFilter(l, { counties: ['CA-P0|County 0'] }, big, s).length).toBeGreaterThan(0)),

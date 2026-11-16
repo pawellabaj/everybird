@@ -2,9 +2,9 @@ import type { SpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
 import { THREATENED } from '@/lib/species/iucn'
 import { isStatusFilterCat, STATUS_FILTER_CATS, STATUS_NAMES, type StatusFilterCat } from '@/lib/species/status-filter'
-import { CONTINENT_NAMES, CONTINENT_OF, CONTINENTS, isContinentId, type ContinentId } from '@/lib/places/continents'
+import { CONTINENTS, continentOfPlace, type ContinentId } from '@/lib/places/continents'
 import type { ListEntry } from './model'
-import { isWithin, parentKey, parsePlaceKey } from './place-keys'
+import { countryKeyOf, isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
 import { inRange } from './in-range'
 import { makeWhere, seenAt, sightingKeys } from './sighting'
@@ -18,9 +18,9 @@ import { makeWhere, seenAt, sightingKeys } from './sighting'
  * seen-here index; without it (a shared link) the lifer places stand in. A selection never holds a place and one of
  * its ancestors (withPlaces). Time stays about lifers: places and a range together keep the species seen there whose
  * lifer falls in the range, unless `basis` is 'seen' (below). (Trips are gone: an old `trip` value is dropped by applyFilterValidity.)
- * Continents: `continents` (ids from places/continents.ts), in CONTINENTS order, never empty when set (withContinents);
- * each matches the species seen in ANY country on it, as one more Places value (OR with the levels above). It is a
- * field of its own, not a place key: a continent is no ancestor of its countries, so checking one leaves the others.
+ * Continents: `continents` (ids from places/continents.ts, key `n:AF`), in CONTINENTS order, never empty when set, the
+ * top level of the same set: a continent is the ancestor of its countries, so checking one drops its checked countries,
+ * provinces and counties, and checking one of those drops the continent (withPlaces, togglePlace).
  * Status: `statuses`, the global IUCN Red List categories plus NE ("Not evaluated": a species with no category), in
  * `STATUS_FILTER_CATS` order, never empty when set (withStatuses); keeps the species in ANY of them. NE matches the
  * species with no category, so a checked category leaves those out unless NE is checked too. NE is never threatened.
@@ -90,8 +90,6 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
   const family = skip.has('family') ? undefined : f.family
   // Seen in any of the chosen places, at any level.
   const places = !skip.has('country') && filterPlaceKeys(f).length ? filterPlaceKeys(f) : undefined
-  // Continents count with the countries: skipped with them, so a continent's own counts are made without the places.
-  const continents = !skip.has('country') && f.continents?.length ? f.continents : undefined
   const year = skip.has('year') ? undefined : f.year
   const from = skip.has('range') ? undefined : f.from
   const to = skip.has('range') ? undefined : f.to
@@ -100,7 +98,7 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
   // without the file (tests, the sample) the group is ignored.
   const bounds = f.group && species.groups ? (species.groups.get(f.group) ?? null) : undefined
   // Basis 'seen' with a range: seen in the places (any, when none) in the period, from the month sets.
-  const where = f.basis === 'seen' && (from || to) ? makeWhere(places, continents, from, to) : undefined
+  const where = f.basis === 'seen' && (from || to) ? makeWhere(places, from, to) : undefined
   return (e: ListEntry): boolean => {
     if (order || family || statuses || bounds !== undefined) {
       const row = species.byCode.get(e.code)
@@ -113,21 +111,15 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
     if (where) {
       if (!seenAt(e, seen, where)) return false
     } else {
-      if (places || continents) {
-        const keys = places ? keysOf(seen, e) : undefined
-        const hit = (places && places.some((k) => keys!.has(k))) || (continents && inContinents(seen, e, continents))
-        if (!hit) return false
+      if (places) {
+        const keys = keysOf(seen, e)
+        if (!places.some((k) => keys.has(k))) return false
       }
       if ((from || to) && !inRange(e.date, from, to)) return false
     }
     if (year && yearOf(e) !== year) return false
     return true
   }
-}
-
-/** Whether the entry was seen in any country on one of `continents` (its seen-here places, else its lifer place). */
-export function inContinents(seen: SeenIndex | undefined, e: ListEntry, continents: readonly string[]): boolean {
-  return seenOf(seen, e).some((p) => continents.includes(CONTINENT_OF[p.country]))
 }
 
 /** `seen`: the seen-here index (the Places filter keeps species seen there); without it, lifer places. */
@@ -212,7 +204,7 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
     if (!g || row.to < g.lo || row.to > g.hi) delete next.group
   }
   const keys = keysOf(seen, e)
-  if (hasPlaces(next) && !filterPlaceKeys(next).some((k) => keys.has(k)) && !(next.continents?.length && inContinents(seen, e, next.continents))) {
+  if (hasPlaces(next) && !filterPlaceKeys(next).some((k) => keys.has(k))) {
     delete next.countries
     delete next.provinces
     delete next.counties
@@ -221,7 +213,7 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
   if (next.year && yearOf(e) !== next.year) delete next.year
   if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) {
     // Basis 'seen': any sighting in the range keeps it (a month set, a place's earliest date or the lifer, as above).
-    if (!(next.basis === 'seen' && seenAt(e, seen, makeWhere(undefined, undefined, next.from, next.to)))) { delete next.from; delete next.to }
+    if (!(next.basis === 'seen' && seenAt(e, seen, makeWhere(undefined, next.from, next.to)))) { delete next.from; delete next.to }
   }
   // Each dimension alone includes the bird; under basis 'seen' the places and the range together may still not (Canada in
   // 2019, a range of 2026 the bird was seen in only in Egypt): the range goes.
@@ -246,9 +238,10 @@ export function drillTo(f: Filter, group: { order: string; family?: string }, li
   return applyFilter(list, next, species, seen).length ? next : { ...group }
 }
 
-/** The filter's places as keys: countries, then provinces, then counties ("c:MX", "s:CA-BC", "k:US-WA|King"). */
+/** The filter's places as keys: continents, then countries, provinces and counties ("n:AF", "c:MX", "s:CA-BC", "k:US-WA|King"). */
 export function filterPlaceKeys(f: Filter): string[] {
   return [
+    ...(f.continents ?? []).map((n) => `n:${n}`),
     ...(f.countries ?? []).map((c) => `c:${c}`),
     ...(f.provinces ?? []).map((s) => `s:${s}`),
     ...(f.counties ?? []).map((k) => `k:${k}`),
@@ -270,24 +263,8 @@ export function clearPlaces(f: Filter): Filter {
   return next
 }
 
-/** The filter with exactly these continents: unknown ids and duplicates go, in CONTINENTS order; none drops the field. */
-export function withContinents(f: Filter, ids: readonly string[]): Filter {
-  const set = new Set(ids.filter(isContinentId))
-  const next: Filter = { ...f }
-  delete next.continents
-  const continents = CONTINENTS.map((c) => c.id).filter((id) => set.has(id))
-  if (continents.length) next.continents = continents
-  return next
-}
-
-/** The filter with `id` unchecked when it is checked, else checked (placed in CONTINENTS order). */
-export function toggleContinent(f: Filter, id: ContinentId): Filter {
-  const cur = f.continents ?? []
-  return withContinents(f, cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id])
-}
-
 /**
- * The filter with exactly these places (keys of any level): malformed keys go, duplicates go, a key with an ancestor
+ * The filter with exactly these places (keys of any level, continents included): malformed keys go, duplicates go, a key with an ancestor
  * also present goes (the ancestor already holds it), each level is sorted, and an empty level is dropped.
  */
 export function withPlaces(f: Filter, keys: readonly string[]): Filter {
@@ -296,18 +273,22 @@ export function withPlaces(f: Filter, keys: readonly string[]): Filter {
     for (let up = parentKey(k); up; up = parentKey(up)) if (set.has(up)) return true
     return false
   }
+  const continents: string[] = []
   const countries: string[] = []
   const provinces: string[] = []
   const counties: string[] = []
   for (const k of set) {
     if (covered(k)) continue
-    const at = k[0] === 'c' ? countries : k[0] === 's' ? provinces : counties
+    const at = k[0] === 'n' ? continents : k[0] === 'c' ? countries : k[0] === 's' ? provinces : counties
     at.push(k.slice(2))
   }
   const next: Filter = { ...f }
+  delete next.continents
   delete next.countries
   delete next.provinces
   delete next.counties
+  const ids = CONTINENTS.map((c) => c.id).filter((id) => continents.includes(id))
+  if (ids.length) next.continents = ids
   if (countries.length) next.countries = countries.sort()
   if (provinces.length) next.provinces = provinces.sort()
   if (counties.length) next.counties = counties.sort()
@@ -330,6 +311,7 @@ export type PlaceOption = ChipOption & { children: number }
 type Tally = { n: number; last: number }
 type ProvinceTally = Tally & { counties: Set<string> }
 type CountryTally = Tally & { provinces: Map<string, ProvinceTally> }
+type ContinentTally = Tally & { countries: Set<string> }
 
 /**
  * Every Places level's counts in one pass over the list, under the OTHER filters (whatever places are checked), so the
@@ -338,20 +320,21 @@ type CountryTally = Tally & { provinces: Map<string, ProvinceTally> }
  * province's counties counted from every place with that province code (as placeOptions always has).
  */
 export type PlaceCounts = {
+  /** By country id: the key without "c:" ("CA", or "FR@SA" for France's part on South America), so one country on two continents is two entries. */
   countries: Map<string, CountryTally>
   counties: Map<string, Map<string, Tally>>
-  /** Species seen in each continent, each species once per continent (never a sum of the countries' tallies). */
-  continents: Map<ContinentId, Tally>
+  /** Species seen in each continent, each species once per continent (never a sum of the countries' tallies), with the country ids on it. */
+  continents: Map<ContinentId, ContinentTally>
 }
 
 /** The counts for every level (see PlaceCounts). `seen`: the seen-here index (else lifer places). */
 export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): PlaceCounts {
   const m = matcher(f, species, new Set(SKIP.country), seen)
   // Basis 'seen' with a range: a place counts only for the species seen THERE in the period.
-  const when = f.basis === 'seen' && (f.from || f.to) ? makeWhere(undefined, undefined, f.from, f.to) : undefined
+  const when = f.basis === 'seen' && (f.from || f.to) ? makeWhere(undefined, f.from, f.to) : undefined
   const countries = new Map<string, CountryTally>()
   const counties = new Map<string, Map<string, Tally>>()
-  const continents = new Map<ContinentId, Tally>()
+  const continents = new Map<ContinentId, ContinentTally>()
   const tick = (t: Tally, i: number) => {
     if (t.last !== i) { t.last = i; t.n++ }
   }
@@ -361,14 +344,16 @@ export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex,
     const here = when ? sightingKeys(e, seen, when) : undefined
     for (const p of seenOf(seen, e)) {
       if (here && !here.has(p.sub2 ? `${p.sub1 ?? p.country}|${p.sub2}` : (p.sub1 ?? p.country))) continue
-      const cont = CONTINENT_OF[p.country]
+      const id = countryKeyOf(p).slice(2)
+      const cont = continentOfPlace(p)
       if (cont) {
         let t = continents.get(cont)
-        if (!t) continents.set(cont, (t = { n: 0, last: -1 }))
+        if (!t) continents.set(cont, (t = { n: 0, last: -1, countries: new Set() }))
+        t.countries.add(id)
         tick(t, i)
       }
-      let c = countries.get(p.country)
-      if (!c) countries.set(p.country, (c = { n: 0, last: -1, provinces: new Map() }))
+      let c = countries.get(id)
+      if (!c) countries.set(id, (c = { n: 0, last: -1, provinces: new Map() }))
       tick(c, i)
       if (!p.sub1) continue
       let s = c.provinces.get(p.sub1)
@@ -393,10 +378,18 @@ export function placeRows(counts: PlaceCounts, parent: string | undefined, label
   const at = parent === undefined ? undefined : parsePlaceKey(parent)
   // A place whose key doesn't parse (an odd code) is listed but never drills: nothing can be found under it.
   const kids = (key: string, n: number) => (n && parsePlaceKey(key) ? n : 0)
+  const country = (id: string, c: CountryTally) => out.push({ value: `c:${id}`, label: label(`c:${id}`), count: c.n, children: kids(`c:${id}`, c.provinces.size) })
   if (parent === undefined) {
-    for (const [iso, c] of counts.countries) out.push({ value: `c:${iso}`, label: label(`c:${iso}`), count: c.n, children: kids(`c:${iso}`, c.provinces.size) })
+    // The top level: the continents, and beside them any country that is in none.
+    for (const [id, t] of counts.continents) out.push({ value: `n:${id}`, label: label(`n:${id}`), count: t.n, children: t.countries.size })
+    for (const [id, c] of counts.countries) if (!parentKey(`c:${id}`)) country(id, c)
+  } else if (at?.level === 'continent') {
+    for (const id of counts.continents.get(at.continent as ContinentId)?.countries ?? []) {
+      const c = counts.countries.get(id)
+      if (c) country(id, c)
+    }
   } else if (at?.level === 'country') {
-    for (const [sub1, s] of counts.countries.get(at.country)?.provinces ?? []) out.push({ value: `s:${sub1}`, label: label(`s:${sub1}`), count: s.n, children: kids(`s:${sub1}`, s.counties.size) })
+    for (const [sub1, s] of counts.countries.get(parent!.slice(2))?.provinces ?? []) out.push({ value: `s:${sub1}`, label: label(`s:${sub1}`), count: s.n, children: kids(`s:${sub1}`, s.counties.size) })
   } else if (at?.level === 'province') {
     for (const [name, k] of counts.counties.get(at.sub1!) ?? []) {
       const value = `k:${at.sub1}|${name}`
@@ -407,8 +400,25 @@ export function placeRows(counts: PlaceCounts, parent: string | undefined, label
   return out
 }
 
+/** Every country row of every continent, flat (the one-continent list's top level, and the search from the continent level). */
+export function countryRows(counts: PlaceCounts, label: (key: string) => string, locale?: string): PlaceOption[] {
+  const out: PlaceOption[] = []
+  for (const [id, c] of counts.countries) out.push({ value: `c:${id}`, label: label(`c:${id}`), count: c.n, children: c.provinces.size && parsePlaceKey(`c:${id}`) ? c.provinces.size : 0 })
+  return out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, locale))
+}
+
 /**
- * The rows of the Places level under `parent` (undefined: countries; a country key: its provinces; a province key: its
+ * Whether the continent level is skipped: the counted list has one continent and no country outside every continent,
+ * and none is checked (as the taxonomy skips an order's only family). The top level then lists the countries.
+ */
+export function onlyOneContinent(counts: PlaceCounts, f: Filter): boolean {
+  if (counts.continents.size !== 1 || f.continents?.length) return false
+  for (const id of counts.countries.keys()) if (!parentKey(`c:${id}`)) return false
+  return true
+}
+
+/**
+ * The rows of the Places level under `parent` (undefined: the continents and any country in none; a continent key: its countries; a country key: its provinces; a province key: its
  * counties): each place's key, its label, the species seen there (each once per row) under the OTHER filters but
  * whatever places are checked, and how many distinct places it holds one level down. Sorted by count, then label.
  * `seen`: the seen-here index (else lifer places). One level of placeCounts + placeRows.
@@ -422,20 +432,6 @@ export function placeOptions(
   seen?: SeenIndex,
 ): PlaceOption[] {
   return placeRows(placeCounts(list, f, species, seen), parent, label)
-}
-
-/**
- * The Places panel's continent chips: each continent with species under the counted filter (`counts` is placeCounts
- * over it), plus any checked one at 0 so it can be unchecked; in CONTINENTS order, with the count.
- */
-export function continentRows(counts: PlaceCounts, f: Filter, names: Record<ContinentId, string> = CONTINENT_NAMES): { value: ContinentId; label: string; count: number; checked: boolean }[] {
-  const checked = new Set(f.continents ?? [])
-  return CONTINENTS.filter((c) => (counts.continents.get(c.id)?.n ?? 0) > 0 || checked.has(c.id)).map((c) => ({
-    value: c.id,
-    label: names[c.id],
-    count: counts.continents.get(c.id)?.n ?? 0,
-    checked: checked.has(c.id),
-  }))
 }
 
 /** The filter with `iso` checked or unchecked in its countries (`togglePlace` on its country key). */

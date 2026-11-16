@@ -33,6 +33,9 @@
 .eb-count { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; font-weight: 500; }
 /* A country's flag (components/Flag.tsx), as yusuftaleb.com's places: 18×13, 2px corners. */
 .eb-flag { display: block; width: 18px; height: 13px; border-radius: 2px; object-fit: cover; flex: none; }
+.eb-flag-slot { display: flex; align-items: center; justify-content: center; width: 18px; height: 13px; flex: none; }
+.eb-continent-globe { display: block; flex: none; color: var(--muted); }
+.eb-check[data-checked] .eb-continent-globe { color: var(--ink); }
 .eb-chip-icon { width: 16px; height: 16px; flex: none; }
 @media (hover: hover) and (pointer: fine) {
   .eb-path button:hover { opacity: 1; }
@@ -97,7 +100,6 @@
 .eb-fsec { outline: none; }
 .eb-fsec-title { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: inherit; font-weight: 500; }
 .eb-fsec-title svg { width: 16px; height: 16px; flex: none; }
-.eb-fsec-note { margin: -4px 0 8px; font-family: var(--font-mono); font-size: 11px; line-height: 1.4; color: var(--muted); }
 .eb-fpanel-foot { padding: 8px 16px 12px; border-top: 1px solid var(--hairline); }
 .eb-fpanel-foot .eb-btn { width: 100%; }
 .eb-dockwrap > .eb-chiprow { margin-top: 12px; }
@@ -106,7 +108,6 @@
 .eb-places-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
 .eb-places-head .eb-textbtn { min-height: 36px; }
 .eb-places-note { margin: 0; font-size: 13px; }
-.eb-places-continents { display: flex; flex-wrap: wrap; gap: 8px 6px; }
 .eb-places-note a { color: var(--accent); }
 .eb-checklist { list-style: none; margin: 0 -8px; padding: 0; display: flex; flex-direction: column; }
 .eb-check {

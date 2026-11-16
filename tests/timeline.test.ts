@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import {
-  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, sliderKey,
+  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, rangeShort, sliderKey,
   todayMonth,
 } from '@/lib/list/timeline'
 import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { nl } from '@/i18n/messages/nl'
+import { pt } from '@/i18n/messages/pt'
 
 const e = (code: string, date?: string, country = 'CA'): ListEntry => ({ code, date, place: { country }, heard: false, dead: false, media: false, sources: [] })
 
@@ -124,6 +127,25 @@ describe('range filter', () => {
     expect(rangeFilter({ order: 'X', year: '2020' }, 1, 2, months)).toEqual({ order: 'X', from: '2020-02', to: '2020-03' })
     expect(rangeFilter({ from: '2020-02' }, 0, 3, months)).toEqual({})
     expect(rangeFilter({}, 2, 1, months)).toEqual({ from: '2020-02', to: '2020-03' }) // swapped ends
+  })
+  it('rangeShort: whole years, one month, months, open ends', () => {
+    expect(rangeShort('2020-01', '2024-12', en.ui)).toBe('2020–2024')
+    expect(rangeShort('2020-01', '2020-12', en.ui)).toBe('2020')
+    expect(rangeShort('2021-09', '2021-09', en.ui)).toBe('Sep 2021')
+    expect(rangeShort('2021-01', '2021-01', en.ui)).toBe('Jan 2021')
+    expect(rangeShort('2020-04', '2024-09', en.ui)).toBe('Apr 2020–Sep 2024')
+    expect(rangeShort('2020-01', '2024-09', en.ui)).toBe('Jan 2020–Sep 2024')
+    expect(rangeShort('2020-04', '2024-12', en.ui)).toBe('Apr 2020–Dec 2024')
+    expect(rangeShort('2020-01', '2020-03', en.ui)).toBe('Jan 2020–Mar 2020')
+    expect(rangeShort('2020-04', undefined, en.ui)).toBe('from Apr 2020')
+    expect(rangeShort('2020-01', undefined, en.ui)).toBe('from 2020')
+    expect(rangeShort(undefined, '2024-09', en.ui)).toBe('to Sep 2024')
+    expect(rangeShort(undefined, '2024-12', en.ui)).toBe('to 2024')
+    expect(rangeShort(undefined, undefined, en.ui)).toBeUndefined()
+    expect(rangeShort('2020-04', undefined, es.ui)).toBe('desde abr 2020')
+    expect(rangeShort(undefined, '2024-09', pt.ui)).toBe('até set 2024')
+    expect(rangeShort(undefined, '2024-09', nl.ui)).toBe('t/m sep 2024')
+    expect(rangeShort('2020-04', '2024-09', es.ui)).toBe('abr 2020–sept 2024')
   })
   it('rangeLabel says the range in words', () => {
     expect(rangeLabel('2020-01', '2020-12', en.ui)).toBe('2020')

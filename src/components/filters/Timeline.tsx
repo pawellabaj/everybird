@@ -6,12 +6,12 @@
 // committed: one re-pack, one travel. Layouts are cached by range. On phones the strip scrolls sideways; the handles are sliders for keyboards (arrows a
 // month, PageUp/PageDown a year, Home/End). Logic in src/lib/list/timeline.ts.
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { fmt, plural } from '@/i18n/core'
+import { plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
-import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeLabel, sliderKey, timeless, type Month } from '@/lib/list/timeline'
+import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeShort, sliderKey, timeless, type Month } from '@/lib/list/timeline'
 import { hasSeenMonths, type SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
 import './timeline.css'
@@ -200,7 +200,7 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   // Readout: the range and its species.
   const ranged = lo > 0 || hi < N - 1
   const inRange = bins.counts.slice(lo, hi + 1).reduce((a, b) => a + b, 0) + (ranged ? 0 : bins.undated)
-  const span = ranged ? rangeLabel(months[lo], months[hi], t) : N ? fmt(t.filters.timeline.range, { from: monthShort(months[0], t), to: monthShort(months[N - 1], t) }) : ''
+  const span = ranged ? rangeShort(months[lo], months[hi], t) : N ? `${monthShort(months[0], t)}–${monthShort(months[N - 1], t)}` : ''
   const read = `${span} · ${plural(t.collage.stats.species, inRange, { n: formatInt(inRange, t.num) })}`
 
   if (!N) return <p className="eb-note" data-testid="timeline-empty">{t.filters.timeline.empty}</p>
