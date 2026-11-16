@@ -18,7 +18,7 @@
 import {
   ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Monitor, Printer, ShareNetwork, Square, X, type Icon,
 } from '@phosphor-icons/react'
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
 import { fmt, plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
@@ -33,7 +33,7 @@ import { PRINT_SIZES, printCm, printDesign, printFileStem, printPx, type PrintSi
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import {
-  NAME_MAX_LEN, SHARE_CREDIT, abortError, cardDims, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage, currentScreenAspect,
+  NAME_MAX_LEN, SHARE_CREDIT, abortError, IMAGE_SIZE, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage,
   type CardFormat, type FormatSlot, type ImagePack, type Orientation,
 } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
@@ -92,9 +92,6 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const landscape = orientation === 'horizontal'
   /** The share image's shape: the slot in this orientation (story is desktop, post is wide when horizontal). */
   const shape = imageShape(format, orientation)
-  // The viewer's screen shape, read once when the dialog opens: the desktop image's width follows it (desktopSize), so the
-  // preview, the pack and the PNG all use the same one.
-  const [screenShape] = useState(() => currentScreenAspect())
   const [mode, setMode] = useState<'share' | 'print'>('share')
   const [size, setSize] = useState<PrintSize>('A2')
   const print = mode === 'print'
@@ -138,14 +135,14 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       const k = `${f}|${named}|${lifer}`
       let p = packs.get(k)
       if (!p) {
-        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: lifer, count: shown.length }, screenShape)
+        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: lifer, count: shown.length })
         p = packForImage(shown, species, spec, life.current?.signal)
         packs.set(k, p)
         p.catch(() => packs.delete(k))
       }
       return p
     }
-  }, [shown, species, label, screenShape])
+  }, [shown, species, label])
 
   // The image: re-rendered (debounced) when the format, name, theme or the latest lifer switch changes. `current` is the newest render;
   // a render superseded before it starts rejects with an AbortError. In print mode it is the poster's preview (the
@@ -180,7 +177,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       .then(() => packFor(cardFormat, !!trimmed, withLatest))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
-        theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal, screenAspect: screenShape,
+        theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal,
       }))
     current.current = job
     job.then(
@@ -209,7 +206,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       },
     )
     return () => { live = false; cancel() }
-  }, [key, print, size, cardFormat, trimmed, theme, withLatest, packFor, shown, species, label, t, screenShape])
+  }, [key, print, size, cardFormat, trimmed, theme, withLatest, packFor, shown, species, label, t])
   useEffect(() => () => {
     clearTimeout(outgoingTimer.current)
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current)
@@ -435,7 +432,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const shownCard: CardFormat = preview?.format ?? cardFormat
   const [w, h] = isPrint(shownCard)
     ? (printDesign(preview?.size ?? size, shownCard === 'printLandscape').map(Math.round) as [number, number])
-    : cardDims(shownCard, screenShape)
+    : IMAGE_SIZE[shownCard]
   shownSize.current = [w, h]
   const pct = makingNow && makingNow.total > 0 ? Math.round((makingNow.done / makingNow.total) * 100) : 0
   const [cmW, cmH] = printCm(size, landscape)
@@ -577,9 +574,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
 
           {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits
               centred in an area the story's size, so the controls keep their place in every format. */}
-          <div ref={previewBox} className="eb-share-preview" data-format={shownCard} aria-busy={busy} data-testid="share-preview"
-            // The desktop's shape follows the screen (share.css has only its 16:9 default).
-            style={shownCard === 'desktop' ? { '--ar': `calc(${w} / ${h})` } as CSSProperties : undefined}>
+          <div ref={previewBox} className="eb-share-preview" data-format={shownCard} aria-busy={busy} data-testid="share-preview">
             {outgoing && (
               // The image just replaced, fading out over the frame while it changes shape.
               // eslint-disable-next-line @next/next/no-img-element

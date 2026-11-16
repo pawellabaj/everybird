@@ -65,7 +65,7 @@
 .eb-share-preview[data-format="square"] { --ar: 1; }
 /* The poster's preview: an A size (1:√2, wider than 9:16), so it sits inside the story's area as a post does. */
 .eb-share-preview[data-format="print"] { --ar: calc(1240 / 1754); }
-/* Horizontal: the desktop wallpaper (16:9), the wide post (5:4) and a landscape poster (the portrait A size's ratio turned). */
+/* Horizontal: the desktop wallpaper (16:9, its content in the central 3:2 column), the wide post (5:4) and a landscape poster (the portrait A size's ratio turned). */
 .eb-share-preview[data-format="desktop"] { --ar: calc(16 / 9); }
 .eb-share-preview[data-format="wide"] { --ar: calc(5 / 4); }
 .eb-share-preview[data-format="printLandscape"] { --ar: calc(1754 / 1240); }

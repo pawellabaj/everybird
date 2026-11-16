@@ -1,0 +1,157 @@
+// The desktop wallpaper is crop-proof without detecting the screen (Safari hides it): 1920 × 1080 units drawn at 2× (3840 × 2160),
+// and everything (collage, count, title, filter, latest-lifer row, hairline, wordmark, footer) inside the central 3:2 column,
+// x in [150, 1770], 64 units of margin inside it. The vertical clearance: at least 60 from the top, 120 from the bottom.
+import { createHash } from 'node:crypto'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { nl } from '@/i18n/messages/nl'
+import { pt } from '@/i18n/messages/pt'
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { CREDIT_MIN, DESKTOP_SIDE, IMAGE_SCALE, IMAGE_SIZE, cardDims, cardLayout, clearStickerCache, drawShareImage, prepareCard, renderShareImage, type CardFormat } from '@/lib/share/image'
+import { entries, installStubs, NOW, pack, species } from './fixtures/share-image-harness'
+
+afterEach(() => vi.unstubAllGlobals())
+
+const M = 64
+const LEFT = DESKTOP_SIDE, RIGHT = 1920 - DESKTOP_SIDE // 150, 1770
+const TOP_CLEAR = 60, BOTTOM_CLEAR = 120
+const CONTENTS = [
+  { name: true, filter: true, latest: true },
+  { name: false, filter: false, latest: true },
+  { name: true, filter: false, latest: false },
+  { name: false, filter: false, latest: false },
+]
+
+describe('the desktop size', () => {
+  it('is always 1920 × 1080 units, a 3840 × 2160 PNG, whatever the screen', async () => {
+    expect(DESKTOP_SIDE).toBe(150)
+    expect(cardDims('desktop')).toEqual([1920, 1080])
+    expect(IMAGE_SIZE.desktop).toEqual([1920, 1080])
+    expect(IMAGE_SCALE.desktop).toBe(2)
+    installStubs()
+    vi.stubGlobal('window', { screen: { width: 1512, height: 982 }, devicePixelRatio: 2 })
+    const real = document.createElement
+    document.createElement = ((tag: string) => {
+      const c = real(tag) as unknown as { width: number; height: number; toBlob?: (cb: (b: Blob | null) => void) => void }
+      c.toBlob = (cb) => cb(new Blob([`${c.width}x${c.height}`]))
+      return c
+    }) as typeof document.createElement
+    const blob = await renderShareImage({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: en.ui })
+    expect(await blob.text()).toBe('3840x2160')
+  })
+})
+
+describe('everything on the desktop is inside the central column, clear of the top and bottom', () => {
+  for (const c of CONTENTS) {
+    for (const lang of ['en', 'es', 'nl', 'pt'] as const) {
+      const m = { en, es, nl, pt }[lang]
+      const name = `${lang}${c.name ? ' name' : ''}${c.filter ? ' filter' : ''}${c.latest ? ' latest' : ' no-latest'}`
+      it(name, async () => {
+        installStubs()
+        const long = 'A Black-crowned Night-Heron of a very long name'
+        const card = await prepareCard({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: m.ui, latest: c.latest, name: c.name ? 'Ada Lovelace' : undefined, filterLabel: c.filter ? 'Perching birds · Canada + Egypt' : undefined, nameOf: () => long }, IMAGE_SCALE.desktop)
+        const { L } = card
+        expect(L.W).toBe(1920)
+        expect(L.H).toBe(1080)
+        // The collage frame and the tiles, and the count's box, stay in the column.
+        expect(L.collage.x).toBe(LEFT + M)
+        expect(L.collage.x + L.collage.w).toBe(RIGHT - M)
+        for (const t of [...card.tiles, ...(card.lifer ? [card.lifer] : [])]) {
+          expect(t.x).toBeGreaterThanOrEqual(LEFT)
+          expect(t.x + t.w).toBeLessThanOrEqual(RIGHT)
+        }
+        // The text: the title and filter are drawn from the margin, fitted to the column's width; the footer line and the
+        // latest-lifer row end inside it.
+        expect(L.rule.y).toBeGreaterThan(L.collage.y)
+        if (L.latest) expect(L.latest.x).toBeGreaterThanOrEqual(LEFT + M)
+        if (card.oneLine) {
+          const { icon } = L.latest!
+          const blockEnd = card.oneLine.x + icon + 14 + card.oneLine.labelW + 14 + card.oneLine.nameText.length * 0.5 * L.latest!.name
+          expect(card.oneLine.x).toBeGreaterThanOrEqual(LEFT + M)
+          expect(blockEnd).toBeLessThanOrEqual(RIGHT - M + 1)
+          expect(card.credit.below).toBe(false)
+          expect(card.credit.size).toBeGreaterThanOrEqual(CREDIT_MIN)
+          expect(LEFT + M + card.brandW + card.footerLine.length * 0.6 * card.credit.size).toBeLessThanOrEqual(card.oneLine.x - 32)
+        } else {
+          expect(LEFT + M + card.brandW + card.footerLine.length * 0.6 * card.credit.size).toBeLessThanOrEqual(RIGHT - M)
+        }
+        // Vertical clearance.
+        if (L.name) expect(L.name.y).toBeGreaterThanOrEqual(TOP_CLEAR)
+        expect(L.collage.y).toBeGreaterThanOrEqual(TOP_CLEAR)
+        expect(1080 - (L.footer.y + L.footer.size)).toBeGreaterThanOrEqual(BOTTOM_CLEAR)
+        if (L.latest) expect(1080 - (L.latest.y + L.latest.icon)).toBeGreaterThanOrEqual(BOTTOM_CLEAR)
+      })
+    }
+  }
+
+  it('every drawn text, rule and image in the real draw calls starts and ends inside x in [150, 1770]', async () => {
+    const logs = installStubs()
+    const canvas = await drawShareImage({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: en.ui, name: 'Ada Lovelace', filterLabel: 'Perching birds · Canada + Egypt' })
+    const log = logs.get(canvas as unknown as object)!
+    const num = (a: string) => Number(a.trim())
+    let n = 0
+    let align = 'left'
+    for (const line of log) {
+      let m: RegExpExecArray | null
+      if ((m = /^textAlign = "(\w+)"/.exec(line))) align = m[1]
+      if ((m = /^fillText\(".*", ([\d.]+), ([\d.]+)\)$/.exec(line))) {
+        n++
+        // Left-aligned text starts at or after the margin; centred text (the count) is centred inside the column.
+        if (align === 'left') expect(num(m[1])).toBeGreaterThanOrEqual(LEFT + M)
+        else { expect(num(m[1])).toBeGreaterThan(LEFT + M); expect(num(m[1])).toBeLessThan(RIGHT - M) }
+      }
+      if ((m = /^fillRect\(([\d.]+), [\d.]+, ([\d.]+), ([\d.]+)\)$/.exec(line)) && num(m[3]) !== 1080) {
+        const x = num(m[1]), w = num(m[2])
+        if (w !== 1920) { expect(x).toBeGreaterThanOrEqual(LEFT); expect(x + w).toBeLessThanOrEqual(RIGHT) }
+      }
+      if ((m = /^drawImage\(img\([^)]*\), ([\d.]+), [\d.]+, ([\d.]+), [\d.]+\)$/.exec(line))) {
+        expect(num(m[1])).toBeGreaterThanOrEqual(LEFT)
+        expect(num(m[1]) + num(m[2])).toBeLessThanOrEqual(RIGHT)
+      }
+    }
+    expect(n).toBeGreaterThan(4)
+  })
+
+  it('the bands stay empty: the layout reserves 150 units each side of the column, whatever the pack', () => {
+    for (const c of CONTENTS) {
+      const L = cardLayout('desktop', { ...c, count: 1089 })
+      expect(L.collage.x).toBeGreaterThanOrEqual(LEFT)
+      expect(L.collage.x + L.collage.w).toBeLessThanOrEqual(RIGHT)
+    }
+  })
+})
+
+// The hashes of every layout and every draw call of the other formats, taken before the desktop's column (cardLayout and
+// drawShareImage on the harness, over the content combinations, counts and themes below): they must stay byte-identical.
+const BEFORE: Record<Exclude<CardFormat, 'desktop'>, { layout: string; draws: string }> = {
+  story: { layout: '42ea58674d4ee8d18505c49684fe983e7edf1b10', draws: 'b0ded4d027f4cc596410b35a1f4846b52e62ea3c' },
+  post: { layout: '6385621f4f386188b50d6ff70c67618f6e3644a4', draws: '0518e41faffdfefc76fe286a74296ab4e54c8c56' },
+  square: { layout: '9baa675c2529f2777654d3ec49d5940ebd5ad2f4', draws: '24075c510ce9b9e68892a3e731f3d63cd57a1b01' },
+  wide: { layout: '4e9d6e75750df1125d6ac5c9c4159790b8af3f4b', draws: '44f52e9bb3bdd87d450385258b9e77289f5ce407' },
+  print: { layout: 'bd2bbab39ecbf7d82d9e7aadffb714b7f2601f7c', draws: '1357a1f83954c8b9461ead75455dc42a4f2d1c7b' },
+  printLandscape: { layout: '68b608dbefd61791383888516529cf2b1644805a', draws: 'b8db39bea513454e900b6c67feffea8f96cfee20' },
+}
+const sha = (s: string) => createHash('sha1').update(s).digest('hex')
+
+describe('the other formats draw as before', () => {
+  const FORMATS = Object.keys(BEFORE) as Exclude<CardFormat, 'desktop'>[]
+  for (const f of FORMATS) {
+    it(`${f}: the layouts are unchanged`, () => {
+      const out: Record<string, unknown> = {}
+      for (const c of CONTENTS) for (const count of [12, 197, 1089]) out[`${f} ${JSON.stringify(c)} ${count}`] = cardLayout(f, { ...c, count })
+      expect(sha(JSON.stringify(out))).toBe(BEFORE[f].layout)
+    })
+    it(`${f}: the draw calls are unchanged`, async () => {
+      const out: Record<string, string[]> = {}
+      for (const theme of ['light', 'dark'] as const) for (const name of [undefined, 'Ada Lovelace’s life list']) for (const filterLabel of [undefined, 'Perching birds · Canada + Egypt']) for (const latest of [true, false]) {
+        const logs = installStubs()
+        clearStickerCache()
+        const canvas = await drawShareImage({ format: f, theme, name, filterLabel, latest, entries, species, pack, now: NOW, strings: en.ui, printSize: 'A2' } as never)
+        out[`${f} ${theme} ${name ? 'name' : '-'} ${filterLabel ? 'filter' : '-'} ${latest ? 'latest' : 'nolatest'}`] = logs.get(canvas as unknown as object)!
+        vi.unstubAllGlobals()
+      }
+      expect(sha(JSON.stringify(out))).toBe(BEFORE[f].draws)
+    })
+  }
+})
+
