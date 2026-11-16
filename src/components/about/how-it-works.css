@@ -191,8 +191,8 @@
   color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 14px;
 }
 
-/* The controls bar (.eb-dock): view tabs | True size, Scientific | Places, Time | search. Resting tabs at 66%, the
-   pressed tab Accent on Surface. Phones: the short labels, and Places and Time on a second row under a Hairline. */
+/* The controls bar (.eb-dock): view tabs | True size, Scientific | Filters | search. Resting tabs at 66%, the
+   pressed tab Accent on Surface. Phones: the short labels, and Filters on a second row under a Hairline. */
 .ebd .ebd-dock {
   display: flex; align-items: center; gap: 2px; padding: 3px; margin-top: 10px; box-sizing: border-box;
   border: 1px solid var(--hairline); border-radius: 12px; background: var(--paper);

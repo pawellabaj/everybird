@@ -2,18 +2,18 @@
 
 A lifetime of birds. Everybird turns a birder's life list into a sticker collage. Import an eBird export or an iNaturalist username, or tick birds off by hand, and your list is laid out as a collage you can filter, edit and share.
 
-Your list never leaves your browser. The only network calls that carry user input are iNaturalist API requests (a username and place IDs). A share link carries the whole list in the link itself.
+Your list never leaves your browser. The only network calls that carry user input are iNaturalist API requests (a username and place IDs). A share link carries the whole list in the link itself. Anonymous usage counts (visits, and a few actions such as a collage made or an image shared, never list contents) are sent to a stats endpoint, and Cloudflare Web Analytics counts visits without cookies; both are skipped with Do Not Track or Global Privacy Control.
 
 Live at https://everybird.yusuftaleb.com (share links, link previews and the share images' footer use this origin, `src/lib/share/origin.ts`).
 
 ## Pages
 
-- **Collage** (`/`): your collage with the dock (Collage/List, True size, Scientific, search), filters, bird cards and Share. Without a list on the device it shows a sample.
-- **Settings** (`/settings`): your sources (eBird files, iNaturalist, tick by hand), the match report, counting rules, and downloads, backup and restore.
+- **Collage** (`/`): your collage with the dock (Collage/List, True size, Scientific, Filters, search), the active filter chips, bird cards and Share. Without a list on the device it shows a sample.
+- **Settings** (`/settings`): your sources (eBird files, iNaturalist, observation.org files, tick by hand), the match report, counting rules, and downloads, backup and restore.
 - **About** (`/about`): how it works, privacy and every credit.
 - **Shared view** (`/s/[token]`): a read-only collage from a share link. The old `/make`, `/my` and `/credits` redirect to Settings, Collage and About.
 
-Light by default, with a sun/moon toggle in the top bar. The design system is in `DESIGN.md`.
+Light by default, with a sun/moon toggle in the top bar. The interface is in English, Español, Português (Brazil) and Nederlands; the language menu sits in the top bar. The design system is in `DESIGN.md`.
 
 ## Run it
 
@@ -35,9 +35,11 @@ the raw sources in `data/raw/` (git-ignored) and the stickers repo checked out n
 2. `npm run data`, which runs:
    1. `copy-synonyms.ts`: publishes `data/inat-synonyms.json`.
    2. `build-species.ts`: `species.v1.json` and `taxonomy.v1.json` (masses from AVONET, `data/overrides.json` first).
-   3. `build-geo.ts`: `regions.v1.json` (country and province names).
-   4. `build-stickers.ts`: the 128/384 webp stickers into `../everybird-stickers/v1/`, the masks and each species' `ar` (must follow build-species).
-   5. `link-index.ts`: appends new codes to `data/link-index.json` (append-only, so old share links keep working).
+   3. `build-names.ts`: the bird names per language (`names.*.v1.json`).
+   4. `build-groups.ts`: `groups.v1.json`, the eBird species groups the smart search matches.
+   5. `build-geo.ts`: `regions.v1.json` (country and province names).
+   6. `build-stickers.ts`: the 128/384 webp stickers into `../everybird-stickers/v1/`, the masks and each species' `ar` (must follow build-species).
+   7. `link-index.ts`: appends new codes to `data/link-index.json` (append-only, so old share links keep working).
 3. `npx tsx scripts/build-data/check-stickers.ts`: decodes every sticker and lists any broken file (rebuild those with `build-stickers.ts --codes a,b`).
 
 ## Data sources and licences
