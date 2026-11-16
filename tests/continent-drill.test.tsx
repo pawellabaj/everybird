@@ -60,7 +60,13 @@ describe('the continent level', () => {
     const boxes = within(list).getAllByRole('checkbox')
     expect(boxes.map((b) => b.closest('label')!.textContent)).toEqual(['Africa2, 2 species', 'North America1, 1 species', 'Oceania1, 1 species'])
     expect(list.querySelector('img.eb-flag')).toBeNull()
+    // The flag's slot holds a globe: an 18px square svg, decorative, a circle with the continent's land.
     expect(list.querySelectorAll('.eb-flag-slot')).toHaveLength(3)
+    const globe = list.querySelector('svg.eb-continent-globe')!
+    expect(globe).toHaveAttribute('viewBox', '0 0 256 256')
+    expect(globe).toHaveAttribute('aria-hidden', 'true')
+    expect(globe).toHaveAttribute('stroke', 'currentColor')
+    expect(globe.querySelector('circle')).toHaveAttribute('r', '112')
     expect(screen.getByTestId('drill-n:AF')).toHaveAccessibleName('Show countries in Africa')
     expect(screen.queryByTestId('places-path')).toBeNull()
   })

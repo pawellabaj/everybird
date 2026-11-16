@@ -33,7 +33,9 @@
 .eb-count { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; font-weight: 500; }
 /* A country's flag (components/Flag.tsx), as yusuftaleb.com's places: 18×13, 2px corners. */
 .eb-flag { display: block; width: 18px; height: 13px; border-radius: 2px; object-fit: cover; flex: none; }
-.eb-flag-slot { display: block; width: 18px; height: 13px; flex: none; }
+.eb-flag-slot { display: flex; align-items: center; justify-content: center; width: 18px; height: 13px; flex: none; }
+.eb-continent-globe { display: block; flex: none; color: var(--muted); }
+.eb-check[data-checked] .eb-continent-globe { color: var(--ink); }
 .eb-chip-icon { width: 16px; height: 16px; flex: none; }
 @media (hover: hover) and (pointer: fine) {
   .eb-path button:hover { opacity: 1; }

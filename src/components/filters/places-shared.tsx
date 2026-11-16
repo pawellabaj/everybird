@@ -5,6 +5,8 @@
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'
+import { isContinentId } from '@/lib/places/continents'
+import { ContinentGlobe } from './ContinentGlobe'
 import { clearPlaces, countryRows, filterKey, filterPlaceKeys, placeCounts, placeRows, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { SeenIndex } from '@/lib/list/seen'
@@ -134,7 +136,7 @@ export function PlaceCheck({ option, checked, onToggle, flag, testId }: CheckPro
     <label className="eb-check" data-checked={checked ? '' : undefined}>
       <input type="checkbox" checked={checked} onChange={onToggle} data-testid={testId ?? placeTestId(option.value)} />
       {p?.level === 'country' && <Flag iso={p.country} />}
-      {p?.level === 'continent' && <span className="eb-flag-slot" aria-hidden="true" />}
+      {p?.level === 'continent' && isContinentId(p.continent) && <ContinentGlobe id={p.continent} />}
       <span className="eb-check-name">{option.label}</span>
       <span className="eb-count" aria-hidden="true">{fmt(option.count)}</span>
       <span className="eb-sr">, {fmt(option.count)} species</span>
