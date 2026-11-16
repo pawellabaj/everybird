@@ -173,8 +173,12 @@ const ICON: Record<CardFormat, number> = { story: 76, post: 68, square: 68, prin
  * the row stacked above the hairline (tests/orientation.test.ts measures it).
  */
 const LATEST_ONE_LINE: Partial<Record<CardFormat, true>> = { desktop: true }
-/** The one-line row's sticker (px square), label and name sizes, and the name's widest width (the rest is clipped). */
-const ONE_LINE = { icon: 40, label: 20, name: 30, nameMax: 480, gap: 14 }
+/**
+ * The footer-line latest row's sticker (px square), label and name sizes and the gap after the sticker. The row is two
+ * lines inside the footer's line, right-aligned: the mono label over the name (the name on the footer's baseline), the
+ * sticker to their left, centred on the pair. A name too wide for the room left shrinks to nameMin (80%) before it is clipped.
+ */
+const ONE_LINE = { icon: 40, label: 20, name: 30, gap: 14, nameMin: 0.8 }
 /** The gap between the footer line and the latest row on its right. */
 const FOOTER_GAP = 32
 /**
@@ -309,8 +313,9 @@ export function cardLayout(format: CardFormat, c: CardContent, dims?: readonly [
   let rule: { y: number }
   let latest: CardLayout['latest']
   if (oneLine) {
-    rule = { y: footer.y - 20 }
-    latest = c.latest ? { x: X, y: footer.y - 4, icon: ONE_LINE.icon, tw: 0, label: ONE_LINE.label, name: ONE_LINE.name, oneLine } : undefined
+    // The label sits above the baseline (the pair spans footer.y - 20 to about footer.y + 30), so the hairline is 40 above the footer line.
+    rule = { y: footer.y - 40 }
+    latest = c.latest ? { x: X, y: footer.y - 18, icon: ONE_LINE.icon, tw: 0, label: ONE_LINE.label, name: ONE_LINE.name, oneLine } : undefined
   } else {
     rule = { y: footer.y - 30 }
     latest = c.latest ? { x: X, y: rule.y - G.latest - icon, icon, tw: W - 2 * X - icon - 20, label: 20, name: 34, oneLine } : undefined
@@ -695,8 +700,8 @@ export type PreparedCard = {
   fonts: CardFonts
   /** The wordmark's width plus the gap before the footer line beside it. */
   brandW: number
-  /** The one-line row (LATEST_ONE_LINE): the block's left edge, the label's width and the name as drawn. */
-  oneLine?: { x: number; labelW: number; nameText: string }
+  /** The one-line row (LATEST_ONE_LINE): the block's left edge, the label's width and the name as drawn (its text and font size). */
+  oneLine?: { x: number; labelW: number; nameText: string; nameSize: number }
   /** The footer line's size, and whether it took its own line under the wordmark (placeCredit). */
   credit: { size: number; below: boolean }
   /** How far the wordmark, the hairline and the latest lifer row move up when the footer line is below the wordmark. */
@@ -795,23 +800,25 @@ function placeFooter(d: CardDraft): PreparedCard {
   const brandW = measure(font.brand(L.footer.size), L.footer.size, 'Everybird', 0.55) + 16
   const footerW = (px: number) => measure(font.footer(px), px, footerLine, 0.6)
   if (L.latest?.oneLine && d.latest) {
-    // The one-line row: the label (mono, tracked 0.06em) and the name (Satoshi 600) on the footer's baseline, after the
-    // sticker, and the whole block right-aligned to the margin. The credit keeps CREDIT_MIN beside the wordmark, so the
-    // name is clipped to the room that leaves (and to ONE_LINE.nameMax). The credit's room ends where the block starts,
-    // less FOOTER_GAP; it never takes its own line here.
+    // The one-line row: two lines right-aligned to the margin, the mono label (tracked 0.06em) over the name (Satoshi 600)
+    // on the footer's baseline, the sticker to their left. The credit keeps CREDIT_MIN beside the wordmark, so the name
+    // gets all the room that leaves: if it is still too wide it shrinks to ONE_LINE.nameMin of its size, and only then is
+    // it clipped with an ellipsis. The credit's room ends where the block starts, less FOOTER_GAP.
     const { icon, label: ls, name: ns } = L.latest
     const labelText = d.latest.label.toUpperCase()
     const labelW = measure(font.mono(ls), ls, labelText, 0.6) + labelText.length * 0.06 * ls
-    const nameW = (t: string) => measure(font.lifer(ns), ns, t, 0.56)
+    const nameW = (t: string, px: number) => measure(font.lifer(px), px, t, 0.56)
     const creditMin = footerW(CREDIT_MIN)
-    const nameRoom = maxW - FOOTER_GAP - brandW - creditMin - icon - ONE_LINE.gap * 2 - labelW
-    const nameText = clipTo(nameW, d.latest.name, Math.min(ONE_LINE.nameMax, nameRoom))
-    const blockW = icon + ONE_LINE.gap + labelW + ONE_LINE.gap + nameW(nameText)
+    const room = maxW - FOOTER_GAP - brandW - creditMin - icon - ONE_LINE.gap
+    const full = nameW(d.latest.name, ns)
+    const nameSize = full <= room ? ns : Math.max(ns * ONE_LINE.nameMin, Math.min(ns, Math.floor((ns * room) / full)))
+    const nameText = clipTo((t) => nameW(t, nameSize), d.latest.name, room)
+    const blockW = icon + ONE_LINE.gap + Math.max(labelW, nameW(nameText, nameSize))
     const x = X0 + maxW - blockW
-    const room = x - FOOTER_GAP - X0 - brandW
-    const credit = { ...placeCredit(footerW, room, room, L.footer.credit), below: false }
+    const roomCredit = x - FOOTER_GAP - X0 - brandW
+    const credit = { ...placeCredit(footerW, roomCredit, roomCredit, L.footer.credit), below: false }
     const lifer = d.lifer && { ...d.lifer, x: x + (icon - d.lifer.w) / 2, y: L.latest.y + (icon - d.lifer.h) / 2 }
-    return { ...d, lifer, brandW, credit, shift: 0, oneLine: { x, labelW, nameText } }
+    return { ...d, lifer, brandW, credit, shift: 0, oneLine: { x, labelW, nameText, nameSize } }
   }
   const credit = placeCredit(footerW, maxW - brandW, maxW, L.footer.credit)
   const shift = credit.below ? credit.size + 12 : 0
@@ -897,20 +904,21 @@ export function paintCard(ctx: CanvasRenderingContext2D, card: PreparedCard, img
   // The latest lifer: its sticker, then the mono label over the bird's name, centred on the sticker.
   if (latest && card.oneLine && lifer && L.latest) {
     // One line on the footer's baseline: the sticker, the mono label, the name (placeFooter placed them).
-    const { x, labelW, nameText } = card.oneLine
-    const { icon, label: ls, name: ns } = L.latest
+    const { x, nameText, nameSize } = card.oneLine
+    const { icon, label: ls } = L.latest
     const base = L.footer.y + L.footer.size * 0.8
+    const tx = x + icon + ONE_LINE.gap
     paintTiles(ctx, [lifer], imgs, C.line, range)
     ctx.textBaseline = 'alphabetic'
     ctx.textAlign = 'left'
     ctx.font = font.mono(ls)
     track(0.06, ls)
     ctx.fillStyle = C.muted
-    ctx.fillText(latest.label.toUpperCase(), x + icon + ONE_LINE.gap, base)
+    ctx.fillText(latest.label.toUpperCase(), tx, base - 30)
     track(0, 0)
-    ctx.font = font.lifer(ns)
+    ctx.font = font.lifer(nameSize)
     ctx.fillStyle = C.ink
-    ctx.fillText(nameText, x + icon + ONE_LINE.gap + labelW + ONE_LINE.gap, base)
+    ctx.fillText(nameText, tx, base)
   } else if (latest && lifer && L.latest) {
     paintTiles(ctx, [lifer], imgs, C.line, range)
     const { icon } = L.latest

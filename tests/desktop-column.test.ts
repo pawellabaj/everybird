@@ -2,6 +2,7 @@
 // and everything (collage, count, title, filter, latest-lifer row, hairline, wordmark, footer) inside the central 3:2 column,
 // x in [150, 1770], 64 units of margin inside it. The vertical clearance: at least 60 from the top, 80 from the bottom.
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
@@ -66,7 +67,7 @@ describe('everything on the desktop is inside the central column, clear of the t
         if (L.latest) expect(L.latest.x).toBeGreaterThanOrEqual(LEFT + M)
         if (card.oneLine) {
           const { icon } = L.latest!
-          const blockEnd = card.oneLine.x + icon + 14 + card.oneLine.labelW + 14 + card.oneLine.nameText.length * 0.5 * L.latest!.name
+          const blockEnd = card.oneLine.x + icon + 14 + Math.max(card.oneLine.labelW, card.oneLine.nameText.length * 0.5 * card.oneLine.nameSize)
           expect(card.oneLine.x).toBeGreaterThanOrEqual(LEFT + M)
           expect(blockEnd).toBeLessThanOrEqual(RIGHT - M + 1)
           expect(card.credit.below).toBe(false)
@@ -183,4 +184,41 @@ describe('the latest lifer switch does not rearrange the collage', () => {
       else expect(off.L.collage.h).toBeGreaterThan(on.L.collage.h)
     })
   }
+})
+
+// The latest lifer's name on the desktop footer: the label over the name, the name gets the whole right-hand room, shrinks to 80%
+// before it is clipped, and is never clipped up to about 40 characters, in the longest common names of every language.
+describe('long latest-lifer names on the desktop footer', () => {
+  const data = (f: string) => JSON.parse(readFileSync(`public/data/${f}`, 'utf8'))
+  const longest = (names: string[]) => names.filter((n) => n.length <= 40).sort((a, b) => b.length - a.length)[0]
+  const NAMES: Record<string, string> = {
+    en: longest((data('species.v1.json').species as { com: string }[]).map((r) => r.com)),
+    es: longest(Object.values(data('names.es.v1.json').names as Record<string, string>)),
+    pt: longest(Object.values(data('names.pt_BR.v1.json').names as Record<string, string>)),
+    nl: longest(Object.values(data('names.nl.v1.json').names as Record<string, string>)),
+    forty: 'Northern Rough-winged Swallow-and-Martin!',
+  }
+  for (const [lang, name] of Object.entries(NAMES)) {
+    it(`${lang}: "${name}" (${name.length}) is drawn whole, at 80% of its size or more`, async () => {
+      installStubs()
+      const m = { en, es, pt, nl, forty: en }[lang as 'en']
+      const card = await prepareCard({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: m.ui, nameOf: () => name }, IMAGE_SCALE.desktop)
+      expect(card.oneLine!.nameText).toBe(name)
+      expect(card.oneLine!.nameSize).toBeGreaterThanOrEqual(30 * 0.8)
+      expect(card.credit.below).toBe(false)
+    })
+  }
+  it('a name of 60 characters shrinks to 80% and only then gets an ellipsis', async () => {
+    installStubs()
+    const name = 'A Very Long Imaginary Bird Name That Cannot Possibly Fit Here'
+    const card = await prepareCard({ format: 'desktop', theme: 'light', entries, species, pack, now: NOW, strings: en.ui, nameOf: () => name }, 2)
+    expect(card.oneLine!.nameSize).toBe(24)
+    expect(card.oneLine!.nameText.endsWith('…')).toBe(true)
+  })
+  it('the stack stays inside the footer band: the hairline above the label, the sticker clear of the bottom', () => {
+    const L = cardLayout('desktop', { name: false, filter: false, latest: true, count: 185 })
+    expect(L.rule.y).toBeLessThan(L.footer.y - 20) // above the label's top
+    expect(L.latest!.y).toBeGreaterThan(L.rule.y)
+    expect(1080 - (L.latest!.y + L.latest!.icon)).toBeGreaterThanOrEqual(BOTTOM_CLEAR)
+  })
 })
