@@ -46,6 +46,25 @@ const month = (y: number, m: number) => {
   return `${at.getUTCFullYear()}-${String(at.getUTCMonth() + 1).padStart(2, '0')}`
 }
 const year = (s?: string) => !!s && /^(19|20)\d{2}$/.test(s)
+/**
+ * "ago" words by UI language: English and Dutch put it after the number ("2 years ago", "2 jaar geleden"), Spanish and
+ * Portuguese before it ("hace 2 años", "há 2 anos"; searchKey drops the accent, so "ha" is "há").
+ */
+const AGO: Record<SearchLang, { before: string[]; after: string[] }> = {
+  en: { before: [], after: ['ago'] },
+  es: { before: ['hace'], after: [] },
+  pt: { before: ['ha'], after: [] },
+  nl: { before: [], after: ['geleden'] },
+}
+/** Number words up to twelve in all four languages, keyed by searchKey; "a", "un", "um" and "een" count as one. */
+const NUMBER_WORDS = new Map<string, number>(
+  ([
+    [1, 'one a an uno una un um uma een'], [2, 'two dos dois duas twee'], [3, 'three tres drie'],
+    [4, 'four cuatro quatro vier'], [5, 'five cinco vijf'], [6, 'six seis zes'],
+    [7, 'seven siete sete zeven'], [8, 'eight ocho oito acht'], [9, 'nine nueve nove negen'],
+    [10, 'ten diez dez tien'], [11, 'eleven once onze elf'], [12, 'twelve doce doze twaalf'],
+  ] as [number, string][]).flatMap(([count, words]) => words.split(' ').map((w): [string, number] => [w, count])),
+)
 
 /** Date vocabulary and Intl month names are prepared once per parse; never reads the clock. */
 export function dateParser(today: Date, lang: SearchLang) {
@@ -84,6 +103,29 @@ export function dateParser(today: Date, lang: SearchLang) {
       }
       if (year(keys[at])) return { y: Number(keys[at]), m: 0, end: 11, explicit: true, n: 1 }
     }
+    // "N years ago" and "N months ago" (1 to 12, digits or words) name that whole calendar year or the single month.
+    const agoWord = (side: 'before' | 'after', at: number): boolean => {
+      const k = keys[at] ?? ''
+      const locales: SearchLang[] = [lang, 'en']
+      return !!k && locales.some((l) => AGO[l][side].includes(k))
+    }
+    const agoAt = (at: number): Period | undefined => {
+      const before = agoWord('before', at)
+      const numAt = before ? at + 1 : at
+      const k = keys[numAt] ?? ''
+      const num = /^\d+$/.test(k) ? Number(k) : NUMBER_WORDS.get(k)
+      if (num === undefined || num < 1 || num > 12) return undefined
+      const unitAt = numAt + 1
+      const yearLen = is('year', unitAt), unitLen = yearLen || is('month', unitAt)
+      if (!unitLen) return undefined
+      const end = unitAt + unitLen
+      if (!before && !agoWord('after', end)) return undefined
+      const count = end - at + (before ? 0 : 1)
+      if (yearLen) return { from: month(y - num, 0), to: month(y - num, 11), n: count }
+      return { from: month(y, mo - num), to: month(y, mo - num), n: count }
+    }
+    const ago = agoAt(i)
+    if (ago) return ago
     const lead = is('from', i) || is('between', i)
     const a = point(i + lead, true)
     if (a) {

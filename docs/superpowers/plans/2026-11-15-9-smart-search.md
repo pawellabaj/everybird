@@ -91,3 +91,4 @@ Yusuf wants Everybird's search box to understand plain phrases, like his Nest Le
 - One date chip per query: "nieuwe 2020 okt" takes 2020 and leaves "okt" as name text.
 - A listed county silently beats a state of the same name ("Washington"); show the chip's full name.
 - Stopwords left in the rest text ("el año pasado" leaves "el"; "aves de la costa" leaves "la costa").
+- Seasons ('last summer', 'winter 2024'): not for now (Yusuf, 2026-11-15).
