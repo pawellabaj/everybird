@@ -453,7 +453,7 @@ describe('Places drill: checked places stay reachable, the list is counted once'
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     // The owl was only ever seen in Ontario.
     fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
-    // Reopened, the panel starts at the county's level (its checkbox in view). From the countries, the emptied ancestor is listed at 0 and still drills or opens.
+    // Reopened, the panel starts at the county's level (its checkbox in view). From the countries, the emptied ancestor is listed at 0 and still drills.
     fireEvent.click(placesBtn())
     backToCountries(county)
     for (const k of path) {
@@ -504,7 +504,7 @@ describe('Places drill: checked places stay reachable, the list is counted once'
   })
 
   describe('counting', () => {
-    it('not again for a checkbox, a drill or an open group; again for an order', () => {
+    it('not again for a checkbox or a drill; again for an order', () => {
       vi.stubGlobal('innerWidth', 1000)
       render(<Harness />)
       counted.mockClear()
