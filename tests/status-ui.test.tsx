@@ -64,8 +64,8 @@ describe('Status: a section of the Filters panel', () => {
     const panel = screen.getByRole('dialog', { name: 'Filters' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
     expect(panel).toContainElement(statusPanel())
-    expect(screen.getByText(/3 categories/)).toBeInTheDocument()
-    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(screen.getByText(/4 categories/)).toBeInTheDocument()
+    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN', 'status-NE'])
     expect(within(statusPanel()).getByTestId('status-note')).toHaveTextContent('IUCN Red List categories (global)')
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
     // The source note lives only on About.
@@ -130,14 +130,39 @@ describe('Status: a section of the Filters panel', () => {
     expect(screen.getByRole('group', { name: 'Time' })).toBeInTheDocument()
   })
 
-  it('under a filter that leaves no bird with a category, the panel says so', () => {
+  it('under a filter whose birds have no category, the panel offers Not evaluated alone', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'thrushes only' }))
+    fireEvent.click(statusBtn())
+    expect(within(statusPanel()).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-NE'])
+    expect(screen.getByText(/1 category/)).toBeInTheDocument()
+  })
+
+  it('under a filter with no birds at all, the panel says so', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness codes={['duck1', 'owl1', 'crow1']} />)
     fireEvent.click(screen.getByRole('button', { name: 'thrushes only' }))
     fireEvent.click(statusBtn())
     expect(within(statusPanel()).queryAllByRole('checkbox')).toEqual([])
     expect(screen.getByText(/0 categories/)).toBeInTheDocument()
     expect(screen.getByText('No categories here under the other filters.')).toBeInTheDocument()
+  })
+
+  it('Not evaluated: a grey pill row, named in full, that filters the birds with no category; the chip says so', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(statusBtn())
+    const box = screen.getByRole('checkbox', { name: 'Not evaluated, 1 species' })
+    expect(box).not.toBeChecked()
+    const pill = box.closest('label')!.querySelector('.eb-iucn') as HTMLElement
+    expect(pill).toHaveTextContent('NE')
+    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#9a9a94')
+    expect(pill.style.getPropertyValue('--iucn-text')).toBe('#1e1e24')
+    fireEvent.click(screen.getByTestId('status-NE'))
+    expect(filterOf()).toEqual({ statuses: ['NE'] })
+    expect(screen.getByTestId('chip-status-NE')).toHaveTextContent('Not evaluated')
+    expect(statusBtn()).toHaveAccessibleName('Filters: Conservation status: Not evaluated')
   })
 
   it('Esc closes the panel and focus returns to the Filters button; at phone width it is the bottom sheet', () => {

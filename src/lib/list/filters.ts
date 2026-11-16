@@ -1,5 +1,7 @@
 import type { SpeciesIndex } from '@/lib/species/load'
-import { IUCN_CATS, IUCN_NAMES, isIucnCat, THREATENED, type IucnCat } from '@/lib/species/iucn'
+import { THREATENED } from '@/lib/species/iucn'
+import { isStatusFilterCat, STATUS_FILTER_CATS, statusName, type StatusFilterCat } from '@/lib/species/status-filter'
+import type { SpeciesRow } from '@/lib/species/types'
 import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
@@ -14,8 +16,9 @@ import { keysOf, seenOf, type SeenIndex } from './seen'
  * seen-here index; without it (a shared link) the lifer places stand in. A selection never holds a place and one of
  * its ancestors (withPlaces). Time stays about lifers: places and a range together keep the species seen there whose
  * lifer falls in the range. (Trips are gone: an old `trip` value is dropped by applyFilterValidity.)
- * Status: `statuses`, global IUCN Red List categories in `IUCN_CATS` order, never empty when set (withStatuses); keeps
- * the species in ANY of them, so once one is chosen the species without a status are left out.
+ * Status: `statuses`, the global IUCN Red List categories plus NE ("Not evaluated": a species with no category), in
+ * `STATUS_FILTER_CATS` order, never empty when set (withStatuses); keeps the species in ANY of them. NE matches the
+ * species with no category, so a checked category leaves those out unless NE is checked too. NE is never threatened.
  */
 export type Filter = {
   order?: string
@@ -26,7 +29,7 @@ export type Filter = {
   year?: string
   from?: string
   to?: string
-  statuses?: IucnCat[]
+  statuses?: StatusFilterCat[]
 }
 export type ChipOption = { value: string; label: string; count: number }
 /** `country`: the countries' options (the filter holds a set, `countries`); as a skipped dimension, every place level. */
@@ -62,7 +65,7 @@ export function filterKey(f: Filter): string {
   if (f.counties?.length) parts.push(`k:${[...f.counties].sort().join(',')}`)
   if (f.year) parts.push(`y:${f.year}`)
   if (f.from || f.to) parts.push(`r:${f.from ?? ''}~${f.to ?? ''}`)
-  if (f.statuses?.length) parts.push(`i:${[...f.statuses].sort((a, b) => IUCN_CATS.indexOf(a) - IUCN_CATS.indexOf(b)).join(',')}`)
+  if (f.statuses?.length) parts.push(`i:${[...f.statuses].sort((a, b) => STATUS_FILTER_CATS.indexOf(a) - STATUS_FILTER_CATS.indexOf(b)).join(',')}`)
   return parts.join('|')
 }
 
@@ -86,7 +89,7 @@ function matcher(f: Filter, species: SpeciesIndex, skip: ReadonlySet<Dim>, seen?
       if (!row) return false
       if (order && row.ord !== order) return false
       if (family && row.fam !== family) return false
-      if (statuses && !(row.iu && statuses.has(row.iu))) return false
+      if (statuses && !statuses.has(row.iu ?? 'NE')) return false
     }
     if (places) {
       const keys = keysOf(seen, e)
@@ -181,7 +184,8 @@ export function filterToShow(f: Filter, e: ListEntry, species: SpeciesIndex, see
   }
   if (next.year && yearOf(e) !== next.year) delete next.year
   if ((next.from || next.to) && !inRange(e.date, next.from, next.to)) { delete next.from; delete next.to }
-  if (next.statuses?.length && !(row?.iu && next.statuses.includes(row.iu))) delete next.statuses
+  const cat = statusCatOf(row)
+  if (next.statuses?.length && !(cat && next.statuses.includes(cat))) delete next.statuses
   for (const k of Object.keys(next) as (keyof Filter)[]) if (!next[k]) delete next[k]
   return next
 }
@@ -346,35 +350,41 @@ export function withCountries(f: Filter, countries: readonly string[]): Filter {
   return withPlaces(f, [...countries.filter(Boolean).map((c) => `c:${c}`), ...others])
 }
 
-/** The filter with exactly these statuses: unknown values and duplicates go, in `IUCN_CATS` order; none drops the field. */
+/** A species' status-filter category: its Red List category, or NE when it has none; undefined for no species row. */
+export function statusCatOf(row: SpeciesRow | undefined): StatusFilterCat | undefined {
+  return row ? (row.iu ?? 'NE') : undefined
+}
+
+/** The filter with exactly these statuses: unknown values and duplicates go, in `STATUS_FILTER_CATS` order; none drops the field. */
 export function withStatuses(f: Filter, cats: readonly string[]): Filter {
-  const set = new Set(cats.filter(isIucnCat))
+  const set = new Set(cats.filter(isStatusFilterCat))
   const next: Filter = { ...f }
   delete next.statuses
-  const statuses = IUCN_CATS.filter((c) => set.has(c))
+  const statuses = STATUS_FILTER_CATS.filter((c) => set.has(c))
   if (statuses.length) next.statuses = statuses
   return next
 }
 
 /** The filter with `cat` unchecked when it is checked, else checked. */
-export function toggleStatus(f: Filter, cat: IucnCat): Filter {
+export function toggleStatus(f: Filter, cat: StatusFilterCat): Filter {
   const cur = f.statuses ?? []
   return withStatuses(f, cur.includes(cat) ? cur.filter((c) => c !== cat) : [...cur, cat])
 }
 
 /**
- * The Status panel's rows: species per category under the OTHER filters, whatever statuses are checked; only
- * categories with species, in `IUCN_CATS` order, labelled by full name. `seen`: the seen-here index (else lifer places).
+ * The Status panel's rows: species per category (NE for those with none) under the OTHER filters, whatever statuses are
+ * checked; only categories with species, in `STATUS_FILTER_CATS` order, labelled by full name. `seen`: the seen-here
+ * index (else lifer places).
  */
-export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): (ChipOption & { value: IucnCat })[] {
+export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): (ChipOption & { value: StatusFilterCat })[] {
   const m = matcher(f, species, new Set<Dim>(['status']), seen)
-  const counts = new Map<IucnCat, number>()
+  const counts = new Map<StatusFilterCat, number>()
   for (const e of list) {
     if (!m(e)) continue
-    const iu = species.byCode.get(e.code)?.iu
-    if (iu) counts.set(iu, (counts.get(iu) ?? 0) + 1)
+    const cat = statusCatOf(species.byCode.get(e.code))
+    if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1)
   }
-  return IUCN_CATS.filter((c) => counts.has(c)).map((value) => ({ value, label: IUCN_NAMES[value], count: counts.get(value)! }))
+  return STATUS_FILTER_CATS.filter((c) => counts.has(c)).map((value) => ({ value, label: statusName(value), count: counts.get(value)! }))
 }
 
 /** How many of the entries are globally threatened (Vulnerable, Endangered or Critically Endangered). */

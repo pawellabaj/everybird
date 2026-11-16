@@ -231,7 +231,7 @@ describe('the conservation status on /', () => {
     expect(stats()).toHaveTextContent('2 threatened (Vulnerable, Endangered or Critically Endangered)')
     fireEvent.click(screen.getByTestId('filters-button'))
     const panel = screen.getByRole('group', { name: 'Conservation status' })
-    expect(within(panel).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
+    expect(within(panel).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN', 'status-NE'])
     fireEvent.click(within(panel).getByTestId('status-VU'))
     fireEvent.click(within(panel).getByTestId('status-EN'))
     await waitFor(() => expect(stats()).toHaveTextContent(/^2 of 5 species · 2 families$/))
