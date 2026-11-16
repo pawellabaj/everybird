@@ -12,7 +12,7 @@ Read this before you translate a string or add a language. English (`messages/en
 | latest lifer | Última especie nueva | Última espécie nova | Nieuwste soort |
 | species (count label) | especies | espécies | soorten |
 | True size | Tamaño real | Tamanho real | Ware grootte |
-| Scientific | Científico | Científico | Wetenschappelijk |
+| Scientific | Científico | Científico | Latijn (the label is short; its screen-reader text says "names") |
 | Make yours | Haz el tuyo | Faça a sua (a colagem) | Maak de jouwe |
 | Settings (top bar) | Ajustes | Ajustes | Instellingen |
 | About (top bar) | Acerca de | Sobre | Over |

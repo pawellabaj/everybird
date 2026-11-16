@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { LANGS } from "../src/i18n/langs";
 
 // The controls bar answers to its own width (container queries on .eb-dockwrap). Swept from 280 to 900px of bar in
 // 4px steps, in collage view and list view: row one (the view tabs, the tools, the search) never breaks, and the search
@@ -35,3 +36,16 @@ test("row one of the controls bar holds from 280 to 900px of bar, collage view a
   await expect(page.getByRole("button", { name: /^Sorted by body mass/ })).toBeVisible();
   expect.soft(await sweep(page), "list view").toEqual([]);
 });
+
+// The same sweep in Spanish, Portuguese and Dutch (the dock's labels and short forms are longer there). Written for
+// manual runs: `npx playwright test e2e/dock-sweep.spec.ts`.
+for (const lang of LANGS.filter((l) => l !== "en")) {
+  test(`row one of the controls bar holds from 280 to 900px of bar in ${lang}`, async ({ page, context, baseURL }) => {
+    await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
+    await page.goto("/");
+    await expect(page.locator(".eb-dock")).toBeVisible();
+    expect.soft(await sweep(page), `${lang} collage view`).toEqual([]);
+    await page.locator(".eb-dock-tab").nth(1).click();
+    expect.soft(await sweep(page), `${lang} list view`).toEqual([]);
+  });
+}

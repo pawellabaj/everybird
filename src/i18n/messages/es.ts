@@ -268,7 +268,7 @@ export const es: Messages = {
     share: {
       title: 'Comparte tu collage',
       formats: 'Formato de imagen',
-      format: { story: 'Historia', post: 'Publicación', square: 'Cuadrado' },
+      format: { story: 'Historia', post: 'Post', square: 'Cuadrado' },
       preview: { story: 'Vista previa de la imagen de historia', post: 'Vista previa de la imagen de publicación', square: 'Vista previa de la imagen cuadrada' },
       failed: 'No se pudo crear la imagen.',
       imageFailed: 'No se pudo crear la imagen. Inténtalo de nuevo.',
@@ -276,8 +276,8 @@ export const es: Messages = {
       tooLarge: 'Esta lista es demasiado grande para un enlace. Comparte la imagen en su lugar.',
       nameLabel: 'Título del collage',
       namePlaceholder: 'Opcional, aparece en la imagen',
-      showLatest: 'Mostrar la última especie nueva',
-      shareImage: 'Compartir imagen',
+      showLatest: 'Última especie nueva',
+      shareImage: 'Compartir',
       download: 'Descargar imagen',
       copyLink: 'Copiar enlace',
       saved: 'Se guardó {file}.',
@@ -456,7 +456,7 @@ export const es: Messages = {
     /** About's "How it works" figure (HowItWorksDemo): its sticker credit (<link> is huashu-bird-sticker's repo) and the caption that tells the same story in words ({total} is the demo's species count). The scene itself draws the product's own keys. */
     demo: {
       credit: 'Stickers de <link>huashu-bird-sticker</link>, CC BY 4.0',
-      caption: 'Una animación de Everybird en acción: un archivo de exportación de eBird se suelta en Ajustes, en Tu lista, y se leen sus filas; MyEBirdData queda conectado y el collage tiene {total} especies, todas de eBird. Luego el collage se arma, con los stickers llegando alrededor del recuento hasta llegar a {total} especies. Al elegir el orden Garzas, las seis garzas pasan al centro; Todas las aves, en la ruta de navegación, devuelve a todas. Compartir abre el diálogo para compartir: la imagen, con los stickers alrededor de {total} especies, la última especie nueva y la línea del pie, en los formatos Historia, Publicación y Cuadrado.',
+      caption: 'Una animación de Everybird en acción: un archivo de exportación de eBird se suelta en Ajustes, en Tu lista, y se leen sus filas; MyEBirdData queda conectado y el collage tiene {total} especies, todas de eBird. Luego el collage se arma, con los stickers llegando alrededor del recuento hasta llegar a {total} especies. Al elegir el orden Garzas, las seis garzas pasan al centro; Todas las aves, en la ruta de navegación, devuelve a todas. Compartir abre el diálogo para compartir: la imagen, con los stickers alrededor de {total} especies, la última especie nueva y la línea del pie, en los formatos Historia, Post y Cuadrado.',
     },
   },
   page: {

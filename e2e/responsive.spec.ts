@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { SAMPLE_ORDERS } from "./sample";
 import { checkTopbar, useLang } from "./topbar";
+import { LANGS } from "../src/i18n/langs";
 
 // Phones, as /lifelist's phone view: the controls bar in two rows (the view icons, True and Sci. or the list's
 // "Heaviest", and the magnifier; then Places and Time), and the taxonomy as one "Choose an order" button, the landing
@@ -180,4 +181,25 @@ for (const width of [320, 360, 375, 390, 414, 430, 440, 480, 500, 600] as const)
       }
     }
   });
+}
+
+// The controls bar and every page at the phone and desktop widths in Spanish, Portuguese and Dutch (longer labels):
+// nothing scrolls sideways, and row one of the bar (tabs, tools, search) stays on one line. For manual runs.
+for (const lang of LANGS.filter((l) => l !== "en")) {
+  for (const width of [320, 390, 440, 768, 1280, 1440] as const) {
+    test.describe(`${width}px in ${lang}`, () => {
+      test.use({ viewport: { width, height: 900 }, hasTouch: width < 600 });
+      test("no page scrolls sideways and the controls bar's row one holds", async ({ page, context, baseURL }) => {
+        await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
+        for (const path of ["/", "/settings", "/about"]) {
+          await page.goto(path);
+          await expect(page.getByTestId("topbar")).toBeVisible();
+          expect(await page.evaluate(() => document.documentElement.scrollWidth), `${path}: sideways scroll`).toBeLessThanOrEqual(width);
+        }
+        await page.goto("/");
+        const tops = await page.locator(".eb-dock").evaluate((d) => [".eb-dock-tabs", ".eb-dock-tools", ".eb-dock-end"].map((s) => Math.round(d.querySelector(s)!.getBoundingClientRect().top)));
+        expect(new Set(tops).size, `row one tops ${tops}`).toBe(1);
+      });
+    });
+  }
 }

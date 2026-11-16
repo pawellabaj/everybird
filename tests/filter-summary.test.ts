@@ -62,7 +62,7 @@ describe('in Spanish, Portuguese and Dutch', () => {
     expect(timeSummary({ from: '2021-09', to: '2021-09' }, es.ui)).toBe('sept 2021')
     expect(timeSummary({ from: '2022-04', to: '2024-09' }, es.ui)).toBe('2022–2024')
     expect(timeSummary({ from: '2022-04' }, es.ui)).toBe('desde 2022')
-    expect(timeSummary({ to: '2024-09' }, nl.ui)).toBe('tot en met 2024')
+    expect(timeSummary({ to: '2024-09' }, nl.ui)).toBe('t/m 2024')
     expect(timeSpoken({ from: '2022-04', to: '2024-09' }, es.ui)).toBe('abril de 2022 a septiembre de 2024')
     expect(timeSpoken({ from: '2021-09', to: '2021-09' }, pt.ui)).toBe('setembro de 2021')
     expect(timeSpoken({ to: '2024-09' }, es.ui)).toBe('hasta septiembre de 2024')

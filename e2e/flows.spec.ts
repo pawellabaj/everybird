@@ -3,6 +3,10 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { pressAreas } from "./press-areas";
 import { SAMPLE_COUNT } from "./sample";
+import { HTML_LANG, LANGS } from "../src/i18n/langs";
+import { es } from "../src/i18n/messages/es";
+import { nl } from "../src/i18n/messages/nl";
+import { pt } from "../src/i18n/messages/pt";
 
 // Every flow end to end, in every engine: each way in (eBird life list, MyEBirdData, iNaturalist with a mocked API, tick
 // by hand) and their merge, the filters (taxonomy, Places with several countries, a Time range), True size and the list
@@ -385,3 +389,24 @@ test.describe("on a touch screen (pointer: coarse)", () => {
     expect((await pressAreas(page)).small, "collage: controls under 44px").toEqual([]);
   });
 });
+
+const MESSAGES = { es, pt, nl } as const;
+
+// A short pass per language (Spanish, Portuguese, Dutch): the sample collage draws and Settings offers each source in
+// the language's words. For manual runs.
+for (const lang of LANGS.filter((l) => l !== "en")) {
+  test.describe(`a short pass in ${lang}`, () => {
+    test.use({ viewport: { width: 1280, height: 900 } });
+    test("the sample and Settings speak the language", async ({ page, context, baseURL }) => {
+      const ui = MESSAGES[lang].ui;
+      await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", HTML_LANG[lang]);
+      await expect(shownBirds(page).first()).toBeVisible();
+      await expect(page.getByTestId("collage-stage")).toContainText(ui.count.label.toUpperCase());
+      await page.goto("/settings");
+      await expect(page.getByRole("button", { name: ui.import.add, exact: true }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: ui.tick.button, exact: true })).toBeVisible();
+    });
+  });
+}

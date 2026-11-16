@@ -2,6 +2,10 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { LANGS } from "../src/i18n/langs";
+import { es } from "../src/i18n/messages/es";
+import { nl } from "../src/i18n/messages/nl";
+import { pt } from "../src/i18n/messages/pt";
 
 /** A small synthetic eBird life list download (real species names, made-up places and dates). */
 const LIFELIST = [
@@ -429,3 +433,28 @@ test("Settings still fits about 1.5 screens at 1280x800 with the language field,
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   expect(height).toBeLessThanOrEqual(1.6 * 800);
 });
+
+const MESSAGES = { es, pt, nl } as const;
+
+// The Settings source rows in Spanish, Portuguese and Dutch at 390 and 1280: each row's button is whole beside its
+// text (the buttons wrap under the text, never out of the page) and nothing scrolls sideways. For manual runs.
+for (const lang of LANGS.filter((l) => l !== "en")) {
+  for (const width of [390, 1280]) {
+    test(`source rows fit in ${lang} at ${width}px`, async ({ page, context, baseURL }) => {
+      const ui = MESSAGES[lang].ui;
+      await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
+      await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+      await page.goto("/settings");
+      for (const label of [ui.import.add, ui.tick.button]) {
+        const btns = page.getByRole("button", { name: label, exact: true });
+        await expect(btns.first()).toBeVisible();
+        for (const b of await btns.all()) {
+          const box = await b.boundingBox();
+          expect(box!.x + box!.width, `${label} inside the page`).toBeLessThanOrEqual(width + 0.5);
+          expect(box!.x, `${label} inside the page`).toBeGreaterThanOrEqual(0);
+        }
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    });
+  }
+}

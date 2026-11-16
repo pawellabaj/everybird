@@ -176,8 +176,8 @@ test.describe("date stamp", () => {
       await stampClock(page);
       const dialog = await openShare(page, es.ui);
       const preview = dialog.getByTestId("share-preview");
-      for (const label of ["Historia", "Publicación", "Cuadrado"]) await expect(dialog.getByRole("button", { name: new RegExp(`^${label}`) })).toBeVisible();
-      await expect(dialog.getByRole("switch", { name: "Mostrar la última especie nueva" })).toHaveAttribute("aria-checked", "true");
+      for (const label of ["Historia", "Post", "Cuadrado"]) await expect(dialog.getByRole("button", { name: new RegExp(`^${label}`) })).toBeVisible();
+      await expect(dialog.getByRole("switch", { name: "Última especie nueva" })).toHaveAttribute("aria-checked", "true");
       await expect(dialog.getByRole("button", { name: "Copiar enlace" })).toBeVisible();
       await expect(preview.getByRole("img", { name: es.ui.share.preview.story })).toBeVisible({ timeout: 30_000 });
       await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });

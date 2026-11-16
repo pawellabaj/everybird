@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { checkTopbar, useLang } from "./topbar";
+import { LANGS } from "../src/i18n/langs";
 
 // The collage's geometry is CSS px of its container only: the reader's text size (iOS Dynamic Type, Safari's aA
 // "bigger text", a browser's default font size, all of which scale the root font size or text-size-adjust) never
@@ -301,4 +302,24 @@ for (const width of [195, 260] as const) {
     await expect(field).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
+}
+
+// Large text in Spanish, Portuguese and Dutch: at 195 and 260 CSS px with the root font size at 100, 150 and 200%,
+// no page scrolls sideways. For manual runs.
+for (const lang of LANGS.filter((l) => l !== "en")) {
+  for (const width of [195, 260] as const) {
+    for (const pct of [100, 150, 200] as const) {
+      test(`at ${width} CSS px, ${pct}% text, in ${lang}: no page scrolls sideways`, async ({ page, context, baseURL }) => {
+        await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
+        await page.setViewportSize({ width, height: 800 });
+        for (const path of ["/", "/settings", "/about"]) {
+          await page.goto(path);
+          await page.addStyleTag({ content: `html { font-size: ${pct}% !important; }` });
+          await expect(page.getByTestId("topbar")).toBeVisible();
+          await page.waitForTimeout(500);
+          expect(await page.evaluate(() => document.documentElement.scrollWidth), `${path}`).toBeLessThanOrEqual(width);
+        }
+      });
+    }
+  }
 }
