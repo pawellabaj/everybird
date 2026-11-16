@@ -681,6 +681,12 @@ export const EN_UI = {
     credit: 'Stickers: <link>huashu-bird-sticker</link>, CC BY 4.0',
     caption: 'An animation of Everybird at work: an eBird export file is dropped onto Settings, under Your list, and its rows are read; MyEBirdData is connected and the collage has {total} species, all from eBird. Then the collage builds, stickers arriving around the count as it rolls up to {total} species. Choosing the Herons order brings the six herons into the middle; All birds, in the breadcrumb, brings everyone back. Share opens the share dialog: the image, with the stickers around {total} species, the latest lifer and the footer line, in the Story, Post and Square formats.',
   },
+  /** Item 9's smart search (DockSearch): the "Understood as" chips, their apply button and the seen-dates note. */
+  search: {
+    understood: 'Understood as',
+    show: 'Show these birds',
+    note: 'Your list only has first-seen dates; import MyEBirdData.csv for every sighting',
+  },
 }
 
 /** A messages type with its string literals widened: strings stay strings, plurals `Plural`, string arrays `readonly string[]`. */

@@ -15,7 +15,7 @@ import { formatInt, formatMonth } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { latestLifer } from '@/lib/list/build-list'
-import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount } from '@/lib/list/filters'
+import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount, type Filter } from '@/lib/list/filters'
 import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { ListEntry } from '@/lib/list/model'
 import { monthBins, todayMonth } from '@/lib/list/timeline'
@@ -145,6 +145,14 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const threatLine = useMemo(() => (threat === 'c' ? threatenedCount(entries, species) : undefined), [threat, entries, species])
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
+  // The search's understood chips: the places the list has (every level), and whether its records keep their months.
+  const listPlaces = useMemo(() => {
+    const keys = new Set<string>()
+    for (const e of seen.byCode.values()) for (const k of e.keys) keys.add(k)
+    return [...keys]
+  }, [seen])
+  const hasMonths = useMemo(() => Object.values(state.saved.records).some((rs) => rs.some((r) => r.seenMonths !== undefined)), [state.saved])
+  const onApply = useCallback((f: Filter) => dispatch({ type: 'filter', filter: f }), [dispatch])
 
   const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, placesUnplaced, time, threatLine, shown: shownList.length })
   const close = useCallback(() => setPick(null), [])
@@ -234,7 +242,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         onDirection={() => dispatch({ type: 'massOrder', massOrder: massOrder === 'heaviest' ? 'lightest' : 'heaviest' })}
         sci={sci}
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
-        search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
+        search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose, filter, onApply, regions, listPlaces, hasMonths }}
         filters={filtersUi.button}
         below={filtersUi.below}
         onFind={filtersUi.close}

@@ -65,7 +65,7 @@ describe('names in the UI', () => {
   it('the dock search finds a bird by its English name, and shows the local one', () => {
     setNames(set('es', { amerob: 'Zorzal americano' }))
     render(
-      <DockSearchField entries={[entry('amerob'), entry('houspa')]} species={species} onPick={() => {}} open onClose={() => {}} within={createRef<HTMLElement>()} />,
+      <DockSearchField entries={[entry('amerob'), entry('houspa')]} species={species} onPick={() => {}} open onClose={() => {}} within={createRef<HTMLElement>()} filter={{}} onApply={() => {}} regions={regions} listPlaces={[]} hasMonths={false} />,
       { wrapper: withI18n('es') },
     )
     const input = screen.getByRole('combobox')

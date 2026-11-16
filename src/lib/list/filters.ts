@@ -41,7 +41,9 @@ export type Filter = {
   from?: string
   to?: string
   statuses?: StatusFilterCat[]
+  /** An eBird species group id (item 9); matched by taxon order. */
   group?: string
+  /** Lifers (first sightings) or every sighting at the places and months ("seen"); item 9. */
   basis?: 'lifer' | 'seen'
 }
 export type ChipOption = { value: string; label: string; count: number }
