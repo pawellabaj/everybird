@@ -572,6 +572,12 @@ export const pt: Messages = {
       credit: 'Adesivos: <link>huashu-bird-sticker</link>, CC BY 4.0',
       caption: 'Uma animação do Everybird em ação: um arquivo de exportação do eBird é solto em Ajustes, em Sua lista, e as linhas dele são lidas; o MyEBirdData é conectado e a colagem tem {total} espécies, todas do eBird. Depois a colagem se monta, com os adesivos chegando ao redor da contagem até {total} espécies. Escolher a ordem Garças leva as seis garças para o meio; Todas as aves, na trilha de navegação, traz todo mundo de volta. Compartilhar abre a janela de compartilhamento: a imagem, com os adesivos ao redor de {total} espécies, a última espécie nova e a linha do rodapé, nos formatos Story, Publicação e Quadrado.',
     },
+    /** Item 9's smart search (DockSearch): the "Understood as" chips, their apply button and the seen-dates note. */
+    search: {
+      understood: 'Entendido como',
+      show: 'Mostrar estas aves',
+      note: 'Sua lista só tem datas da primeira observação; importe o MyEBirdData.csv para ter cada observação',
+    },
   },
   page: {
     meta: {

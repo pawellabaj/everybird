@@ -264,6 +264,7 @@ BY
 - The card's status is the `aria-hidden` pill and the full name as ordinary text, read as "Vulnerable (IUCN Red List)" (a visually hidden " (IUCN Red List)" follows the name); nothing needs a press. The stats line's "12 threatened" is followed for screen readers by "(Vulnerable, Endangered or Critically Endangered)". Colour never carries the category alone: the pill always shows its letters.
 - Switches are `role=switch` with `aria-checked`; tabs and pressed states are real ARIA.
 - Search results are a listbox with `aria-selected`; Esc or the close button returns focus to the magnifier.
+- Smart search (item 9): under the field, an "Understood as" row of the chips the query names (a group, a place, a period, a Red List category, "lifers"), each a filter chip (Accent border and text, its × 20px in a 44px press). "Show these birds" is the primary `eb-btn`. The drop is one Paper panel (`.eb-drop`) with the chips, the seen-dates note and the name hits.
 - A source row's ⋯ (`SourceMenu.tsx`) is a menu button: `aria-haspopup="menu"`, `aria-expanded`, a `role="menu"` of `menuitem`s; Enter, Space or ArrowDown opens on the first item, ArrowUp on the last; the arrows wrap, Home and End jump; Escape closes and focus returns to ⋯; Tab or a press outside closes it. "why?" and every Add are disclosures (`aria-expanded`, `aria-controls`).
 - Decorative demo is `aria-hidden` with a visually hidden caption (`.eb-sr`).
 - Reduced motion and the 1,500-bird fade as above. Colour never carries meaning alone (selected = border + position + weight).

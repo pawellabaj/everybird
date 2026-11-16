@@ -223,14 +223,24 @@
 .eb-find:has(.eb-find-input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .eb-find .eb-dock-tab { opacity: 1; color: var(--muted); }
 .eb-find .eb-dock-tab svg { width: 16px; height: 16px; }
-.eb-results {
-  position: absolute; z-index: 8; left: 0; right: 0; top: calc(100% + 6px); max-height: 320px; overflow: auto;
-  overscroll-behavior: contain; margin: 0; padding: 4px; list-style: none;
+/* The search's field and drop are one wrapper; it adds no box of its own, so the field stays where the dock puts it. */
+.eb-find-wrap { display: contents; }
+/* The drop under the field: the "Understood as" chips, a note, then the name hits, on one paper panel (as the results were). */
+.eb-drop {
+  position: absolute; z-index: 8; left: 0; right: 0; top: calc(100% + 6px); padding: 4px;
   background: var(--paper); border: 1px solid var(--hairline);
   border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
   animation: eb-find-in .15s var(--eb-ease) both;
 }
+.eb-results {
+  max-height: 320px; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none;
+}
+.eb-understood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; }
+.eb-understood-label { color: var(--muted); }
+.eb-understood .eb-chiprow { flex: 1 1 200px; min-width: 0; }
+.eb-understood-go { padding: 0 14px; font-size: 14px; }
+.eb-understood-note { padding: 0 12px 8px; }
 .eb-results [role="option"] {
   display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer;
   border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
@@ -479,7 +489,7 @@
 @media (prefers-reduced-motion: reduce) {
   .eb-btn, .eb-dock-tab, .eb-dock-dir svg, .eb-dock-tabs, .eb-dock-tools, .eb-nav-link, .eb-footer-gh { transition: none; }
   .eb-menu { animation: none; }
-  .eb-find, .eb-results { animation: none; }
+  .eb-find, .eb-drop { animation: none; }
 }
 .eb-stagewrap { position: relative; }
 .eb-view .eb-stagewrap { margin-top: 8px; }
