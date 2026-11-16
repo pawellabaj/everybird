@@ -1,6 +1,6 @@
 // Share images: a story (1080 × 1920), post (1080 × 1350) or square (1080 × 1080) PNG of the collage, or of the current filtered view,
 // and the print poster's card (A4 to A1, drawn by poster code in strips). Horizontal (the dialog's orientation switch): the
-// story becomes a desktop wallpaper (1920 × 1080 units drawn at 2×, a 3840 × 2160 PNG) and the post a 5:4 wide (1350 × 1080);
+// story becomes a desktop wallpaper (1080 units high, its width the viewer's screen's shape, drawn at 2×: 1920 × 1080 is 16:9) and the post a 5:4 wide (1350 × 1080);
 // the poster turns to landscape (print.ts). The tables below have a row for each; imageShape picks a slot's shape.
 //
 // Layout (cardLayout), on Paper with 64px side margins, all text left-aligned. It leads with the birder, not the
@@ -50,7 +50,7 @@ import { orderLabel } from '@/lib/species/orders'
 
 /**
  * A share image's shape: vertical 9:16 (story, 1080×1920), 4:5 (post, 1080×1350) and 1:1 (square), or horizontal 16:9
- * (desktop, a wallpaper, 1920×1080 design units drawn at 2×: 3840×2160) and 5:4 (wide, 1350×1080). The dialog's format
+ * (desktop, a wallpaper: 1080 units high and as wide as the viewer's screen is, 1920 at 16:9, drawn at 2×) and 5:4 (wide, 1350×1080). The dialog's format
  * slot and its orientation pick one (imageShape); the analytics names are these.
  */
 export type ImageFormat = 'story' | 'post' | 'square' | 'desktop' | 'wide'
@@ -70,9 +70,29 @@ export type ShareStrings = Pick<Ui, 'share' | 'count' | 'num' | 'date' | 'filter
 export const IMAGE_SIZE: Record<ImageFormat, [w: number, h: number]> = {
   story: [1080, 1920], post: [1080, 1350], square: [1080, 1080], desktop: [1920, 1080], wide: [1350, 1080],
 }
+/** The desktop wallpaper's design height. Its width follows the viewer's screen (desktopSize). */
+export const DESKTOP_H = 1080
+/** The screen shapes (width ÷ height) a desktop image takes: a phone, a portrait or an odd screen gets 16:9 instead. */
+export const DESKTOP_ASPECT_RANGE: readonly [min: number, max: number] = [1.33, 2.4]
 /**
- * Device px per design unit when the image is drawn, so the PNG is IMAGE_SIZE × IMAGE_SCALE: the desktop image is
- * 3840 × 2160 (sharp on a 4K or Retina screen), the others 1:1 with their design. A poster has no entry: it draws at its
+ * The desktop's design size (width, height) for a screen's shape (width ÷ height, from the CSS screen size): the height
+ * stays 1080 and the width is round(1080 × aspect), so the OS's "fill" has nothing to crop (a MacBook Pro 14 at 1512 × 982
+ * gets 1663 × 1080, a 3326 × 2160 PNG). Without an aspect, or one outside DESKTOP_ASPECT_RANGE, it is 16:9 (1920 × 1080).
+ * The one place the desktop's size is read: cardDims, the dialog's preview and its pack all go through it.
+ */
+export function desktopSize(aspect?: number): [w: number, h: number] {
+  const [lo, hi] = DESKTOP_ASPECT_RANGE
+  const ok = aspect !== undefined && Number.isFinite(aspect) && aspect >= lo && aspect <= hi
+  return [Math.round(DESKTOP_H * (ok ? aspect : 16 / 9)), DESKTOP_H]
+}
+/** A screen's shape (width ÷ height) from its CSS size, or undefined without a usable size. The dialog passes window.screen. */
+export function screenAspect(screen: { width: number; height: number } | undefined): number | undefined {
+  if (!screen || !(screen.width > 0) || !(screen.height > 0)) return undefined
+  return screen.width / screen.height
+}
+/**
+ * Device px per design unit when the image is drawn, so the PNG is the design size × IMAGE_SCALE: the desktop image is
+ * twice its design (3840 × 2160 at 16:9; sharp on a 4K or Retina screen), the others 1:1 with their design. A poster has no entry: it draws at its
  * own scale (prepareCard's `scale`, device px per unit), and its preview (drawShareImage) at 1.
  */
 export const IMAGE_SCALE: Record<ImageFormat, number> = { story: 1, post: 1, square: 1, desktop: 2, wide: 1 }
@@ -158,9 +178,10 @@ export const TITLE_TOP: Record<CardFormat, number> = { story: 184, post: M, squa
 const ICON: Record<CardFormat, number> = { story: 76, post: 68, square: 68, print: 76, desktop: 76, wide: 68, printLandscape: 76 }
 /**
  * The cards whose footer is one line: the wordmark, the site and the credit on the left and the latest lifer row on the
- * right, all on the footer's baseline (cardLayout, placeFooter). Only the desktop fits: its line (about 1,650 units with a
- * long name) is 1,792 wide, where the 5:4 card (1,222) and the landscape poster (about 1,400, with the credit at 17px)
- * don't, so they keep the row stacked above the hairline (tests/orientation.test.ts measures it).
+ * right, all on the footer's baseline (cardLayout, placeFooter). Only the desktop: its width follows the screen (1,308 to
+ * 2,464 units of text), and placeFooter clips a long name to the room the credit leaves at 17px. The 5:4 card (1,222) and
+ * the landscape poster (about 1,400, with the credit at 17px) are too narrow for the row beside the credit, so they keep
+ * the row stacked above the hairline (tests/orientation.test.ts measures it).
  */
 const LATEST_ONE_LINE: Partial<Record<CardFormat, true>> = { desktop: true }
 /** The one-line row's sticker (px square), label and name sizes, and the name's widest width (the rest is clipped). */
@@ -312,9 +333,10 @@ export function cardLayout(format: CardFormat, c: CardContent, dims?: readonly [
  * A card's design size by default: the share image's, or the print's at PRINT_DESIGN_H (one pack serves every A size;
  * the landscape print is the same two swapped). The print's real size comes from printDesign (print.ts).
  */
-export function cardDims(format: CardFormat): [number, number] {
+export function cardDims(format: CardFormat, screen?: number): [number, number] {
   if (format === 'print') return [PRINT_DESIGN_W, PRINT_DESIGN_H]
   if (format === 'printLandscape') return [PRINT_DESIGN_H, PRINT_DESIGN_W]
+  if (format === 'desktop') return desktopSize(screen)
   return IMAGE_SIZE[format]
 }
 
@@ -390,8 +412,8 @@ export const abortError = (message = 'share image cancelled') => {
  * lifer) and the count's hole. The dialog packs once per format, name-or-not and lifer-or-not; the drawing maps the pack onto
  * whatever frame it gets. The print packs once at PRINT_DESIGN_H for every A size.
  */
-export function imagePackSpec(format: CardFormat, c: CardContent): PackSpec {
-  return packSpec(cardLayout(format, c))
+export function imagePackSpec(format: CardFormat, c: CardContent, screen?: number): PackSpec {
+  return packSpec(cardLayout(format, c, cardDims(format, screen)))
 }
 
 // --- drawing ---
@@ -586,6 +608,8 @@ export type ShareImageOpts = {
   now?: Date
   /** The latest lifer row; default true. False leaves it out and gives its room to the collage (cardLayout's `latest: false`). */
   latest?: boolean
+  /** The viewer's screen shape (width ÷ height) for the desktop image's width (desktopSize); default 16:9. */
+  screenAspect?: number
   /** The UI language's strings the image draws: the count's number and label, the latest lifer's label and month, and
    *  the stamp's month. The filter label comes in words already (`filterLabel`, from the same strings). */
   strings: ShareStrings
@@ -703,9 +727,9 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
   const name = opts.name?.trim() || undefined
   const footerLine = withStamp(FOOTER_LINE, stampDate(opts.now ?? new Date(), stampStrings(strings)))
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
-  const L = cardLayout(format, content, print ? printDesign(opts.printSize ?? 'A2', format === 'printLandscape') : undefined)
+  const L = cardLayout(format, content, print ? printDesign(opts.printSize ?? 'A2', format === 'printLandscape') : cardDims(format, opts.screenAspect))
   // Packed for the format's own frame (the print: at PRINT_DESIGN_H, one pack for every A size, as imagePackSpec).
-  const pack = opts.pack ?? (await packForImage(shown, species, imagePackSpec(format, content), signal))
+  const pack = opts.pack ?? (await packForImage(shown, species, imagePackSpec(format, content, opts.screenAspect), signal))
   if (signal?.aborted) throw abortError()
 
   // A tile's sticker: the share images' 128/384 by its size; the print's by its device px (1024 with the 384 fallback).
@@ -781,13 +805,16 @@ function placeFooter(d: CardDraft): PreparedCard {
   const footerW = (px: number) => measure(font.footer(px), px, footerLine, 0.6)
   if (L.latest?.oneLine && d.latest) {
     // The one-line row: the label (mono, tracked 0.06em) and the name (Satoshi 600) on the footer's baseline, after the
-    // sticker, and the whole block right-aligned to the margin. The name is clipped to ONE_LINE.nameMax. The credit's
-    // room ends where the block starts, less FOOTER_GAP; it never takes its own line here (the test keeps it at 17px+).
+    // sticker, and the whole block right-aligned to the margin. The credit keeps CREDIT_MIN beside the wordmark, so the
+    // name is clipped to the room that leaves (and to ONE_LINE.nameMax). The credit's room ends where the block starts,
+    // less FOOTER_GAP; it never takes its own line here.
     const { icon, label: ls, name: ns } = L.latest
     const labelText = d.latest.label.toUpperCase()
     const labelW = measure(font.mono(ls), ls, labelText, 0.6) + labelText.length * 0.06 * ls
     const nameW = (t: string) => measure(font.lifer(ns), ns, t, 0.56)
-    const nameText = clipTo(nameW, d.latest.name, ONE_LINE.nameMax)
+    const creditMin = footerW(CREDIT_MIN)
+    const nameRoom = maxW - FOOTER_GAP - brandW - creditMin - icon - ONE_LINE.gap * 2 - labelW
+    const nameText = clipTo(nameW, d.latest.name, Math.min(ONE_LINE.nameMax, nameRoom))
     const blockW = icon + ONE_LINE.gap + labelW + ONE_LINE.gap + nameW(nameText)
     const x = L.W - M - blockW
     const room = x - FOOTER_GAP - M - brandW
