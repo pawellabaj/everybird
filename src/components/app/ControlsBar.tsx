@@ -5,8 +5,7 @@
 // (DockSearch.tsx); everything else sits under it, inert, while it is open. Under 820px of bar the
 // Filters button takes a second row of its own, under 600px filling it (app.css); under
 // 460px the tabs are icons only; under 540px the switches shorten ("True", "Sci."; "Heaviest" in list view), and
-// under 330px and 310px everything tightens, so row one never breaks between 280 and 1200px of bar (e2e
-// dock-sweep.spec). On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
+// under 330px and 310px everything tightens, so row one never breaks between 280 and 1200px of bar. On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
 // one is the icons, the two switches (or "Heaviest") and the magnifier; row two the Filters button.
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, CollageIcon, ListIcon } from '@/components/collage/icons'
