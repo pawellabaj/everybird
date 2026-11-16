@@ -1,7 +1,8 @@
 // The print poster's sizes and strips. Pure: no DOM, nothing from image.ts (image.ts imports this file).
 //
-// A poster is an ISO A size, portrait, at 150 dpi. It is laid out like the share images, 1080 design units wide
-// (PRINT_DESIGN_W), and drawn at printScale(size) device px per unit. One pack serves every size: it is made at
+// A poster is an ISO A size at 150 dpi, portrait or landscape (the dialog's orientation): a landscape poster is the same size
+// turned, its width and height swapped (printPx, printPt, printCm, printDesign). It is laid out like the share images, 1080
+// design units across its short side (PRINT_DESIGN_W), and drawn at printScale(size) device px per unit, the same in both. One pack serves every size: it is made at
 // PRINT_DESIGN_H, and fitPack absorbs the small difference to each size's own printDesignH. An A1 (3508 × 4967) is
 // over iOS Safari's canvas cap (IOS_CANVAS_AREA), so posters are painted in horizontal strips of at most STRIP_AREA px.
 
@@ -26,10 +27,27 @@ export const PRINT_DESIGN_W = 1080
 /** The height the print pack is made at (every size's printDesignH is within 0.2% of it). */
 export const PRINT_DESIGN_H = 1527
 
-/** Device px per design unit: A4 1.148, A3 1.624, A2 2.296, A1 3.248. */
+/** Device px per design unit: A4 1.148, A3 1.624, A2 2.296, A1 3.248. The same for a landscape poster: its short side is the width of the portrait one, so the type and the sticker tiers match. */
 export const printScale = (s: PrintSize): number => PRINT_PX[s][0] / PRINT_DESIGN_W
-/** The size's height in design units (A4 about 1527.7, A1 about 1529.2). */
+/** The size's long side in design units (A4 about 1527.7, A1 about 1529.2): the portrait height, the landscape width. */
 export const printDesignH = (s: PrintSize): number => PRINT_PX[s][1] / printScale(s)
+
+/**
+ * A poster's width and height in px at 150 dpi: portrait as PRINT_PX, landscape with the two swapped (an A4 landscape
+ * is 1754 × 1240). Every other table below takes the same `landscape` flag.
+ */
+export const printPx = (s: PrintSize, landscape = false): readonly [number, number] => (landscape ? [PRINT_PX[s][1], PRINT_PX[s][0]] : PRINT_PX[s])
+/** Width and height in PDF points, swapped for landscape. */
+export const printPt = (s: PrintSize, landscape = false): readonly [number, number] => (landscape ? [PRINT_PT[s][1], PRINT_PT[s][0]] : PRINT_PT[s])
+/** Width and height in cm, swapped for landscape. */
+export const printCm = (s: PrintSize, landscape = false): readonly [number, number] => (landscape ? [PRINT_CM[s][1], PRINT_CM[s][0]] : PRINT_CM[s])
+/**
+ * The card's design size in units, width by height: 1080 by printDesignH(s) for a portrait poster, the same two swapped
+ * for landscape (the short side is always PRINT_DESIGN_W units, so the landscape card is printDesignH(s) by 1080).
+ */
+export const printDesign = (s: PrintSize, landscape = false): [number, number] => (landscape ? [printDesignH(s), PRINT_DESIGN_W] : [PRINT_DESIGN_W, printDesignH(s)])
+/** A poster's file stem: "everybird-a2", "everybird-a2-landscape". */
+export const printFileStem = (s: PrintSize, landscape = false): string => `everybird-${s.toLowerCase()}${landscape ? '-landscape' : ''}`
 
 /** iOS Safari's largest canvas, in px. No canvas the poster makes may be larger. */
 export const IOS_CANVAS_AREA = 16_777_216

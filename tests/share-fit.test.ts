@@ -16,6 +16,8 @@ const css = readFileSync('src/components/share/share.css', 'utf8')
 const EM = 0.58 // Satoshi 500 and 700, per character
 const MONO_EM = 0.62 // Geist Mono 12px plus .02em of tracking
 const RATIOS = ['9:16', '4:5', '1:1']
+/** Horizontal: 16:9 (the desktop, in place of the story), 5:4 (the wide post) and 1:1 (square). */
+const RATIOS_WIDE = ['16:9', '5:4', '1:1']
 const text = (s: string, px: number) => s.length * EM * px
 const COLUMNS = { desktop: 420, narrow: 300, phone: 246 }
 
@@ -28,9 +30,9 @@ const FORMAT_STEPS: FormatStep[] = [
   { name: 'small words', min: 240, query: '@container (max-width: 289px)', icon: false, hint: false, px: 14, padX: 4, gap: 2, segPad: 2 },
 ]
 
-const formatNeed = (labels: string[], s: FormatStep) =>
+const formatNeed = (labels: string[], s: FormatStep, ratios: string[] = RATIOS) =>
   2 + 2 * s.segPad + 2 * s.gap +
-  labels.reduce((sum, label, i) => sum + 2 * s.padX + (s.icon ? 18 + 8 : 0) + text(label, s.px) + (s.hint ? 8 + RATIOS[i].length * MONO_EM * 12 : 0), 0)
+  labels.reduce((sum, label, i) => sum + 2 * s.padX + (s.icon ? 18 + 8 : 0) + text(label, s.px) + (s.hint ? 8 + ratios[i].length * MONO_EM * 12 : 0), 0)
 
 type RowStep = { name: string; min: number; query: string | null; icon: boolean; px: number; padX: number; gap: number }
 const ROW_STEPS: RowStep[] = [
@@ -60,6 +62,32 @@ describe("the share dialog's rows", () => {
     expect(over).toEqual([])
   })
 
+  it("keeps each language's horizontal labels (Desktop, 5:4) inside the control at every step", () => {
+    const over: string[] = []
+    for (const [lang, m] of Object.entries(LANG)) {
+      const f = m.ui.share.format
+      const labels = [f.desktop, f.post, f.square]
+      for (const s of FORMAT_STEPS) {
+        const need = formatNeed(labels, s, RATIOS_WIDE)
+        if (need > s.min) over.push(`${lang} ${s.name}: needs ${Math.ceil(need)}px, step starts at ${s.min}px`)
+      }
+    }
+    expect(over).toEqual([])
+  })
+
+  it('keeps Vertical | Horizontal on one line in every language at every step', () => {
+    const over: string[] = []
+    for (const [lang, m] of Object.entries(LANG)) {
+      const o = m.ui.share.orientation
+      // Two segments, no icon and no ratio: the format control's padding and gaps, so the budget is the same kind.
+      for (const s of FORMAT_STEPS) {
+        const need = formatNeed([o.vertical, o.horizontal], { ...s, icon: false, hint: false })
+        if (need > s.min) over.push(`${lang} ${s.name}: needs ${Math.ceil(need)}px, step starts at ${s.min}px`)
+      }
+    }
+    expect(over).toEqual([])
+  })
+
   it('picks the step that fits the 420, 300 and 246px columns', () => {
     const stepFor = (w: number) => FORMAT_STEPS.find((s) => w >= s.min)!
     expect(stepFor(COLUMNS.desktop).name).toBe('ratios')
@@ -78,5 +106,25 @@ describe("the share dialog's rows", () => {
     }
     expect(over).toEqual([])
   })
+})
 
+describe("the desktop's one-line footer", () => {
+  // The worst case in every language: the credit at 17px (its smallest), the latest row's label (uppercase mono 20px,
+  // tracked .06em) with the longest month, and a 22-character name at 30px (the row clips a name past 480 units). The
+  // desktop line is 1792 units wide (1920 less the 64 side margins); the wordmark is about 181 of them.
+  const LINE_W = 1920 - 2 * 64
+  const BRAND = 181
+  const CREDIT_CHARS = 59 // "everybird.yusuftaleb.com · stickers by huashu · 14 Nov 2026"
+  const MONO_EM_20 = 0.6 * 20 + 0.06 * 20
+  it('fits the credit at 17px or more beside the row, in every language', () => {
+    const over: string[] = []
+    for (const [lang, m] of Object.entries(LANG)) {
+      const longest = Math.max(...m.ui.date.months.map((x) => x.length))
+      const label = `${m.ui.share.latestLifer} · ${'x'.repeat(longest)} 2026`.toUpperCase()
+      const row = 40 + 14 + label.length * MONO_EM_20 + 14 + 22 * 0.56 * 30
+      const need = BRAND + 32 + CREDIT_CHARS * 0.6 * 17 + row
+      if (need > LINE_W) over.push(`${lang}: needs ${Math.ceil(need)}px, the line is ${LINE_W}px`)
+    }
+    expect(over).toEqual([])
+  })
 })

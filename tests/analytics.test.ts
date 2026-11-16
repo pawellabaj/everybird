@@ -221,7 +221,9 @@ describe('automated runs never send', () => {
 describe('the newer events', () => {
   it('each value goes out as {n, p}, and an unknown one is dropped', () => {
     for (const lang of ['en', 'es', 'pt', 'nl'] as const) expect(payloadFor('ui_language', { lang })).toEqual({ n: 'ui_language', p: lang })
-    for (const size of ['a4', 'a3', 'a2', 'a1'] as const) expect(payloadFor('poster_made', { size })).toEqual({ n: 'poster_made', p: size })
+    for (const size of ['a4', 'a3', 'a2', 'a1', 'a4-l', 'a3-l', 'a2-l', 'a1-l'] as const) expect(payloadFor('poster_made', { size })).toEqual({ n: 'poster_made', p: size })
+    // The landscape sizes are the same list turned, not a new event: the app and the Worker allow exactly these eight.
+    expect(payloadFor('poster_made', { size: 'a2-x' as never })).toBeNull()
     for (const format of ['png', 'pdf'] as const) expect(payloadFor('poster_downloaded', { format })).toEqual({ n: 'poster_downloaded', p: format })
     for (const kind of ['smart', 'bird'] as const) expect(payloadFor('search_applied', { kind })).toEqual({ n: 'search_applied', p: kind })
     for (const kind of ['place', 'continent', 'time', 'status', 'group', 'taxonomy'] as const) expect(payloadFor('filter_used', { kind })).toEqual({ n: 'filter_used', p: kind })

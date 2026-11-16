@@ -397,11 +397,13 @@ export const EN_UI = {
     title: 'Share your collage',
     /** The format control's group name and its three segments (their 9:16, 4:5, 1:1 hints are in code). */
     formats: 'Image format',
-    format: { story: 'Story', post: 'Post', square: 'Square' },
+    format: { story: 'Story', post: 'Post', square: 'Square', desktop: 'Desktop' },
     /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
     formatName: '{name}, {ratio}',
+    /** The orientation switch above the format control (Vertical or Horizontal; Square has neither). */
+    orientation: { group: 'Orientation', vertical: 'Vertical', horizontal: 'Horizontal' },
     /** The preview image's alt text, per format. */
-    preview: { story: 'Preview of the story image', post: 'Preview of the post image', square: 'Preview of the square image' },
+    preview: { story: 'Preview of the story image', post: 'Preview of the post image', square: 'Preview of the square image', desktop: 'Preview of the desktop image', wide: 'Preview of the wide post image' },
     failed: "Couldn't make the image.",
     imageFailed: 'Couldn’t make the image. Try again.',
     linkFailed: 'Couldn’t make the link. Try again.',
