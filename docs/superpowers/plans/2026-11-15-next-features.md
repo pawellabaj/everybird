@@ -14,7 +14,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 - [x] 3. Conservation status (IUCN) (shipped on feat/nf-3-iucn; plan 2026-11-15-3-iucn-status.md; variants pill a/b and threat a/b/c kept for Yusuf; R2 data upload waits on credentials)
 - [x] 4. Date stamp on share images (shipped on feat/nf-4-date-stamp; plan 2026-11-15-4-date-stamp.md)
 - [x] 5. Smaller places (province/state, county) (shipped on feat/nf-5-places; plan 2026-11-15-5-smaller-places.md; Places variants a/b kept for Yusuf)
-- [x] 6. Print poster export (A1–A4) (built on feat/nf-6-print; plan 2026-11-15-6-print.md; the 1024 tier awaits Yusuf's R2 upload, until then posters use the 384 files)
+- [x] 6. Print poster export (A1–A4) (built on feat/nf-6-print; plan 2026-11-15-6-print.md; the 1024 tier is on R2 since 2026-11-15: 11,027 files, 549 MB)
 - [ ] 7. Portuguese (Brazilian)
 - [ ] 8. observation.org import (added 2026-11-15; brief `2026-11-15-8-observation-org-brief.md`; branch feat/nf-8-observation-org after item 6)
 
