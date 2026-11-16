@@ -275,6 +275,9 @@
 .eb-langrow { display: flex; flex-direction: column; gap: 12px; }
 .eb-langrow .eb-langfield { flex: none; }
 @media (min-width: 1024px) { .eb-settings-pair .eb-langfield { max-width: 340px; } }
+/* The select and its "Change language" button on one row (the button wraps under on a narrow field). */
+.eb-langfield-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.eb-langfield-row .eb-select { flex: 1 1 160px; }
 .eb-confirm {
   display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; max-width: 560px;
   border: 1px solid var(--accent);
@@ -291,6 +294,7 @@
   position: sticky; top: 0; z-index: var(--z-topbar);
   border-bottom: 1px solid var(--hairline); background: var(--paper);
   transition: transform .2s var(--ease-ui);
+  overflow-x: clip; /* a wider fallback font on the first paint never makes the page scroll sideways */
 }
 .eb-topbar[data-hidden] { transform: translateY(-100%); }
 @media (prefers-reduced-motion: reduce) { .eb-topbar { transition: none; } }
@@ -413,6 +417,7 @@
 }
 @media (max-width: 479px) {
   :root[data-topbar="c"] .eb-nav [data-nav="collage"] { display: none; }
+  :root[data-topbar="c"] .eb-wordmark[aria-current="page"] { color: var(--accent); }
 }
 /* Under 240px (a 390px phone at aA 200%): row two holds "Collage Ajustes Acerca de" and "Instellingen" at 13px with a
    8px gutter and 3px inside each pill; the press stays 44px across (.eb-nav-link::after). */

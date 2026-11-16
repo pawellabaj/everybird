@@ -136,8 +136,14 @@ describe('collageHole', () => {
         // Grows with the number once the number is wider than the 8-character label (narrow's 197 is just under it:
         // 39.17 against 39.27 units, so its hole is the label's, as 7's is).
         if (n >= 197) {
-          if (h.num[2] > h.label[2]) expect(ex).toBeGreaterThan(last)
-          else expect(ex).toBeCloseTo(last, 9)
+          // The one exception is the narrow layout at 197, whose number is still inside the label's box.
+          if (L.name === 'narrow' && n === 197) {
+            expect(h.num[2]).toBeLessThanOrEqual(h.label[2])
+            expect(ex).toBeCloseTo(last, 9)
+          } else {
+            expect(h.num[2]).toBeGreaterThan(h.label[2])
+            expect(ex).toBeGreaterThan(last)
+          }
         }
         last = ex
         expect(touchesHole([-1, -1, 1, 1], h)).toBe(true)

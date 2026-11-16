@@ -1,8 +1,7 @@
 // The language preference: one first-party cookie, `everybird-lang`, which the rewrites (routes.ts) read before
 // Accept-Language. It is the only stored copy. Safari caps script-set cookies at 7 days, so every page load writes a
 // present cookie again with the same value (I18nProvider's effect); a missing one is never created there.
-import { isLang, type Lang } from './langs'
-import { LANG_COOKIE } from './routes'
+import { LANG_COOKIE, isLang, type Lang } from './langs'
 
 type CookieDoc = { cookie: string; location?: { protocol?: string } }
 
@@ -45,6 +44,9 @@ export const LANG_VARIANTS = ['a', 'b', 'c'] as const
 export function chooseLang(lang: Lang): void {
   try {
     setLangCookie(lang)
+    // Cookies blocked without an error (the write is dropped): the reload would show the same language, and would
+    // cost the reader their place and focus.
+    if (readLangCookie() !== lang) return
   } catch {
     // Cookies blocked: nothing to remember, and the reload would show the same language.
     return

@@ -1,4 +1,5 @@
 'use client'
+import { stripLang } from '@/i18n/path'
 import { ArrowRight } from '@phosphor-icons/react'
 import Link from '@/components/app/IntentLink'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
@@ -39,7 +40,7 @@ function WelcomeDialog({ onClose }: { onClose: () => void }) {
     // Closed (and not off to Settings), focus goes back to the page: the sample's first control (its view tabs), or the
     // hero's "Make yours" while the sample is still loading.
     return () => {
-      if (location.pathname !== '/') return
+      if (stripLang(location.pathname) !== '/') return
       const back = document.querySelector<HTMLElement>('.eb-page-landing .eb-view button:not(:disabled)') ?? document.querySelector<HTMLElement>('.eb-page-landing .eb-hero-cta')
       back?.focus({ preventScroll: true })
     }

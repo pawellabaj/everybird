@@ -44,7 +44,8 @@ export function TopBar() {
   return (
     <header ref={ref} className="eb-topbar" data-testid="topbar">
       <div className="eb-topbar-in">
-        <Link href="/" className="eb-wordmark">Everybird</Link>
+        {/* Variant c hides Collage on phones, so the wordmark (which goes to the same page) says where you are. */}
+        <Link href="/" className="eb-wordmark" aria-current={langVariant === 'c' && path === '/' ? 'page' : undefined}>Everybird</Link>
         <nav aria-label={t.shell.nav.label} className="eb-nav">
           <ul>
             {PAGES.map((p) => (

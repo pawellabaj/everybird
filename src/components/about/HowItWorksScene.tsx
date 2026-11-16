@@ -29,6 +29,8 @@ import { pageTitle } from '@/lib/list/title'
 import { FOOTER_LINE, latestText } from '@/lib/share/image'
 import { stampDate, stampStrings, withStamp } from '@/lib/share/stamp'
 import { ORDERS as ORDER_LABELS, orderLabel } from '@/lib/species/orders'
+import { baseOfLang } from '@/lib/species/name-locales'
+import { useEnNames } from '@/lib/species/use-names'
 import { stickerUrl } from '@/lib/sticker-url'
 import { AR, BIRDS, COLLAGE, FAMILIES, HERONS, LATEST, SHARE, SV, TOTAL, type Box } from './how-it-works-data'
 import type { Layout } from './stageshow/looks'
@@ -540,8 +542,11 @@ function ShareDialog({ format, show, wide }: { format: Format; show: boolean; wi
  * it reads as text, except the footer line: stamped, it fits the image (overflow: hidden) only at its true 20 px.
  */
 function ShareImage({ format, box, show }: { format: Format; box: { w: number; h: number }; show: boolean }) {
-  const { t } = useI18n()
-  const latest = latestText({ com: LATEST.name, date: LATEST_DATE }, t)
+  const { lang, t } = useI18n()
+  const english = useEnNames()
+  // The latest lifer's name in the UI language's base names (es, pt_BR, nl), English when the device shows English names.
+  const base = baseOfLang(lang)
+  const latest = latestText({ com: (!english && base && LATEST.names[base]) || LATEST.name, date: LATEST_DATE }, t)
   const L = SHARE[format]
   const k = Math.min(box.w / L.W, box.h / L.H)
   const w = L.W * k, h = L.H * k

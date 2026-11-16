@@ -188,6 +188,8 @@ export function countLayout(format: ImageFormat | number, count: number, collage
   const gap = Math.round(size * 0.14)
   const drop = COMMA_DROP * size
   const accent = (MONO_CAP_ACCENT - MONO_CAP) * labelSize
+  // `gap - drop - accent` is negative at most sizes: the comma's foot and the accent's ink share the gap, so the two boxes
+  // overlap by design (the column's height is still digits + gap + caps). Clamping it would move the text.
   const boxes = columnBoxes(em * size, DIGIT_CAP * size + drop, gap - drop - accent, labelEm() * labelSize, MONO_CAP_ACCENT * labelSize)
   return { number, label, size, labelSize, gap, hole: { ...boxes, pad: COUNT_PAD * size } }
 }

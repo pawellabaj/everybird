@@ -68,11 +68,18 @@ function LangList({ id, label, current, btn, onPick, onClose }: {
   const items = () => [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') ?? [])]
 
   // Right-aligned under the button (CSS), then clamped to the window: shifted right if its left edge would leave it.
+  // Again whenever the window is resized while it is open (a rotation, the keyboard, page zoom).
   useLayoutEffect(() => {
     const el = menu.current
     if (!el) return
-    const left = el.getBoundingClientRect().left
-    if (left < EDGE) el.style.right = `${left - EDGE}px`
+    const clamp = () => {
+      el.style.right = ''
+      const left = el.getBoundingClientRect().left
+      if (left < EDGE) el.style.right = `${left - EDGE}px`
+    }
+    clamp()
+    window.addEventListener('resize', clamp)
+    return () => window.removeEventListener('resize', clamp)
   }, [])
 
   useEffect(() => {

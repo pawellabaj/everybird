@@ -10,7 +10,8 @@ import { LanguageMenu } from '@/components/app/LanguageMenu'
 import { TopBar } from '@/components/app/TopBar'
 import { withI18n } from './i18n-render'
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/settings', useRouter: () => ({ push: () => {}, prefetch: () => {} }) }))
+const nav = vi.hoisted(() => ({ path: '/settings' }))
+vi.mock('next/navigation', () => ({ usePathname: () => nav.path, useRouter: () => ({ push: () => {}, prefetch: () => {} }) }))
 vi.mock('next/link', () => ({ default: ({ href, children, ...rest }: { href: string; children: ReactNode }) => <a href={href} {...rest}>{children}</a> }))
 
 /** How many holds on the top bar are live (useHoldTopBar mounted and not yet unmounted). */
@@ -67,6 +68,22 @@ describe('LanguageMenu', () => {
     cleanup()
     render(<LanguageMenu />, { wrapper: withI18n('en') })
     expect(screen.getByRole('button', { name: 'Language: English' })).toHaveTextContent('EN')
+  })
+
+  it('is clamped to the window when it opens and again when the window is resized while it is open', () => {
+    // jsdom has no layout: the menu's left edge is whatever the stand-in says. -20 leaves it 28px past EDGE (8px).
+    let left = -20
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ left, right: left + 200, top: 0, bottom: 0, width: 200, height: 0, x: left, y: 0, toJSON: () => ({}) }))
+    render(<LanguageMenu />, { wrapper: withI18n('es') })
+    open()
+    const menu = screen.getByRole('menu')
+    expect(menu.style.right).toBe('-28px')
+    left = 40 // the window grew: nothing to shift any more
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(menu.style.right).toBe('')
+    left = -4 // and shrank again
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    expect(menu.style.right).toBe('-12px')
   })
 
   it('opens a menu of the four languages in their own names, current one checked', () => {
@@ -182,5 +199,25 @@ describe('LanguageMenu', () => {
     expect(collage.closest('li')).toHaveAttribute('data-nav', 'collage')
     expect(screen.getByRole('link', { name: 'Ajustes' }).closest('li')).toHaveAttribute('data-nav', 'settings')
     expect(screen.getByRole('link', { name: 'Everybird' })).toHaveAttribute('href', '/')
+  })
+
+  it('variant c: on the Collage page the wordmark is the current page too (Collage is hidden on phones); never in a or b', () => {
+    nav.path = '/'
+    try {
+      renderTopBar('c')
+      expect(screen.getByRole('link', { name: 'Everybird' })).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByRole('link', { name: 'Collage' })).toHaveAttribute('aria-current', 'page')
+      cleanup()
+      for (const v of ['a', 'b']) {
+        renderTopBar(v)
+        expect(screen.getByRole('link', { name: 'Everybird' })).not.toHaveAttribute('aria-current')
+        cleanup()
+      }
+      nav.path = '/settings'
+      renderTopBar('c')
+      expect(screen.getByRole('link', { name: 'Everybird' })).not.toHaveAttribute('aria-current')
+    } finally {
+      nav.path = '/settings'
+    }
   })
 })

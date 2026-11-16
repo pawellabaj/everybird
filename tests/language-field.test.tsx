@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EnglishNamesSwitch, EN_NAMES_KEY, LanguageField } from '@/components/app/LanguageField'
 import { SettingsPage } from '@/components/app/SettingsPage'
-import { refreshLangCookie, setLangCookie } from '@/i18n/choose'
+import { chooseLang, refreshLangCookie, setLangCookie } from '@/i18n/choose'
 import { initialState } from '@/lib/list/store'
 import { withI18n } from './i18n-render'
 
@@ -74,14 +74,31 @@ describe('LanguageField', () => {
     expect(select.value).toBe('pt')
   })
 
-  it('choosing Español writes everybird-lang=es and reloads', () => {
+  it('picking a language changes nothing until "Change language" is pressed; only the button writes the cookie and reloads', () => {
     const set = vi.spyOn(Document.prototype, 'cookie', 'set')
     render(<LanguageField />, { wrapper: withI18n('en') })
     const select = screen.getByRole('combobox', { name: 'Language' })
+    const button = screen.getByRole('button', { name: 'Change language' })
+    expect(button).toBeDisabled() // the draft is the current language
     fireEvent.change(select, { target: { value: 'es' } })
+    expect(set).not.toHaveBeenCalled()
+    expect(reload).not.toHaveBeenCalled()
+    expect(button).toBeEnabled()
+    fireEvent.change(select, { target: { value: 'en' } }) // arrowing back to the current language
+    expect(button).toBeDisabled()
+    fireEvent.change(select, { target: { value: 'es' } })
+    fireEvent.click(button)
     expect(set).toHaveBeenCalledTimes(1)
     expect(set.mock.calls[0][0]).toMatch(/^everybird-lang=es; Max-Age=31536000; Path=\/; SameSite=Lax/)
     expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('the button is named in the page language', () => {
+    for (const [l, name] of [['es', 'Cambiar idioma'], ['pt', 'Mudar idioma'], ['nl', 'Taal wijzigen']] as const) {
+      render(<LanguageField />, { wrapper: withI18n(l) })
+      expect(screen.getByRole('button', { name })).toBeDisabled()
+      cleanup()
+    }
   })
 
   it('without a list the field is still on Settings', () => {
@@ -137,6 +154,18 @@ describe('EnglishNamesSwitch', () => {
     expect(sw).toHaveAttribute('aria-checked', 'false')
     act(() => { fireEvent.click(sw) })
     expect(sw).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
+describe('chooseLang', () => {
+  it('reloads once the cookie is stored, and not when the browser dropped it (cookies blocked)', () => {
+    document.cookie = 'everybird-lang=; Max-Age=0; Path=/'
+    chooseLang('nl')
+    expect(reload).toHaveBeenCalledTimes(1)
+    reload.mockReset()
+    vi.spyOn(Document.prototype, 'cookie', 'set').mockImplementation(() => {}) // the write goes nowhere
+    chooseLang('es')
+    expect(reload).not.toHaveBeenCalled()
   })
 })
 
