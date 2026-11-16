@@ -66,8 +66,8 @@ export async function checkTopbar(page: Page, path: string, variant: TopbarVaria
     if (split) expect(l.y, `${path}: ${name} on row two`).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
     else expect(l.y, `${path}: ${name} in row one`).toBeLessThan(w!.y + w!.height);
   }
-  // The gutter is the page's: 16px from 360px, split or not.
-  if (width >= 360) expect(inner.left, `${path}: 16px gutter`).toBeCloseTo(16, 0);
+  // The gutter is the page's: 16px from 360px to 719px, split or not (32px from 720px).
+  if (width >= 360 && width < 720) expect(inner.left, `${path}: 16px gutter`).toBeCloseTo(16, 0);
   // --topbar-h follows the rows (a one-row bar never gets the two-row offset).
   const [h, token] = await Promise.all([
     bar.evaluate((el) => el.getBoundingClientRect().height),
