@@ -96,6 +96,10 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const print = mode === 'print'
   // Square has no horizontal shape: its switch is disabled. In print mode the slot doesn't apply, so the switch is on.
   const squareShare = !print && format === 'square'
+  // Horizontal (a desktop or wide image, or a landscape poster) lays out wide: the preview on top at the dialog's width
+  // and the controls in a row below it (share.css, data-layout). Vertical keeps the preview beside the controls.
+  const wideLayout = landscape && !squareShare
+  const lastWide = useRef(wideLayout)
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
   // The look of everything the dialog makes: the app's theme when the dialog opens, then this dialog's own choice.
@@ -295,7 +299,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       setMaking(null)
       setNote({ text: readyNote(p), print: true })
       focusNext.current = 'png'
-      track('poster_made', { size: p.size.toLowerCase() as PosterSizeWire })
+      track('poster_made', { size: `${p.size.toLowerCase()}${p.landscape ? '-l' : ''}` as PosterSizeWire })
     } catch (e) {
       if (ctl.signal.aborted || (e as Error)?.name === 'AbortError') return
       const memory = (e as Error)?.message === 'poster-memory'
@@ -436,6 +440,17 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const previewBox = useRef<HTMLDivElement>(null)
   const shownFormat = preview?.format
   const lastShown = useRef(shownFormat)
+  // Switching between the side-by-side and the wide layout eases the preview and fades the controls in (share.css).
+  useLayoutEffect(() => {
+    if (lastWide.current === wideLayout) return
+    lastWide.current = wideLayout
+    const el = ref.current
+    const pv = previewBox.current
+    if (el) el.dataset.changing = ''
+    if (pv) pv.dataset.resizing = ''
+    const t = setTimeout(() => { if (el) delete el.dataset.changing; if (pv) delete pv.dataset.resizing }, PREVIEW_EASE_MS + 60)
+    return () => clearTimeout(t)
+  }, [wideLayout])
   useLayoutEffect(() => {
     const el = previewBox.current
     const was = lastShown.current
@@ -498,11 +513,12 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     )
   }
   return (
-    <div className="eb-share-scrim" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="eb-share-scrim" data-layout={wideLayout ? 'wide' : 'side'} onPointerDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div
         ref={ref}
         className="eb-share"
         data-mode={mode}
+        data-layout={wideLayout ? 'wide' : 'side'}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

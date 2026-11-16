@@ -764,6 +764,8 @@ describe('the orientation switch', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Download PNG' }))
     await waitFor(() => expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(1))
     expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('everybird-a2-landscape.png')
+    // Counted by size: the landscape A2 is a2-l, never the portrait a2.
+    expect(vi.mocked(track)).toHaveBeenCalledWith('poster_made', { size: 'a2-l' })
   })
 
   it('in print mode the switch is on whatever the share format (a poster has no square)', () => {

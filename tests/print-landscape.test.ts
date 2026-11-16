@@ -49,7 +49,7 @@ describe('the landscape sizes', () => {
     expect(printFileStem('A4', true)).toBe('everybird-a4-landscape')
   })
 
-  it('lays a landscape card out at its own width and the same 1080 height, with the latest row beside its footer', async () => {
+  it('lays a landscape card out at its own width and the same 1080 height, with the latest row stacked', async () => {
     const row = (code: string, to: number) => ({ code, com: code, sci: code, ord: 'Struthioniformes', fam: 'Struthionidae', famCom: 'Ostriches', to, g: 100000, gSrc: 'family', st: true, ar: 1, q: true }) as SpeciesRow
     const codes = ['synl0', 'synl1', 'synl2']
     const sp = buildSpeciesIndex(codes.map((c, i) => row(c, i + 1)))
@@ -57,7 +57,8 @@ describe('the landscape sizes', () => {
     const pack: ImagePack = { W: 1000, H: 800, boxes: new Map(codes.map((c, i) => [c, [200 + i * 250, 300, 160, 120]])) }
     const card = await prepareCard({ format: 'printLandscape', printSize: 'A2', theme: 'light', entries: es, species: sp, pack, now: new Date(2026, 10, 15), strings: en.ui }, printScale('A2'))
     expect([card.L.W, card.L.H]).toEqual([printDesign('A2', true)[0], 1080])
-    expect(card.L.latest?.beside).toBe(true)
+    // The landscape poster keeps the row stacked above the hairline (a long name won't fit beside the credit).
+    expect(card.L.latest?.oneLine).toBe(false)
     expect(card.L.footer.y).toBe(1080 - 64 - 30)
   })
 })

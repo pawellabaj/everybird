@@ -18,12 +18,14 @@ import {
   prepareCard, spreadY, type CardFormat, type ImagePack,
 } from '@/lib/share/image'
 import { installStubs, NOW, entries, pack as harnessPack, species } from './fixtures/share-image-harness'
+import { printDesign } from '@/lib/share/print'
 
 afterEach(() => vi.unstubAllGlobals())
 
 const M = 64
 /** The gap between the footer line and the latest row beside it (image.ts FOOTER_GAP). */
 const FOOTER_GAP = 32
+const ONE_LINE_GAP = 14
 const LANDSCAPE: CardFormat[] = ['desktop', 'wide', 'printLandscape']
 const CONTENTS = [
   { name: true, filter: true, latest: true },
@@ -118,11 +120,15 @@ describe('the landscape layouts', () => {
         expect(L.footer.y).toBeGreaterThan(L.rule.y)
         if (L.latest) {
           expect(L.latest.x).toBeGreaterThanOrEqual(M)
-          expect(L.latest.x + L.latest.icon + 20 + L.latest.tw).toBeLessThanOrEqual(L.W - M)
-          expect(L.latest.y + L.latest.icon).toBeLessThanOrEqual(L.footer.y + L.footer.size)
-          if (L.latest.beside) expect(L.latest.y).toBeGreaterThan(L.rule.y)
-          // Nothing of the collage sits on the latest row or the rule.
-          expect(y + h).toBeLessThanOrEqual(L.latest.beside ? L.rule.y : L.latest.y)
+          if (L.latest.oneLine) {
+            // On the footer's line: the sticker sits in the band from the hairline to the footer's bottom.
+            expect(L.latest.y).toBeGreaterThan(L.rule.y)
+            expect(L.latest.y + L.latest.icon).toBeLessThanOrEqual(L.footer.y + L.footer.size + 8)
+            expect(y + h).toBeLessThanOrEqual(L.rule.y)
+          } else {
+            expect(L.latest.x + L.latest.icon + 20 + L.latest.tw).toBeLessThanOrEqual(L.W - M)
+            expect(y + h).toBeLessThanOrEqual(L.latest.y)
+          }
         } else {
           expect(y + h).toBeLessThanOrEqual(L.rule.y)
         }
@@ -130,38 +136,62 @@ describe('the landscape layouts', () => {
     }
   }
 
-  it('the latest row goes beside the footer where the card is wide, and stacks in the 5:4 wide post', () => {
+  it('the desktop has the one-line footer; the 5:4 card and the landscape poster keep the row stacked', () => {
     const content = { name: true, filter: true, latest: true, count: 197 }
-    expect(cardLayout('desktop', content).latest?.beside).toBe(true)
-    expect(cardLayout('printLandscape', content).latest?.beside).toBe(true)
-    expect(cardLayout('wide', content).latest?.beside).toBe(false)
+    expect(cardLayout('desktop', content).latest?.oneLine).toBe(true)
+    expect(cardLayout('wide', content).latest?.oneLine).toBe(false)
+    expect(cardLayout('printLandscape', content).latest?.oneLine).toBe(false)
     expect(cardLayout('wide', content).latest?.x).toBe(M)
   })
 
-  it('the row beside the footer gives the wide, short desktop collage back its row height (about 60 units)', () => {
-    // Stacked, the row sits above the hairline (the footer's line less 30, then the gap and the row's icon) and the
-    // collage ends 32 above the row; beside, the hairline moves up above the row, so the collage ends 60 units lower.
-    const L = cardLayout('desktop', { name: true, filter: false, latest: true, count: 197 })
-    const footerTop = L.footer.y
-    const stackedBottom = footerTop - 30 - 24 - 76 - 32
-    expect(L.collage.y + L.collage.h - stackedBottom).toBeCloseTo(60, 0)
+  it('the one-line row is on the footer’s line, on the right, with the hairline just above both', () => {
+    const L = cardLayout('desktop', { name: true, filter: true, latest: true, count: 197 })
+    const { latest, footer, rule } = L
+    expect(latest!.oneLine).toBe(true)
+    expect(latest!.icon).toBe(40)
+    expect(rule.y).toBe(footer.y - 20)
+    // The sticker's middle sits on the footer's line's middle (the label and name share its baseline).
+    expect(latest!.y + latest!.icon / 2).toBeCloseTo(footer.y + footer.size * 0.8 - 8, 0) // the label's caps
+  })
+
+  it('the collage gets the height the stacked row took: taller than the old two-row desktop, and no empty band', () => {
+    const L = cardLayout('desktop', { name: true, filter: true, latest: true, count: 197 })
+    // Name and filter over the top, the collage from there to 24 above the hairline.
+    expect(L.collage.y + L.collage.h).toBe(L.rule.y - 24)
+    expect(L.collage.h).toBeGreaterThan(650) // was 582 with a name, 522 with a name and a stacked row
+    const bare = cardLayout('desktop', { name: false, filter: false, latest: true, count: 197 })
+    expect(bare.collage.y).toBe(SAFE.desktop.top) // no title: the collage starts at the top margin
+    expect(bare.collage.h).toBeGreaterThan(790)
   })
 })
 
-describe('the footer beside the latest row fits in every language', () => {
+describe('the footer’s one line fits in every language', () => {
   for (const [lang, m] of Object.entries({ en, es, nl, pt })) {
-    it(`${lang}: the footer line stays on the wordmark's line, never on its own line, clear of the row`, async () => {
-      for (const format of ['desktop', 'printLandscape'] as const) {
-        const opts = { format, theme: 'light' as const, entries, species, pack: harnessPack, now: NOW, strings: m.ui, ...(format === 'printLandscape' ? { printSize: 'A2' as const } : {}) }
-        const card = await prepareCard(opts, format === 'desktop' ? IMAGE_SCALE.desktop : 1)
-        expect(card.credit.below).toBe(false)
-        expect(card.credit.size).toBeGreaterThanOrEqual(17)
-        // The estimate measureText makes without a DOM (0.6 em a character in mono): the line ends before the row's column.
-        const lineEnd = M + card.brandW + card.footerLine.length * 0.6 * card.credit.size
-        expect(lineEnd).toBeLessThanOrEqual(card.L.latest!.x - FOOTER_GAP)
-      }
+    it(`${lang}: the credit stays on the wordmark’s line, at 17px or more, clear of the latest row`, async () => {
+      const opts = { format: 'desktop' as const, theme: 'light' as const, entries, species, pack: harnessPack, now: NOW, strings: m.ui }
+      const card = await prepareCard(opts, IMAGE_SCALE.desktop)
+      expect(card.oneLine).toBeDefined()
+      expect(card.credit.below).toBe(false)
+      expect(card.credit.size).toBeGreaterThanOrEqual(17)
+      // The estimate measureText makes without a DOM (0.6 em a character in mono): the credit ends before the row's block.
+      const lineEnd = M + card.brandW + card.footerLine.length * 0.6 * card.credit.size
+      expect(lineEnd).toBeLessThanOrEqual(card.oneLine!.x - FOOTER_GAP)
+      // The row's block, right-aligned to the margin.
+      const blockEnd = card.oneLine!.x + card.L.latest!.icon + ONE_LINE_GAP + card.oneLine!.labelW + ONE_LINE_GAP + card.oneLine!.nameText.length * 0.56 * card.L.latest!.name
+      expect(blockEnd).toBeLessThanOrEqual(card.L.W - M + 1)
     })
   }
+
+  it('the 5:4 card and the landscape poster would not hold the row beside the credit with a long name (so they stack)', () => {
+    // The widest name a row draws is clipped to 480 units; 22 characters at 30px is about 370 units, the name's common worst.
+    const label = 'LATEST LIFER · SEP 2026'.length * (0.6 * 20 + 1.2) // mono 20px with 0.06em tracking
+    const block = 40 + 14 + label + 14 + 22 * 0.56 * 30
+    const credit17 = 59 * 0.6 * 17 // the stamped footer line, at the smallest size placeCredit keeps
+    const brand = 181
+    const wide = 1350 - 2 * M, landscape = printDesign('A2', true)[0] - 2 * M
+    expect(brand + credit17 + FOOTER_GAP + block).toBeGreaterThan(wide)
+    expect(brand + credit17 + FOOTER_GAP + block).toBeGreaterThan(landscape)
+  })
 })
 
 describe('the packed collage uses the frame', () => {

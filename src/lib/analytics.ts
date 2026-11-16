@@ -34,7 +34,8 @@ export type AnalyticsEvents = {
   /** A kind of filter was set, at most once per kind per page load (`trackFilterUsed`). */
   filter_used: { kind: FilterKind }
 }
-export type PosterSizeWire = 'a4' | 'a3' | 'a2' | 'a1'
+/** A poster's size on the wire: a4 to a1 (portrait), and a4-l to a1-l (landscape, the same sizes turned). */
+export type PosterSizeWire = 'a4' | 'a3' | 'a2' | 'a1' | 'a4-l' | 'a3-l' | 'a2-l' | 'a1-l'
 export type FilterKind = 'place' | 'continent' | 'time' | 'status' | 'group' | 'taxonomy'
 export type EventName = keyof AnalyticsEvents
 
@@ -53,7 +54,7 @@ export const ALLOWED: Record<EventName, readonly string[]> = {
   shared: ['story', 'post', 'square', 'desktop', 'wide', 'link'],
   link_copied: ['full', 'compact', 'minimal', 'species'],
   ui_language: ['en', 'es', 'pt', 'nl'],
-  poster_made: ['a4', 'a3', 'a2', 'a1'],
+  poster_made: ['a4', 'a3', 'a2', 'a1', 'a4-l', 'a3-l', 'a2-l', 'a1-l'],
   poster_downloaded: ['png', 'pdf'],
   search_applied: ['smart', 'bird'],
   filter_used: ['place', 'continent', 'time', 'status', 'group', 'taxonomy'],
