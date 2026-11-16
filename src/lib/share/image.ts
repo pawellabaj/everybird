@@ -28,7 +28,7 @@ import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
-import { countriesLabel, placesLabel, statusLabel } from '@/lib/list/filter-summary'
+import { continentNames, namesLabel, placesLabel, statusLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
 import type { ListEntry } from '@/lib/list/model'
@@ -76,8 +76,8 @@ export function filterLabel(
   f: Filter,
   ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
 ): string | undefined {
-  // Places: "Canada", "Canada + Egypt", "Capital and 2 more".
-  const place = ctx.regions ? placesLabel(f, ctx.regions) : countriesLabel(f.countries, ctx.countryName)
+  // Places: "Africa + Canada", "Canada + Egypt", "Capital and 2 more" (continents first).
+  const place = ctx.regions ? placesLabel(f, ctx.regions) : namesLabel([...continentNames(f.continents), ...(f.countries ?? []).map(ctx.countryName)])
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
   else if (f.order) parts.push(orderLabel(f.order))

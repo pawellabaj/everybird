@@ -1,5 +1,6 @@
 import type { SpeciesIndex } from '@/lib/species/load'
-import { filterPlaceKeys, inRange, withPlaces, withStatuses, type Filter } from './filters'
+import { isContinentId } from '@/lib/places/continents'
+import { filterPlaceKeys, inContinents, inRange, withContinents, withPlaces, withStatuses, type Filter } from './filters'
 import type { ListEntry } from './model'
 import { keysOf, type SeenIndex } from './seen'
 import { MONTH_RE } from './timeline'
@@ -9,11 +10,12 @@ import { MONTH_RE } from './timeline'
  * Always: a year becomes the range Jan..Dec of that year (the Time panel shows ranges, not years); a range end that is
  * not YYYY-MM goes, and reversed ends swap; a family needs an order it belongs to; places (countries, provinces,
  * counties) are well-formed, sorted and deduplicated, and a place whose ancestor is also chosen goes (withPlaces);
- * statuses are known IUCN categories, deduplicated, in `IUCN_CATS` order (withStatuses).
+ * continents are known ids, deduplicated, in CONTINENTS order (withContinents); statuses are known IUCN categories,
+ * deduplicated, in `IUCN_CATS` order (withStatuses).
  * Older state migrates: a single `country` joins `countries`; the old single province and county (`sub1`, `sub2`) and
  * trips (`trip`) are dropped.
- * With `pruneValues` (after a list change): also drop order/family, places no species was seen in (seen-here, else
- * lifer places), a range and statuses that match no entry.
+ * With `pruneValues` (after a list change): also drop order/family, places and continents no species was seen in
+ * (seen-here, else lifer places), a range and statuses that match no entry.
  */
 /** Place levels of filters from before countries became a set, and the trip from before trips were removed. */
 type Legacy = { country?: string; sub1?: string; sub2?: string; trip?: string }
@@ -27,6 +29,7 @@ export function applyFilterValidity(f: Filter & Legacy, list: ListEntry[], speci
   out.provinces = level(out.provinces)
   out.counties = level(out.counties)
   out = withPlaces(out, [...filterPlaceKeys(out), ...(typeof country === 'string' ? [`c:${country}`] : [])])
+  out = withContinents(out, level(out.continents).filter(isContinentId))
   out = withStatuses(out, level(out.statuses))
   if (out.year) {
     if (/^\d{4}$/.test(out.year) && !out.from && !out.to) { out.from = `${out.year}-01`; out.to = `${out.year}-12` }
@@ -46,6 +49,7 @@ export function applyFilterValidity(f: Filter & Legacy, list: ListEntry[], speci
     if (out.family && !has((e) => row(e)?.fam === out.family)) delete out.family
     const seenAt = (key: string) => has((e) => keysOf(seen, e).has(key))
     out = withPlaces(out, filterPlaceKeys(out).filter(seenAt))
+    out = withContinents(out, (out.continents ?? []).filter((c) => has((e) => inContinents(seen, e, [c]))))
     if ((out.from || out.to) && !has((e) => inRange(e.date, out.from, out.to))) {
       delete out.from
       delete out.to

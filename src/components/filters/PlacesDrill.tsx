@@ -7,7 +7,7 @@
 // level (DropPanel). The search field and its query are per level.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
-import { filterPlaceKeys, hasPlaces, placeRows, togglePlace, withPlaces } from '@/lib/list/filters'
+import { clearPlaces, filterPlaceKeys, hasPlaces, placeRows, togglePlace } from '@/lib/list/filters'
 import { parentKey, placeName } from '@/lib/list/place-keys'
 import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
 import { emptyHere, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
@@ -78,7 +78,7 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
       <div className="eb-places-head" ref={headRef}>
         <span className="eb-mono">{countHead(rows.length, COUNT_WORDS[level], rows.filter((r) => checked.has(r.value)).length)}</span>
         {hasPlaces(filter) && (
-          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(withPlaces(filter, []))}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(clearPlaces(filter))}>Clear</button>
         )}
       </div>
       {at && (

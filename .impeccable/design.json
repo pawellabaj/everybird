@@ -44,7 +44,7 @@
     { "name": "Primary Button", "kind": "custom", "refersTo": "button-primary", "description": "The one filled action per view.",
       "html": "<button class=\"ds-btn\">Make yours</button>",
       "css": ".ds-btn{min-height:44px;padding:0 18px;border:1px solid var(--accent);background:var(--accent);color:var(--paper);font:700 15px var(--font-body);border-radius:calc(12px * var(--one-if-corner-shape-supported,.566));corner-shape:superellipse(2);cursor:pointer}.ds-btn:hover{opacity:.88}.ds-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" },
-    { "name": "Filter Chip", "kind": "chip", "refersTo": "chip", "description": "A filter choice with a muted count; selected = Accent border. No icon.",
+    { "name": "Filter Chip", "kind": "chip", "refersTo": "chip", "description": "A filter choice with a muted count; selected = Accent border. No icon. Also the Places panel's continent chips (multi-select, aria-pressed).",
       "html": "<button class=\"ds-chip\" data-selected>Herons <span class=\"ds-count\">12</span></button>",
       "css": ".ds-chip{display:inline-flex;gap:6px;align-items:center;min-height:32px;padding:4px 12px;border:1px solid var(--hairline);background:var(--surface);color:var(--ink);font:500 14px var(--font-body);border-radius:calc(8px * var(--one-if-corner-shape-supported,.566));corner-shape:superellipse(2);cursor:pointer}.ds-chip[data-selected]{border-color:var(--accent)}.ds-chip:hover{border-color:var(--line)}.ds-count{color:var(--muted);font-variant-numeric:tabular-nums}.ds-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}" },
     { "name": "Dock Tab", "kind": "nav", "refersTo": "dock", "description": "A dock tab; pressed is Accent text on Surface.",
