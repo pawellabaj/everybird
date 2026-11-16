@@ -120,6 +120,9 @@
 /* Status (StatusList.tsx): one checklist, each row the box, the Red List pill (card-list.css .eb-iucn), the full name
    and the count; the row is the hover target, as a Places row is. */
 .eb-status-row { border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
+/* The names are few and fixed, so a long one ("Critically Endangered", "Extinct in the Wild") wraps rather than cut at
+   260px or 200% text. */
+.eb-status-row .eb-check-name { white-space: normal; }
 .eb-drill {
   flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none;
   color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .15s ease;
