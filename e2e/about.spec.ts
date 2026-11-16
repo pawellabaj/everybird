@@ -337,6 +337,9 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
     await expect(drops).toHaveCount(3)
     await expect(drops.last()).toHaveText("Status")
   }
+  // The wide design's dock holds all three drops on its one row: nothing overflows the column
+  const over = await scene.locator(".ebd-dock").evaluate((d) => d.scrollWidth - d.clientWidth)
+  expect(over).toBeLessThanOrEqual(0)
   // The share dialog: its title, Story / Post / Square with their ratios, and each image's footer line
   await expect(scene.locator(".ebd-share-title")).toHaveText("Share your collage")
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)
