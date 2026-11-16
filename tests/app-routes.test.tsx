@@ -154,6 +154,7 @@ async function drop(file: File) {
 beforeEach(() => {
   vi.stubGlobal('innerWidth', 1024)
   vi.stubGlobal('scrollTo', () => {})
+  vi.stubGlobal('scrollBy', () => {})
 })
 afterEach(() => {
   cleanup()
