@@ -1,14 +1,13 @@
 // POST /e  body: {"n":"collage_made","p":"inat"}  (n = event name, p = one property value; a visit may add
 // l = the browser language's primary subtag, e.g. "es"). Only the events and values in ALLOWED (event.ts) are
 // accepted; anything else is dropped. Country comes from Cloudflare's request metadata (coarse, no IP is stored).
-// Device class is derived from the User-Agent and only the class is kept.
-import { eventRow } from './event'
+// Device class is derived from the User-Agent and only the class is kept. A visit is stored once per visitor, page
+// and day (see keepRow in event.ts); the daily cap and that check share one indexed read (SEEN_SQL).
+import { SEEN_SQL, eventRow, keepRow, seenBinds } from './event'
 
 const ORIGINS = new Set(['https://everybird.yusuftaleb.com', 'http://localhost:3000', 'http://localhost:3001'])
 
 interface Env { DB: D1Database; SALT_SECRET: string }
-
-const DAILY_CAP = 200 // events per anonymous visitor per day; beyond this they're dropped (spam guard)
 
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('')
 /** An anonymous visitor id that changes every UTC day: HMAC(secret, day) keys a hash of IP + User-Agent.
@@ -59,9 +58,9 @@ export default {
     if (device === 'mac' && body.d === 'touch') device = 'ipad' // iPadOS 13+ sends a Mac UA
     const day = new Date().toISOString().slice(0, 10)
     const vid = await dailyVisitorId(env.SALT_SECRET ?? '', day, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('user-agent') ?? '')
-    const seen = await env.DB.prepare('SELECT COUNT(*) AS c FROM events WHERE day = ? AND vid = ?').bind(day, vid).first<{ c: number }>()
-    if ((seen?.c ?? 0) >= DAILY_CAP) return new Response(null, { status: 204, headers: h })
     const row = eventRow(body, { day, country, device, vid })!
+    const seen = await env.DB.prepare(SEEN_SQL).bind(...seenBinds(row)).first<{ c: number | null; dup: number | null }>()
+    if (!keepRow(row, seen ?? { c: 0, dup: 0 })) return new Response(null, { status: 204, headers: h })
     await env.DB.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(row.day, row.name, row.value, row.country, row.device, row.vid, row.lang).run()
     return new Response(null, { status: 204, headers: h })

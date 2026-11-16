@@ -31,3 +31,22 @@ export function eventRow(body: unknown, ctx: EventContext): EventRow | null {
   const lang = n === 'visit' && typeof b.l === 'string' && LANG.test(b.l) ? b.l : ''
   return { day: ctx.day, name: n, value: p, country: ctx.country, device: ctx.device, vid: ctx.vid, lang }
 }
+
+/** Events per anonymous visitor per day; beyond this they're dropped (spam guard). */
+export const DAILY_CAP = 200
+
+/** One read on the (day, vid) index, for the daily cap and the visit dedupe, in one round trip: how many rows this
+ *  visitor has today (c), and how many of them are this same name and value (dup). Bind with seenBinds(row). */
+export const SEEN_SQL = 'SELECT COUNT(*) AS c, SUM(name = ? AND value = ?) AS dup FROM events WHERE day = ? AND vid = ?'
+
+export function seenBinds(row: EventRow): [string, string, string, string] {
+  return [row.name, row.value, row.day, row.vid]
+}
+
+/** Whether to store the row, given SEEN_SQL's counts for its visitor and day: not over the cap, and a visit is stored
+ *  once per visitor, page and day (a repeat of the same page is skipped). Every other event is stored as it comes. */
+export function keepRow(row: EventRow, seen: { c: number | null; dup: number | null }): boolean {
+  if ((seen.c ?? 0) >= DAILY_CAP) return false
+  if (row.name === 'visit' && (seen.dup ?? 0) > 0) return false
+  return true
+}
