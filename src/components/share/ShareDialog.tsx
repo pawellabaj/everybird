@@ -96,8 +96,8 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const print = mode === 'print'
   // Square has no horizontal shape: its switch is disabled. In print mode the slot doesn't apply, so the switch is on.
   const squareShare = !print && format === 'square'
-  // Horizontal (a desktop or wide image, or a landscape poster) lays out wide: the preview on top at the dialog's width
-  // and the controls in a row below it (share.css, data-layout). Vertical keeps the preview beside the controls.
+  // Horizontal (a desktop or wide image, or a landscape poster) lays out wide: the dialog widens and the preview takes
+  // the width left beside the controls' column (share.css, data-layout). Vertical keeps its narrower dialog.
   const wideLayout = landscape && !squareShare
   const lastWide = useRef(wideLayout)
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
