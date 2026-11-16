@@ -1,12 +1,14 @@
 import type { Source } from '@/lib/list/model'
 import type { ImageFormat } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
+import { primarySubtag, type Lang } from '@/i18n/langs'
 
 /**
  * Everybird's anonymous counter (spec "My calls" 13). Each event is one tiny POST to Yusuf's Worker
- * (workers/stats: Cloudflare D1, one row per event, day-level, no IPs or cookies) with the body {n, p, d?}: the event's
- * name, its one property value from a fixed list, and d: 'touch' on an iPad that reports a Mac. Never counts, names,
- * species, places, URLs or share tokens.
+ * (workers/stats: Cloudflare D1, one row per event, day-level, no IPs or cookies) with the body {n, p, d?, l?}: the
+ * event's name, its one property value from a fixed list, d: 'touch' on an iPad that reports a Mac, and on a visit only
+ * l, the browser language's primary subtag ("es" for es-MX; the browser's, not the UI language, to choose the next
+ * language). Never counts, names, species, places, URLs or share tokens.
  *
  * Sent only from the production hostname, never with Do Not Track or Global Privacy Control on, and never throws.
  * Page visits are counted separately by Cloudflare Web Analytics (src/components/app/CloudflareBeacon.tsx).
@@ -21,39 +23,63 @@ export type AnalyticsEvents = {
   /** Handed to the system share sheet, which resolved. `link` is supported, but the dialog doesn't share links that way yet. */
   shared: { via: ImageFormat | 'link' }
   link_copied: { level: ShareLevel }
+  /** The reader switched the UI language (never on load or from the browser's default); the new language. */
+  ui_language: { lang: Lang }
+  /** A print poster finished rendering, by paper size. */
+  poster_made: { size: PosterSizeWire }
+  /** A poster file was saved. */
+  poster_downloaded: { format: 'png' | 'pdf' }
+  /** `smart`: a smart search's "Understood as" filters were applied; `bird`: a bird was picked from the results. */
+  search_applied: { kind: 'smart' | 'bird' }
+  /** A kind of filter was set, at most once per kind per page load (`trackFilterUsed`). */
+  filter_used: { kind: FilterKind }
 }
+export type PosterSizeWire = 'a4' | 'a3' | 'a2' | 'a1'
+export type FilterKind = 'place' | 'continent' | 'time' | 'status' | 'group' | 'taxonomy'
 export type EventName = keyof AnalyticsEvents
 
 export const STATS_ENDPOINT = 'https://stats.yusuftaleb.com/e'
 export const PRODUCTION_HOST = 'everybird.yusuftaleb.com'
 
 /**
- * The Worker's allow-list (workers/stats/src/index.ts `ALLOWED`), mirrored so nothing the Worker would drop is sent.
+ * The Worker's allow-list (workers/stats/src/event.ts `ALLOWED`), mirrored so nothing the Worker would drop is sent.
  * link_copied's values there are full/compact/minimal/species; the app's ShareLevel is mapped onto them in order of
  * detail (WIRE_LEVEL) until the Worker lists the app's own names.
  */
 export const ALLOWED: Record<EventName, readonly string[]> = {
   visit: ['landing', 'collage', 'settings', 'about', 'shared'],
-  collage_made: ['ebird', 'ebird-list', 'inat', 'manual', 'sample', 'restore', 'mixed'],
+  collage_made: ['ebird', 'ebird-list', 'inat', 'obsorg', 'manual', 'sample', 'restore', 'mixed'],
   image_downloaded: ['story', 'post', 'square'],
   shared: ['story', 'post', 'square', 'link'],
   link_copied: ['full', 'compact', 'minimal', 'species'],
+  ui_language: ['en', 'es', 'pt', 'nl'],
+  poster_made: ['a4', 'a3', 'a2', 'a1'],
+  poster_downloaded: ['png', 'pdf'],
+  search_applied: ['smart', 'bird'],
+  filter_used: ['place', 'continent', 'time', 'status', 'group', 'taxonomy'],
 }
 export const WIRE_LEVEL: Record<ShareLevel, string> = { regions: 'full', countries: 'compact', dates: 'minimal', species: 'species' }
 
-export type Payload = { n: EventName; p: string; d?: 'touch' }
+export type Payload = { n: EventName; p: string; d?: 'touch'; l?: string }
 
-/** The body for one event, or null if its value isn't on the allow-list (then nothing is sent). */
-export function payloadFor<K extends EventName>(name: K, props: AnalyticsEvents[K], touchMac = false): Payload | null {
+/**
+ * The body for one event, or null if its value isn't on the allow-list (then nothing is sent). `browserLang` is
+ * navigator.language: a visit carries its primary subtag as `l`, left out when it isn't one; other events never do.
+ */
+export function payloadFor<K extends EventName>(name: K, props: AnalyticsEvents[K], touchMac = false, browserLang?: string): Payload | null {
   if (!Object.prototype.hasOwnProperty.call(ALLOWED, name) || !props || typeof props !== 'object') return null
   const values = Object.values(props as Record<string, unknown>)
   if (values.length !== 1 || typeof values[0] !== 'string') return null
   const p = name === 'link_copied' ? WIRE_LEVEL[values[0] as ShareLevel] : values[0]
   if (typeof p !== 'string' || !ALLOWED[name].includes(p)) return null
-  return touchMac ? { n: name, p, d: 'touch' } : { n: name, p }
+  const out: Payload = touchMac ? { n: name, p, d: 'touch' } : { n: name, p }
+  const l = name === 'visit' ? primarySubtag(browserLang) : undefined
+  if (l) out.l = l
+  return out
 }
 
 type Nav = Pick<Navigator, 'userAgent' | 'maxTouchPoints'> & {
+  language?: string
   webdriver?: boolean
   doNotTrack?: string | null
   globalPrivacyControl?: boolean
@@ -104,7 +130,7 @@ export function isTouchMac(nav: Nav): boolean {
 export function sendEvent<K extends EventName>(name: K, props: AnalyticsEvents[K], env: SendEnv): boolean {
   try {
     if (optedOut(env.navigator, env.windowDnt)) return false
-    const payload = payloadFor(name, props, isTouchMac(env.navigator))
+    const payload = payloadFor(name, props, isTouchMac(env.navigator), env.navigator.language)
     if (!payload) return false
     const body = JSON.stringify(payload)
     if (env.hook) {
@@ -151,3 +177,17 @@ function safeSession(w: Window): Storage | null {
   try { return w.sessionStorage } catch { return null }
 }
 export { safeSession }
+
+const filterKindsSent = new Set<FilterKind>()
+
+/** `filter_used` for a kind, once per kind per page load (module memory only, nothing stored). */
+export function trackFilterUsed(kind: FilterKind): void {
+  if (filterKindsSent.has(kind)) return
+  filterKindsSent.add(kind)
+  track('filter_used', { kind })
+}
+
+/** Tests: forget which kinds were sent. */
+export function resetFilterUsed(): void {
+  filterKindsSent.clear()
+}

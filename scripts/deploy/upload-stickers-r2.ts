@@ -97,7 +97,7 @@ export function listData(dataDir: string, files: Record<string, string>): LocalF
  * A key written once, never replaced: a versioned sticker, `v1/<size>/<code>.<sv>.webp` (src/lib/sticker-url.ts),
  * or a content-hashed data file, `data/<name>.<10 hex>.json`.
  */
-export const isVersionedKey = (key: string) => /^v1\/\d+\/[a-z0-9]+\.[0-9a-z]+\.webp$/.test(key) || /^data\/[a-z0-9.-]+\.[0-9a-f]{10}\.json$/.test(key)
+export const isVersionedKey = (key: string) => /^v1\/\d+\/[a-z0-9]+\.[0-9a-z]+\.webp$/.test(key) || /^data\/[a-zA-Z0-9._-]+\.[0-9a-f]{10}\.json$/.test(key)
 
 /**
  * The files to upload: all with `force`, else those missing from the bucket or there at another size. A versioned

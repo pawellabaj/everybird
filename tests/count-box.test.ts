@@ -3,8 +3,13 @@ import { resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { LAYOUTS } from '../src/lib/layout/constants'
 import {
-  collageBoxes, collageHole, countScale, countText, holeExtent, labelBounds, labelEm, LABEL_GROW_MAX, numberEm, rectGap, touchesHole, type Hole, type Rect,
+  collageBoxes, collageHole, COUNT_LABEL_CHARS, countDisplay, countScale, countText, holeExtent, labelBounds, labelEm, LABEL_GROW_MAX, MONO_EM, MONO_TRACK,
+  numberEm, rectGap, touchesHole, type Hole, type Rect,
 } from '../src/lib/layout/count-box'
+import { en } from '../src/i18n/messages/en'
+import { es } from '../src/i18n/messages/es'
+import { nl } from '../src/i18n/messages/nl'
+import { pt } from '../src/i18n/messages/pt'
 import { decodeMask, maskCell, type Mask } from '../src/lib/layout/mask'
 import { packBest, packFrame, type PackBird, type PackResult } from '../src/lib/layout/pack'
 import { cardLayout, countLayout, ogCountHole, OG_COUNT_MAX, packSpec } from '../src/lib/share/image'
@@ -65,8 +70,38 @@ describe('count text metrics', () => {
     for (const [t, ws] of Object.entries(drawn)) expect(numberEm(t)).toBeLessThan(Math.max(...ws) * 1.06)
     expect(labelEm() * 12).toBeGreaterThanOrEqual(55.45) // the rendered "SPECIES" box at 12px
   })
+  it('labelEm takes no text: the label box is the same in every language', () => {
+    expect(labelEm()).toBeCloseTo(COUNT_LABEL_CHARS * (MONO_EM + MONO_TRACK) * 1.02, 9)
+  })
   it('draws five digits a little smaller', () => {
     expect([7, 197, 1089, 11019].map((n) => countScale(countText(n)))).toEqual([1, 1, 1, 0.85])
+  })
+})
+
+// The geometry (the hole, countScale) is the en-US text and an 8-character label in every language; what is drawn is
+// the language's number and label. Drawn text must never be wider than the geometry's.
+const LANGS = { en, es, pt, nl }
+describe('the count in every language (one hole for all)', () => {
+  it('every language draws within the geometry', () => {
+    for (const [lang, m] of Object.entries(LANGS)) {
+      for (const n of [7, 197, 1089, 11019]) {
+        const shown = countDisplay(n, m.ui.num)
+        expect(shown.length, `${lang} ${n}`).toBe(countText(n).length)
+        expect(numberEm(shown), `${lang} ${n}`).toBeLessThanOrEqual(numberEm(countText(n)))
+      }
+    }
+    expect(countDisplay(1089, es.ui.num)).toBe('1.089')
+    expect(countDisplay(11019, pt.ui.num)).toBe('11.019')
+    expect(countDisplay(1089, en.ui.num)).toBe(countText(1089))
+  })
+  it('the label box holds the longest label', () => {
+    // "ESPÉCIES" (pt) and "ESPECIES" (es) are 8 characters, the most of any language.
+    expect(labelEm()).toBeGreaterThanOrEqual('ESPÉCIES'.length * (MONO_EM + MONO_TRACK))
+    for (const [lang, m] of Object.entries(LANGS)) {
+      const label = m.ui.count.label.toUpperCase()
+      expect([...label].length, lang).toBeLessThanOrEqual(COUNT_LABEL_CHARS)
+      expect(labelEm(), lang).toBeGreaterThanOrEqual([...label].length * (MONO_EM + MONO_TRACK))
+    }
   })
 })
 
@@ -98,7 +133,18 @@ describe('collageHole', () => {
           }
         }
         const [ex] = holeExtent(h)
-        if (n >= 197) expect(ex).toBeGreaterThan(last)
+        // Grows with the number once the number is wider than the 8-character label (narrow's 197 is just under it:
+        // 39.17 against 39.27 units, so its hole is the label's, as 7's is).
+        if (n >= 197) {
+          // The one exception is the narrow layout at 197, whose number is still inside the label's box.
+          if (L.name === 'narrow' && n === 197) {
+            expect(h.num[2]).toBeLessThanOrEqual(h.label[2])
+            expect(ex).toBeCloseTo(last, 9)
+          } else {
+            expect(h.num[2]).toBeGreaterThan(h.label[2])
+            expect(ex).toBeGreaterThan(last)
+          }
+        }
         last = ex
         expect(touchesHole([-1, -1, 1, 1], h)).toBe(true)
         expect(touchesHole([ex + 1, -1, ex + 3, 1], h)).toBe(false)

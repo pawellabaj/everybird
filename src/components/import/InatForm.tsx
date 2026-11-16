@@ -1,6 +1,9 @@
 'use client'
 import { useId, useState, type FormEvent } from 'react'
-import type { InatJob } from '@/components/app/use-import-jobs'
+import { inatMessage, type InatJob } from '@/components/app/use-import-jobs'
+import { fmt } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { countParts, type RowCount } from '@/lib/list/source-counts'
 import type { InatDetails, Saved } from '@/lib/list/storage'
 import { notCounted } from './NotCounted'
@@ -33,6 +36,8 @@ type Props = {
  */
 export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, onRemove, saved, counts }: Props) {
   const id = useId()
+  const { t } = useI18n()
+  const ti = t.import.inat
   const [user, setUser] = useState('')
   const [open, setOpen] = useState(false)
   const { busyFor, progress, error, note } = job
@@ -55,16 +60,16 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
     if (!user.trim() || busyFor) return
     onFetch(user)
   }
-  const line = inatLine(known ? details : undefined)
+  const line = inatLine(known ? details : undefined, t)
   const off = disabled || !!busyFor
   const refresh = () => known && onFetch(known)
 
   let primary
-  if (refreshing) primary = <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" onClick={onCancel}>Cancel</button>
+  if (refreshing) primary = <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" onClick={onCancel}>{ti.cancel}</button>
   else if (known) {
     primary = (
-      <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" disabled={off} onClick={refresh} aria-label={`Refresh ${known} from iNaturalist`}>
-        Refresh
+      <button type="button" className="eb-btn eb-btn-quiet eb-btn-sm" disabled={off} onClick={refresh} aria-label={fmt(ti.refreshLabel, { user: known })}>
+        {ti.refresh}
       </button>
     )
   } else if (!replaces) {
@@ -74,11 +79,11 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
         className="eb-btn eb-btn-quiet eb-btn-sm"
         aria-expanded={showPanel}
         aria-controls={`${id}-panel`}
-        aria-label="Add iNaturalist"
+        aria-label={fmt(t.import.addLabel, { title: 'iNaturalist' })}
         disabled={disabled || (!!busyFor && !open)}
         onClick={() => setOpen((o) => !o)}
       >
-        Add
+        {t.import.add}
       </button>
     )
   }
@@ -88,30 +93,30 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
       testId={replaces ? 'source-inat' : undefined}
       title="iNaturalist"
       name={replaces ? line.name : undefined}
-      parts={replaces ? line.parts : ['Not added']}
-      counts={replaces && counts ? countParts(counts) : undefined}
-      skipped={replaces && saved ? notCounted(saved, ['inat']) ?? undefined : undefined}
-      what={replaces ? 'your iNaturalist birds' : undefined}
+      parts={replaces ? line.parts : [t.import.notAdded]}
+      counts={replaces && counts ? countParts(counts, t) : undefined}
+      skipped={replaces && saved ? notCounted(saved, ['inat'], t) ?? undefined : undefined}
+      what={replaces ? ti.what : undefined}
       disabled={off}
       onRemove={() => onRemove?.()}
       menu={
         replaces
           ? [
-              ...(known ? [{ label: 'Refresh', onSelect: refresh }] : []),
-              ...(unknown ? [] : [{ label: 'Change username', keepFocus: true, onSelect: () => setOpen(true) }]),
+              ...(known ? [{ label: ti.refresh, onSelect: refresh }] : []),
+              ...(unknown ? [] : [{ label: ti.change, keepFocus: true, onSelect: () => setOpen(true) }]),
             ]
           : undefined
       }
       primary={primary}
     >
-      <div id={`${id}-panel`} className="eb-src-panel" hidden={!showPanel} role="group" aria-label={known ? 'Change username' : 'Add iNaturalist'}>
+      <div id={`${id}-panel`} className="eb-src-panel" hidden={!showPanel} role="group" aria-label={known ? ti.change : fmt(t.import.addLabel, { title: 'iNaturalist' })}>
         <p className="eb-note">
-          Your public, wild bird observations identified to species. iNaturalist sees the username; your list stays here.
-          {replaces ? ' Fetching replaces only your iNaturalist birds. Your edits stay.' : ''}
+          {ti.guide}
+          {replaces ? ` ${ti.guideReplaces}` : ''}
         </p>
         {showPanel && (
           <form className="eb-src-form" onSubmit={submit}>
-            <label htmlFor={id} className="eb-sr">iNaturalist username</label>
+            <label htmlFor={id} className="eb-sr">{ti.username}</label>
             <div className="eb-row eb-src-formrow">
               <input
                 id={id}
@@ -122,7 +127,7 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
                 autoCorrect="off"
                 spellCheck={false}
                 autoComplete="username"
-                placeholder="iNaturalist username"
+                placeholder={ti.username}
                 // Opened by Add or Change username: straight into the field.
                 autoFocus={open}
                 value={busyFor && !user && !refreshing ? busyFor : user}
@@ -130,9 +135,9 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
                 onChange={(e) => setUser(e.target.value)}
               />
               {busyFor && !refreshing ? (
-                <button type="button" className="eb-btn eb-btn-quiet" onClick={onCancel}>Cancel</button>
+                <button type="button" className="eb-btn eb-btn-quiet" onClick={onCancel}>{ti.cancel}</button>
               ) : (
-                <button type="submit" className="eb-btn" disabled={disabled || !user.trim() || !!busyFor}>Fetch my birds</button>
+                <button type="submit" className="eb-btn" disabled={disabled || !user.trim() || !!busyFor}>{ti.fetch}</button>
               )}
               {known && open && !busyFor && (
                 // Changing the username, thought better of: fold the panel, focus back on the row's ⋯ menu.
@@ -146,20 +151,24 @@ export function InatForm({ job, onFetch, onCancel, disabled, replaces, details, 
                     menu?.focus()
                   }}
                 >
-                  Keep {known}
+                  {fmt(ti.keepUser, { user: known })}
                 </button>
               )}
             </div>
           </form>
         )}
-        <HowTo label="How do I find my username?">
-          <p>Use your username (on your iNaturalist profile, after the @), not your display name. Only public, wild bird observations identified to species count.</p>
+        <HowTo label={ti.howTo}>
+          <p>{ti.help}</p>
         </HowTo>
       </div>
       <p className="eb-status eb-src-status" role="status">
-        {busyFor ? (progress ? `Fetched ${progress.fetched.toLocaleString('en-US')} of ${progress.total.toLocaleString('en-US')}` : `Looking up “${busyFor}”…`) : note ?? ''}
+        {busyFor
+          ? progress
+            ? fmt(ti.fetched, { n: formatInt(progress.fetched, t.num), total: formatInt(progress.total, t.num) })
+            : fmt(ti.lookingUp, { user: busyFor })
+          : note === 'cancelled' ? ti.cancelled : ''}
       </p>
-      {error && <p className="eb-error eb-src-status" role="alert">{error}</p>}
+      {error && <p className="eb-error eb-src-status" role="alert">{inatMessage(error.code, error.user, t)}</p>}
     </SourceRow>
   )
 }

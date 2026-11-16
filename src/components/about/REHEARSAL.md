@@ -32,12 +32,17 @@ What changed, and why each label is what it is:
   the whole list, refBase). The share images are cardLayout + packFrame + fitPack, so the hole and the footer are the
   product's. tests/howto-data.test.ts fails if the file drifts from the packer, if a sticker's mask paints on the count
   or on another bird, or if the chips stop adding up; e2e/about.spec.ts checks the drawn pixels against the count.
-- Share opens the share dialog in the window (both designs): the preview (one 4:5 box, the image letterboxed), Story /
+- Share opens the share dialog in the window (both designs): the preview, its box the image's own shape (Hairline, 12px
+  corners, no Surface bands; wide: 202px tall, the dialog anchored 16px inside the window's visible right edge by its right edge and narrowing for Story and Post as
+  the product's does, so the format control and the close button stay put; compact: the image fitted to a 128 x 160
+  column), Story /
   Post / Square with their ratios (icons and ratios dropped in the compact column, as the product does under 420 px),
-  the collage title field and the three actions. The image is the centre-count card without a name (the collage has no
+  the collage title field, the "Show latest lifer" switch (on, as the product opens; wide design only, like the title
+  field) and the three actions. The image is the centre-count card without a name (the collage has no
   title): stickers around "112 / SPECIES", "LATEST LIFER · OCT 2026" over Tricolored Heron, a hairline, the wordmark and
-  "everybird.yusuftaleb.com · stickers by huashu" on one line. The old separate credit line is gone (the credit stays
-  under the figure).
+  "everybird.yusuftaleb.com · stickers by huashu · 6 Nov 2026" on one line (the demo's fixed date stamp, the
+  day of its "Imported 6 Nov"; the product stamps the day the image is made). The old separate credit line is gone (the
+  credit stays under the figure).
 - The landing ("A lifetime of birds.") isn't in the story: the scene starts on Settings, as before.
 
 Beats (wide, about 17 s a loop):
@@ -147,8 +152,8 @@ no name. Sticker codes are public
 taxonomy codes. Stickers load from the configured sticker base (`NEXT_PUBLIC_STICKER_BASE`), so the demo needs the
 stickers site to be live (Task 25) in production.
 
-Unresolved: the share image's small text (the lifer row, the footer) is set 1.25 to 1.5 times its true scale so it
-reads as text in a 168 px preview. The collage and the images show 24 stickers under "112" (a miniature: the packing is
+Unresolved: the share image's small text (the lifer row, the wordmark) is set 1.25 to 1.5 times its true scale so it
+reads as text in a 168 px preview; the footer line, longer with its date stamp, is at its true scale so it fits. The collage and the images show 24 stickers under "112" (a miniature: the packing is
 the product's for these 24). The compact page leaves out the stats line for room.
 
 Not checked: real devices and touch, Firefox, headed Safari over a long run (headed WebKit windows were throttled by the

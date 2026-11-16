@@ -4,8 +4,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { createLayoutClient, type LayoutClient, type StateLayout } from '@/lib/layout/layout-client'
 import type { LayoutName } from '@/lib/layout/layout.worker'
-import { applyFilter, filterKey, inRange, options, withCountries, type Filter, type FilterLevel } from '@/lib/list/filters'
+import { applyFilter, filterKey, hasPlaces, inRange, options, withCountries, type Filter, type FilterLevel } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
+import { candidateOrds, ordsIn, whereOf } from '@/lib/list/sighting'
 import { timeless } from '@/lib/list/timeline'
 import type { SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
@@ -25,7 +26,7 @@ export { timeless }
 
 /**
  * The states one tap away from `f`: the next taxonomy level (orders, or the chosen order's families), the
- * top countries (one checked, when none is). At most PREFETCH_CAP. Range drags are continuous, so they are not guessed ahead.
+ * top countries (one checked, when no place is). At most PREFETCH_CAP. Range drags are continuous, so they are not guessed ahead.
  */
 export function childFilters(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): Filter[] {
   const out: Filter[] = []
@@ -33,7 +34,7 @@ export function childFilters(list: ListEntry[], f: Filter, species: SpeciesIndex
   const vals = (level: FilterLevel) => options(list, f, level, species, undefined, seen).map((o) => o.value)
   if (!f.order) add('order', vals('order'))
   else if (!f.family) add('family', vals('family'))
-  if (!f.countries) for (const v of vals('country').slice(0, COUNTRY_PREFETCH)) out.push(withCountries(f, [v]))
+  if (!hasPlaces(f)) for (const v of vals('country').slice(0, COUNTRY_PREFETCH)) out.push(withCountries(f, [v]))
   return out.slice(0, PREFETCH_CAP)
 }
 
@@ -56,20 +57,25 @@ type Opts = {
 }
 
 /**
- * What the stage shows while only visibility changes. A drag preview: the shown layout's birds dated inside from..to;
+ * What the stage shows while only visibility changes. A drag preview: the shown layout's birds dated inside from..to (under
+ * basis 'seen', those with a sighting inside it, from the ordinals precomputed when the drag started);
  * once committed, only while the shown layout is still the old one. Otherwise the layout as it is.
  */
 export function stillView(
   current: CollageLayout,
   want: string,
-  preview: { dates: ReadonlyMap<string, string | undefined>; from?: string; to?: string; committed?: boolean } | null,
+  preview: { dates: ReadonlyMap<string, string | undefined>; ords?: ReadonlyMap<string, readonly number[]>; from?: string; to?: string; committed?: boolean } | null,
 ): CollageLayout {
   const { layout } = current
   // A committed preview stands in only until the committed range's layout (key `want`) lands; that layout is never
   // marked still, so it travels.
   if (preview && !(preview.committed && layout.key.split('|').slice(2).join('|') === want)) {
     const visible = new Set<string>()
-    for (const c of layout.boxes.keys()) if (inRange(preview.dates.get(c), preview.from, preview.to)) visible.add(c)
+    // Basis 'seen': each bird's month ordinals inside the filter's places, one binary search per bird; else its lifer date.
+    const { ords } = preview
+    for (const c of layout.boxes.keys()) {
+      if (ords ? ordsIn(ords.get(c) ?? [], preview.from, preview.to) : inRange(preview.dates.get(c), preview.from, preview.to)) visible.add(c)
+    }
     return { layout, visible, still: true }
   }
   return current
@@ -95,11 +101,11 @@ export function useCollageLayout({ list, seen, filter, mode, species, container,
   const [result, setResult] = useState<CollageLayout | null>(null)
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
   // Every edit builds a new list (a mark toggle too), so compare what the layout actually uses. `packSig`: the
-  // codes and masses in order (what the worker packs). `filterSig`: what filters resolve on (months, lifer places, the
-  // seen-here places).
+  // codes and masses in order (what the worker packs). `filterSig`: what filters resolve on (months, lifer places down
+  // to the county, the seen-here places).
   const packSig = useMemo(() => known.map((e) => `${e.code}:${species.byCode.get(e.code)!.g}`).join(','), [known, species])
   const filterSig = useMemo(
-    () => `${known.map((e) => `${e.date?.slice(0, 7) ?? ''}${e.place?.sub1 ?? e.place?.country ?? ''}`).join(',')}#${seen?.sig ?? ''}`,
+    () => `${known.map((e) => `${e.date?.slice(0, 7) ?? ''}${e.place?.sub1 ?? e.place?.country ?? ''}${e.place?.sub2 ? `|${e.place.sub2}` : ''}`).join(',')}#${seen?.sig ?? ''}`,
     [known, seen],
   )
   // The client resolves filters lazily, against the newest list and seen-here.
@@ -196,12 +202,23 @@ export function useCollageLayout({ list, seen, filter, mode, species, container,
     return s ? { layout: s, visible: new Set(s.boxes.keys()) } : null
   }, [seed, cls])
 
-  const dates = useMemo(() => (preview ? new Map(known.map((e) => [e.code, e.date])) : null), [known, preview])
+  const dragging = !!preview
+  const dates = useMemo(() => (dragging ? new Map(known.map((e) => [e.code, e.date])) : null), [known, dragging])
+  // Basis 'seen': each bird's sighting months inside the filter's places, computed once when a drag starts (the places
+  // don't change while it runs), so a frame is a binary search per bird and never an applyFilter.
+  const seenKey = filter.basis === 'seen' ? filterKey({ ...filter, from: undefined, to: undefined, basis: undefined, order: undefined, family: undefined, group: undefined, statuses: undefined }) : ''
+  const ords = useMemo(() => {
+    if (!dragging || filter.basis !== 'seen') return null
+    const w = whereOf({ ...filter, from: undefined, to: undefined })
+    const open = w ?? { keys: [], lo: -Infinity, hi: Infinity }
+    return new Map(known.map((e) => [e.code, candidateOrds(e, seen, open)]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the filter's places are `seenKey`; its range is what the drag changes
+  }, [known, seen, dragging, seenKey, filter.basis])
   const current = result ?? seeded
   const want = filterKey(filter)
   const revealed = useMemo(
-    () => (current ? stillView(current, want, preview && dates ? { dates, ...preview } : null) : null),
-    [current, want, preview, dates],
+    () => (current ? stillView(current, want, preview && dates ? { dates, ...(ords ? { ords } : {}), ...preview } : null) : null),
+    [current, want, preview, dates, ords],
   )
 
   return known.length ? revealed : null

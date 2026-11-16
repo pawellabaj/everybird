@@ -2,12 +2,137 @@ import { describe, expect, it } from 'vitest'
 import huashu from './fixtures/build/huashu.json'
 import taxonomy from './fixtures/build/taxonomy.json'
 import overrides from './fixtures/build/overrides.json'
-import { buildSpecies, matchHuashu } from '../scripts/build-data/build-species'
+import { buildSpecies, creditMatchesSources, formMatch, iucnSources, matchHuashu, statusOf } from '../scripts/build-data/build-species'
+import { IUCN_SOURCE } from '../src/lib/species/iucn'
 import type { HuashuRecord, Overrides, TaxonRow } from '../src/lib/species/types'
 
 const run = (o: Overrides = overrides as Overrides) =>
   buildSpecies(huashu as HuashuRecord[], taxonomy as TaxonRow[], o)
 const row = (code: string, o?: Overrides) => run(o).file.species.find((s) => s.code === code)!
+
+describe('conservation status', () => {
+  const recs = (): HuashuRecord[] => (huashu as HuashuRecord[]).map((h) => ({
+    ...h,
+    ...(h.id === 'Aus_one' ? { conservation: { iucn: 'VU' } } : {}),
+    ...(h.id === 'Bus_old' ? { conservation: { iucn: 'CR (PE)' } } : {}),
+  }))
+  const built = (records = recs()) => buildSpecies(records, taxonomy as TaxonRow[], {})
+  const get = (code: string) => built().file.species.find((s) => s.code === code)!
+
+  it('the own record’s category; CR (PE) is CR; none without one', () => {
+    expect(get('one1').iu).toBe('VU')
+    expect(get('sciold').iu).toBe('CR')
+    expect('iu' in get('nost1')).toBe(false)
+    expect('iu' in get('scinew')).toBe(false)
+    expect(Object.keys(get('one1')).at(-1)).toBe('iu')
+  })
+
+  it.each(['broadened', 'narrowed', 'new', 'split', ''])('no status for concept %j; reported with code, name and raw value', (taxonConcept) => {
+    const records = recs()
+    records[0] = { ...records[0], taxonConcept }
+    expect(statusOf(records[0])).toEqual({ why: 'concept' })
+    const { file, report } = built(records)
+    expect(file.species.find((s) => s.code === 'one1')).not.toHaveProperty('iu')
+    expect(report).toContain("No status: huashu's taxon is not eBird's (1)")
+    expect(report).toContain(`one1 (Unique Bird): ${taxonConcept}, VU`)
+  })
+
+  it('an unknown value is no status and is reported', () => {
+    const records = recs()
+    records[0].conservation = { iucn: 'NE' }
+    expect(statusOf(records[0])).toEqual({ why: 'unknown' })
+    const { file, report } = built(records)
+    expect(file.species.find((s) => s.code === 'one1')).not.toHaveProperty('iu')
+    expect(report).toContain('Unrecognised IUCN values (1)')
+    expect(report).toContain('one1 (Unique Bird): NE')
+  })
+
+  it('missing statuses need no diagnostic; an empty supplied value is unknown', () => {
+    expect(statusOf(undefined)).toEqual({})
+    expect(statusOf((huashu as HuashuRecord[])[0])).toEqual({})
+    expect(statusOf({ ...recs()[0], conservation: {} })).toEqual({})
+    expect(statusOf({ ...recs()[0], conservation: { iucn: '' } })).toEqual({ why: 'unknown' })
+  })
+
+  it('never through a form, even when the parent has the same concept', () => {
+    const parent = recs()[0]
+    const form = { taxon: 'Aus one minor', formerSpecies: { scientificName: 'Aus minor' }, sticker: parent.sticker }
+    const matched = formMatch(parent, form)
+    expect(matched).not.toHaveProperty('conservation')
+    expect(parent.conservation).toEqual({ iucn: 'VU' })
+    expect(statusOf({ ...parent, form: form.taxon })).toEqual({})
+    const taxa: TaxonRow[] = [{ code: 'minor1', sci: 'Aus minor', com: 'Minor Bird', cat: 'species', to: 1,
+      ord: 'Ordo', fam: 'Famone', famCom: 'Family One' }]
+    const { file, report } = buildSpecies([{ ...parent, forms: [form] }], taxa, {})
+    expect(file.species[0]).not.toHaveProperty('iu')
+    expect(report).toContain('From huashu forms (a subspecies drawing of that very taxon): 1')
+  })
+
+  // Synthetic taxa and records for the borrowing guards: one record, Gus_rec, and two eBird species near it.
+  const tx = (code: string, sci: string, to: number): TaxonRow => ({ code, sci, com: `Bird ${code}`, cat: 'species', to,
+    ord: 'Ordo', fam: 'Famone', famCom: 'Family One' })
+  const rec = (extra: Partial<HuashuRecord>): HuashuRecord => ({ id: 'Gus_rec', scientificName: 'Gus rec', taxonConcept: 'same',
+    taxonomy: { seq: 1, order: 'Ordo', family: 'Famone' }, ids: {}, traits: { massG: 10 },
+    sticker: { file: 'stickers/Ordo/Famone/Gus_rec.webp', meetsQualityBar: true }, conservation: { iucn: 'EN' }, ...extra })
+
+  it('not through a hand-named override: the record may be another taxon', () => {
+    const { file, report } = buildSpecies([rec({})], [tx('hand1', 'Gus other', 1)], { hand1: { huashu: 'Gus_rec', source: 'synthetic' } })
+    expect(file.species[0]).toMatchObject({ code: 'hand1', st: true })
+    expect(file.species[0]).not.toHaveProperty('iu')
+    expect(report).toContain("No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species) (1)")
+    expect(report).toContain('hand1 (Bird hand1): hand-named override -> huashu Gus_rec, EN')
+  })
+
+  it('an override A→X refuses A’s status, not that of X’s own species B', () => {
+    const x = rec({ id: 'X', ids: { ebird: 'b1' }, conservation: { iucn: 'VU' } })
+    const { file, report } = buildSpecies([x], [tx('a1', 'Gus alter', 1), tx('b1', 'Gus rec', 2)], { a1: { huashu: 'X', source: 'synthetic' } })
+    const by = new Map(file.species.map((r) => [r.code, r]))
+    expect(by.get('b1')!.iu).toBe('VU')
+    expect(by.get('a1')).not.toHaveProperty('iu')
+    expect(report).toContain('a1 (Bird a1): hand-named override -> huashu X, VU')
+    expect(report).not.toContain('is also matched by')
+  })
+
+  it('not when one record is matched by two eBird species: neither takes its status', () => {
+    const shared = rec({ ids: { ebird: 'own1' }, previous: [{ scientificName: 'Gus split', relation: 'renamed' }] })
+    const { file, report } = buildSpecies([shared], [tx('own1', 'Gus rec', 1), tx('split1', 'Gus split', 2)], {})
+    expect(file.species.map((r) => [r.code, r.st, r.iu])).toEqual([['own1', true, undefined], ['split1', true, undefined]])
+    expect(report).toContain('own1 (Bird own1): huashu Gus_rec is also matched by split1, EN')
+    expect(report).toContain('split1 (Bird split1): huashu Gus_rec is also matched by own1, EN')
+  })
+
+  it('a former name: renamed keeps its status, lumped_into_this gives none', () => {
+    const renamed = buildSpecies([rec({ previous: [{ scientificName: 'Gus old', relation: 'renamed' }] })], [tx('ren1', 'Gus old', 1)], {})
+    expect(renamed.file.species[0].iu).toBe('EN')
+    const lumped = buildSpecies([rec({ previous: [{ scientificName: 'Gus old', relation: 'lumped_into_this' }] })], [tx('lum1', 'Gus old', 1)], {})
+    expect(lumped.file.species[0]).toMatchObject({ st: false })
+    expect(lumped.file.species[0]).not.toHaveProperty('iu')
+  })
+
+  it('reports the cited status sources and whether About’s credit still names their versions', () => {
+    const src = (iucn: string) => rec({ conservation: { iucn: 'LC', sources: { iucn } } })
+    const today = 'AviList v2026（BirdLife v10）', next = 'AviList v2027（BirdLife v11）'
+    expect(iucnSources([src(today), src(today), src(next), rec({})])).toEqual([[today, 2], [next, 1]])
+    expect(creditMatchesSources([today])).toBe(true)
+    expect(creditMatchesSources([today, next])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v11）'])).toBe(false)
+    expect(creditMatchesSources([today], 'no version here')).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v10）'])).toBe(true)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v100）'])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v10.1）'])).toBe(false)
+    expect(creditMatchesSources([])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026. BirdLife v10.'])).toBe(true) // a trailing period is not a version part
+    const ok = buildSpecies([src(today)], [tx('own1', 'Gus rec', 1)], {}).report
+    expect(ok).toContain('IUCN status sources cited by huashu (records) (1)')
+    expect(ok).toContain(`- ${today}: 1`)
+    expect(ok).toContain(`About's credit "${IUCN_SOURCE}" matches huashu's sources: yes`)
+    expect(buildSpecies([src(next)], [tx('own1', 'Gus rec', 1)], {}).report).toContain("matches huashu's sources: NO")
+  })
+
+  it('rows without a status keep their exact keys', () => {
+    expect(Object.keys(get('nost1'))).toEqual(['code', 'com', 'sci', 'ord', 'fam', 'famCom', 'to', 'g', 'gSrc', 'st', 'ar', 'q'])
+  })
+})
 
 describe('buildSpecies', () => {
   it('unique ebird code match uses that sticker and AVONET mass', () => {

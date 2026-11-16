@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
-import { buildQueries, daysAgo, formatReport, parseArgs, parseWrangler, table, wranglerArgs, type Results } from '../scripts/stats/report'
+import { ALLOWED as APP_ALLOWED } from '@/lib/analytics'
+import { EVENTS, LANG_COLUMN_SQL, buildQueries, daysAgo, formatReport, parseArgs, parseHasLang, parseWrangler, table, wranglerArgs, type Results } from '../scripts/stats/report'
 
 const NOW = new Date('2026-11-06T12:00:00Z')
 
@@ -31,7 +32,7 @@ describe('parseArgs', () => {
 describe('buildQueries', () => {
   it('filters every statement by day and counts people with distinct non-empty vids', () => {
     const qs = buildQueries('2026-11-01', 5)
-    expect(qs.map((q) => q.name)).toEqual(['visitors', 'visitsByDay', 'byValue', 'people', 'byDevice', 'countries'])
+    expect(qs.map((q) => q.name)).toEqual(['visitors', 'visitsByDay', 'byValue', 'people', 'byDevice', 'countries', 'byLanguage'])
     for (const q of qs) expect(q.sql).toContain("day >= '2026-11-01'")
     expect(qs.find((q) => q.name === 'visitors')!.sql).toContain("COUNT(DISTINCT NULLIF(vid, ''))")
     expect(qs.find((q) => q.name === 'countries')!.sql).toContain('rk <= 5')
@@ -68,6 +69,58 @@ describe('buildQueries', () => {
     expect(text).toMatch(/compact \(countries\)\s+1\s+1\s+1/)
     expect(text).toContain('people 1 · events per person 2.00 · with 2+ 1 · most by one 2')
     expect(text).not.toContain('2026-10-31')
+    expect(r.byLanguage).toEqual([{ lang: '', people: 3, visits: 5 }]) // rows written without lang take the default
+  })
+
+  // The table as the live database has it before migrations/2026-11-15-lang.sql (schema.sql before the lang column).
+  const OLD_CREATE = `CREATE TABLE IF NOT EXISTS events (day TEXT NOT NULL, name TEXT NOT NULL, value TEXT NOT NULL, country TEXT NOT NULL, device TEXT NOT NULL, vid TEXT NOT NULL DEFAULT '');`
+
+  it.skipIf(!sqlite)('works before the lang migration: the column check says no, the language query is left out, the report says so', () => {
+    const db = new sqlite!.DatabaseSync(':memory:')
+    db.exec(OLD_CREATE)
+    expect(parseHasLang(JSON.stringify([{ results: db.prepare(LANG_COLUMN_SQL).all() }]))).toBe(false)
+    db.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)').run('2026-11-14', 'filter_used', 'place', 'US', 'mac', 'x1')
+    const qs = buildQueries('2026-11-01', 5, false)
+    expect(qs.map((q) => q.name)).not.toContain('byLanguage')
+    const r = Object.fromEntries(qs.map((q) => [q.name, db.prepare(q.sql).all()])) as Results // every statement runs without lang
+    const text = formatReport(r, { since: '2026-11-01', top: 5 })
+    expect(text).toContain('Visitors by browser language\nnot recorded yet')
+    expect(text).toMatch(/Filters used[^\n]*\nvalue\s+events\s+people/)
+    expect(() => db.prepare(buildQueries('2026-11-01', 5).find((q) => q.name === 'byLanguage')!.sql).all()).toThrow(/lang/)
+    // After the migration the check finds it.
+    db.exec(readFileSync('workers/stats/migrations/2026-11-15-lang.sql', 'utf8'))
+    expect(parseHasLang(JSON.stringify([{ results: db.prepare(LANG_COLUMN_SQL).all() }]))).toBe(true)
+  })
+
+  it('lists every event the Worker accepts', () => {
+    expect([...EVENTS].sort()).toEqual(Object.keys(APP_ALLOWED).sort())
+  })
+
+  it.skipIf(!sqlite)('the lang migration runs on the old table, keeps its rows, and byLanguage counts visits by browser language', () => {
+    const db = new sqlite!.DatabaseSync(':memory:')
+    db.exec(OLD_CREATE)
+    db.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)').run('2026-11-14', 'visit', 'landing', 'US', 'mac', 'old1')
+    db.exec(readFileSync('workers/stats/migrations/2026-11-15-lang.sql', 'utf8'))
+    const ins = db.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const rows: [string, string, string, string, string, string, string][] = [
+      ['2026-11-13', 'visit', 'landing', 'MX', 'iphone', 'gone', 'es'], // before --since
+      ['2026-11-15', 'visit', 'landing', 'MX', 'iphone', 'e1', 'es'],
+      ['2026-11-15', 'visit', 'settings', 'MX', 'iphone', 'e1', 'es'],
+      ['2026-11-15', 'visit', 'landing', 'ES', 'mac', 'e2', 'es'],
+      ['2026-11-15', 'visit', 'landing', 'BR', 'android-phone', 'p1', 'pt'],
+      ['2026-11-15', 'collage_made', 'ebird', 'BR', 'android-phone', 'p1', ''], // not a visit
+    ]
+    for (const r of rows) ins.run(...r)
+    const q = buildQueries('2026-11-14', 5).find((x) => x.name === 'byLanguage')!
+    const got = db.prepare(q.sql).all()
+    expect(got[0]).toEqual({ lang: 'es', people: 2, visits: 3 }) // most people first; the tie below in any order
+    const byLang = (a: Record<string, unknown>, b: Record<string, unknown>) => String(a.lang).localeCompare(String(b.lang))
+    expect([...got].sort(byLang)).toEqual([{ lang: '', people: 1, visits: 1 }, { lang: 'es', people: 2, visits: 3 }, { lang: 'pt', people: 1, visits: 1 }])
+    // schema.sql (a fresh database) has the same column.
+    const fresh = new sqlite!.DatabaseSync(':memory:')
+    fresh.exec(readFileSync('workers/stats/schema.sql', 'utf8'))
+    fresh.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)').run('2026-11-15', 'visit', 'about', 'NL', 'mac', 'n1', 'nl')
+    expect(fresh.prepare(q.sql).all()).toEqual([{ lang: 'nl', people: 1, visits: 1 }])
   })
 })
 
@@ -85,13 +138,14 @@ describe('the report', () => {
       success: true,
     },
     { results: [{ name: 'visit', country: 'US', n: 4, people: 2 }, { name: 'visit', country: 'BR', n: 1, people: 1 }], success: true },
+    { results: [{ lang: 'en', people: 2, visits: 3 }, { lang: '', people: 1, visits: 1 }, { lang: 'pt', people: 1, visits: 1 }], success: true },
   ])
   const names = buildQueries('2026-11-01', 5).map((q) => q.name)
 
   it("reads wrangler's --json output, one result per statement", () => {
     const r = parseWrangler(fake, names)
     expect(r.visitors).toHaveLength(1)
-    expect(() => parseWrangler(JSON.stringify([{ results: [] }]), names)).toThrow(/1 results for 6/)
+    expect(() => parseWrangler(JSON.stringify([{ results: [] }]), names)).toThrow(/1 results for 7/)
   })
 
   it('prints compact tables: visitors by day, then each event by value and device, people, repeats and countries', () => {
@@ -104,6 +158,13 @@ describe('the report', () => {
       '----------  --------  -------  -------  --------  -----  ------  ----------',
       '2026-11-01         3        3        2         0      0       0           7',
       'total                       3        2         0      0       0           7',
+      '',
+      'Visitors by browser language',
+      'language  people  visits',
+      '--------  ------  ------',
+      'en             2       3',
+      'unknown        1       1',
+      'pt             1       1',
       '',
       'Page views (visit)',
       'value    events  people  mac  iphone',
@@ -126,6 +187,21 @@ describe('the report', () => {
       '(none)',
       '',
       'Links copied (link_copied, by level)',
+      '(none)',
+      '',
+      'UI language switched to (ui_language)',
+      '(none)',
+      '',
+      'Posters made (poster_made, by size)',
+      '(none)',
+      '',
+      'Posters downloaded (poster_downloaded, by format)',
+      '(none)',
+      '',
+      'Searches applied (search_applied: smart filters or a bird)',
+      '(none)',
+      '',
+      'Filters used (filter_used, once per kind per page load)',
       '(none)',
     ].join('\n'))
   })

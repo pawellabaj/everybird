@@ -2,7 +2,9 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { shortDate } from '@/components/import/SourceLine'
+import { ebirdLine, inatLine } from '@/components/import/SourceLine'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
 import { SourceMenu } from '@/components/import/SourceMenu'
 
 afterEach(cleanup)
@@ -56,12 +58,19 @@ describe('SourceMenu: a source row’s ⋯ menu button', () => {
   })
 })
 
-describe('shortDate', () => {
+describe('ebirdLine and inatLine: a connected row’s name and date', () => {
   const now = new Date('2026-11-06T12:00:00Z')
-  it('leaves the year off this year’s dates', () => {
-    expect(shortDate('2026-11-06T10:00:00Z', now)).toBe('6 Nov')
-    expect(shortDate('2025-03-01T10:00:00Z', now)).toBe('1 Mar 2025')
-    expect(shortDate('nope', now)).toBeNull()
-    expect(shortDate(undefined, now)).toBeNull()
+  it('leaves the year off this year’s dates, and says nothing for a bad one', () => {
+    const at = (iso: string) => ebirdLine('life-list', { kind: 'life-list', file: 'a.csv', at: iso }, en.ui, now).parts
+    expect(at('2026-11-06T10:00:00Z')).toEqual(['Imported 6 Nov'])
+    expect(at('2025-03-01T10:00:00Z')).toEqual(['Imported 1 Mar 2025'])
+    expect(at('2026-09-06T10:00:00Z')).toEqual(['Imported 6 Sep'])
+    expect(at('nope')).toEqual([])
+    expect(inatLine({ user: 'sam', observations: 3, at: '2026-11-06T10:00:00Z' }, en.ui, now)).toEqual({ name: 'sam', parts: ['Updated 6 Nov'] })
+  })
+  it('in Spanish, with the fallbacks', () => {
+    expect(ebirdLine('full-export', { kind: 'full-export', at: '2026-09-06T10:00:00Z' }, es.ui, now)).toEqual({ name: 'Exportación completa de eBird', parts: ['Importado el 6 sept'] })
+    expect(ebirdLine('life-list', undefined, es.ui, now)).toEqual({ name: 'Descarga de la lista de vida de eBird', parts: ['Detalles desconocidos'] })
+    expect(inatLine(undefined, en.ui)).toEqual({ name: '', parts: ['Username unknown: enter it again to refresh'] })
   })
 })

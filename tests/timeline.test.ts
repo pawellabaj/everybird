@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import {
-  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, sliderKey,
-  todayMonth,
+  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, rangeShort, sliderKey,
+  todayMonth, yearLabels,
 } from '@/lib/list/timeline'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { nl } from '@/i18n/messages/nl'
+import { pt } from '@/i18n/messages/pt'
 
 const e = (code: string, date?: string, country = 'CA'): ListEntry => ({ code, date, place: { country }, heard: false, dead: false, media: false, sources: [] })
 
@@ -19,7 +23,7 @@ describe('months', () => {
   it('addMonths crosses years both ways; names and today', () => {
     expect(addMonths('2020-11', 3)).toBe('2021-02')
     expect(addMonths('2020-01', -1)).toBe('2019-12')
-    expect(monthName('2020-03')).toBe('March 2020')
+    expect(monthName('2020-03', en.ui)).toBe('March 2020')
     expect(todayMonth(new Date(Date.UTC(2026, 10, 5)))).toBe('2026-11')
   })
 })
@@ -124,13 +128,49 @@ describe('range filter', () => {
     expect(rangeFilter({ from: '2020-02' }, 0, 3, months)).toEqual({})
     expect(rangeFilter({}, 2, 1, months)).toEqual({ from: '2020-02', to: '2020-03' }) // swapped ends
   })
+  it('rangeShort: whole years, one month, months, open ends', () => {
+    expect(rangeShort('2020-01', '2024-12', en.ui)).toBe('2020–2024')
+    expect(rangeShort('2020-01', '2020-12', en.ui)).toBe('2020')
+    expect(rangeShort('2021-09', '2021-09', en.ui)).toBe('Sep 2021')
+    expect(rangeShort('2021-01', '2021-01', en.ui)).toBe('Jan 2021')
+    expect(rangeShort('2020-04', '2024-09', en.ui)).toBe('Apr 2020–Sep 2024')
+    expect(rangeShort('2020-01', '2024-09', en.ui)).toBe('Jan 2020–Sep 2024')
+    expect(rangeShort('2020-04', '2024-12', en.ui)).toBe('Apr 2020–Dec 2024')
+    expect(rangeShort('2020-01', '2020-03', en.ui)).toBe('Jan 2020–Mar 2020')
+    expect(rangeShort('2020-04', undefined, en.ui)).toBe('from Apr 2020')
+    expect(rangeShort('2020-01', undefined, en.ui)).toBe('from 2020')
+    expect(rangeShort(undefined, '2024-09', en.ui)).toBe('to Sep 2024')
+    expect(rangeShort(undefined, '2024-12', en.ui)).toBe('to 2024')
+    expect(rangeShort(undefined, undefined, en.ui)).toBeUndefined()
+    expect(rangeShort('2020-04', undefined, es.ui)).toBe('desde abr 2020')
+    expect(rangeShort(undefined, '2024-09', pt.ui)).toBe('até set 2024')
+    expect(rangeShort(undefined, '2024-09', nl.ui)).toBe('t/m sep 2024')
+    expect(rangeShort('2020-04', '2024-09', es.ui)).toBe('abr 2020–sept 2024')
+  })
   it('rangeLabel says the range in words', () => {
-    expect(rangeLabel('2020-01', '2020-12')).toBe('2020')
-    expect(rangeLabel('2020-09', '2020-09')).toBe('Sep 2020')
-    expect(rangeLabel('2020-03', '2021-06')).toBe('Mar 2020 to Jun 2021')
-    expect(rangeLabel('2020-03', undefined)).toBe('From Mar 2020')
-    expect(rangeLabel(undefined, '2021-06')).toBe('Up to Jun 2021')
-    expect(rangeLabel(undefined, undefined)).toBeUndefined()
+    expect(rangeLabel('2020-01', '2020-12', en.ui)).toBe('2020')
+    expect(rangeLabel('2020-09', '2020-09', en.ui)).toBe('Sep 2020')
+    expect(rangeLabel('2020-03', '2021-06', en.ui)).toBe('Mar 2020 to Jun 2021')
+    expect(rangeLabel('2020-03', undefined, en.ui)).toBe('From Mar 2020')
+    expect(rangeLabel(undefined, '2021-06', en.ui)).toBe('Up to Jun 2021')
+    expect(rangeLabel(undefined, undefined, en.ui)).toBeUndefined()
   })
 })
 
+
+describe('yearLabels', () => {
+  const run = (from: string, n: number, unitPx: number) => {
+    const months = Array.from({ length: n }, (_, k) => addMonths(from, k))
+    const axis = monthAxis(months.map(() => 1))
+    return yearLabels(months, axis, unitPx).map((y) => y.m.slice(0, 4))
+  }
+  it('a strip starting in November 2021 drops the partial 2021 for 2022', () => {
+    expect(run('2021-11', 40, 6).slice(0, 2)).toEqual(['2022', '2023'])
+    expect(run('2021-11', 40, 6)[0]).toBe('2022')
+    expect(run('2021-11', 40, 6)).not.toContain('2021')
+  })
+  it('keeps every label when each has room', () => {
+    expect(run('2021-11', 40, 20).slice(0, 2)).toEqual(['2021', '2022'])
+    expect(run('2020-01', 60, 8)).toEqual(['2020', '2021', '2022', '2023', '2024'])
+  })
+})

@@ -84,6 +84,12 @@ describe('childFilters and timeless', () => {
     expect(out.some((f) => f.year || f.from || f.to)).toBe(false)
     expect(timeless({ order: 'X', year: '2020', from: '2020-01', to: '2020-02' })).toEqual({ order: 'X' })
   })
+  it('a province-only filter skips the country prefetch', async () => {
+    const { childFilters } = await import('@/components/app/use-collage-layout')
+    const list = [e('a', { place: { country: 'CA', sub1: 'CA-BC' } }), e('b', { place: { country: 'MX' } })]
+    expect(childFilters(list, {}, species).some((f) => f.countries)).toBe(true)
+    expect(childFilters(list, { provinces: ['CA-BC'] }, species).some((f) => f.countries)).toBe(false)
+  })
 })
 
 describe('stillView', () => {

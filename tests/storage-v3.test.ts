@@ -34,7 +34,7 @@ const v1 = () => ({
 const AT = '2026-11-06T10:00:00.000Z'
 const withSources = (): Saved => ({
   ...emptySaved(),
-  records: { ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [rec('c', 'inat')], manual: [] },
+  records: { obsorg: [], 'obsorg-list': [], ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [rec('c', 'inat')], manual: [] },
   sources: {
     ebird: { kind: 'full-export', file: 'MyEBirdData.csv', rows: 4212, at: AT },
     'ebird-list': { kind: 'life-list', file: 'ebird_world_life_list.csv', rows: 812, at: AT },
@@ -43,15 +43,15 @@ const withSources = (): Saved => ({
 })
 
 describe('Saved v3: source details', () => {
-  it('new lists are v4, with no source details yet', () => {
+  it('new lists are v5, with no source details yet', () => {
     const s = emptySaved()
-    expect(s.v).toBe(4)
+    expect(s.v).toBe(5)
     expect(s.sources ?? {}).toEqual({})
   })
 
-  it('a v2 list migrates to v4 keeping everything; its sources have no details (shown as unknown)', () => {
+  it('a v2 list migrates to v5 keeping everything; its sources have no details (shown as unknown)', () => {
     const m = migrateSaved(v2() as never)
-    expect(m.v).toBe(4)
+    expect(m.v).toBe(5)
     const { v: _v, name: _n, ...rest } = v2()
     void _v; void _n
     expect(m).toMatchObject(rest)
@@ -61,9 +61,9 @@ describe('Saved v3: source details', () => {
     expect(migrateSaved(current)).toBe(current)
   })
 
-  it('a v1 list migrates to v4 and gains the empty life-list slot', () => {
+  it('a v1 list migrates to v5 and gains the empty life-list slot', () => {
     const m = migrateSaved(v1() as never)
-    expect(m.v).toBe(4)
+    expect(m.v).toBe(5)
     expect(m.records['ebird-list']).toEqual([])
     expect(m.records.ebird).toEqual([rec('a')])
   })
@@ -121,7 +121,6 @@ describe('replace, refresh and remove one source', () => {
   it('the store: import carries details, remove drops a source and the list rebuilds', () => {
     const ctx: StoreContext = {
       species: { rows: [], byCode: new Map(), search: () => [] } as never,
-      countryName: (c) => c,
     }
     const reduce = makeReducer(ctx)
     let st = reduce(initialState(), { type: 'import', source: 'ebird', result: result([rec('a')]), details: { kind: 'full-export', file: 'f.csv', rows: 1, at: AT } })
@@ -137,23 +136,23 @@ describe('replace, refresh and remove one source', () => {
 })
 
 describe('backups with source details', () => {
-  it('round-trip as v4', () => {
+  it('round-trip as v5', () => {
     const s = withSources()
     const text = toJson(s)
-    expect(JSON.parse(text).v).toBe(4)
+    expect(JSON.parse(text).v).toBe(5)
     expect(fromJson(text)).toEqual(s)
   })
-  it('v2 and v1 backups restore as v4 without details', () => {
+  it('v2 and v1 backups restore as v5 without details', () => {
     const a = fromJson(JSON.stringify(v2()))
-    expect(a.v).toBe(4)
+    expect(a.v).toBe(5)
     expect(a.sources).toBeUndefined()
     expect(a.edits.fixes).toEqual({ 'inat:4': 'd' })
     const b = fromJson(JSON.stringify(v1()))
-    expect(b.v).toBe(4)
+    expect(b.v).toBe(5)
     expect(b.records['ebird-list']).toEqual([])
   })
   it('malformed details and unknown versions are refused', () => {
-    expect(() => fromJson(JSON.stringify({ ...withSources(), v: 5 }))).toThrow(/version/i)
+    expect(() => fromJson(JSON.stringify({ ...withSources(), v: 6 }))).toThrow(/version/i)
     expect(() => fromJson(JSON.stringify({ ...withSources(), sources: { bogus: {} } }))).toThrow(/source details/)
     expect(() => fromJson(JSON.stringify({ ...withSources(), sources: { inat: { user: 5 } } }))).toThrow(/source details/)
     expect(() => fromJson(JSON.stringify({ ...withSources(), sources: { ebird: { kind: 'life-list', rows: 'many' } } }))).toThrow(/source details/)
@@ -167,16 +166,16 @@ describe('a v2 list on the device', () => {
     ;(globalThis as { indexedDB: IDBFactory }).indexedDB = new IDBFactory()
   })
   afterEach(() => vi.unstubAllGlobals())
-  it('loads as v4 and is rewritten in place', async () => {
+  it('loads as v5 and is rewritten in place', async () => {
     vi.resetModules()
     const storage = await import('@/lib/list/storage')
     const { createStore, get, set } = await import('idb-keyval')
     const kv = createStore('everybird', 'kv')
     await set(STORAGE_KEY, v2(), kv)
     const got = await storage.load()
-    expect(got!.v).toBe(4)
+    expect(got!.v).toBe(5)
     expect(got!.records.inat).toHaveLength(1)
-    await vi.waitFor(async () => expect(((await get(STORAGE_KEY, kv)) as { v: number }).v).toBe(4))
+    await vi.waitFor(async () => expect(((await get(STORAGE_KEY, kv)) as { v: number }).v).toBe(5))
   })
 })
 
@@ -216,7 +215,7 @@ describe('Saved v4: the collage title', () => {
 
   it('backups go through the same migration; a v4 backup keeps its title', () => {
     expect(fromJson(JSON.stringify({ ...withSources(), v: 3, name: 'Sam' })).name).toBe("Sam's birds")
-    expect(fromJson(JSON.stringify({ ...withSources(), v: 1, name: 'Sam' })).v).toBe(4)
+    expect(fromJson(JSON.stringify({ ...withSources(), v: 1, name: 'Sam' })).v).toBe(5)
     expect(fromJson(JSON.stringify({ ...withSources(), v: 4, name: 'Sam' })).name).toBe('Sam')
     expect(fromJson(JSON.stringify({ ...withSources(), v: 3, name: 'Birds of 2026' })).name).toBe('Birds of 2026')
   })

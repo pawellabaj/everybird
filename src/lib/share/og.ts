@@ -1,14 +1,23 @@
 // Link previews (Open Graph images), the pure parts: which birds to draw and what the metadata says.
 // The server pieces (fonts, masks, stickers, the image itself) are in og-server.ts and the route's opengraph-image.tsx.
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import { decodeShare, type SharePayload } from './link'
+
+/** The strings the shared page's title, h1 and metadata read: the shared view's (`ui.shared`, one source with the
+ *  page), the share area's old-link and untitled titles, and the number separators. */
+export type OgStrings = Pick<Ui, 'share' | 'shared' | 'num'>
 
 export const OG_SIZE = { width: 1200, height: 630 } as const
 /** The collage's area on the left of the image. */
 export const OG_COLLAGE = { w: 640, h: 560 } as const
 export const OG_MAX_BIRDS = 60
-/** For someone who has never heard of Everybird (the shared page says the same under its title). */
-export const OG_DESCRIPTION = "Everybird turns a birder's life list into a sticker collage."
-
+/** For someone who has never heard of Everybird: the shared page's lede under its title (`ui.shared.lede`), so the
+ *  page and its metadata say the same in every language. */
+export function ogDescription(t: OgStrings): string {
+  return t.shared.lede
+}
 
 /**
  * At most `max` birds, chosen by stepping evenly through the list in taxonomic order (`to`), so every group of the
@@ -28,25 +37,27 @@ export function pickOgStickers<T extends { to: number; st: boolean }>(birds: rea
 }
 
 /**
- * A shared link's title, or null without one: a new link's title verbatim ("Birds of 2026", F_TITLE), an old link's
- * bare name as it always showed ("Ada" -> "Ada's life list").
+ * A shared link's title, or null without one: a new link's title verbatim in every language ("Birds of 2026",
+ * F_TITLE), an old link's bare name as `t.share.oldLinkTitle` ("Ada" -> "Ada's life list", "Lista de vida de Ada").
  */
-export function shareTitle(p: Pick<SharePayload, 'name' | 'titled'>): string | null {
+export function shareTitle(p: Pick<SharePayload, 'name' | 'titled'>, t: OgStrings): string | null {
   const name = p.name?.trim()
   if (!name) return null
-  return p.titled ? name : `${name}'s life list`
+  return p.titled ? name : fmt(t.share.oldLinkTitle, { name })
 }
 
-/** The shared page's h1 and the link preview's title: shareTitle, or "A birder's life list" without one. */
-export function ogName(p: Pick<SharePayload, 'name' | 'titled'>): string {
-  return shareTitle(p) ?? "A birder's life list"
+/** The shared page's h1 and the link preview's title: shareTitle, or `ui.shared.untitled` ("A birder's life list"). */
+export function ogName(p: Pick<SharePayload, 'name' | 'titled'>, t: OgStrings): string {
+  return shareTitle(p, t) ?? t.shared.untitled
 }
 
-/** The document title: "<title> · Everybird"; "A life list: 197 species" without a title; "Everybird" for a broken link. */
-export function ogTitle(p: SharePayload | null): string {
+/** The document title: "<title> · Everybird"; "A life list: 197 species" without a title ("Una lista de vida: 1.234
+ *  especies"); "Everybird" for a broken link. */
+export function ogTitle(p: SharePayload | null, t: OgStrings): string {
   if (!p) return 'Everybird'
-  const title = shareTitle(p)
-  return title ? `${title} · Everybird` : `A life list: ${p.birds.length.toLocaleString('en-US')} species`
+  const title = shareTitle(p, t)
+  const n = p.birds.length
+  return title ? `${title} · Everybird` : plural(t.share.untitledTitle, n, { n: formatInt(n, t.num) })
 }
 
 /** The payload a route's `[token]` segment carries, or null for a broken, oversized or newer-version link. */
@@ -72,12 +83,12 @@ export const ogCacheControl = (complete: boolean) => (complete ? OG_CACHE_COMPLE
 /**
  * ImageResponse options that depend on how the card came out. No fonts at all -> `fonts: undefined`, so next/og keeps
  * its default font (an empty array would replace it and satori would throw). A card with a missing font or fewer
- * stickers than expected, a collage that failed, or a broken token is cached only briefly (ogCacheControl), so a
+ * stickers than expected, a collage that failed, a names file that didn't load, or a broken token is cached only briefly (ogCacheControl), so a
  * fetch hiccup doesn't stick for a year.
  */
-export function ogResponseOptions<F>(fonts: F[], card: { placed: number; expected: number; failed?: boolean; broken?: boolean }) {
+export function ogResponseOptions<F>(fonts: F[], card: { placed: number; expected: number; failed?: boolean; broken?: boolean; namesFailed?: boolean }) {
   // `failed`: the collage threw (species, masks or stickers), so the text card stood in. `broken`: the token didn't
   // decode. Neither is the token's real card, so neither is cached for a year.
-  const complete = !card.failed && !card.broken && fonts.length >= OG_FONT_COUNT && card.placed >= card.expected
+  const complete = !card.failed && !card.broken && !card.namesFailed && fonts.length >= OG_FONT_COUNT && card.placed >= card.expected
   return { fonts: fonts.length ? fonts : undefined, headers: { 'cache-control': ogCacheControl(complete) } }
 }

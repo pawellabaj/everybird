@@ -95,7 +95,7 @@ test("large file shows progress and stays responsive", async ({ page }) => {
     await page.getByTestId("ebird-input").setInputFiles(file);
     // As soon as the first row count shows, tap the switch. It is scrolled to and measured now, not before the import.
     await page.waitForFunction(() => (window as unknown as { __eb: { texts: string[] } }).__eb.texts.some((t) => / rows$/.test(t)), null, { polling: "raf" });
-    await page.evaluate(() => document.querySelector(".eb-theme")!.scrollIntoView({ block: "center" }));
+    await page.evaluate(() => document.querySelector(".eb-theme[role=\"switch\"]")!.scrollIntoView({ block: "center" }));
     const box = (await sw.boundingBox())!;
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(page.getByTestId("see-collage")).toContainText("Your collage has 8 species", { timeout: 120_000 });

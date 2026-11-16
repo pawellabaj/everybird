@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { SAMPLE_COUNT } from "./sample";
+import { en, type Ui } from "../src/i18n/messages/en";
+import { es } from "../src/i18n/messages/es";
 
 // The landing demo's sample list (the made-up demo birder) restored as the birder's own list (from Settings), so their collage
 // and its Share button appear. SHARE_PNG_DIR (optional) saves the downloaded images there for a look.
@@ -16,15 +18,16 @@ const backup = JSON.stringify({
 });
 const OUT = process.env.SHARE_PNG_DIR;
 
-async function openShare(page: Page) {
+/** Opens the share dialog on the restored sample; `t` is the UI language the page is in (English by default). */
+async function openShare(page: Page, t: Ui = en.ui) {
   await page.goto("/settings");
   await expect(page.getByTestId("ebird-drop")).toBeVisible();
   // Restore from backup on Settings opens the collage (/).
   await page.locator('input[type="file"][accept*="json"]').first().setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("region", { name: "Your collage" })).toBeVisible();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Share your collage" });
+  await expect(page.getByRole("region", { name: t.collage.regionYours })).toBeVisible();
+  await page.getByRole("button", { name: t.collage.share, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: t.share.title });
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -122,6 +125,115 @@ test("story image is 1080×1920 PNG, post is 1080×1350 and square is 1080×1080
   expect(errors).toEqual([]);
 });
 
+// The footer line ends with the day the image was made, on the device's clock and in its time zone: at 12:30 UTC on
+// 14 Nov it is already 01:30 on 15 Nov in Auckland, so the stamp says 15 Nov and never the UTC day. A wrapper around
+// fillText records every text the main-thread canvas draws (the share image is drawn there), cleared between formats
+// so each format proves its own line.
+test.describe("date stamp", () => {
+  test.use({ timezoneId: "Pacific/Auckland" });
+
+  /** 12:30 UTC on 14 Nov 2026 (15 Nov in Auckland), and every canvas fillText recorded in window.__fillTexts. */
+  async function stampClock(page: Page) {
+    await page.clock.setFixedTime(new Date("2026-11-14T12:30:00Z"));
+    await page.addInitScript(() => {
+      const w = window as unknown as { __fillTexts: string[] };
+      w.__fillTexts = [];
+      const real = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+        w.__fillTexts.push(String(text));
+        return real.call(this, text, ...rest);
+      };
+    });
+  }
+
+  test("every format's footer line ends with the device's local date: 15 Nov 2026", async ({ page }) => {
+    test.setTimeout(90_000);
+    await stampClock(page);
+    const dialog = await openShare(page);
+    const preview = dialog.getByTestId("share-preview");
+    const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+    const line = "everybird.yusuftaleb.com · stickers by huashu · 15 Nov 2026";
+    for (const format of ["Story", "Post", "Square"]) {
+      // The story is drawn as the dialog opens; the others on their click, after the previous format's texts are gone.
+      if (format !== "Story") {
+        await page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
+        await dialog.getByRole("button", { name: new RegExp(`^${format}`) }).click();
+      }
+      await expect(preview.getByRole("img", { name: `Preview of the ${format.toLowerCase()} image` })).toBeVisible({ timeout: 30_000 });
+      await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+      const drawn = await texts();
+      expect(drawn, `${format}: the footer line`).toContain(line);
+      expect(drawn.join("\n"), `${format}: never the UTC day`).not.toContain("14 Nov 2026");
+    }
+  });
+
+  // The same dialog in Spanish (the browser's language picks /es/): its words, the image's, an English download name,
+  // and the credit line unchanged with the Spanish date after it, no lead ("Al").
+  test.describe("in Spanish", () => {
+    test.use({ locale: "es-ES" });
+    test("the labels, the drawn words and the stamp; the file is still everybird-story.png", async ({ page }) => {
+      test.setTimeout(90_000);
+      await stampClock(page);
+      const dialog = await openShare(page, es.ui);
+      const preview = dialog.getByTestId("share-preview");
+      for (const label of ["Historia", "Post", "Cuadrado"]) await expect(dialog.getByRole("button", { name: new RegExp(`^${label}`) })).toBeVisible();
+      await expect(dialog.getByRole("switch", { name: "Última especie nueva" })).toHaveAttribute("aria-checked", "true");
+      await expect(dialog.getByRole("button", { name: "Copiar enlace" })).toBeVisible();
+      await expect(preview.getByRole("img", { name: es.ui.share.preview.story })).toBeVisible({ timeout: 30_000 });
+      await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+      const drawn = await page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+      expect(drawn).toContain("everybird.yusuftaleb.com · stickers by huashu · 15 nov 2026");
+      expect(drawn.some((t) => t.startsWith("ÚLTIMA ESPECIE NUEVA"))).toBe(true);
+      expect(drawn).toContain("ESPECIES");
+      const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Descargar imagen" }).click()]);
+      expect(download.suggestedFilename()).toBe("everybird-story.png");
+      await expect(dialog.getByTestId("share-note")).toHaveText("Se guardó everybird-story.png.");
+    });
+  });
+});
+
+// "Show latest lifer" (on at every open): off, the image draws no latest lifer row (its room goes to the collage), and
+// the footer with the sticker credit stays; on again, the row is back. The same fillText recorder as the date stamp's.
+test("Show latest lifer: on by default; off draws no latest lifer row, on draws it again", async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __fillTexts: string[] };
+    w.__fillTexts = [];
+    const real = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (text: string, ...rest: [number, number, number?]) {
+      w.__fillTexts.push(String(text));
+      return real.call(this, text, ...rest);
+    };
+  });
+  const dialog = await openShare(page);
+  const preview = dialog.getByTestId("share-preview");
+  const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+  const clear = () => page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
+  const sw = dialog.getByRole("switch", { name: "Show latest lifer" });
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  // Bottom right of the controls: Buy Me a Coffee's static button image, its alt the link's name (never on the image).
+  await expect(dialog.getByRole("link", { name: "Buy me a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+  await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  expect((await texts()).some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+  await clear();
+  await sw.click();
+  await expect(sw).toHaveAttribute("aria-checked", "false");
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  const off = await texts();
+  expect(off.length).toBeGreaterThan(0); // a new image was drawn
+  expect(off.some((t) => t.startsWith("LATEST LIFER"))).toBe(false);
+  expect(off.some((t) => t.startsWith("everybird.yusuftaleb.com · stickers by huashu"))).toBe(true); // the footer and credit stay
+  expect(off.filter((t) => /coffee/i.test(t)), "Buy me a coffee is never drawn on the image").toEqual([]);
+  await clear();
+  await sw.click();
+  await expect(sw).toHaveAttribute("aria-checked", "true");
+  await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+  const on = await texts();
+  expect(on.some((t) => t.startsWith("LATEST LIFER"))).toBe(true);
+  expect(on.filter((t) => /coffee/i.test(t)), "Buy me a coffee is never drawn on the image").toEqual([]);
+});
+
 test("copy link puts a /s/1… URL under 2000 chars on the clipboard", async ({ page, context, baseURL, browserName }) => {
   chromiumOnly(browserName);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL });
@@ -196,8 +308,9 @@ test("visits, downloads and copy link each send one anonymous event: {n, p} only
   await expect(dialog.getByTestId("share-note")).toHaveText(/^Link copied/);
   // The level in the Worker's words (regions/countries/dates/species → full/compact/minimal/species).
   expect(await stats()).toEqual([
-    { n: "visit", p: "settings" },
-    { n: "visit", p: "collage" },
+    // A visit also carries the browser language's primary subtag (l: "en" under Playwright's en-US).
+    { n: "visit", p: "settings", l: expect.stringMatching(/^[a-z]{2,3}$/) },
+    { n: "visit", p: "collage", l: expect.stringMatching(/^[a-z]{2,3}$/) },
     { n: "image_downloaded", p: "story" },
     { n: "image_downloaded", p: "square" },
     { n: "link_copied", p: expect.stringMatching(/^(full|compact|minimal|species)$/) },
@@ -235,49 +348,113 @@ test("Share image counts `shared` when the share sheet resolves, nothing when it
 });
 
 // The dialog never scrolls sideways, whatever the format, the window width or the name's length: the format control
-// fits its column (Square was added later and pushed it out once). The preview is one box for every format, so the
-// controls' column, and with it the format control (its icons), never changes with the format.
+// fits its column (Square was added later and pushed it out once). The preview takes the shown image's own shape, so
+// nothing is letterboxed (Yusuf, 2026-11-15: no story between grey bands), centred in an area the story's size (the
+// story fills it; a post or square sits in its middle); the controls' column keeps its width, and the format control
+// and Share image their places, whatever the format.
 // SHOT_DIR (optional) saves each width and format, light and dark, there.
-test("the dialog never scrolls sideways at 390, 768, 1000 and 1280px, with a long name, in every format", async ({ page }, info) => {
-  test.setTimeout(180_000);
+test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in every format, nor at 320px with large text; the preview hugs the image", async ({ page }, info) => {
+  test.setTimeout(240_000);
   const shots = process.env.SHOT_DIR;
   const dialog = await openShare(page);
   await dialog.getByLabel("Collage title").fill("Maximiliana Featherstonehaugh-Ravensworth");
-  for (const width of [1280, 1000, 768, 390]) {
+  const aspect: Record<string, number> = { Story: 9 / 16, Post: 4 / 5, Square: 1 };
+  for (const width of [1440, 1280, 1000, 768, 440, 390, 320]) {
     await page.setViewportSize({ width, height: 800 });
-    const seen: { format: string; col: number; preview: number; icons: boolean }[] = [];
+    const seen: { format: string; col: number; icons: boolean; segX: number; segY: number; midY: number; midX: number; boxR: number; share: string }[] = [];
     for (const format of ["Story", "Post", "Square"]) {
       await dialog.getByRole("button", { name: new RegExp(`^${format}`) }).click();
+      await expect(dialog.getByTestId("share-preview")).toHaveAttribute("data-format", format.toLowerCase(), { timeout: 30_000 });
+      await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+      await page.waitForTimeout(350); // the box's width transition
       const m = await dialog.evaluate((d) => {
+        d.scrollTop = 0;
         const seg = d.querySelector(".eb-seg")!.getBoundingClientRect();
+        const formats = d.querySelector(".eb-share-formats")!.getBoundingClientRect();
         const col = d.querySelector(".eb-share-controls")!.getBoundingClientRect();
         const icon = d.querySelector(".eb-seg-btn svg")!;
+        const box = d.querySelector('[data-testid="share-preview"]')!;
+        const img = box.querySelector("img")!;
+        const b = box.getBoundingClientRect();
+        const share = [...d.querySelectorAll("button")].find((x) => x.textContent!.includes("Share image"))!.getBoundingClientRect();
         return {
-          sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - col.right, col: col.width,
-          preview: d.querySelector('[data-testid="share-preview"]')!.getBoundingClientRect().width,
+          midY: b.y + b.height / 2, midX: b.x + b.width / 2, boxR: b.right,
+          share: [share.x, share.y, share.width, share.height].map(Math.round).join(","),
+          sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - formats.right, col: col.width, segX: seg.x, segY: seg.y,
+          swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
+          bw: box.clientWidth, bh: box.clientHeight, iw: img.getBoundingClientRect().width, ih: img.getBoundingClientRect().height,
           icons: getComputedStyle(icon).display !== "none",
         };
       });
       expect(m.sw, `${format} at ${width}px: the dialog scrolls sideways`).toBeLessThanOrEqual(m.cw);
       expect(m.over, `${format} at ${width}px: the format control sticks out of its column`).toBeLessThanOrEqual(0.5);
-      seen.push({ format, col: m.col, preview: m.preview, icons: m.icons });
+      expect(m.swOver, `${format} at ${width}px: "Show latest lifer" sticks out of its column`).toBeLessThanOrEqual(0.5);
+      // The box has the image's shape (no bands), and the image fills it.
+      expect(m.bw / m.bh, `${format} at ${width}px: the preview box isn't the image's shape`).toBeCloseTo(aspect[format], 1);
+      expect(m.iw, `${format} at ${width}px: the image doesn't fill its box`).toBeGreaterThanOrEqual(m.bw - 1);
+      expect(m.ih, `${format} at ${width}px: the image doesn't fill its box`).toBeGreaterThanOrEqual(m.bh - 1);
+      // Beside the controls in an 800px-tall window, the story is the dialog's height: well over twice the old 400px box's area.
+      if (width >= 1000 && format === "Story") expect(m.bh, `the story at ${width}px is short`).toBeGreaterThanOrEqual(600);
+      // No preview is wider than 560px, so the widest dialog stays close to a story's.
+      expect(m.bw, `${format} at ${width}px: the preview is wider than 560px`).toBeLessThanOrEqual(560.5);
+      // Stacked on a phone, the tallest preview still leaves Share image on the dialog's first screen, with air under it.
+      if (width < 720 && format === "Story") {
+        const g = await dialog.evaluate((d) => {
+          d.scrollTop = 0;
+          const bottom = d.getBoundingClientRect().bottom;
+          const btn = (t: string) => [...d.querySelectorAll("button")].find((b) => b.textContent!.includes(t))!.getBoundingClientRect();
+          return { air: bottom - btn("Share image").bottom, peek: bottom - btn("Download image").top };
+        });
+        expect(g.air, `at ${width}px Share image is not on the first screen with air under it`).toBeGreaterThanOrEqual(12);
+        expect(g.peek, `at ${width}px the Download row doesn't show its top as a scroll cue`).toBeGreaterThanOrEqual(width >= 390 ? 12 : 4);
+      }
+      seen.push({ format, col: m.col, icons: m.icons, segX: m.segX, segY: m.segY, midY: m.midY, midX: m.midX, boxR: m.boxR, share: m.share });
       if (shots) {
-        await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+        const dark = dialog.getByRole("switch", { name: "Dark image" });
         for (const theme of ["light", "dark"]) {
-          await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+          if ((await dark.getAttribute("aria-checked")) !== String(theme === "dark")) await dark.click();
           await page.waitForTimeout(300); // the image re-renders in the theme
           await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
           await dialog.screenshot({ path: `${shots}/after-share-${width}-${format.toLowerCase()}-${theme}-${info.project.name}.png` });
         }
-        await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+        if ((await dark.getAttribute("aria-checked")) === "true") await dark.click();
       }
     }
     for (const s of seen.slice(1)) {
       expect(s.col, `${s.format} at ${width}px: the controls' column changed with the format`).toBeCloseTo(seen[0].col, 0);
-      expect(s.preview, `${s.format} at ${width}px: the preview changed width with the format`).toBeCloseTo(seen[0].preview, 0);
       expect(s.icons, `${s.format} at ${width}px: the format icons came or went with the format`).toBe(seen[0].icons);
+      // The format control and Share image stay put at every width: beside the preview the dialog keeps its height and
+      // grows leftward from fixed right and top edges; stacked, the control sits above the preview's area, Share image
+      // under it, and the dialog keeps its top.
+      expect(s.segX, `${s.format} at ${width}px: the format control moved sideways`).toBeCloseTo(seen[0].segX, 0);
+      expect(s.segY, `${s.format} at ${width}px: the format control moved up or down`).toBeCloseTo(seen[0].segY, 0);
+      expect(s.share, `${s.format} at ${width}px: Share image moved`).toBe(seen[0].share);
+      // Centred in the story's area: the same middle as the story's (beside the controls the area's right edge is the
+      // box's own, and its left edge follows the format; stacked, the box is centred across the dialog too).
+      expect(s.midY, `${s.format} at ${width}px: the preview isn't centred in its area`).toBeCloseTo(seen[0].midY, 0);
+      if (width >= 720) expect(s.boxR, `${s.format} at ${width}px: the preview's right edge moved`).toBeCloseTo(seen[0].boxR, 0);
+      else expect(s.midX, `${s.format} at ${width}px: the preview isn't centred across`).toBeCloseTo(seen[0].midX, 0);
     }
     // Wide windows have room for the icons beside the preview.
     if (width >= 1000) expect(seen[0].icons, `at ${width}px the format control has its icons`).toBe(true);
   }
+  // A larger text size on a small phone (root font 150% and 200% at 320px, as a reader's setting makes it): the
+  // switch's label keeps its 16px and wraps rather than pushing the dialog wider.
+  await page.setViewportSize({ width: 320, height: 800 });
+  for (const size of ["150%", "200%"]) {
+    await page.evaluate((s) => { document.documentElement.style.fontSize = s; }, size);
+    const m = await dialog.evaluate((d) => {
+      const col = d.querySelector(".eb-share-controls")!.getBoundingClientRect();
+      const words = [...d.querySelectorAll(".eb-seg-label")].map((l) => l.getBoundingClientRect());
+      const btns = [...d.querySelectorAll(".eb-seg-btn")].map((l) => l.getBoundingClientRect());
+      return {
+        sw: d.scrollWidth, cw: d.clientWidth, swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
+        wordOver: Math.max(...words.map((w, i) => Math.max(btns[i].left - w.left, w.right - btns[i].right))),
+      };
+    });
+    expect(m.sw, `at 320px and ${size} text: the dialog scrolls sideways`).toBeLessThanOrEqual(m.cw);
+    expect(m.swOver, `at 320px and ${size} text: "Show latest lifer" sticks out of its column`).toBeLessThanOrEqual(0.5);
+    expect(m.wordOver, `at 320px and ${size} text: a format's word sticks out of its button`).toBeLessThanOrEqual(0.5);
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
 });

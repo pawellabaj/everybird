@@ -30,3 +30,16 @@ already splits 27 of the 32 groups, so their names match eBird's directly. It st
 No rule: European Robin (`Erithacus rubecula`; iNat keeps Canary Islands Robin, eBird `cairob1`, as ssp. *superbus*).
 No region tells Tenerife and Gran Canaria from the other Canaries, and a rule would flag every European Robin as
 "Assigned by region"; an iNat robin, *superbus* included, counts as European Robin.
+
+## observation.org
+
+The observation.org import (`src/lib/import/obsorg.ts`) reuses this file after its own exact match, and keeps one
+synonym of its own in code, `OBSORG_SYNONYMS` (not in `data/inat-synonyms.json`, so iNaturalist matching and the data
+files are unchanged):
+
+- `Milvus aegyptius` -> blakit1 Black Kite. observation.org lists Yellow-billed Kite as a species; eBird keeps it as a
+  group of Black Kite (`Milvus migrans aegyptius/parasitus`, an issf), so the bird counts as Black Kite.
+
+`Corvus cornix` (Hooded Crow, hoocro1) needs no entry: it is a full eBird species and matches exactly. Of the region
+rules above, observation.org uses only the subspecies tables (a subspecies row of a lumped species, such as
+`Muscicapa striata tyrrhenica`, takes its split's species); a species row keeps the birder's own identification.

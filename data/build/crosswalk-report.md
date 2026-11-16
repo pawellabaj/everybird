@@ -6,6 +6,7 @@
 - Multi-candidate choices: 0; scientific-name fallbacks: 22; huashu orphans: 0
 - From huashu forms (a subspecies drawing of that very taxon): 22
 - No sticker because huashu has them only inside another species (lumped): 0
+- With an IUCN status: 10100; About's credit "BirdLife v10 via AviList v2026" matches huashu's sources: yes
 
 ## Multi-candidate choices (0)
 
@@ -1025,6 +1026,55 @@ _none_
 - slafin1 (Slaty Finch): 19 g from family Thraupidae
 - purbul3 (St. Kitts Bullfinch): 19 g from family Thraupidae
 - cubbul3 (Grand Cayman Bullfinch): 19 g from family Thraupidae
+
+## No status: huashu's taxon is not eBird's (34)
+
+- polswi2 (Polynesian Swiftlet): broadened, LC
+- fotswi (Pacific Swift): broadened, LC
+- boorat1 (White-booted Racket-tail): broadened, LC
+- wetsab1 (Wedge-tailed Sabrewing): broadened, LC
+- purswa1 (Western Swamphen): broadened, LC
+- santer1 (Sandwich Tern): broadened, LC
+- whnpet (White-necked Petrel): broadened, VU
+- shshaw (Sharp-shinned Hawk): broadened, LC
+- combuz1 (Common Buzzard): broadened, LC
+- ausmao7 (Australasian Masked-Owl): broadened, LC
+- afsowl1 (African Scops-Owl): broadened, LC
+- madsco1 (Madagascar Scops-Owl): broadened, LC
+- nopowl (Northern Pygmy-Owl): broadened, LC
+- tawowl1 (Tawny Owl): broadened, LC
+- tuakin2 (Tuamotu Kingfisher): new, CR
+- barbro2 (Ayeyarwady Broadbill): split, LC
+- barbro3 (Black-and-red Broadbill): narrowed, LC
+- whcela1 (White-crested Elaenia): broadened, LC
+- crocht1 (Crowned Chat-Tyrant): broadened, LC
+- macbow2 (MacGregor's Bowerbird): broadened, LC
+- scamin3 (Orange Minivet): broadened, LC
+- drawhi1 (Drab Whistler): broadened, LC
+- glmman2 (Glossy-mantled Manucode): broadened, LC
+- carcro1 (Carrion Crow): broadened, LC
+- grbcam1 (Green-backed Camaroptera): broadened, LC
+- malbrw1 (Malagasy Brush-Warbler): broadened, LC
+- yesbul1 (Yellow-streaked Greenbul): broadened, LC
+- tilwar2 (Timor Leaf Warbler): broadened, LC
+- madwhe1 (Malagasy White-eye): broadened, LC
+- shtbab1 (Short-tailed Babbler): broadened, NT
+- chtsta2 (Chestnut-tailed Starling): broadened, LC
+- whbcha2 (Arnot's Chat): broadened, LC
+- roypar1 (Royal Parrotfinch): broadened, LC
+- origre (Oriental Greenfinch): broadened, LC
+
+## No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species) (0)
+
+_none_
+
+## Unrecognised IUCN values (0)
+
+_none_
+
+## IUCN status sources cited by huashu (records) (1)
+
+- AviList v2026（BirdLife v10）: 10140
 
 ## Huashu records matching no eBird species (0)
 

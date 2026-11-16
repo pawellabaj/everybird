@@ -41,22 +41,7 @@
 .eb-menubtn svg { width: 20px; height: 20px; }
 .eb-menubtn[aria-expanded="true"] { border-color: var(--line); }
 @media (pointer: coarse) { .eb-menubtn { width: 44px; } }
-.eb-menu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 9; display: flex; flex-direction: column; min-width: 200px; padding: 4px;
-  background: var(--paper); border: 1px solid var(--hairline); box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
-  border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
-  animation: eb-menu-in .16s var(--ease-ui);
-}
-@keyframes eb-menu-in { from { opacity: 0; translate: 0 -4px; } }
-.eb-menuitem {
-  display: flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--ink);
-  font: inherit; font-size: 15px; font-weight: 500; text-align: left; white-space: nowrap; cursor: pointer;
-  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
-}
-.eb-menuitem[data-danger] { color: var(--accent); }
-.eb-menuitem:focus { outline: none; }
-.eb-menuitem:focus-visible, .eb-menuitem:focus { background: var(--surface); }
-@media (hover: hover) and (pointer: fine) { .eb-menuitem:hover { background: var(--surface); } }
+/* Its popover and rows, .eb-menu and .eb-menuitem: app.css, shared with the top bar's language menu. */
 
 /* Under a row: the Add panel (guidance, the drop zone or the username field, the how-to), the skipped entries, the
    Remove question, the live status. */
@@ -90,6 +75,10 @@
 .eb-src-formrow > .eb-btn { flex: none; }
 .eb-src-status { padding: 0 16px 12px; }
 .eb-src-status:empty { padding: 0; }
+/* The lifer-only note under the eBird rows: one sentence at the rows' title edge (16px), its "Add MyEBirdData" an
+   inline link in Accent (a row has one button; links in notes are Accent). */
+.eb-lifer-note { max-width: calc(62ch + 32px); box-sizing: border-box; }
+.eb-lifer-note a { color: var(--accent); font-weight: 600; text-decoration-thickness: from-font; text-underline-offset: 3px; }
 .eb-btn-sm { min-height: 40px; padding: 0 14px; font-size: 14px; }
 @media (pointer: coarse) { .eb-btn-sm { min-height: 44px; } }
 .eb-filedrop { border-radius: 12px; transition: background-color .15s cubic-bezier(.25, .8, .25, 1), box-shadow .15s cubic-bezier(.25, .8, .25, 1); }
@@ -98,6 +87,7 @@
 @media (pointer: coarse) { .eb-drop-hint { display: none; } }
 @media (max-width: 479px) {
   .eb-src-main { padding: 12px 14px; }
+  .eb-src-status { padding-left: 14px; padding-right: 14px; } /* the notes under the rows keep the rows' title edge */
   .eb-src-panel, .eb-src-why { margin-left: 14px; margin-right: 14px; padding: 12px; }
   .eb-dropzone > .eb-btn { flex: 1 1 100%; }
   .eb-src-formrow > .eb-input { flex-basis: 100%; }
@@ -124,7 +114,6 @@
 .eb-disclose[data-phase] .eb-disclose-inner { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .eb-disclose, .eb-disclose-btn svg, .eb-src-how svg, .eb-filedrop, .eb-dropzone { transition: none; }
-  .eb-menu { animation: none; }
 }
 
 .eb-label {

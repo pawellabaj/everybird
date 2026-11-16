@@ -1,4 +1,5 @@
-// Builds sticker variants (long side 128 and 384, trimmed webp), collision masks and `ar`.
+// Builds screen variants (128/384), collision masks and `ar`; --tier 1024 builds only R2 print files.
+// --tier 1024 [--codes a,b] [--force] never writes masks, species, README or LICENSE.
 // Run AFTER build-species: npx tsx scripts/build-data/build-stickers.ts [--force | --codes a,b,...]
 // --codes regenerates just those codes (e.g. the ones check-stickers.ts reports) and merges their masks and `ar` into
 // the committed public/data/masks/*.json and species.v1.json, so it needs no other sticker on disk; species without
@@ -14,16 +15,17 @@ import { pathToFileURL } from 'node:url'
 import sharp from 'sharp'
 import { maskFromAlpha } from '../../src/lib/layout/mask'
 import type { Overrides, SpeciesFile, SpeciesRow } from '../../src/lib/species/types'
-import { LARGE, SMALL, stickerPath } from '../../src/lib/sticker-url'
+import { LARGE, SMALL, PRINT, stickerPath, type StickerSize } from '../../src/lib/sticker-url'
 import { loadEbirdTaxonomy, loadHuashu, matchHuashu } from './build-species'
 import { assertRawPinned, assertShippedSource, readLock } from './huashu-pin'
 
+export const PRINT_WEBP = { quality: 80, effort: 4 } as const
 const WEBP = { quality: 80, effort: 6 } as const
 
 export type Variants = { v128: Buffer; v384: Buffer; ar: number }
 
-/** Alpha-bbox trim, then long-side 128 and 384 webp. ar = width/height of the 384 variant. */
-export async function makeVariants(input: Buffer | string): Promise<Variants> {
+/** Alpha-bbox trim shared by the screen and print variants. */
+async function trimmedRaw(input: Buffer | string) {
   const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   let x0 = info.width, y0 = info.height, x1 = -1, y1 = -1
   for (let y = 0; y < info.height; y++) {
@@ -38,12 +40,38 @@ export async function makeVariants(input: Buffer | string): Promise<Variants> {
   }
   if (x1 < 0) throw new Error('sticker is fully transparent')
   const crop = { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .extract(crop).raw().toBuffer({ resolveWithObject: true })
+}
+
+/** Alpha-bbox trim, then long-side 128 and 384 webp. ar = width/height of the 384 variant. */
+export async function makeVariants(input: Buffer | string): Promise<Variants> {
+  return variantsOf(await trimmedRaw(input))
+}
+
+type Trimmed = Awaited<ReturnType<typeof trimmedRaw>>
+
+async function variantsOf({ data, info }: Trimmed): Promise<Variants> {
   const variant = (size: number) =>
-    sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
-      .extract(crop).resize(size, size, { fit: 'inside', kernel: 'lanczos3' }).webp(WEBP).toBuffer()
+    sharp(data, { raw: info }).resize(size, size, { fit: 'inside', kernel: 'lanczos3' }).webp(WEBP).toBuffer()
   const [v128, v384] = await Promise.all([variant(128), variant(384)])
   const m = await sharp(v384).metadata()
   return { v128, v384, ar: Math.round((m.width! / m.height!) * 10000) / 10000 }
+}
+
+/** Print never enlarges the original drawing. */
+export async function makePrintVariant(input: Buffer | string): Promise<Buffer> {
+  return printOf(await trimmedRaw(input))
+}
+
+function printOf({ data, info }: Trimmed): Promise<Buffer> {
+  return sharp(data, { raw: info })
+    .resize(PRINT, PRINT, { fit: 'inside', kernel: 'lanczos3', withoutEnlargement: true }).webp(PRINT_WEBP).toBuffer()
+}
+
+/** One 384 file per rebuilt code, regardless of how many other tiers were written. */
+export function stickerCount(written: readonly string[]): number {
+  return written.filter((f) => f.startsWith('v1/384/')).length
 }
 
 export async function maskOf(webp: Buffer | string): Promise<{ mask: [number, number, string]; ar: number }> {
@@ -87,6 +115,7 @@ export function writeMaskTables(dir: string, tables: MaskTables): void {
 export async function updateStickers(o: {
   rows: SpeciesRow[]; codes: ReadonlySet<string>; source: (code: string) => string; out: string; masks: MaskTables
   concurrency?: number
+  sizes?: readonly StickerSize[]
   /** Called with each source's bytes before it is built; throw to refuse (build-stickers checks the lock). */
   check?: (code: string, source: Buffer) => void
 }): Promise<string[]> {
@@ -107,8 +136,11 @@ export async function updateStickers(o: {
     if (codes.has(row.code)) {
       const src = readFileSync(o.source(row.code))
       o.check?.(row.code, src)
-      const v = await makeVariants(src)
-      for (const [size, buf] of [[SMALL, v.v128], [LARGE, v.v384]] as const) {
+      // One decode and trim feeds every tier.
+      const trimmed = await trimmedRaw(src)
+      const v = await variantsOf(trimmed)
+      for (const size of new Set<StickerSize>(o.sizes ?? [SMALL, LARGE])) {
+        const buf = size === PRINT ? await printOf(trimmed) : size === SMALL ? v.v128 : v.v384
         const rel = stickerPath(row.code, size, row.sv)
         mkdirSync(resolve(out, rel, '..'), { recursive: true })
         writeFileSync(resolve(out, rel), buf)
@@ -147,6 +179,7 @@ and 384 px (\`v1/384/<ebird-code>.webp\`). Names are eBird species codes. Where 
 species share one huashu sticker, each code gets its own copy. A sticker added or redrawn after v1 is
 saved under a versioned name, \`<ebird-code>.<sv>.webp\` (sv: the start of its huashu file's git blob SHA), so a
 published file is never replaced at its URL.
+1024 px print files live only on the R2 host.
 
 Source commit: ${commit} (https://github.com/alchaincyf/huashu-bird-sticker/commit/${commit})
 
@@ -157,6 +190,9 @@ Licensed under CC BY 4.0, see LICENSE. Credit "Stickers: huashu-bird-sticker, CC
 async function main() {
   process.env.UV_THREADPOOL_SIZE ||= '16' // only effective if set before the first threadpool use
   const force = process.argv.includes('--force')
+  const ti = process.argv.indexOf('--tier')
+  if (ti >= 0 && process.argv[ti + 1] !== '1024') throw new Error('--tier supports only 1024')
+  const printOnly = ti >= 0
   const ci = process.argv.indexOf('--codes')
   const only = ci >= 0 ? new Set((process.argv[ci + 1] ?? '').split(',').map((c) => c.trim()).filter(Boolean)) : null
   if (only && !only.size) throw new Error('--codes needs a comma-separated list of codes')
@@ -179,8 +215,6 @@ async function main() {
   const file = JSON.parse(readFileSync(speciesPath, 'utf8')) as SpeciesFile
   const out = resolve(cwd, process.env.STICKERS_OUT ?? '../everybird-stickers')
   const dirs = { 128: resolve(out, 'v1/128'), 384: resolve(out, 'v1/384') }
-  mkdirSync(dirs[128], { recursive: true })
-  mkdirSync(dirs[384], { recursive: true })
   sharp.concurrency(1) // parallelism comes from the pool; UV_THREADPOOL_SIZE must be >= pool size (set in main)
 
   const todo = file.species.filter((s) => s.st)
@@ -189,13 +223,30 @@ async function main() {
     if (!rec?.sticker) throw new Error(`${code}: st:true but no matched sticker (run build-species first)`)
     return resolve(huashuDir, rec.sticker.file)
   }
+  if (printOnly) {
+    let built = 0, skipped = 0
+    await pool(todo.filter((row) => !only || only.has(row.code)), 10, async (row) => {
+      const src = readFileSync(sourceOf(row.code))
+      check(row.code, src)
+      const dest = resolve(out, stickerPath(row.code, PRINT, row.sv))
+      if (!force && existsSync(dest)) { skipped++; return }
+      const buf = await makePrintVariant(src)
+      mkdirSync(resolve(dest, '..'), { recursive: true })
+      writeFileSync(dest, buf)
+      built++
+    })
+    console.log(`print stickers: ${built} built, ${skipped} reused, ${((Date.now() - t0) / 1000).toFixed(0)}s`)
+    return
+  }
+  mkdirSync(dirs[128], { recursive: true })
+  mkdirSync(dirs[384], { recursive: true })
   const maskDir = resolve(cwd, 'public/data/masks')
   if (only) {
     const masks = readMaskTables(maskDir)
     const written = await updateStickers({ rows: file.species, codes: only, source: sourceOf, out, masks, concurrency: 10, check })
     writeMaskTables(maskDir, masks)
     writeFileSync(speciesPath, JSON.stringify(file))
-    console.log(`stickers: ${written.length / 2} rebuilt, masks merged, ${((Date.now() - t0) / 1000).toFixed(0)}s`)
+    console.log(`stickers: ${stickerCount(written)} rebuilt, masks merged, ${((Date.now() - t0) / 1000).toFixed(0)}s`)
     return
   }
   const masks = new Map<string, Record<string, Mask>>()

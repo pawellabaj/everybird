@@ -33,6 +33,9 @@
 .eb-count { color: var(--muted); font-style: normal; font-variant-numeric: tabular-nums; font-weight: 500; }
 /* A country's flag (components/Flag.tsx), as yusuftaleb.com's places: 18×13, 2px corners. */
 .eb-flag { display: block; width: 18px; height: 13px; border-radius: 2px; object-fit: cover; flex: none; }
+.eb-flag-slot { display: flex; align-items: center; justify-content: center; width: 18px; height: 13px; flex: none; }
+.eb-continent-globe { display: block; flex: none; color: var(--muted); }
+.eb-check[data-checked] .eb-continent-globe { color: var(--ink); }
 .eb-chip-icon { width: 16px; height: 16px; flex: none; }
 @media (hover: hover) and (pointer: fine) {
   .eb-path button:hover { opacity: 1; }
@@ -66,8 +69,8 @@
 @keyframes eb-sheet-up { from { opacity: 0; transform: translateY(16px); } }
 @keyframes eb-fade-in { from { opacity: 0; } }
 
-/* The Places and Time dropdowns (FilterDropdowns.tsx): a popover under the controls bar (Places at the bar's right,
-   under its button; Time across the bar, for the timeline), or the phone's bottom sheet. */
+/* The Filters panel (Filters.tsx): a popover under the chip row inside the controls bar's wrap (the dock's full width),
+   or the phone's bottom sheet. Time across the top, Places (2/3) and Conservation status (1/3) side by side below it. */
 .eb-drop {
   position: absolute; z-index: 9; top: calc(100% + 6px); right: 0; width: min(380px, 100%); box-sizing: border-box;
   max-height: min(70vh, 560px); display: flex; flex-direction: column;
@@ -77,10 +80,39 @@
   animation: eb-fade-in .15s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both;
   font-size: 14px; font-weight: 500;
 }
-.eb-drop[data-kind="time"] { left: 0; width: auto; }
+.eb-drop[data-kind="filters"] { left: 0; right: 0; width: auto; max-height: 70vh; }
 .eb-drop:focus, .eb-drop-sheet:focus { outline: none; }
 .eb-drop-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 16px; }
 .eb-drop-sheet .eb-drop-body { padding: 4px 16px 18px; }
+.eb-drop-sheet .eb-sheet-head { padding-left: 16px; } /* the title over the panel's own head, at the body's 16px */
+/* The panel's body: the head, Time, then the Places and Status columns, whose lists scroll inside them (the popover
+   only: the sheet renders no row and its body scrolls as one). Flexbox, not grid: the flex column under max-height
+   shrinks the row and the lists scroll. */
+.eb-drop[data-kind="filters"] .eb-drop-body { display: flex; flex-direction: column; gap: 16px; }
+.eb-fpanel-headrow { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.eb-drop[data-kind="filters"] .eb-fpanel-head { flex: none; margin: 0; }
+.eb-sheet-head .eb-textbtn { margin-left: auto; flex: none; }
+.eb-drop[data-kind="filters"] [data-sec="time"] { flex: none; }
+.eb-drop[data-kind="filters"] .eb-fpanel-row { display: flex; gap: 0; flex: 1 1 auto; min-height: 0; }
+/* Hairline rules between sections, no cards: full width under Time, a vertical one between Places and Status running the
+   row's full height (24px either side), the sheet's stacked sections divided by a horizontal one. Every section under a
+   rule has 16px above its head. No Time, no top rule; no Status, no vertical one. */
+.eb-drop[data-kind="filters"] [data-sec="time"] + .eb-fpanel-row { border-top: 1px solid var(--hairline); }
+.eb-drop[data-kind="filters"] [data-sec="time"] + .eb-fpanel-row > .eb-fsec { padding-top: 16px; }
+.eb-fpanel-row > [data-sec="places"] + [data-sec="status"] { border-left: 1px solid var(--hairline); padding-left: 24px; }
+.eb-fpanel-row > [data-sec="places"]:has(+ [data-sec="status"]) { padding-right: 24px; }
+.eb-drop-sheet .eb-fsec + .eb-fsec { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--hairline); }
+.eb-fpanel-row > [data-sec="places"] { flex: 2 1 0; }
+.eb-fpanel-row > [data-sec="status"] { flex: 1 1 0; }
+.eb-fpanel-row > .eb-fsec { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.eb-drop[data-kind="filters"] .eb-fpanel-row .eb-places { flex: 1 1 auto; min-height: 0; }
+.eb-drop[data-kind="filters"] .eb-fpanel-row .eb-checklist { flex: 1 1 auto; min-height: 132px; overflow-y: auto; overscroll-behavior: contain; }
+.eb-fsec { outline: none; }
+.eb-fsec-title { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: inherit; font-weight: 500; }
+.eb-fsec-title svg { width: 16px; height: 16px; flex: none; }
+.eb-fpanel-foot { padding: 8px 16px 12px; border-top: 1px solid var(--hairline); }
+.eb-fpanel-foot .eb-btn { width: 100%; }
+.eb-dockwrap > .eb-chiprow { margin-top: 12px; }
 /* Places: a checklist of countries, each row a real checkbox: box, flag, name, count (species seen there). */
 .eb-places { display: flex; flex-direction: column; gap: 10px; }
 .eb-places-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; }
@@ -90,7 +122,6 @@
 .eb-checklist { list-style: none; margin: 0 -8px; padding: 0; display: flex; flex-direction: column; }
 .eb-check {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; cursor: pointer;
-  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   -webkit-tap-highlight-color: transparent;
 }
 .eb-check input {
@@ -104,14 +135,58 @@
 .eb-check input:checked { background: var(--accent); border-color: var(--accent); }
 .eb-check input:checked::after { transform: rotate(-45deg) scale(1); }
 .eb-check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.eb-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Long names ("South Georgia and the South Sandwich Islands") wrap onto a second line rather than being cut off. */
+.eb-check-name { flex: 1; min-width: 0; padding-block: 6px; overflow-wrap: break-word; }
 .eb-check[data-checked] .eb-check-name { font-weight: 600; }
 .eb-check-none { padding: 8px; }
+/* Drilling down (PlacesDrill.tsx): a level's list rises in as the taxonomy's levels do; a row with places under it
+   ends in a drill button beside its label (never inside it), the site's chevron turned to point in. The breadcrumb
+   is the taxonomy's .eb-path, its steps given a 44px press. */
+.eb-places-level { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; }
+/* The row (checkbox label and drill button) is one hover target: its Surface reaches the chevron. */
+.eb-places-row {
+  display: flex; align-items: center;
+  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+}
+.eb-places-row .eb-check { flex: 1; min-width: 0; }
+/* Status (StatusList.tsx): one checklist, each row the box, the Red List pill (card-list.css .eb-iucn), the full name
+   and the count; the row is the hover target, as a Places row is. */
+.eb-status-row { border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
+/* The names are few and fixed, so a long one ("Critically Endangered", "Extinct in the Wild") wraps rather than cut at
+   260px or 200% text. */
+.eb-status-row .eb-check-name { white-space: normal; }
+.eb-drill {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; background: none;
+  color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: color .15s ease;
+}
+.eb-drill-space { flex: none; width: 44px; }
+.eb-drill svg { width: 18px; height: 18px; transform: rotate(-90deg); }
+.eb-drill:focus-visible { color: var(--ink); }
+.eb-places-path { animation: eb-rise .24s var(--eb-ease, cubic-bezier(.16, 1, .3, 1)) both; } /* the sheet sits outside .eb-view */
+.eb-places-path button { position: relative; }
+.eb-places-path button::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100% + 8px, 44px); height: 44px; transform: translate(-50%, -50%); }
 @media (hover: hover) and (pointer: fine) {
-  .eb-check:hover { background: var(--surface); }
+  .eb-places-row:hover, .eb-status-row:hover { background: var(--surface); }
+  .eb-drill:hover { color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) {
   .eb-chip, .eb-check input::after { transition: none; }
   .eb-drop { animation: none; }
-  .eb-sheet, .eb-path, .eb-path + .eb-level, .eb-path + .eb-pick { animation-name: eb-fade-in; }
+  .eb-sheet, .eb-path, .eb-path + .eb-level, .eb-path + .eb-pick, .eb-places-level { animation-name: eb-fade-in; }
+  .eb-drill { transition: none; }
 }
+
+/* The chip row under the dock (ChipRow.tsx): the taxonomy chip's shape, always in its active state. */
+.eb-chiprow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; }
+.eb-chiprow .eb-chip { border-color: var(--accent); color: var(--accent); max-width: 100%; padding-right: 6px; }
+.eb-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The ×: a 20px square-ish press holding a 14px cross. */
+.eb-chip-x-icon, .eb-chip-x { box-sizing: border-box; width: 20px; height: 20px; flex: none; border-radius: calc(6px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
+.eb-chip-x-icon { padding: 3px; }
+.eb-chip-x { display: grid; place-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; position: relative; }
+.eb-chip-x .eb-chip-x-icon { width: 14px; height: 14px; padding: 0; }
+.eb-chip-x::after { content: ''; position: absolute; inset: -12px -6px; } /* 44px press */
+.eb-chip-pair { padding: 0 6px 0 0; cursor: default; }
+.eb-chip-pair button { color: inherit; font: inherit; }
+.eb-chip-open { position: relative; display: inline-flex; align-items: center; min-width: 0; min-height: 30px; padding: 4px 4px 4px 12px; border: 0; background: none; cursor: pointer; }
+.eb-chip-open::after { content: ''; position: absolute; inset: -6px 0; }

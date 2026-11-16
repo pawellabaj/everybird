@@ -5,11 +5,14 @@
 // layout (birds outside it hidden, no re-pack); on release (or KEY_COMMIT_MS after the last key) the range is
 // committed: one re-pack, one travel. Layouts are cached by range. On phones the strip scrolls sideways; the handles are sliders for keyboards (arrows a
 // month, PageUp/PageDown a year, Home/End). Logic in src/lib/list/timeline.ts.
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
-import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeLabel, sliderKey, timeless, type Month } from '@/lib/list/timeline'
-import type { SeenIndex } from '@/lib/list/seen'
+import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeShort, sliderKey, timeless, yearLabels, type Month } from '@/lib/list/timeline'
+import { hasSeenMonths, type SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
 import './timeline.css'
 
@@ -32,10 +35,10 @@ type Props = {
   onPreview?: (r: { from?: Month; to?: Month } | null) => void
 }
 
-const n = (x: number) => x.toLocaleString('en-US')
-
 export const Timeline = memo(function Timeline({ entries, seen, filter, species, months, today, onFilter, onPreview }: Props) {
   const N = months.length
+  const baseId = useId()
+  const { t } = useI18n()
   // Bars count the birds of the other filters (birds, places) over the whole span, so the handles never jump.
   const others = useMemo(() => applyFilter(entries, timeless(filter), species, seen), [entries, filter, species, seen])
   const bins = useMemo(() => monthBins(others, today, entries), [others, today, entries])
@@ -44,6 +47,15 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   const frac = (i: number) => axis.start[i] / Math.max(1e-9, axis.units)
   const pct = (i: number) => `${frac(i) * 100}%`
   const chosen = useMemo(() => rangeIndices(filter, months), [filter, months])
+  // The basis switch is for lists with month sets (MyEBirdData, iNaturalist, observation.org observations); without, nothing changes by it.
+  const hasMonths = useMemo(() => hasSeenMonths(seen), [seen])
+  const basis = filter.basis === 'seen' ? 'seen' : 'lifer'
+  const setBasis = useCallback((b: 'lifer' | 'seen') => {
+    const next: Filter = { ...latest.current.filter }
+    if (b === 'seen') next.basis = 'seen'
+    else delete next.basis
+    latest.current.onFilter(next)
+  }, [])
   const [drag, setDrag] = useState<[number, number] | null>(null)
   const [lo, hi] = drag ?? chosen
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -51,7 +63,6 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   const dragging = useRef<{ which: 'lo' | 'hi' | null; x: number } | null>(null) // the handle a press drags
   const latest = useRef({ filter, months, onFilter, onPreview })
   useLayoutEffect(() => { latest.current = { filter, months, onFilter, onPreview } })
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
 
   /** Commit the previewed range: the filter changes (one re-pack) and the preview ends. */
   const commit = useCallback(() => {
@@ -85,6 +96,22 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
     prev?.(null)
     setDrag(null)
   }, [])
+
+  // A range pending from a key step is dropped when the filter's range changes from outside (the time chip's x, Clear elsewhere).
+  const ownRange = useRef(`${filter.from ?? ''}|${filter.to ?? ''}`)
+  useEffect(() => {
+    const k = `${filter.from ?? ''}|${filter.to ?? ''}`
+    if (k === ownRange.current) return
+    ownRange.current = k
+    if (!pending.current) return
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+    pending.current = null
+    latest.current.onPreview?.(null)
+    setDrag(null)
+  }, [filter.from, filter.to])
+  // Unmounting (the panel closing) with a range pending: the last key step was meant, so it is committed.
+  useEffect(() => () => { if (pending.current) commit(); else if (timer.current) clearTimeout(timer.current) }, [commit])
 
   // The track and its width (a month's width decides where the year labels fit).
   const track = useRef<HTMLDivElement>(null)
@@ -154,11 +181,11 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
       className: 'eb-time-handle',
       'data-end': which,
       'data-testid': `time-handle-${which}`,
-      'aria-label': which === 'lo' ? 'Start month' : 'End month',
+      'aria-label': which === 'lo' ? t.filters.timeline.start : t.filters.timeline.end,
       'aria-valuemin': min,
       'aria-valuemax': max,
       'aria-valuenow': v,
-      'aria-valuetext': monthName(months[v]),
+      'aria-valuetext': monthName(months[v], t),
       style: { left: pct(which === 'lo' ? lo : hi + 1) },
       onKeyDown: (e: React.KeyboardEvent) => {
         const next = sliderKey(e.key, v, min, max)
@@ -173,21 +200,14 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   // Readout: the range and its species.
   const ranged = lo > 0 || hi < N - 1
   const inRange = bins.counts.slice(lo, hi + 1).reduce((a, b) => a + b, 0) + (ranged ? 0 : bins.undated)
-  const read = `${ranged ? rangeLabel(months[lo], months[hi]) : `${monthShort(months[0])} to ${monthShort(months[N - 1])}`} · ${n(inRange)} species`
+  const span = ranged ? rangeShort(months[lo], months[hi], t) : N ? `${monthShort(months[0], t)}–${monthShort(months[N - 1], t)}` : ''
+  const read = `${span} · ${plural(t.collage.stats.species, inRange, { n: formatInt(inRange, t.num) })}`
 
-  if (!N) return <p className="eb-note" data-testid="timeline-empty">This list has no dates, so there is no timeline.</p>
+  if (!N) return <p className="eb-note" data-testid="timeline-empty">{t.filters.timeline.empty}</p>
   const width = `max(100%, ${axis.units * MONTH_PX}px)`
   const unitPx = trackPx ? trackPx / axis.units : MONTH_PX
-  // Year labels where they fit: at least 30px after the previous one and before the end.
-  const years: { m: Month; i: number }[] = []
-  let lastX = -Infinity
-  months.forEach((m, i) => {
-    if (!(m.endsWith('-01') || i === 0)) return
-    const x = axis.start[i] * unitPx
-    if (x - lastX < 30 || (i > 0 && (axis.units - axis.start[i]) * unitPx <= 28)) return
-    years.push({ m, i })
-    lastX = x
-  })
+  // Year labels where they fit (yearLabels: no two touch, a partial first year gives way to the next).
+  const years = yearLabels(months, axis, unitPx)
 
   return (
     <div className="eb-time" data-testid="timeline">
@@ -197,9 +217,37 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
           {read.split(' · ').map((part, i) => <span key={i}>{i > 0 && ' · '}<span className="eb-nowrap">{part}</span></span>)}
         </p>
         {ranged && (
-          <button type="button" className="eb-textbtn" data-testid="time-clear" onClick={clear}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="time-clear" onClick={clear}>{t.filters.clear}</button>
         )}
       </div>
+      {hasMonths && (
+        <div className="eb-time-basis">
+          <p className="eb-time-basis-label" id={`${baseId}-basis`}>{t.filters.basis.label}</p>
+          <div className="eb-time-basis-seg" role="radiogroup" aria-labelledby={`${baseId}-basis`} data-testid="time-basis">
+            {(['lifer', 'seen'] as const).map((b) => (
+              <button
+                key={b}
+                type="button"
+                role="radio"
+                aria-checked={basis === b}
+                tabIndex={basis === b ? 0 : -1}
+                className="eb-time-basis-btn"
+                data-testid={`time-basis-${b}`}
+                onClick={() => setBasis(b)}
+                onKeyDown={(e) => {
+                  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
+                  e.preventDefault()
+                  const other = b === 'lifer' ? 'seen' : 'lifer'
+                  setBasis(other)
+                  e.currentTarget.parentElement?.querySelector<HTMLElement>(`[data-testid="time-basis-${other}"]`)?.focus()
+                }}
+              >
+                {b === 'lifer' ? t.filters.basis.first : t.filters.basis.any}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div ref={scroller} className="eb-time-scroll" onScroll={edges} data-more={more || undefined}>
         <div ref={track} className="eb-time-track" style={{ width }} data-ranged={ranged ? '' : undefined}>
           <div className="eb-time-bars" aria-hidden="true">

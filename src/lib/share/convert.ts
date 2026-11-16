@@ -3,6 +3,7 @@ import { formatPlace, stripBracket } from '../import/places'
 import type { ListEntry, Place, SourceRecord } from '../list/model'
 import type { Regions } from '../species/types'
 import type { SharePayload } from './link'
+import { LEGACY_COUNTRY_NAMES } from './legacy-country-names'
 
 const BASE_YEAR = 1900
 const M_HEARD = 1, M_DEAD = 2, M_MEDIA = 4
@@ -54,23 +55,43 @@ export function payloadFromList(list: ListEntry[], regions: Regions, name?: stri
 
 /**
  * A shared payload as records for the store, plus the Regions to show them with. A place keeps its ISO2 country (for the
- * country filter and the map); its sub-region text rides on a synthetic sub1 so formatPlace prints the shared string.
+ * Places filter); the rest of its shared string, "Okanagan, British Columbia", splits at its last ", " into the county
+ * (before, commas and all) and the province (after), so the shared view's Places filter drills country > province >
+ * county from the strings links already carry. Each distinct province name in a country gets one synthetic sub1,
+ * "CA-share0", whose Regions name is that province, so formatPlace prints the shared string exactly. A string whose
+ * country the viewer's regions don't name, or that doesn't end with ", <country name>", stays whole on its synthetic
+ * sub1, with no county.
  */
 export function payloadToRecords(p: SharePayload, regions: Regions): { records: SourceRecord[]; regions: Regions } {
   const sub1: Record<string, string> = { ...regions.sub1 }
+  const provinceKey = new Map<string, string>()
+  let next = 0
+  const keyFor = (country: string | undefined, name: string): string => {
+    const id = `${country ?? ''}|${name}`
+    let key = provinceKey.get(id)
+    if (key === undefined) {
+      key = `${country ?? 'XX'}-share${next++}`
+      provinceKey.set(id, key)
+      sub1[key] = name
+    }
+    return key
+  }
   const placeOf = (i: number): Place | undefined => {
     const display = p.places?.[i]
     if (!display) return undefined
     const iso = p.countries?.[i]
     const country = iso && iso !== '--' ? iso : undefined
-    const cn = country && regions.countries[country] ? stripBracket(regions.countries[country]) : undefined
-    let sub: string | undefined = display
-    if (cn && display === cn) sub = undefined
-    else if (cn && display.endsWith(`, ${cn}`)) sub = display.slice(0, -(cn.length + 2))
-    if (!sub) return { country }
-    const key = `${country ?? 'XX'}-share${i}`
-    sub1[key] = sub
-    return { country, sub1: key }
+    const current = country && regions.countries[country] ? stripBracket(regions.countries[country]) : undefined
+    // A link made before the full country names ends its places with the old short name.
+    const legacy = country ? LEGACY_COUNTRY_NAMES[country] : undefined
+    if (current && display === current) return { country }
+    if (legacy && display === legacy) return { country }
+    const cn = current && display.endsWith(`, ${current}`) ? current : legacy && display.endsWith(`, ${legacy}`) ? legacy : undefined
+    if (!cn) return { country, sub1: keyFor(country, display) }
+    const sub = display.slice(0, -(cn.length + 2))
+    const cut = sub.lastIndexOf(', ')
+    if (cut < 0) return { country, sub1: keyFor(country, sub) }
+    return { country, sub1: keyFor(country, sub.slice(cut + 2)), sub2: sub.slice(0, cut) }
   }
   const cache = new Map<number, Place | undefined>()
   const records = p.birds.map((b): SourceRecord => {

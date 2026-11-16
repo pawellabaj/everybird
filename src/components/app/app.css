@@ -77,7 +77,8 @@
   text-decoration: underline; text-decoration-color: var(--hairline); text-underline-offset: 3px;
 }
 .eb-textbtn svg { width: 16px; height: 16px; flex: none; }
-.eb-textbtn::after { content: ''; position: absolute; inset: -4px 0; } /* drawn 36px, a 44px hit area */
+/* Drawn 36px, a 44px hit area; a short word ("Clear") gets 44px across too. */
+.eb-textbtn::after { content: ''; position: absolute; inset: -4px min(0px, calc(50% - 22px)); }
 
 /* The collage block: LifeList's column (12px between the stats line, the dock, the filters and the stage). */
 .eb-view { --eb-ease: cubic-bezier(.16, 1, .3, 1); display: flex; flex-direction: column; gap: 12px; min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.3; }
@@ -91,30 +92,35 @@
   position: relative; display: flex; align-items: center; gap: 4px; padding: 4px;
   border: 1px solid var(--hairline); border-radius: 16px; background: var(--paper);
 }
-/* Four groups: view tabs | True size, Scientific | Places, Time | search. 4px inside a group (LifeList's dock gap),
+/* Four groups: view tabs | True size, Scientific | Filters | search. 4px inside a group (LifeList's dock gap),
    12px between groups (a hairline would be one line too many in a bar this quiet). */
 .eb-dock-tabs, .eb-dock-tools, .eb-dock-filters, .eb-dock-end { display: flex; align-items: center; gap: 4px; transition: opacity .15s var(--eb-ease); }
 .eb-dock-tools { margin-left: auto; }
 .eb-dock-filters, .eb-dock-end { margin-left: 8px; } /* + the dock's 4px gap = 12px between groups */
 .eb-dock[data-finding] .eb-dock-tabs, .eb-dock[data-finding] .eb-dock-tools,
 .eb-dock[data-finding] .eb-dock-filters, .eb-dock[data-finding] .eb-dock-end { opacity: 0; pointer-events: none; }
-/* Places and Time: a Phosphor glyph, the label (and what it filters, " · 2"), a caret. Open: the pressed tab's Surface;
+/* Filters: a glyph, the label (and how many filter groups are on, " · 2"), a caret. Open: the pressed tab's Surface;
    filtering: Accent text, full opacity, 600 (selection, as a pressed tab). */
-.eb-dock-drop { gap: 8px; padding: 0 10px 0 12px; }
-.eb-dock-drop svg { width: 18px; height: 18px; }
+/* At every width the button can give way: the group may shrink, each drop may shrink (flex's default, said here so the rule
+   reads whole), and the label shrinks inside it with an ellipsis, so a long summary ("Time · 2022–2024") cuts its own
+   label and never pushes the magnifier out of the bar. The accessible name (aria-label) stays whole. Where nothing
+   overflows these change nothing. */
+.eb-dock-filters { min-width: 0; }
+.eb-dock-drop { flex: 0 1 auto; gap: 8px; padding: 0 10px 0 12px; }
+.eb-drop-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.eb-dock-drop svg:not(.eb-drop-caret) { width: 18px; height: 18px; } /* :not() outweighs .eb-dock-tab svg's 20px */
 .eb-dock-drop .eb-drop-caret { width: 14px; height: 14px; transition: transform .2s var(--eb-ease); }
 .eb-dock-drop[aria-expanded="true"] { opacity: 1; background: var(--surface); }
 .eb-dock-drop[aria-expanded="true"] .eb-drop-caret { transform: rotate(180deg); }
 .eb-dock-drop[data-active] { opacity: 1; color: var(--accent); font-weight: 600; }
 .eb-drop-sum { font-variant-numeric: tabular-nums; }
-/* Under 820px of bar (a tablet's or a phone's) the dropdowns take a second row under a Hairline, rather than squeeze
-   the first; the search keeps row one. Under 600px the two buttons split the row evenly and drop their carets. */
+/* Under 820px of bar (a tablet's or a phone's) the Filters button takes a second row under a Hairline, rather than
+   squeeze the first; the search keeps row one. Under 600px it fills the row and drops its caret. */
 @container (max-width: 819px) {
   .eb-dock { flex-wrap: wrap; row-gap: 4px; }
   .eb-dock-filters {
     order: 1; flex: 1 0 100%; margin: 0 -4px -4px; padding: 4px; gap: 4px; border-top: 1px solid var(--hairline);
   }
-  .eb-drop-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .eb-find { bottom: auto; height: 44px; }
   .eb-dock[data-finding] .eb-dock-filters { display: none; }
 }
@@ -126,6 +132,9 @@
   .eb-dock-filters .eb-dock-drop::after { content: ''; position: absolute; inset: -4px 0; }
   .eb-dock-filters .eb-drop-caret { display: none; } /* the row reads as two buttons; aria-expanded says the rest */
 }
+.eb-view-below { display: contents; } /* the column's gaps stay; Filters dims and inertes everything in it while open */
+.eb-view-below[data-dim] > * { opacity: .3; transition: opacity .2s var(--eb-ease); }
+@media (prefers-reduced-motion: reduce) { .eb-view-below[data-dim] > * { transition: none; } }
 .eb-dock-tab {
   display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; min-width: 44px;
   padding: 0 16px 0 14px; border: 0; border-radius: 12px; background: transparent; color: inherit;
@@ -144,7 +153,7 @@
 .eb-dock-find { padding: 0; width: 44px; }
 .eb-short { display: none; }
 /* Phones (LifeList's 600px): the bar's short form whatever the phone's width, so row one is always the view icons,
-   True and Sci. (or the list's "Heaviest") and the magnifier; Places and Time are row two. */
+   True and Sci. (or the list's "Heaviest") and the magnifier; the Filters button is row two. */
 @media (max-width: 600px) {
   .eb-dock .eb-long { display: none; }
   .eb-dock .eb-short { display: inline; }
@@ -158,8 +167,8 @@
   .eb-dock-end { margin-left: 2px; }
 }
 /* The bar's own width from here (any screen: a phone, a tablet, a narrow window). Row one must hold the tabs, the tools
-   and the magnifier: the 820px rule lets the bar wrap (for Places and Time), so anything too wide would push the
-   magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–900px). */
+   and the magnifier: the 820px rule lets the bar wrap (for the Filters button), so anything
+   too wide would push the magnifier onto a line of its own (row one holds from 280 to 1200px of bar). */
 @container (max-width: 460px) {
   .eb-dock-tabs .eb-dock-tab span { display: none; }
   .eb-dock-tabs .eb-dock-tab { padding: 0; width: 44px; }
@@ -214,14 +223,25 @@
 .eb-find:has(.eb-find-input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .eb-find .eb-dock-tab { opacity: 1; color: var(--muted); }
 .eb-find .eb-dock-tab svg { width: 16px; height: 16px; }
-.eb-results {
-  position: absolute; z-index: 8; left: 0; right: 0; top: calc(100% + 6px); max-height: 320px; overflow: auto;
-  overscroll-behavior: contain; margin: 0; padding: 4px; list-style: none;
+/* The search's field and drop are one wrapper; it adds no box of its own, so the field stays where the dock puts it. */
+.eb-find-wrap { display: contents; }
+/* The drop under the field: the "Understood as" chips, a note, then the name hits, on one paper panel (as the results were).
+   Its own class: `.eb-drop` is the Filters panel (filters.css), whose 380px width and 14px text would size this one too. */
+.eb-find-drop {
+  position: absolute; z-index: 8; left: 0; right: 0; top: calc(100% + 6px); padding: 4px;
   background: var(--paper); border: 1px solid var(--hairline);
   border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
   animation: eb-find-in .15s var(--eb-ease) both;
 }
+.eb-results {
+  max-height: 320px; overflow: auto; overscroll-behavior: contain; margin: 0; padding: 0; list-style: none;
+}
+.eb-understood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 8px 8px 12px; }
+.eb-understood-label { color: var(--muted); }
+.eb-understood .eb-chiprow { flex: 1 1 200px; min-width: 0; }
+.eb-understood-go { padding: 0 14px; font-size: 14px; }
+.eb-understood-note { padding: 0 12px 8px; }
 .eb-results [role="option"] {
   display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer;
   border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
@@ -270,6 +290,13 @@
 @media (max-width: 719px) { .eb-namefield { max-width: none; } }
 .eb-namefield-label { font-size: 14px; font-weight: 600; line-height: 20px; }
 .eb-namefield .eb-note { font-size: 13px; line-height: 1.4; }
+/* Your data, first: the language select (as wide as the name field), and under it the English-names switch. */
+.eb-langrow { display: flex; flex-direction: column; gap: 12px; }
+.eb-langrow .eb-langfield { flex: none; }
+@media (min-width: 1024px) { .eb-settings-pair .eb-langfield { max-width: 340px; } }
+/* The select and its "Change language" button on one row (the button wraps under on a narrow field). */
+.eb-langfield-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.eb-langfield-row .eb-select { flex: 1 1 160px; }
 .eb-confirm {
   display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; max-width: 560px;
   border: 1px solid var(--accent);
@@ -278,7 +305,8 @@
 .eb-confirm p { margin: 0; }
 
 
-/* The top bar (the site's phone top bar): wordmark home, Collage / Settings / About, the theme switch. One row.
+/* The top bar (the site's phone top bar): wordmark home, Collage / Settings / About, the language button and the theme
+   switch; one row, or two on narrow phones (the splits below).
    Sticky, with headroom (src/lib/headroom.ts): data-hidden slides it up out of view while the page scrolls down; any
    upward scroll brings it back. Transform only: it keeps its place in the flow, so the page never moves. */
 .eb-topbar {
@@ -309,8 +337,9 @@
   border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   transition: opacity .25s cubic-bezier(.25, .1, .25, 1), background-color .15s cubic-bezier(.16, 1, .3, 1);
 }
-/* The pill is 40px (36–40 on phones); the hit area is 44px, so a thumb that lands just above or below still counts. */
-.eb-nav-link::after { content: ''; position: absolute; inset: -2px 0; }
+/* The pill is 40px tall; the hit area is 44px, so a thumb that lands just above or below still counts, and at least
+   44px across (a short label, "Over", is a narrower pill). */
+.eb-nav-link::after { content: ''; position: absolute; inset: -2px min(0px, calc((100% - 44px) / 2)); } /* and 44px across */
 .eb-nav-link[aria-current="page"] { opacity: 1; color: var(--accent); background: var(--surface); border-color: var(--hairline); font-weight: 600; }
 .eb-theme {
   position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0;
@@ -319,11 +348,54 @@
 }
 .eb-theme svg { width: 22px; height: 22px; }
 .eb-theme::after { content: ''; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); } /* 44px even when drawn at 40 or 36 */
+/* The language button (LanguageMenu, preview variants lang:a and c) sits with the theme switch at the row's end, the two always
+   together in row one. It is .eb-theme too (44px, 40 under 500px, 36 wide under 360px; Surface on hover), showing the
+   language's code in Ink mono. Its menu is the ⋯ menu's popover, right-aligned under it (LanguageMenu shifts it right
+   if it would leave the window). */
+.eb-topbar-end { display: flex; align-items: center; gap: 4px; flex: none; }
+.eb-langwrap { position: relative; display: flex; }
+.eb-lang .eb-mono { color: var(--ink); font-size: 13px; line-height: 1; letter-spacing: .06em; }
+.eb-lang[aria-expanded="true"] { background: var(--surface); }
+
+/* The ⋯ menu's popover and its rows (SourceMenu on Settings, the language menu in the top bar). */
+.eb-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 9; display: flex; flex-direction: column; min-width: 200px; padding: 4px;
+  background: var(--paper); border: 1px solid var(--hairline); box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
+  border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+  animation: eb-menu-in .16s var(--ease-ui);
+}
+@keyframes eb-menu-in { from { opacity: 0; translate: 0 -4px; } }
+.eb-menuitem {
+  display: flex; align-items: center; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 500; text-align: left; white-space: nowrap; cursor: pointer;
+  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+}
+.eb-menuitem[data-danger] { color: var(--accent); }
+.eb-menuitem:focus { outline: none; }
+.eb-menuitem:focus-visible, .eb-menuitem:focus { background: var(--surface); }
+@media (hover: hover) and (pointer: fine) { .eb-menuitem:hover { background: var(--surface); } }
+/* The language menu: a quiet popover, as wide as its widest row, its right edge on the button's; never wider than the window.
+   Rows are 40px (44px on touch), the name left and its code right in Muted mono; the current one has no fill, its name in
+   Accent at 600 and a check where the code was. A Surface fill only on a hovered or keyboard-focused row that isn't current. */
+.eb-langmenu { width: max-content; min-width: 0; max-width: calc(100vw - 16px); }
+.eb-langmenu .eb-menuitem { justify-content: space-between; gap: 16px; min-height: 40px; padding: 0 10px; }
+@media (pointer: coarse) { .eb-langmenu .eb-menuitem { min-height: 44px; } }
+.eb-langmenu .eb-menuitem:focus { background: none; }
+.eb-langmenu .eb-menuitem[aria-checked="false"]:focus-visible { background: var(--surface); }
+@media (hover: hover) and (pointer: fine) {
+  .eb-langmenu .eb-menuitem[aria-checked="false"]:hover { background: var(--surface); }
+  .eb-langmenu .eb-menuitem[aria-checked="true"]:hover { background: none; }
+}
+.eb-langname[data-current] { color: var(--accent); font-weight: 600; }
+.eb-langcode { color: var(--muted); font-size: 12px; line-height: 1; letter-spacing: .06em; }
+.eb-langmenu .eb-menuitem svg { width: 16px; height: 16px; flex: none; color: var(--accent); }
 @media (hover: hover) and (pointer: fine) {
   .eb-nav-link:hover { opacity: 1; }
   .eb-theme:hover { background: var(--surface); }
 }
-@media (max-width: 480px) {
+/* The bar's sizes step down under 500px and again under 360px. tests/topbar-fit.test.ts models every number in these
+   blocks and the row splits below (with the fonts' measured advances): change them together. */
+@media (max-width: 499px) {
   .eb-topbar-in { gap: 4px; }
   .eb-wordmark { font-size: 19px; }
   .eb-nav ul { gap: 2px; }
@@ -337,23 +409,56 @@
   .eb-nav-link { padding: 0 6px; font-size: 13px; }
   .eb-theme { width: 36px; }
   .eb-theme svg { width: 20px; height: 20px; }
+  .eb-topbar-end { gap: 2px; }
 }
 
-/* Under 300px of page (a 390px phone at Safari's aA 150% or more, page zoom): the nav can't share a row with the
-   wordmark, so it takes its own full-width row under it; --topbar-h (tokens.css) follows. */
+/* Where row one can't hold the nav (preview variant lang, `data-topbar` on <html>, set by TopBar; none on the server
+   reads as a): the nav takes its own full-width row under the wordmark, the language button and the theme switch
+   staying in row one. Only the padding's block sides change, so the gutter stays 16px (12px under 360, 8px under 240).
+   Each split has its twin in tokens.css (--topbar-h 93px), the same media query and selector, so a one-row bar never
+   gets a two-row offset; tests/topbar-fit.test.ts checks the pairs and that every row fits.
+   a (default): the language button in row one; the nav on row two under 430px, in every language.
+   b (no top-bar button): under 384px in Spanish and Dutch, under 366px in English and Portuguese.
+   c (the language button; Collage hidden under 480px, the wordmark goes home): under 310px. */
+@media (max-width: 429px) {
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-topbar-end { order: 1; margin-left: auto; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 383px) {
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 365px) {
+  :root[data-topbar="b"] .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="b"] .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="b"] .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="b"] .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 309px) {
+  :root[data-topbar="c"] .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="c"] .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="c"] .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="c"] .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 479px) {
+  :root[data-topbar="c"] .eb-nav [data-nav="collage"] { display: none; }
+  :root[data-topbar="c"] .eb-wordmark[aria-current="page"] { color: var(--accent); }
+}
+/* Under 240px (a 390px phone at aA 200%): row two holds "Collage Ajustes Acerca de" and "Instellingen" at 13px with a
+   8px gutter and 3px inside each pill; the press stays 44px across (.eb-nav-link::after). */
+/* Under 300px of page (a 390px phone at Safari's aA 150% or more, page zoom; the top bar has split above): the stats
+   line and button labels wrap, and the Filters button drops its glyph (the label says it). */
 @media (max-width: 299px) {
-  .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding: 4px 12px; min-height: 0; }
-  .eb-theme { order: 1; margin-left: auto; }
-  .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
-  .eb-nav ul { justify-content: space-between; }
-  /* The rest of the page at that width: the stats line and button labels wrap, and Places and Time drop their
-     glyphs (the labels say it) so the two still share the bar's second row. */
   .eb-stat { white-space: normal; }
   .eb-btn { white-space: normal; text-align: center; }
   .eb-dock-filters { min-width: 0; }
   .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px; }
   .eb-dock-filters .eb-dock-drop svg { display: none; }
-  /* Row one can't hold the magnifier too, so the bar is a grid here: the view tabs and the switches, then Places, Time
+  /* Row one can't hold the magnifier too, so the bar is a grid here: the view tabs and the switches, then the Filters button
      and the magnifier on the second row under one Hairline (never a magnifier alone on a row). */
   .eb-dock { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 0; row-gap: 4px; }
   .eb-dock-tabs { grid-area: 1 / 1; }
@@ -361,8 +466,10 @@
   .eb-dock-filters { grid-area: 2 / 1 / 3 / 3; margin: 0 0 -4px -4px; border-top: 1px solid var(--hairline); align-self: stretch; }
   .eb-dock-end { grid-area: 2 / 3; margin: 0 -4px -4px 0; padding: 4px; border-top: 1px solid var(--hairline); align-self: stretch; display: flex; align-items: center; }
 }
-/* Under 240px (a 390px phone at aA 200%): the tabs and the magnifier, then the two switches, then Places and Time. */
+/* Under 240px (a 390px phone at aA 200%): the tabs and the magnifier, then the two switches, then the Filters button. */
 @media (max-width: 239px) {
+  .eb-topbar-in { padding-inline: 8px; }
+  .eb-nav-link { padding: 0 3px; }
   .eb-dock { grid-template-columns: 1fr auto; }
   .eb-dock-tabs { grid-area: 1 / 1; }
   .eb-dock-end { grid-area: 1 / 2; margin: 0; padding: 0; border-top: 0; }
@@ -392,7 +499,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .eb-btn, .eb-dock-tab, .eb-dock-dir svg, .eb-dock-tabs, .eb-dock-tools, .eb-nav-link, .eb-footer-gh { transition: none; }
-  .eb-find, .eb-results { animation: none; }
+  .eb-menu { animation: none; }
+  .eb-find, .eb-find-drop { animation: none; }
 }
 .eb-stagewrap { position: relative; }
 .eb-view .eb-stagewrap { margin-top: 8px; }

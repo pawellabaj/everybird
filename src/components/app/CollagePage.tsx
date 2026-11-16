@@ -3,9 +3,13 @@ import { Plus, ShareNetwork } from '@phosphor-icons/react'
 import Link from '@/components/app/IntentLink'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { EditBird } from '@/components/edit/EditBird'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { pageTitle } from '@/lib/list/title'
-import { placesNoteFor } from '@/lib/list/filter-summary'
+import { placesNoteFor, placesUnplacedFor } from '@/lib/list/filter-summary'
 import { undoRemove } from '@/lib/list/tick'
+import { nameOfCode } from '@/lib/species/names'
 import type { Edits, ListEntry } from '@/lib/list/model'
 import { CollageView } from './CollageView'
 import { useEverybirdContext } from './EverybirdProvider'
@@ -24,6 +28,7 @@ const ShareDialog = lazy(() => import('@/components/share/ShareDialog'))
  */
 export function CollagePage() {
   const eb = useEverybirdContext()
+  const { t } = useI18n()
   const { state, dispatch, data } = eb
   const [sharing, setSharing] = useState(false)
   const [removed, setRemoved] = useState<(Removal & { before: Edits }) | null>(null)
@@ -47,27 +52,27 @@ export function CollagePage() {
         edits={saved.edits}
         dispatch={dispatch}
         onRemoved={() => {
-          setRemoved({ codes: [entry.code], text: removedText([data?.species.byCode.get(entry.code)?.com ?? entry.code]), before: editsRef.current })
+          setRemoved({ codes: [entry.code], text: removedText([data ? nameOfCode(data.species.byCode, entry.code) : entry.code], t), before: editsRef.current })
           close()
         }}
       />
     ),
-    [saved.edits, dispatch, data],
+    [saved.edits, dispatch, data, t],
   )
 
   const unmatched = state.openUnmatched.filter((u) => u.reason === 'no-match').length
   return (
     <main className="eb-page eb-page-collage eb-page-titled">
       <PageHead
-        title={pageTitle(saved.name)}
+        title={pageTitle(saved.name, t)}
         actions={<>
-          <Link href="/settings" className="eb-btn eb-btn-quiet" aria-label="Add birds">
+          <Link href="/settings" className="eb-btn eb-btn-quiet" aria-label={t.collage.addBirds}>
             <Plus aria-hidden="true" focusable="false" />
-            <span className="eb-sm-hide">Add birds</span>
+            <span className="eb-sm-hide">{t.collage.addBirds}</span>
           </Link>
           <button type="button" className="eb-btn" aria-haspopup="dialog" disabled={!ready || !state.list.length} onClick={() => setSharing(true)}>
             <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
-            Share
+            {t.collage.share}
           </button>
         </>}
       />
@@ -82,12 +87,13 @@ export function CollagePage() {
             species={data.species}
             regions={data.regions}
             placesNote={placesNoteFor(saved, state.list.length, state.seen.full)}
-            label="Your collage"
+            placesUnplaced={placesUnplacedFor(saved)}
+            label={t.collage.regionYours}
             whose="your"
             cardActions={actions}
             notice={unmatched > 0 ? (
               <p className="eb-mono eb-unmatched" data-testid="unmatched-note">
-                {unmatched.toLocaleString('en-US')} {unmatched === 1 ? "row couldn't" : "rows couldn't"} be matched · <Link href="/settings#match">Fix {unmatched === 1 ? 'it' : 'them'}</Link>
+                {plural(t.collage.unmatched, unmatched, { n: formatInt(unmatched, t.num) })} · <Link href="/settings#match">{plural(t.collage.fix, unmatched)}</Link>
               </p>
             ) : undefined}
           />

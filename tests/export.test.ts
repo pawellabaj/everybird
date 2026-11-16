@@ -30,7 +30,7 @@ describe('toCsv', () => {
 })
 
 describe('json backup', () => {
-  const good = () => ({ ...emptySaved(), name: 'Me', records: { ebird: [{ code: 'a', source: 'ebird' }], 'ebird-list': [], inat: [], manual: [] } })
+  const good = () => ({ ...emptySaved(), name: 'Me', records: { obsorg: [], 'obsorg-list': [], ebird: [{ code: 'a', source: 'ebird' }], 'ebird-list': [], inat: [], manual: [] } })
   it('round-trips', () => {
     const s = good()
     expect(fromJson(toJson(s as never))).toEqual(s)
@@ -42,7 +42,7 @@ describe('json backup', () => {
     expect(() => fromJson(JSON.stringify({ ...good(), skipped: { ebird: 'x' } }))).toThrow(/skipped/)
   })
   it('fromJson rejects wrong version', () => {
-    expect(() => fromJson(JSON.stringify({ ...good(), v: 5 }))).toThrow(/version/i)
+    expect(() => fromJson(JSON.stringify({ ...good(), v: 6 }))).toThrow(/version/i)
   })
   it('rejects bad input', () => {
     expect(() => fromJson('not json')).toThrow(/JSON/)
@@ -57,6 +57,6 @@ describe('json backup', () => {
     delete rest.name
     const out = fromJson(JSON.stringify({ ...rest, records: { ebird: [] } }))
     expect(out.name).toBeUndefined()
-    expect(out.records).toEqual({ ebird: [], 'ebird-list': [], inat: [], manual: [] })
+    expect(out.records).toEqual({ ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] })
   })
 })

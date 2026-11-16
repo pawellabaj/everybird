@@ -5,12 +5,15 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { BirdCard } from '@/components/collage/BirdCard'
+import { BirdCard, BirdFacts } from '@/components/collage/BirdCard'
 import { ListView } from '@/components/collage/ListView'
-import { formatDate, formatMass } from '@/lib/format'
 import type { ListEntry } from '@/lib/list/model'
+import { IUCN_COLORS } from '@/lib/species/iucn'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { ControlsBar } from '@/components/app/ControlsBar'
+import { es } from '@/i18n/messages/es'
+import { withI18n } from './i18n-render'
 
 const row = (code: string, com: string, to: number, g: number, gSrc: SpeciesRow['gSrc'] = 'avonet', st = true): SpeciesRow => ({
   code, com, sci: `Avis ${code}`, ord: 'Passeriformes', fam: 'Corvidae', famCom: 'Crows', to, g, gSrc, st, ar: 1, q: true,
@@ -32,22 +35,6 @@ afterEach(() => {
 function setWidth(w: number) {
   vi.stubGlobal('innerWidth', w)
 }
-
-describe('format', () => {
-  it('formatMass', () => {
-    expect(formatMass(33)).toBe('33 g')
-    expect(formatMass(4.27)).toBe('4.3 g')
-    expect(formatMass(1130)).toBe('1.1 kg')
-    expect(formatMass(999.6)).toBe('1000 g')
-  })
-  it('formatDate', () => {
-    expect(formatDate('2026-09-30')).toBe('Sep 2026')
-    expect(formatDate('2026-09')).toBe('Sep 2026')
-    expect(formatDate('2022')).toBe('2022')
-    expect(formatDate(undefined)).toBe('')
-    expect(formatDate('junk')).toBe('')
-  })
-})
 
 describe('BirdCard', () => {
   const full = entry('crowa', { date: '2026-09-30', place: { country: 'CA', sub1: 'CA-BC', sub2: 'Okanagan' }, heard: true, dead: true, media: true })
@@ -170,6 +157,93 @@ describe('BirdCard small print', () => {
   })
 })
 
+describe('BirdCard Red List pill', () => {
+  const base = row('statb1', 'Status Bird', 1, 2400)
+  const card = (o: Partial<SpeciesRow>) => (
+    <BirdCard entry={entry('statb1', { date: '2024-05-01' })} species={buildSpeciesIndex([{ ...base, ...o }])} regions={regions} onClose={() => {}} />
+  )
+  const renderCard = (o: Partial<SpeciesRow>) => {
+    setWidth(1000)
+    return render(card(o))
+  }
+  afterEach(() => {
+    history.replaceState(null, '', '/')
+    sessionStorage.removeItem('everybird:variants')
+  })
+
+  it('the card shows the pill alone, under the mass: a button named "Red List: Vulnerable" with a toggletip', () => {
+    renderCard({ iu: 'VU' })
+    const dlg = screen.getByRole('dialog')
+    const badge = screen.getByTestId('iucn-badge')
+    const pill = screen.getByRole('button', { name: 'Red List: Vulnerable' })
+    expect(badge.contains(pill)).toBe(true)
+    expect(pill).toHaveTextContent('VU')
+    expect(pill).toHaveAttribute('title', 'Red List: Vulnerable')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
+    // The full name is only in the aria-hidden tip, not as visible text beside the pill.
+    const tip = badge.querySelector('.eb-iucn-tip')!
+    expect(tip).toHaveAttribute('aria-hidden', 'true')
+    expect(tip).toHaveTextContent('Vulnerable')
+    expect(badge.querySelector('.eb-iucn-name')).toBeNull()
+    expect(dlg.querySelector('.eb-card-meta')).toBeNull()
+    // A press toggles the tip, a press elsewhere closes it, blur closes it.
+    const wrap = screen.getByTestId('iucn-wrap')
+    fireEvent.click(pill)
+    expect(wrap).toHaveAttribute('data-open')
+    expect(pill).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.pointerDown(document.body)
+    expect(wrap).not.toHaveAttribute('data-open')
+    fireEvent.click(pill)
+    fireEvent.blur(pill)
+    expect(wrap).not.toHaveAttribute('data-open')
+    // Under the mass, in the head's right column; the names (name, other name) stay on the left without it.
+    const side = dlg.querySelector('.eb-card-side')!
+    expect(side.parentElement).toHaveClass('eb-card-head')
+    expect([...side.children]).toEqual([dlg.querySelector('.eb-card-mass'), badge])
+    const names = dlg.querySelector('.eb-card-names')!
+    expect(names.lastElementChild).toHaveClass('eb-card-other')
+    expect(names.contains(badge)).toBe(false)
+    expect(names.nextElementSibling).toBe(side)
+  })
+
+  it('every category reads "Red List: <name>" in full', () => {
+    for (const [cat, name] of [['CR', 'Critically Endangered'], ['EW', 'Extinct in the Wild'], ['DD', 'Data Deficient']] as const) {
+      cleanup()
+      renderCard({ iu: cat })
+      expect(screen.getByRole('button', { name: `Red List: ${name}` })).toBeTruthy()
+    }
+  })
+
+  it('Esc closes the card', () => {
+    setWidth(1000)
+    const onClose = vi.fn()
+    render(<BirdCard entry={entry('statb1')} species={buildSpeciesIndex([{ ...base, iu: 'CR' }])} regions={regions} onClose={onClose} />)
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('no line for a species without a status; the tooltip shows the same line', () => {
+    renderCard({})
+    expect(screen.queryByTestId('iucn-badge')).toBeNull()
+    cleanup()
+    render(<BirdFacts entry={entry('statb1')} row={{ ...base, iu: 'EN' }} regions={regions} heading={false} />)
+    const badge = screen.getByTestId('iucn-badge')
+    expect(badge).toHaveTextContent('EN')
+    expect(badge.querySelector('.eb-iucn')).toHaveAttribute('aria-hidden', 'true')
+    expect(badge.querySelector('.eb-iucn')!.tagName).toBe('SPAN')
+    expect(badge.querySelector('button, .eb-iucn-tip')).toBeNull()
+  })
+
+  it('the pill text is IUCN_COLORS’ fixed colour, never a theme token', () => {
+    for (const cat of ['VU', 'CR', 'EW', 'EX'] as const) {
+      cleanup()
+      renderCard({ iu: cat })
+      expect((screen.getByTestId('iucn-badge').querySelector('.eb-iucn') as HTMLElement).style.getPropertyValue('--iucn-text')).toBe(IUCN_COLORS[cat].text)
+    }
+  })
+})
+
 describe('ListView', () => {
   const entries = [
     entry('wrenb', { date: '2024-05-01' }),
@@ -276,5 +350,40 @@ describe('list estimated mass', () => {
     const items = screen.getAllByRole('listitem')
     expect(items[1]).toHaveTextContent('~4.3 g')
     expect(items[0]).not.toHaveTextContent('~')
+  })
+})
+
+describe('in Spanish', () => {
+  const heavy = buildSpeciesIndex([row('pelica', 'Big Pelican', 1, 2400), row('tinyc', 'Gamma Tiny', 3, 4.27, 'family')])
+  it('the card reads the month, the mass and the place in Spanish (DisplayNames for the country)', () => {
+    setWidth(1000)
+    render(<BirdCard entry={entry('pelica', { date: '2026-09-30', place: { country: 'CA', sub1: 'CA-BC' }, heard: true })} species={heavy} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    const dlg = screen.getByRole('dialog', { name: 'Big Pelican' })
+    expect(dlg.querySelector('.eb-card-date')).toHaveTextContent('sept 2026 · Solo oída')
+    expect(dlg.querySelector('.eb-card-mass')).toHaveTextContent('Masa corporal media 2,4 kg')
+    expect(dlg.querySelector('.eb-card-place')).toHaveTextContent('British Columbia, Canadá')
+    expect(within(dlg).getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
+  })
+  it('an estimated mass and its label', () => {
+    setWidth(1000)
+    render(<BirdCard entry={entry('tinyc')} species={heavy} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    const mass = screen.getByRole('dialog').querySelector('.eb-card-mass')!
+    expect(mass).toHaveTextContent('~4,3 g')
+    expect(mass).toHaveAttribute('title', 'Masa corporal media, estimada a partir de su familia')
+  })
+  it("the list view's rows and the direction switch: es.ui's heaviest first", () => {
+    render(
+      <>
+        <ControlsBar view="list" onView={() => {}} trueSize={false} onTrueSize={() => {}} lightFirst={false} onDirection={() => {}} sci={false} onSci={() => {}} />
+        <ListView entries={[entry('pelica', { date: '2026-09-02' })]} species={heavy} regions={regions} order="heaviest" onPick={() => {}} />
+      </>,
+      { wrapper: withI18n('es') },
+    )
+    const c = es.ui.collage.controls
+    const dir = screen.getByRole('button', { name: c.sortedHeaviest })
+    expect(dir).toHaveTextContent(c.heaviestFirst)
+    const list = screen.getByRole('list', { name: 'Lista de vida' })
+    expect(list).toHaveTextContent('2,4 kg')
+    expect(list).toHaveTextContent('sept 2026')
   })
 })

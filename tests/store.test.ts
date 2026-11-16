@@ -14,7 +14,7 @@ const rows = [
   row('wren', 'Passeriformes', 'Troglodytidae', 12),
 ]
 const species: SpeciesIndex = { rows, byCode: new Map(rows.map((r) => [(r as { code: string }).code, r])), search: () => [] }
-const reduce = makeReducer({ species, countryName: (c) => c })
+const reduce = makeReducer({ species })
 const run = (s: AppState, ...as: Action[]) => as.reduce(reduce, s)
 const rec = (code: string, source: SourceRecord['source'], country = 'CA', date = '2020-01-02'): SourceRecord => ({ code, source, date, place: { country } })
 const result = (records: SourceRecord[], unmatched: ImportResult['unmatched'] = []): ImportResult => ({ records, unmatched, skipped: 0 })
@@ -117,7 +117,7 @@ describe('store reducer', () => {
   })
 
   it('restore recomputes everything from the backup', () => {
-    const saved = { ...emptySaved(), records: { ebird: [rec('crow', 'ebird')], 'ebird-list': [], inat: [], manual: [] } }
+    const saved = { ...emptySaved(), records: { obsorg: [], 'obsorg-list': [], ebird: [rec('crow', 'ebird')], 'ebird-list': [], inat: [], manual: [] } }
     const s = run(initialState(), { type: 'restore', saved })
     expect(s.saved).toBe(saved)
     expect(s.list.map((e) => e.code)).toEqual(['crow'])

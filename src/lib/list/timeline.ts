@@ -4,13 +4,14 @@
 // The filter's time model (see filters.ts): a date range `from`/`to` (YYYY-MM, both inclusive, either end open)
 // replaces the year chips. A year is the range Jan..Dec of that year (`year` still filters, and the store turns it into
 // that range).
-import { formatDate } from '../format'
+import { fmt } from '@/i18n/core'
+import { formatMonth } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import type { Filter } from './filters'
 import type { ListEntry } from './model'
 
 export type Month = string // 'YYYY-MM'
 
-const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 
 /** 'YYYY-MM-DD' | 'YYYY-MM' -> 'YYYY-MM'; 'YYYY' -> 'YYYY-01' (a year-only date counts as its January); else undefined. */
@@ -26,10 +27,11 @@ const toIndex = (m: Month) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7))
 const fromIndex = (i: number): Month => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
 
 export const addMonths = (m: Month, k: number): Month => fromIndex(toIndex(m) + k)
-/** "March 2020" (the sliders' aria-valuetext). */
-export const monthName = (m: Month): string => `${FULL[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
-/** "Mar 2020". */
-export const monthShort = (m: Month): string => formatDate(m)
+/** "March 2020" (the sliders' aria-valuetext), in `t`'s language ("marzo de 2020"). */
+export const monthName = (m: Month, t: Ui): string =>
+  fmt(t.filters.timeline.month, { month: t.filters.timeline.months[Number(m.slice(5, 7)) - 1], year: m.slice(0, 4) })
+/** "Mar 2020" ("sept 2020"). */
+export const monthShort = (m: Month, t: Pick<Ui, 'date'>): string => formatMonth(m, t.date.months)
 /** The current month (UTC). */
 export const todayMonth = (now = new Date()): Month => `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 
@@ -92,6 +94,40 @@ export function monthAxis(counts: readonly number[], minGap = GAP_MIN_MONTHS, ga
   const start = [0]
   for (let i = 0; i < N; i++) start.push(start[i] + width[i])
   return { units: start[N], start, gaps }
+}
+
+/**
+ * The year labels the axis can show without touching: a label at each January and at the first month, dropped when its
+ * left edge is within the previous kept label's width (`chars` · `charPx`, plus the 3px rule padding and `gap`) of it, or
+ * when it is within `endClear` px of the strip's end. A partial first year (the strip starts after January) gives way to the
+ * next, full year rather than the other way round. `unitPx` is one axis unit in px.
+ */
+export function yearLabels(
+  months: readonly Month[],
+  axis: Pick<MonthAxis, 'units' | 'start'>,
+  unitPx: number,
+  { charPx = 6.6, gap = 6, pad = 3, endClear = 28 }: { charPx?: number; gap?: number; pad?: number; endClear?: number } = {},
+): { m: Month; i: number }[] {
+  const out: { m: Month; i: number }[] = []
+  let lastX = -Infinity
+  let lastW = 0
+  months.forEach((m, i) => {
+    const jan = m.endsWith('-01')
+    if (!(jan || i === 0)) return
+    const x = axis.start[i] * unitPx
+    if (i > 0 && (axis.units - axis.start[i]) * unitPx <= endClear) return
+    const w = m.slice(0, 4).length * charPx + pad
+    if (out.length && x - lastX < lastW + gap) {
+      // Only a partial first year (index 0, not January) is replaced by the later one.
+      const first = out[0]
+      if (out.length === 1 && first.i === 0 && !first.m.endsWith('-01') && jan) out.pop()
+      else return
+    }
+    out.push({ m, i })
+    lastX = x
+    lastW = w
+  })
+  return out
 }
 
 /** The month boundary (0..N) nearest to `frac` of the track's width. */
@@ -169,14 +205,37 @@ export function rangeFilter(f: Filter, lo: number, hi: number, months: readonly 
   return clean(next)
 }
 
-/** The range in words: "2020", "Sep 2020", "Mar 2020 to Jun 2021", "From Mar 2020", "Up to Jun 2021". */
-export function rangeLabel(from: Month | undefined, to: Month | undefined): string | undefined {
+/**
+ * The range as the Time chip, the Time button and the timeline's readout say it, in `t`'s language: whole years
+ * "2020–2024" ("2020" for one), one month "Sep 2021", else months on both sides "Apr 2020–Sep 2024" / "Jan 2020–Mar 2020";
+ * open ends "from Apr 2020" / "to Sep 2024" ("from 2020" when `from` is a January, "to 2024" when `to` is a December;
+ * the words are `timeline.sumFrom` / `sumTo`). Undefined with neither end.
+ */
+export function rangeShort(from: Month | undefined, to: Month | undefined, t: Pick<Ui, 'filters' | 'date'>): string | undefined {
+  const y = (m: Month) => m.slice(0, 4)
+  const tl = t.filters.timeline
+  const start = (m: Month) => (m.endsWith('-01') ? y(m) : monthShort(m, t))
+  const end = (m: Month) => (m.endsWith('-12') ? y(m) : monthShort(m, t))
   if (from && to) {
-    if (from === to) return monthShort(from)
-    if (from.slice(0, 4) === to.slice(0, 4) && from.endsWith('-01') && to.endsWith('-12')) return from.slice(0, 4)
-    return `${monthShort(from)} to ${monthShort(to)}`
+    if (from === to) return monthShort(from, t)
+    // Whole years only when both ends are: "2020–2024"; otherwise months on both sides ("Jan 2020–Mar 2020").
+    if (from.endsWith('-01') && to.endsWith('-12')) return y(from) === y(to) ? y(from) : `${y(from)}–${y(to)}`
+    return `${monthShort(from, t)}–${monthShort(to, t)}`
   }
-  if (from) return `From ${monthShort(from)}`
-  if (to) return `Up to ${monthShort(to)}`
+  if (from) return fmt(tl.sumFrom, { year: start(from) })
+  if (to) return fmt(tl.sumTo, { year: end(to) })
+  return undefined
+}
+
+/** The range in words, in `t`'s language: "2020", "Sep 2020", "Mar 2020 to Jun 2021", "From Mar 2020", "Up to Jun 2021". */
+export function rangeLabel(from: Month | undefined, to: Month | undefined, t: Pick<Ui, 'filters' | 'date'>): string | undefined {
+  const tl = t.filters.timeline
+  if (from && to) {
+    if (from === to) return monthShort(from, t)
+    if (from.slice(0, 4) === to.slice(0, 4) && from.endsWith('-01') && to.endsWith('-12')) return from.slice(0, 4)
+    return fmt(tl.range, { from: monthShort(from, t), to: monthShort(to, t) })
+  }
+  if (from) return fmt(tl.from, { month: monthShort(from, t) })
+  if (to) return fmt(tl.upTo, { month: monthShort(to, t) })
   return undefined
 }

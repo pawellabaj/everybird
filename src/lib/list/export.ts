@@ -3,7 +3,7 @@ import type { Regions } from '@/lib/species/types'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { SLOTS, slotSource } from './model'
 import type { ListEntry, Slot, Source, SourceRecord } from './model'
-import { seenOf, type SeenIndex } from './seen'
+import { seenOf, decodeSeenMonths, type SeenIndex } from './seen'
 import { migrateSaved, type Saved, type SourceDetails } from './storage'
 
 const HEADER = ['eBird code', 'Common name', 'Scientific name', 'First date', 'Place', 'Country', 'Heard only', 'Found dead', 'Sources', 'Countries seen']
@@ -52,70 +52,93 @@ export function toJson(s: Saved): string {
   return JSON.stringify(s)
 }
 
-const SOURCES: Source[] = ['ebird', 'inat', 'manual']
+const SOURCES: Source[] = ['ebird', 'inat', 'obsorg', 'manual']
 const isSlot = (k: unknown): k is Slot => SLOTS.includes(k as Slot)
 const isObj = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 const isStrArr = (x: unknown): x is string[] => Array.isArray(x) && x.every((s) => typeof s === 'string')
 
+const validMonths = (x: unknown) => x === undefined || (isStrArr(x) && x.every((s) => decodeSeenMonths(s) !== undefined))
 const optStr = (x: unknown) => x === undefined || typeof x === 'string'
 const optCount = (x: unknown) => x === undefined || (typeof x === 'number' && Number.isFinite(x) && x >= 0)
 const EBIRD_KINDS = ['full-export', 'life-list']
+const OBSORG_KIND: Record<string, string> = { 'obsorg-list': 'species-list', obsorg: 'observations' }
+const optExcluded = (x: unknown) => x === undefined || (isObj(x) && Object.keys(x).length === 2 && [x.escape, x.uncertain].every((n) => typeof n === 'number' && Number.isInteger(n) && n >= 0))
 
-/** v3 source details: eBird files (kind, file, rows, at) and the iNaturalist account (user, observations, at). */
+/**
+ * v3 source details: eBird files (kind, file, rows, at), the iNaturalist account (user, observations, at) and
+ * observation.org files (kind, file, rows, at; the observations export also `excluded`).
+ */
 function validSources(x: unknown): boolean {
   if (!isObj(x)) return false
   return Object.entries(x).every(([k, d]) => {
     if (!isObj(d) || !optStr(d.at)) return false
     if (k === 'ebird' || k === 'ebird-list') return EBIRD_KINDS.includes(d.kind as string) && optStr(d.file) && optCount(d.rows)
     if (k === 'inat') return optStr(d.user) && optCount(d.observations)
+    if (k === 'obsorg' || k === 'obsorg-list')
+      return d.kind === OBSORG_KIND[k] && optStr(d.file) && optCount(d.rows) && (k === 'obsorg' ? optExcluded(d.excluded) : d.excluded === undefined)
     return false
   })
 }
 
-/** Parse and validate a backup. Throws an Error with a plain message on bad input. */
+/** Why a backup was refused: 'damaged' covers every malformed part (the message says which). */
+export type BackupReason = 'json' | 'not-backup' | 'version' | 'damaged'
+
+/** fromJson's error: a plain English message, and its reason for the UI to word in its own language. */
+export class BackupError extends Error {
+  constructor(
+    readonly reason: BackupReason,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'BackupError'
+  }
+}
+
+/** Parse and validate a backup. Throws a BackupError with a plain message on bad input. */
 export function fromJson(text: string): Saved {
   let raw: unknown
   try {
     raw = JSON.parse(text)
   } catch {
-    throw new Error('This file is not valid JSON.')
+    throw new BackupError('json', 'This file is not valid JSON.')
   }
-  if (!isObj(raw)) throw new Error('This is not an Everybird backup.')
+  if (!isObj(raw)) throw new BackupError('not-backup', 'This is not an Everybird backup.')
   // v1 backups predate seen-here, v1 and v2 backups predate source details, v1 to v3 backups hold a person's name
-  // rather than the collage's title: migrateSaved brings them to v4.
-  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4) throw new Error('Unsupported backup version.')
+  // rather than the collage's title: migrateSaved brings them to v5. Seen months are optional, never inferred from first dates.
+  if (raw.v !== 1 && raw.v !== 2 && raw.v !== 3 && raw.v !== 4 && raw.v !== 5) throw new BackupError('version', 'Unsupported backup version.')
 
-  if (!isObj(raw.records)) throw new Error('Backup has no records.')
-  // Backups made before the second eBird slot have no 'ebird-list'; it starts empty.
-  const records = { ebird: [], 'ebird-list': [], inat: [], manual: [] } as Record<Slot, SourceRecord[]>
+  if (!isObj(raw.records)) throw new BackupError('damaged', 'Backup has no records.')
+  // Backups made before the second eBird slot have no 'ebird-list', those before observation.org no 'obsorg' or
+  // 'obsorg-list': they start empty.
+  const records = { ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] } as Record<Slot, SourceRecord[]>
   for (const [k, v] of Object.entries(raw.records)) {
-    if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen))))
-      throw new Error('Backup records are malformed.')
+    if (!isSlot(k) || !Array.isArray(v) || !v.every((r) => isObj(r) && typeof r.code === 'string' && (r.seen === undefined || isStrArr(r.seen)) && validMonths(r.seenMonths)))
+      throw new BackupError('damaged', 'Backup records are malformed.')
     records[k] = v as SourceRecord[]
   }
 
   const unmatched = raw.unmatched ?? []
   if (
     !Array.isArray(unmatched) ||
-    !unmatched.every((u) => isObj(u) && typeof u.row === 'number' && SOURCES.includes(u.source as Source) && (u.slot === undefined || (isSlot(u.slot) && slotSource(u.slot) === u.source)) && (u.seen === undefined || isStrArr(u.seen)))
+    !unmatched.every((u) => isObj(u) && typeof u.row === 'number' && SOURCES.includes(u.source as Source) && (u.slot === undefined || (isSlot(u.slot) && slotSource(u.slot) === u.source)) && (u.seen === undefined || isStrArr(u.seen)) && validMonths(u.seenMonths))
   )
-    throw new Error('Backup unmatched rows are malformed.')
+    throw new BackupError('damaged', 'Backup unmatched rows are malformed.')
 
   const e = raw.edits
   if (!isObj(e) || !isStrArr(e.removed) || !Array.isArray(e.added) || !isObj(e.marks) || !isObj(e.fixes))
-    throw new Error('Backup edits are malformed.')
-  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string')) throw new Error('Backup edits are malformed.')
+    throw new BackupError('damaged', 'Backup edits are malformed.')
+  if (!e.added.every((r) => isObj(r) && typeof r.code === 'string' && validMonths(r.seenMonths))) throw new BackupError('damaged', 'Backup edits are malformed.')
 
   const r = raw.rules
   if (!isObj(r) || typeof r.hideHeard !== 'boolean' || typeof r.hideDead !== 'boolean' || typeof r.researchOnly !== 'boolean')
-    throw new Error('Backup rules are malformed.')
+    throw new BackupError('damaged', 'Backup rules are malformed.')
 
-  if (raw.name !== undefined && typeof raw.name !== 'string') throw new Error('Backup name is malformed.')
+  if (raw.name !== undefined && typeof raw.name !== 'string') throw new BackupError('damaged', 'Backup name is malformed.')
   const sk = raw.skipped
   if (sk !== undefined && (!isObj(sk) || !Object.entries(sk).every(([k, n]) => isSlot(k) && typeof n === 'number' && n >= 0)))
-    throw new Error('Backup skipped counts are malformed.')
+    throw new BackupError('damaged', 'Backup skipped counts are malformed.')
   const src = raw.sources
-  if (src !== undefined && !validSources(src)) throw new Error('Backup source details are malformed.')
+  if (src !== undefined && !validSources(src)) throw new BackupError('damaged', 'Backup source details are malformed.')
   const out: Saved = {
     v: raw.v as Saved['v'],
     records,

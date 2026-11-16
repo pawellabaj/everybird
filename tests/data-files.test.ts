@@ -3,8 +3,9 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildDataFiles, DATA_FILE_NAMES, hashedName, readOrderMasks } from '../scripts/build-data/data-files'
 import { DATA_FILES } from '../src/lib/data-files'
+import { NAME_LOCALES } from '../src/lib/species/name-locales'
 import { dataUrls, fetchData } from '../src/lib/data-url'
-import { isVersionedKey, listData } from '../scripts/deploy/upload-stickers-r2'
+import { isVersionedKey, listData, planUploads } from '../scripts/deploy/upload-stickers-r2'
 
 const root = join(__dirname, '..')
 const read = (n: string) => readFileSync(join(root, 'public/data', n), 'utf8')
@@ -22,6 +23,11 @@ describe('data files', () => {
     for (const [ord, rec] of orders) expect(bundle[ord]).toEqual(rec)
   })
 
+  it('regional names are immutable even when a forced upload sees a different size', () => {
+    const file = { key: 'data/names.es_AR.v1.0123456789.json', path: 'unused', size: 100 }
+    expect(planUploads([file], new Map([[file.key, 99]]), true)).toEqual([])
+  })
+
   it('names every fetched file by its content', () => {
     expect(Object.keys(DATA_FILES)).toEqual([...DATA_FILE_NAMES])
     expect(hashedName('species.v1.json', 'x')).toMatch(/^species\.v1\.[0-9a-f]{10}\.json$/)
@@ -36,6 +42,13 @@ describe('dataUrls / fetchData', () => {
   it('uses /data/<name> without a base, the hashed name on the base first with one', () => {
     expect(dataUrls('species.v1.json', '')).toEqual(['/data/species.v1.json'])
     expect(dataUrls('masks.v2.json', 'https://x.test/data')).toEqual([`https://x.test/data/${DATA_FILES['masks.v2.json']}`, '/data/masks.v2.json'])
+  })
+
+  it('routes every name locale through its hashed R2 name with a local fallback', () => {
+    for (const locale of NAME_LOCALES) {
+      const name = `names.${locale}.v1.json` as const
+      expect(dataUrls(name, 'https://x.test/data')).toEqual([`https://x.test/data/${hashedName(name, read(name))}`, `/data/${name}`])
+    }
   })
 
   it('fetches from /data when no base is set, and throws on a failure', async () => {

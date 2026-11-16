@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NAME_MAX } from '@/lib/share/link'
-import { IMAGE_SIZE, NAME_MAX_LEN, SHARE_COLORS, cardLayout, countLayout, filterLabel, fitPack, latestText, maxTileFrac, maxTileSide, OG_COUNT_MAX, ogCountHole, packSpec, placeCredit, SPREAD, spreadY, FOOTER_LINE, SHARE_CREDIT, SITE_LABEL } from '@/lib/share/image'
-import { countText, holeExtent, numberEm } from '@/lib/layout/count-box'
+import { IMAGE_SIZE, NAME_MAX_LEN, SHARE_COLORS, cardLayout, countLayout, drawShareImage, filterLabel, fitPack, latestText, maxTileFrac, maxTileSide, OG_COUNT_MAX, ogCountHole, packSpec, placeCredit, SPREAD, spreadY, FOOTER_LINE, SHARE_CREDIT, SITE_LABEL } from '@/lib/share/image'
+import { MONO_CAP, MONO_CAP_ACCENT, countText, holeExtent, numberEm } from '@/lib/layout/count-box'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { nl } from '@/i18n/messages/nl'
+import { pt } from '@/i18n/messages/pt'
+import { stampDate, stampStrings, withStamp } from '@/lib/share/stamp'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { orderLabel } from '@/lib/species/orders'
 
@@ -15,27 +20,33 @@ const ctx = { species, countryName }
 
 describe('latestText', () => {
   it('gives the latest lifer row: a label with the month, and the name', () => {
-    expect(latestText({ com: 'Western Grebe', date: '2026-09-30' })).toEqual({ label: 'Latest lifer · Sep 2026', name: 'Western Grebe' })
+    expect(latestText({ com: 'Western Grebe', date: '2026-09-30' }, en.ui)).toEqual({ label: 'Latest lifer · Sep 2026', name: 'Western Grebe' })
   })
   it('drops a missing date and keeps a year-only one', () => {
-    expect(latestText({ com: 'Mallard' })).toEqual({ label: 'Latest lifer', name: 'Mallard' })
-    expect(latestText({ com: 'Mallard', date: '2024' }).label).toBe('Latest lifer · 2024')
+    expect(latestText({ com: 'Mallard' }, en.ui)).toEqual({ label: 'Latest lifer', name: 'Mallard' })
+    expect(latestText({ com: 'Mallard', date: '2024' }, en.ui).label).toBe('Latest lifer · 2024')
   })
 })
 
 describe('filterLabel', () => {
   it('is undefined with no filter', () => {
-    expect(filterLabel({}, ctx)).toBeUndefined()
+    expect(filterLabel({}, ctx, en.ui)).toBeUndefined()
   })
   it('reads the filter in words: birds, then place, then time', () => {
-    expect(filterLabel({ countries: ['EG'], year: '2026' }, ctx)).toBe('Egypt · 2026')
-    expect(filterLabel({ order: 'Pelecaniformes', family: 'Ardeidae', countries: ['EG'] }, ctx)).toBe('Herons, Egrets, and Bitterns · Egypt')
-    expect(filterLabel({ order: 'Passeriformes' }, ctx)).toBe('Perching birds')
-    expect(filterLabel({ year: '2025' }, ctx)).toBe('2025')
-    expect(filterLabel({ countries: ['EG'], from: '2026-01', to: '2026-12' }, ctx)).toBe('Egypt · 2026')
-    expect(filterLabel({ from: '2025-03', to: '2026-06' }, ctx)).toBe('Mar 2025 to Jun 2026')
-    expect(filterLabel({ countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx)).toBe('Egypt · Sep 2026')
-    expect(filterLabel({ order: 'Pelecaniformes', countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx)).toBe(`${orderLabel('Pelecaniformes')} · Egypt · Sep 2026`)
+    expect(filterLabel({ countries: ['EG'], year: '2026' }, ctx, en.ui)).toBe('Egypt · 2026')
+    expect(filterLabel({ order: 'Pelecaniformes', family: 'Ardeidae', countries: ['EG'] }, ctx, en.ui)).toBe('Herons, Egrets, and Bitterns · Egypt')
+    expect(filterLabel({ order: 'Passeriformes' }, ctx, en.ui)).toBe('Perching birds')
+    expect(filterLabel({ year: '2025' }, ctx, en.ui)).toBe('2025')
+    expect(filterLabel({ countries: ['EG'], from: '2026-01', to: '2026-12' }, ctx, en.ui)).toBe('Egypt · 2026')
+    expect(filterLabel({ from: '2025-03', to: '2026-06' }, ctx, en.ui)).toBe('Mar 2025 to Jun 2026')
+    expect(filterLabel({ countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx, en.ui)).toBe('Egypt · Sep 2026')
+    expect(filterLabel({ order: 'Pelecaniformes', countries: ['EG'], from: '2026-09', to: '2026-09' }, ctx, en.ui)).toBe(`${orderLabel('Pelecaniformes', en.ui)} · Egypt · Sep 2026`)
+  })
+  it('names a Status filter in words after the birds and before the places', () => {
+    expect(filterLabel({ order: 'Pelecaniformes', family: 'Ardeidae', statuses: ['VU', 'EN', 'CR'], countries: ['EG'] }, ctx, en.ui)).toBe('Herons, Egrets, and Bitterns · Threatened · Egypt')
+    expect(filterLabel({ statuses: ['EN'] }, ctx, en.ui)).toBe('Endangered')
+    expect(filterLabel({ statuses: ['NE'] }, ctx, en.ui)).toBe('Not evaluated')
+    expect(filterLabel({ statuses: ['VU', 'EN'], from: '2025-03', to: '2026-06' }, ctx, en.ui)).toBe('Vulnerable + Endangered · Mar 2025 to Jun 2026')
   })
 })
 
@@ -65,6 +76,17 @@ describe('share image constants', () => {
 })
 
 describe('cardLayout', () => {
+  it('without the latest lifer row, the collage reaches down to the hairline gap (the row\'s room goes to the birds)', () => {
+    for (const format of ['story', 'post', 'square'] as const) {
+      const on = cardLayout(format, { name: true, filter: false, latest: true, count: 197 })
+      const off = cardLayout(format, { name: true, filter: false, latest: false, count: 197 })
+      expect(off.collage.y).toBe(on.collage.y)
+      expect(off.rule.y).toBe(on.rule.y)
+      expect(off.collage.h - on.collage.h).toBe(on.rule.y - on.latest!.y) // the row's icon and its gap to the rule
+      expect(packSpec(off).aspect).toBeLessThan(packSpec(on).aspect) // taller frame, so a new pack
+    }
+  })
+
   const SAFE = { story: { top: 160, bottom: 156 }, post: { top: 64, bottom: 64 }, square: { top: 64, bottom: 64 } } as const
   const inside = (a: { y: number }, b: { y: number; h: number }) => a.y >= b.y && a.y <= b.y + b.h
   for (const format of ['story', 'post', 'square'] as const) {
@@ -194,6 +216,17 @@ describe('countLayout (the count in the middle)', () => {
       expect(h.num[2] - h.num[0]).toBeGreaterThanOrEqual(numberEm(K.number) * K.size - 1e-6)
     }
   })
+  it("the label's box reaches an accented capital's ink (ESPÉCIES), inside the same column", () => {
+    for (const n of [197, 1089, 11019]) {
+      const c = countLayout('story', n, 952)
+      const { num, label } = c.hole
+      expect(label[3] - label[1]).toBeCloseTo(MONO_CAP_ACCENT * c.labelSize, 6)
+      // The accent rises into the gap; the column (digits, gap, caps) and so the drawn text's place are unchanged.
+      expect(label[3] - num[1]).toBeCloseTo(0.745 * c.size + c.gap + MONO_CAP * c.labelSize, 6)
+      // Eight characters of Geist Mono with their tracking, the longest label in any language.
+      expect(label[2] - label[0]).toBeGreaterThanOrEqual(8 * 0.66 * c.labelSize - 1e-6)
+    }
+  })
   it('the label is legible and smaller than the number', () => {
     const c = countLayout('post', 1500, 952)
     expect(c.labelSize).toBeGreaterThanOrEqual(18)
@@ -293,5 +326,103 @@ describe('the footer line (the site and the sticker credit, never truncated)', (
     const r = placeCredit(measure(FOOTER_LINE), 200, 400, 20)
     expect(r.below).toBe(true)
     expect(measure(FOOTER_LINE)(r.size)).toBeLessThanOrEqual(400)
+  })
+  const stamped = withStamp(FOOTER_LINE, stampDate(new Date(2026, 8, 30))) // the longest English stamp; the line is 59 characters
+  it('with the date stamp, still sits beside the wordmark at 17px or more for a wordmark up to 280px wide', () => {
+    for (const brandW of [140, 200, 280]) {
+      const r = placeCredit(measure(stamped), 952 - brandW, 952, 20)
+      expect(r.below).toBe(false)
+      expect(r.size).toBeGreaterThanOrEqual(17)
+    }
+  })
+  it('a stamp too long to sit beside a 280px wordmark (a full month name) moves the whole line under it, never cut', () => {
+    const long = withStamp(FOOTER_LINE, '30 septiembre 2026')
+    const r = placeCredit(measure(long), 952 - 280, 952, 20)
+    expect(r).toEqual({ size: 20, below: true })
+    expect(measure(long)(r.size)).toBeLessThanOrEqual(952)
+  })
+})
+
+describe('drawShareImage draws the count in the UI language', () => {
+  // A recording canvas: every fillText is kept. No stickers (st: false draws outlines), a pack given, no fonts API.
+  function stubCanvas() {
+    const texts: string[] = []
+    const ctx = new Proxy({ letterSpacing: '0px' } as Record<string | symbol, unknown>, {
+      get(t, k) {
+        if (k in t) return t[k]
+        if (k === 'fillText') return (text: string) => { texts.push(text) }
+        if (k === 'measureText') return (text: string) => ({ width: text.length * 10, actualBoundingBoxAscent: 0 })
+        return () => {}
+      },
+      set(t, k, v) { t[k] = v; return true },
+    })
+    const canvas = { width: 0, height: 0, getContext: () => ctx }
+    vi.stubGlobal('document', { createElement: () => canvas, documentElement: {} })
+    vi.stubGlobal('getComputedStyle', () => ({ getPropertyValue: () => '' }))
+    vi.stubGlobal('Path2D', class {})
+    return texts
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+  const many = (n: number) => {
+    const rows = Array.from({ length: n }, (_, i) => ({ code: `b${i}`, com: `Bird ${i}`, sci: `B ${i}`, ord: 'Passeriformes', fam: 'Passeridae', famCom: 'Sparrows', to: i, st: false, ar: 1 }))
+    const index = { rows, byCode: new Map(rows.map((r) => [r.code, r])), search: () => [] } as unknown as SpeciesIndex
+    const entries = rows.map((r) => ({ code: r.code, date: '2020-05', place: { country: 'CA' }, heard: false, dead: false, media: false, sources: ['ebird'] })) as never
+    return { index, entries }
+  }
+  type Opts = Parameters<typeof drawShareImage>[0]
+  const draw = async (n: number, strings: Opts['strings'] = en.ui, more: Partial<Opts> = {}) => {
+    const texts = stubCanvas()
+    const { index, entries } = many(n)
+    await drawShareImage({ format: 'post', entries, species: index, theme: 'light', pack: { W: 100, H: 100, boxes: new Map() }, now: new Date(2026, 10, 14), latest: false, strings, ...more })
+    return texts
+  }
+  it('draws the count label in the UI language, upper-cased', async () => {
+    expect(await draw(1089, pt.ui)).toContain('ESPÉCIES')
+    const esTexts = await draw(1089, es.ui)
+    expect(esTexts).toContain('1.089')
+    expect(esTexts).toContain('ESPECIES')
+  })
+  it('English: the count, and the footer line with the date only', async () => {
+    const texts = await draw(1089)
+    expect(texts).toContain('1,089')
+    expect(texts).toContain('SPECIES')
+    expect(texts).toContain(`${FOOTER_LINE} · 14 Nov 2026`)
+  })
+  it('the story, post and square draw Spanish text', async () => {
+    const t = es.ui
+    const label = filterLabel({ order: 'Passeriformes', from: '2020-03', to: '2021-06' }, ctx, t)
+    expect(label).toBe('Paseriformes · mar 2020 a jun 2021')
+    for (const format of ['story', 'post', 'square'] as const) {
+      const texts = await draw(12, t, { format, latest: true, filterLabel: label })
+      expect(texts, format).toContain('ÚLTIMA ESPECIE NUEVA · MAY 2020')
+      expect(texts, format).toContain(label)
+      expect(texts, format).toContain('ESPECIES')
+      // The credit stays English; only the date after it is Spanish, with no lead.
+      expect(texts, format).toContain(`${FOOTER_LINE} · 14 nov 2026`)
+      expect(texts.join('\n'), format).not.toMatch(/Latest lifer|LATEST LIFER|Al 14/)
+    }
+  })
+  it('Portuguese and Dutch stamps: the date only', async () => {
+    expect(await draw(12, pt.ui)).toContain(`${FOOTER_LINE} · 14 nov 2026`)
+    expect(await draw(12, nl.ui)).toContain(`${FOOTER_LINE} · 14 nov 2026`)
+    expect((await draw(12, pt.ui, { latest: true })).join('\n')).toContain('ÚLTIMA ESPÉCIE NOVA · MAI 2020')
+    expect((await draw(12, nl.ui, { latest: true })).join('\n')).toContain('NIEUWSTE SOORT · MEI 2020')
+  })
+  it('a long Spanish filter label with the stamp never cuts the credit', async () => {
+    const t = es.ui
+    const label = filterLabel({ order: 'Charadriiformes', countries: ['EG', 'CA'], from: '2020-03', to: '2021-06' }, ctx, t)!
+    const long = `${label} · ${'Muy largo '.repeat(12)}`
+    for (const format of ['story', 'post', 'square'] as const) {
+      const texts = await draw(12, t, { format, latest: true, filterLabel: long })
+      const footer = texts.filter((x) => x.includes('stickers by huashu'))
+      expect(footer, format).toEqual([`${FOOTER_LINE} · 14 nov 2026`])
+    }
+    // placeCredit itself: the stamped Spanish line beside a 280px wordmark, else whole on its own line.
+    const stamped = withStamp(FOOTER_LINE, stampDate(new Date(2026, 8, 30), stampStrings(t)))
+    expect(stamped).toBe(`${FOOTER_LINE} · 30 sept 2026`)
+    const m = (px: number) => stamped.length * px * 0.6
+    const r = placeCredit(m, 952 - 280, 952, 20)
+    expect(r.size).toBeGreaterThanOrEqual(17)
+    expect(m(r.size)).toBeLessThanOrEqual(r.below ? 952 : 952 - 280)
   })
 })

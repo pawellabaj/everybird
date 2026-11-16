@@ -5,11 +5,12 @@ import { afterAll, describe, expect, it } from 'vitest'
 import {
   ARTIFACT_URL, BODY_MAX, PR_URL, UpstreamInconsistency, baseMarker, codesFromMatches, diffRecords, diffRows,
   diffStickers, implausible, lockJson, makeLock, nextShipped, nextVersions, parseLsTree, recordDigest, recordDigests,
-  renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, summarise, type HuashuLock,
+  renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, shouldOpenPr, summarise, type HuashuLock,
   type StickerChange,
 } from '../scripts/sync/huashu-lib'
 import { applyStickerVersions, buildSpecies, matchHuashu, taxonomyFromPublic } from '../scripts/build-data/build-species'
-import { readMaskTables, updateStickers, writeMaskTables, type MaskTables } from '../scripts/build-data/build-stickers'
+import { readMaskTables, stickerCount, updateStickers, writeMaskTables, type MaskTables } from '../scripts/build-data/build-stickers'
+import { SMALL, LARGE, PRINT } from '../src/lib/sticker-url'
 import { websiteCodes } from '../scripts/build-data/build-website-codes'
 import { assertRawPinned, assertShippedSource, gitBlobSha } from '../scripts/build-data/huashu-pin'
 import { checkoutHuashu } from '../scripts/build-data/fetch-sources'
@@ -64,6 +65,24 @@ describe('the huashu lock', () => {
     const text = lockJson(lock)
     expect(JSON.parse(text)).toEqual(lock)
     expect(text).toContain('\n  "whibir1": "stickers/Testiformes/Testidae/Avis_alba.webp"')
+  })
+
+  it('digests the raw IUCN status only when present, after forms; unrelated conservation fields have no effect', () => {
+    const [a] = huashu
+    const d = recordDigest(a)
+    expect(recordDigest({ ...clone(a), conservation: {} })).toBe(d)
+    const vu = { ...clone(a), conservation: { iucn: 'VU' } }
+    expect(recordDigest(vu)).not.toBe(d)
+    expect(recordDigest({ ...clone(vu), conservation: { iucn: 'EN' } })).not.toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(vu), conservation: { iucn: 'VU', cites: 'II' } } as HuashuRecord)).toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(a), conservation: { iucn: 'CR (PE)' } }))
+      .not.toBe(recordDigest({ ...clone(a), conservation: { iucn: 'CR' } }))
+    const form = { taxon: 'Avis alba minor', formerSpecies: { scientificName: 'Avis minor' } }
+    expect(recordDigest({ ...clone(vu), forms: [form] })).not.toBe(recordDigest({ ...clone(a), forms: [form] }))
+    const cited = { ...clone(a), conservation: { iucn: 'VU', sources: { iucn: 'AviList v2026（BirdLife v10）' } } } as HuashuRecord
+    expect(recordDigest(cited)).not.toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(a), conservation: { iucn: 'VU', sources: { iucn: 'AviList v2027（BirdLife v11）' } } } as HuashuRecord))
+      .not.toBe(recordDigest(cited))
   })
 
   it('throws when a code’s sticker file is missing from the tree', () => {
@@ -129,6 +148,33 @@ describe('the huashu diff', () => {
     expect(diffRows(file.species, after.species)).toEqual([
       { code: 'whibir1', fields: ['mass 20 g (avonet) → 25 g (avonet)', 'quality bar met → not met'] },
     ])
+  })
+
+  it('row changes: a status change alone is a data change named in the PR body', () => {
+    const before = clone(huashu)
+    before[0].conservation = { iucn: 'LC' }
+    const after = clone(huashu)
+    after[0].conservation = { iucn: 'NT' }
+    after[1].conservation = { iucn: 'EN' }
+    const prevRows = buildSpecies(before, taxa, {}).file.species
+    const rows = buildSpecies(after, taxa, {}).file.species
+    const changes = diffRows(prevRows, rows)
+    expect(changes).toEqual([
+      { code: 'whibir1', fields: ['status LC → NT'] }, { code: 'blabir1', fields: ['status none → EN'] },
+    ])
+    expect(diffRows(rows, prevRows)).toEqual([
+      { code: 'whibir1', fields: ['status NT → LC'] }, { code: 'blabir1', fields: ['status EN → none'] },
+    ])
+    expect(diffRows(rows, rows)).toEqual([])
+    const prevLock = lockFor(before, tree)
+    const nextLock = lockFor(after, tree)
+    expect(diffStickers(prevLock, nextLock)).toEqual([])
+    const records = diffRecords(prevLock.records, nextLock.records)
+    expect(records.changed).toEqual(['Avis_alba', 'Avis_nigra'])
+    const summary = summarise({ from: 'a'.repeat(40), to: 'b'.repeat(40), stickers: [], rows: changes,
+      records, names: new Map(rows.map((r) => [r.code, r.com])), website: new Set(), files: ['public/data/species.v1.json'] })
+    expect(renderPrBody(summary)).toContain('status LC → NT')
+    expect(renderPrBody(summary)).toContain('status none → EN')
   })
 })
 
@@ -213,6 +259,27 @@ describe('updateStickers (merge mode)', () => {
     expect(Object.keys(readMaskTables(join(dir, 'masks')).get('Testiformes')!)).toEqual(['keep1', 'new1'])
   })
 
+  it('builds all three tiers with unchanged 384 masks and counts one sticker per code', async () => {
+    const run = async (sizes: readonly (128 | 384 | 1024)[]) => {
+      const rows = [row('print1', true, 'abc123'), row('print2', true, 'def456')]
+      const masks: MaskTables = new Map()
+      const written = await updateStickers({ rows, masks, sizes, codes: new Set(rows.map((r) => r.code)),
+        source: () => resolve(__dirname, 'fixtures/build/sticker.png'), out: dir })
+      return { rows, masks, written }
+    }
+    const two = await run([SMALL, LARGE])
+    const three = await run([SMALL, LARGE, PRINT])
+    expect(three.masks).toEqual(two.masks)
+    expect(three.rows).toEqual(two.rows)
+    for (const r of three.rows) {
+      const rel = `v1/1024/${r.code}.${r.sv}.webp`
+      expect(three.written).toContain(rel)
+      expect(existsSync(join(dir, rel))).toBe(true)
+    }
+    expect(three.written).toHaveLength(6)
+    expect(stickerCount(three.written)).toBe(2)
+  })
+
   it('runs the check on each source before building, so a refusal writes nothing', async () => {
     const check = (code: string) => { throw new Error(`refused ${code}`) }
     await expect(updateStickers({
@@ -260,6 +327,28 @@ describe('PR and issue bodies', () => {
     expect(renderPrBody(summary)).not.toContain('side by side')
     expect(renderPrBody(summary, { tableMax: 2 })).toContain('| … and 2 more (summary.json has them all) |')
     expect(renderPrBody({ ...summary, deferred: 5283, cap: 600 })).toContain('- Left for the next sync: 5283 more rebuilt stickers (this run ships at most 600')
+  })
+
+  it('surfaces whether About’s Red List credit still matches huashu’s cited sources', () => {
+    expect(renderPrBody(summary)).not.toContain('Red List credit')
+    const ok = renderPrBody({ ...summary, iucnCredit: { sources: [['AviList v2026（BirdLife v10）', 10100]], ok: true } })
+    expect(ok).toContain(`- About's Red List credit ("BirdLife v10 via AviList v2026"): matches huashu's sources (AviList v2026（BirdLife v10）: 10100)`)
+    const bad = renderPrBody({ ...summary, iucnCredit: { sources: [['AviList v2027（BirdLife v11）', 10], ['AviList v2026（BirdLife v10）', 2]], ok: false } })
+    expect(bad).toContain('does not match')
+    expect(bad).toContain(`**does not match** huashu's sources (AviList v2027（BirdLife v11）: 10; AviList v2026（BirdLife v10）: 2): update AVILIST in src/lib/species/iucn.ts`)
+    expect(bad).toContain('This alone opens a sync PR; merging it records the new upstream commit')
+    const s2 = summarise({ from: 'a'.repeat(40), to: 'b'.repeat(40), stickers: [], rows: [], records: { changed: [], added: [], removed: [] },
+      names: new Map(), website: new Set(), files: [], iucnCredit: { sources: [], ok: false } })
+    expect(s2.iucnCredit).toEqual({ sources: [], ok: false })
+  })
+
+  it('opens a PR for shipped stickers, changed rows, or a Red List credit that no longer matches; else stays quiet', () => {
+    const ok = { sources: [['AviList v2026（BirdLife v10）', 1]] as [string, number][], ok: true }
+    expect(shouldOpenPr({ ship: [], rowChanges: [] })).toBe(false)
+    expect(shouldOpenPr({ ship: [], rowChanges: [], iucnCredit: ok })).toBe(false)
+    expect(shouldOpenPr({ ship: [], rowChanges: [], iucnCredit: { ...ok, ok: false } })).toBe(true)
+    expect(shouldOpenPr({ ship: [{}], rowChanges: [] })).toBe(true)
+    expect(shouldOpenPr({ ship: [], rowChanges: [{}], iucnCredit: ok })).toBe(true)
   })
 
   it('keeps the body under GitHub’s limit however long the table', () => {
@@ -355,6 +444,15 @@ describe('the schema-change guard', () => {
     const broken = huashu.map((h) => ({ ...h, scientificName: undefined, taxonomy: undefined })) as unknown as HuashuRecord[]
     expect(implausible({ ...base, changes: [], huashu: broken, prevRecords: 3 })[0]).toMatch(/3 of 3 species.json records lack/)
   })
+
+  it('stops when most statuses vanish (upstream renamed conservation.iucn), not when a few change', () => {
+    const withIu = prevRows.map((r, i) => ({ ...r, iu: i % 2 ? 'LC' as const : 'VU' as const }))
+    const renamed = withIu.map((r): SpeciesRow => ({ ...r, iu: undefined }))
+    expect(implausible({ ...base, prevRows: withIu, rows: renamed, changes: [], prevRecords: 3 })).toEqual([
+      '100 of 100 species with an IUCN status would lose it (over 20%)'])
+    const few = withIu.map((r, i) => (i < 20 ? { ...r, iu: undefined } : i < 40 ? { ...r, iu: 'EN' as const } : r))
+    expect(implausible({ ...base, prevRows: withIu, rows: few, changes: [], prevRecords: 3 })).toEqual([])
+  })
 })
 
 describe('local builds stay on the lock', () => {
@@ -390,5 +488,18 @@ describe('local builds stay on the lock', () => {
       expect(checkoutHuashu(dir, first)).toBe(first)
       expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('1')
     } finally { rmSync(tmp, { recursive: true, force: true }) }
+  })
+})
+
+describe('the sample pack the sync regenerates', () => {
+  it('still carries the base names (loc), read from the committed names files, with no new input', async () => {
+    const { makeSamplePack } = await import('../scripts/build-data/build-sample-pack')
+    const dir = resolve(__dirname, '../public/data')
+    const read = <T,>(f: string) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as T
+    const rows = read<SpeciesFile>('species.v1.json').species // the sync passes its rebuilt rows the same way
+    const pack = await makeSamplePack(read('sample.v1.json'), rows, read('regions.v1.json'), async () => ({}), dir)
+    expect(Object.keys(pack.loc).sort()).toEqual(['es', 'nl', 'pt_BR'])
+    expect(Object.keys(pack.loc.es.names).length).toBeGreaterThan(100)
+    expect(pack.loc).toEqual(read<{ loc: unknown }>('sample-pack.v1.json').loc)
   })
 })

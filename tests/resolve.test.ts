@@ -92,7 +92,9 @@ describe('loading', () => {
     const f = stubFetch({ '/data/species.v1.json': fx('species') })
     const [a, b] = [await loadSpecies(), await loadSpecies()]
     expect(a).toBe(b)
-    expect(f).toHaveBeenCalledTimes(1)
+    // The species file once; the optional groups file beside it (missing here: the index just has no groups).
+    expect(f.mock.calls.filter(([u]) => String(u).includes('species'))).toHaveLength(1)
+    expect(a.groups).toBeUndefined()
   })
   it('rejects on HTTP error and allows retry', async () => {
     stubFetch({})

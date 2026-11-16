@@ -3,6 +3,7 @@ import { foldName, resolveName, type TaxonomyIndex } from '@/lib/species/resolve
 import type { Regions } from '@/lib/species/types'
 import { SeenAgg } from '@/lib/list/seen'
 import { stripBracket } from './places'
+import { makeSub1Index } from './sub1-index'
 import { applyRegionRule, REGION_RULES, type Assigned } from './inat-rules'
 
 export type InatProgress = { fetched: number; total: number }
@@ -149,6 +150,7 @@ type Agg = {
   date?: string
   placeIds: number[]
   seen: Map<string, string>
+  seenMonths: Map<string, Set<string>>
   media: boolean
   heardAll: boolean
   deadAll: boolean
@@ -161,6 +163,11 @@ function foldInto(into: Agg, from: Agg): void {
   for (const [k, d] of from.seen) {
     const prev = into.seen.get(k)
     if (prev === undefined || (d && (!prev || d < prev))) into.seen.set(k, d)
+  }
+  for (const [key, months] of from.seenMonths) {
+    let set = into.seenMonths.get(key)
+    if (!set) into.seenMonths.set(key, (set = new Set()))
+    for (const month of months) set.add(month)
   }
   into.media ||= from.media
   into.heardAll &&= from.heardAll
@@ -183,47 +190,13 @@ function invertCountries(r: Regions): Map<string, string> {
   return m
 }
 
-/**
- * Local-language names iNaturalist may use for the regions build-geo renames to English (REGION_RENAMES), so they keep
- * matching. Folded on use. A name is only tried within its own country.
- */
-export const SUB1_ALIASES: Record<string, string[]> = {
-  'BE-VLG': ['Vlaanderen', 'Vlaams Gewest', 'Flemish Region'],
-  'BE-WAL': ['Wallonie', 'Région wallonne', 'Walloon Region'],
-  'CZ-10': ['Praha', 'Hlavní město Praha'],
-  'ES-AS': ['Principado de Asturias'],
-  'ES-CT': ['Catalunya', 'Cataluña'],
-  'ES-IB': ['Illes Balears', 'Islas Baleares'],
-  'ES-MC': ['Murcia', 'Región de Murcia'],
-  'ES-MD': ['Madrid', 'Comunidad de Madrid'],
-  'ES-NC': ['Navarra', 'Comunidad Foral de Navarra'],
-  'ES-VC': ['Comunitat Valenciana', 'Comunidad Valenciana', 'Valencia'],
-  'FR-973': ['Guyane'],
-  'US-VI': ['Virgin Islands', 'United States Virgin Islands'],
-}
-
-/** Names a sub1 entry answers to: "Wales [Cymru GB-CYM]" -> "wales"; "Catalunya [Cataluña]" -> "catalunya", "cataluna". */
-function sub1Names(name: string): string[] {
-  const out = [foldName(stripBracket(name))]
-  const inner = /\[([^\]]*)\]\s*$/.exec(name)?.[1]?.replace(/\s+[A-Z]{2}-[A-Z0-9]+$/, '').trim()
-  if (inner) out.push(foldName(inner))
-  return out
-}
+export { SUB1_ALIASES, sub1Names } from './sub1-index'
 
 /** Exported for tests. */
 export function makePlaceResolver(regions: Regions, byId: Map<number, ApiPlace>) {
   const countries = invertCountries(regions)
-  const sub1ByCountry = new Map<string, Map<string, string>>()
-  for (const [code, name] of Object.entries(regions.sub1)) {
-    const iso = code.split('-')[0]!
-    let m = sub1ByCountry.get(iso)
-    if (!m) sub1ByCountry.set(iso, (m = new Map()))
-    for (const n of sub1Names(name)) if (!m.has(n)) m.set(n, code)
-  }
-  for (const [code, names] of Object.entries(SUB1_ALIASES)) { // after the real names, which win
-    const m = regions.sub1[code] ? sub1ByCountry.get(code.split('-')[0]!) : undefined
-    if (m) for (const n of names) if (!m.has(foldName(n))) m.set(foldName(n), code)
-  }
+  // A name two codes share keeps the first, as this import always has; the aliases settle the known ones first.
+  const sub1Of = makeSub1Index(regions, undefined, undefined, { onClash: 'first' })
   return (placeIds: number[]): Place | undefined => {
     let countryName: string | undefined
     let sub1Name: string | undefined
@@ -238,7 +211,7 @@ export function makePlaceResolver(regions: Regions, byId: Map<number, ApiPlace>)
     const country = countryName ? countries.get(foldName(stripBracket(countryName))) : undefined
     if (!country) return undefined
     const place: Place = { country }
-    const sub1 = sub1Name ? sub1ByCountry.get(country)?.get(foldName(stripBracket(sub1Name))) : undefined
+    const sub1 = sub1Name ? sub1Of(country, sub1Name) : undefined
     if (sub1) place.sub1 = sub1
     if (sub2) place.sub2 = sub2
     return place
@@ -339,6 +312,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
           date,
           placeIds,
           seen: new Map(placeIds.length ? [[placeIds.join(','), date ?? '']] : []),
+          seenMonths: new Map(placeIds.length && date ? [[placeIds.join(','), new Set([date.slice(0, 7)])]] : []),
           media: photos + sounds > 0,
           heardAll: sounds > 0 && photos === 0,
           deadAll: !!o.annotations?.some((a) => a.controlled_attribute_id === 17 && a.controlled_value_id === 19),
@@ -372,7 +346,10 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
     const seenOf = (a: Agg, into: string) => {
       for (const [k, d] of a.seen) {
         if (!placeByKey.has(k)) placeByKey.set(k, placeOf(k.split(',').map(Number)))
-        seenPlaces.add(into, placeByKey.get(k), d || undefined)
+        const place = placeByKey.get(k)
+        seenPlaces.add(into, place, d || undefined)
+        const region = place?.sub1 || place?.country
+        if (region) seenPlaces.addMonths(into, place?.sub2 ? `${region}|${place.sub2}` : region, a.seenMonths.get(k) ?? [])
       }
     }
 
@@ -404,6 +381,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
             if (place) u.place = place
             seenOf(a, `name:${name}`)
             u.seen = seenPlaces.get(`name:${name}`) ?? []
+            u.seenMonths = seenPlaces.getMonths(`name:${name}`) ?? []
             unmatched.push(u)
             continue
           }
@@ -433,6 +411,7 @@ export async function importInat(username: string, opts: InatOptions): Promise<I
       rec.research = a.research
       if (a.assigned) rec.assigned = a.assigned
       rec.seen = seenPlaces.get(a.code) ?? []
+      rec.seenMonths = seenPlaces.getMonths(a.code) ?? []
       records.push(rec)
     }
     return { records, unmatched, skipped }

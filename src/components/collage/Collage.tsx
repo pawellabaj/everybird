@@ -9,11 +9,16 @@
 //  - className: extra class on the outer wrapper.
 //  - still:     only visibility changes over the shown layout (a range drag's preview; see the prop).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { LAYOUTS } from '@/lib/layout/constants'
 import { labelBounds } from '@/lib/layout/count-box'
 import type { StateLayout } from '@/lib/layout/layout-client'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import { Bird, type BirdInit } from './Bird'
 import { loadDeferred, unloadSticker } from './Sticker'
 import { birdAt, ensureMasks } from './collage-hit'
@@ -92,6 +97,8 @@ function makeInit(code: string, layout: StateLayout, visible: Set<string>, m: Mo
 }
 
 export function Collage({ entries, species, layout, visible, mode, onPick, onHover, className, still }: CollageProps) {
+  const { t } = useI18n()
+  const names = useNames() // birds are named in the local language once its names file arrives
   const stage = useRef<HTMLDivElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   const els = useRef(new Map<string, HTMLButtonElement>())
@@ -107,8 +114,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
   const chunkFrame = useRef(0)
   const prunedFor = useRef<ListEntry[] | null>(null)
   const alive = useRef(true)
-  const latest = useRef({ layout, onPick, onHover, still })
-  useLayoutEffect(() => { latest.current = { layout, onPick, onHover, still } })
+  const latest = useRef({ layout, onPick, onHover, still, visible, shown: 0 })
   const written = useRef<StateLayout | null>(null) // the layout of the last write
 
   const row = useCallback((code: string) => species.byCode.get(code), [species])
@@ -124,6 +130,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
   const top = useMemo(() => [...draw].reverse(), [draw])
   const orders = useMemo(() => [...new Set(entries.map((e) => row(e.code)?.ord).filter((o): o is string => !!o))], [entries, row])
   const shown = useMemo(() => entries.reduce((n, e) => n + (visible.has(e.code) ? 1 : 0), 0), [entries, visible])
+  useLayoutEffect(() => { latest.current = { layout, onPick, onHover, still, visible, shown } })
   // Big from the start: the first appearance doesn't animate (collage.css). Frozen at the first render: flipping it
   // later would restyle every rendered bird, and by then the first appearance is long over.
   const [many] = useState(() => shown > CROSSFADE_AT)
@@ -533,7 +540,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         inits.set(code, init)
       }
       const r = row(code)
-      return <Bird key={code} code={code} name={r?.com ?? code} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} init={init} register={register} />
+      return <Bird key={code} code={code} name={r ? displayName(r) : code} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} init={init} register={register} />
     })
     if (!windowed) return list
     // Windowed: in groups of GROUP (display: contents, so nothing changes for layout or paint order). WebKit restyles
@@ -545,7 +552,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
     return groups
     // layout and visible are read only to seed birds new to the list; their changes are written in the layout effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draw, row, register, motion, inits, windowed])
+  }, [draw, row, register, motion, inits, windowed, names])
   // The layer element itself is memoised too, so a new layout re-renders the stage without walking 1,000 birds.
   const birdLayer = useMemo(() => <div ref={layer} className="eb-layer">{birds}</div>, [birds])
 
@@ -555,7 +562,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         ref={stage}
         className="eb-stage"
         role="group"
-        aria-label={`Collage of ${shown.toLocaleString('en-US')} species, sized by body mass${mode === 'true' ? ' at true scale' : ''}. Use the arrow keys to move between birds.`}
+        aria-label={plural(mode === 'true' ? t.collage.stage.trueScale : t.collage.stage.even, shown, { n: formatInt(shown, t.num) })}
         data-testid="collage-stage"
         data-mode={mode}
         data-many={many || undefined}

@@ -1,3 +1,4 @@
+import { EN_UI } from '@/i18n/messages/en-ui'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { applyFilter, drillTo, filterKey, filterToShow, options } from '@/lib/list/filters'
@@ -36,8 +37,8 @@ describe('filters', () => {
   it('options count under the other active filters', () => {
     expect(options(list, {}, 'order', sp2).map((o) => [o.value, o.count])).toEqual([
       ['Anseriformes', 1], ['Strigiformes', 2], ['Passeriformes', 4]])
-    expect(options(list, { countries: ['EG'] }, 'order', sp2).map((o) => [o.label, o.count])).toEqual([
-      ['Owls', 1], ['Perching birds', 3]])
+    expect(options(list, { countries: ['EG'] }, 'order', sp2).map((o) => [o.value, o.count])).toEqual([
+      ['Strigiformes', 1], ['Passeriformes', 3]])
     expect(options(list, { order: 'Passeriformes', countries: ['CA'] }, 'family', sp2)).toEqual([
       { value: 'Corvidae', label: 'Corvidae common', count: 1 }])
     expect(options(list, { order: 'Passeriformes' }, 'country', sp2, (c) => (c === 'EG' ? 'Egypt' : c))).toEqual([
@@ -73,7 +74,7 @@ describe('orders', () => {
   it('labels every order in species.v1.json', () => {
     const d = JSON.parse(readFileSync('public/data/species.v1.json', 'utf8')).species as { ord: string }[]
     for (const o of new Set(d.map((r) => r.ord))) expect(ORDERS[o], o).toBeTruthy()
-    expect(orderLabel('Nope')).toBe('Nope')
+    expect(orderLabel('Nope', EN_UI)).toBe('Nope')
   })
 })
 

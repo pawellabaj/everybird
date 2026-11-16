@@ -47,7 +47,7 @@ test("the shared view loads no Cloudflare beacon, counts one 'shared' visit with
   });
   await page.goto(`/s/${frozen}`);
   await expect(page.getByTestId("collage-stage")).toBeVisible();
-  await expect.poll(() => page.evaluate(() => (window as unknown as { __stats: string[] }).__stats)).toEqual(['{"n":"visit","p":"shared"}']);
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __stats: string[] }).__stats)).toEqual([expect.stringMatching(/^\{"n":"visit","p":"shared"(,"l":"[a-z]{2,3}")?\}$/)]); // l: the browser language's primary subtag
   await expect(page.locator('script[src*="cloudflareinsights"]')).toHaveCount(0);
   // Every way into the app (Make yours, the top bar, the footer) is a new document, never a client navigation, so
   // Cloudflare's beacon can't load in a document whose history holds the token (and report it on Back).
@@ -77,4 +77,37 @@ test("a broken link says so plainly, offers Make yours and still shows the sampl
 test("a link from a newer version is rejected", async ({ page }) => {
   await page.goto(`/s/2${frozen.slice(1)}`);
   await expect(page.getByRole("heading", { level: 1, name: "This link didn't open" })).toBeVisible();
+});
+
+// The shared view's Places filter drills through the place strings the link carries (payloadToRecords): "Capital,
+// British Columbia, Canada" is a county in a province in a country. No link format change.
+test("a shared link's Places drills to province and county", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const codes = linkIndex as string[];
+  const { token } = encodeShare({
+    v: 1,
+    places: ["Capital, British Columbia, Canada", "Okanagan-Similkameen, British Columbia, Canada", "Ontario, Canada", "Egypt"],
+    countries: ["CA", "CA", "CA", "EG"],
+    birds: [0, 0, 1, 2, 3, 3].map((p, i) => ({ code: codes[i * 7], p, ym: 300 + i })),
+  });
+  await page.goto(`/s/${token}`);
+  const stats = page.getByTestId("collage-stats");
+  await expect(stats).toHaveText(/^6 species/);
+  const places = page.getByTestId("filter-tab-places");
+  await places.click();
+  const panel = page.getByTestId("filter-panel-places");
+  await expect(panel.getByTestId("drill-c:EG")).toHaveCount(0);
+  await panel.getByTestId("drill-c:CA").click();
+  await expect(panel.locator(".eb-places-head")).toContainText("States and provinces · 2");
+  await panel.getByRole("button", { name: "Show counties in British Columbia" }).click();
+  await expect(panel.locator(".eb-places-head")).toContainText("Counties · 2");
+  await panel.getByText("Capital", { exact: true }).click();
+  await expect(stats).toContainText("2 of 6 species");
+  await expect(places).toHaveAttribute("aria-label", "Places: Capital, British Columbia");
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  const bird = page.getByTestId("collage-stage").locator("[data-code]:not([data-off])").first();
+  await bird.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog").locator(".eb-card-place")).toHaveText("Capital, British Columbia, Canada");
 });

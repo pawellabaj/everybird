@@ -39,7 +39,7 @@ const earlier = (date: string | undefined, prev: string | undefined) => !!date &
  *   name's earliest-dated row, which also supplies its date and place.
  * - Per species the earliest row wins (date and place); `media` is true if ANY row has ML Catalog Numbers.
  * - Seen here (seen.ts): every record and unmatched name gets `seen`, one entry per place (province + county) it was
- *   seen in, with the earliest date there. Aggregated per species and place as the rows stream by; rows are not kept.
+ *   seen in, with the earliest date there; seenMonths keeps all distinct months at each place. Aggregated per species and place as the rows stream by; rows are not kept.
  */
 export function parseEbirdMyData(csv: string | File, t: TaxonomyIndex, onProgress?: (rows: number) => void): Promise<ImportResult> {
   const byCode = new Map<string, SourceRecord>()
@@ -107,9 +107,12 @@ export function parseEbirdMyData(csv: string | File, t: TaxonomyIndex, onProgres
 
   const finish = (): ImportResult => {
     const records = [...byCode.values()]
-    for (const r of records) r.seen = seen.get(r.code) ?? []
+    for (const r of records) {
+      r.seen = seen.get(r.code) ?? []
+      r.seenMonths = seen.getMonths(r.code) ?? []
+    }
     const unmatched: Unmatched[] = []
-    for (const [key, u] of unmatchedByName) unmatched.push({ ...u, seen: seenUnmatched.get(key) ?? [] })
+    for (const [key, u] of unmatchedByName) unmatched.push({ ...u, seen: seenUnmatched.get(key) ?? [], seenMonths: seenUnmatched.getMonths(key) ?? [] })
     return { records, unmatched, skipped, rows: rowNo }
   }
 

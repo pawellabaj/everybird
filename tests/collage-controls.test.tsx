@@ -12,6 +12,9 @@ import { emptySaved } from '@/lib/list/storage'
 import { initialState, makeReducer, type AppState } from '@/lib/list/store'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { fmt } from '@/i18n/core'
+import { es } from '@/i18n/messages/es'
+import { withI18n } from './i18n-render'
 
 const sp = (code: string, com: string, sci: string, ord: string, fam: string, famCom: string, to: number, g: number): SpeciesRow =>
   ({ code, com, sci, ord, fam, famCom, to, g, gSrc: 'avonet', st: true, ar: 1, q: true })
@@ -24,7 +27,7 @@ const species = buildSpeciesIndex([
 ])
 const regions: Regions = { v: 1, countries: { CA: 'Canada' }, sub1: { 'CA-BC': 'British Columbia' } }
 const rec = (code: string, date: string): SourceRecord => ({ code, source: 'ebird', date, place: { country: 'CA', sub1: 'CA-BC' } })
-const reduce = makeReducer({ species, countryName: (c) => (c === 'CA' ? 'Canada' : c) })
+const reduce = makeReducer({ species })
 
 function seeded(): AppState {
   const saved = emptySaved()
@@ -69,6 +72,16 @@ describe('controls bar', () => {
     fireEvent.click(dir)
     expect(screen.getByRole('button', { name: 'Sorted by body mass, lightest first. Reverse order' })).toHaveTextContent('Lightest first')
     expect(rowNames()[0]).toBe('Yellow-rumped Warbler')
+  })
+})
+
+describe('Filters and the search', () => {
+  it('opening the search closes the Filters popover (the magnifier press and the keyboard both)', () => {
+    render(<Harness />)
+    fireEvent.click(screen.getByTestId('filters-button'))
+    expect(screen.getByTestId('filters-panel')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Find a bird' }))
+    expect(screen.queryByTestId('filters-panel')).toBeNull()
   })
 })
 
@@ -249,5 +262,28 @@ describe('hover tooltip', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'Orders' })).getByRole('button', { name: /^Waterfowl/ }))
     await act(async () => { await new Promise((r) => setTimeout(r, 1200)) })
     expect(screen.queryByTestId('bird-tip')).toBeNull()
+  })
+})
+
+describe('in Spanish', () => {
+  it('Tamaño real, Científico, the view tabs, the magnifier and the stats line', () => {
+    render(<Harness />, { wrapper: withI18n('es') })
+    expect(screen.getByRole('switch', { name: /^Tamaño real/ })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('switch', { name: /^Científico/ })).toBeInTheDocument()
+    const view = screen.getByRole('group', { name: 'Vista' })
+    expect(within(view).getByRole('button', { name: 'Lista' })).toBeInTheDocument()
+    expect(stats()).toHaveTextContent('5 especies · 3 órdenes · 4 familias · desde ene 2020')
+    const find = screen.getByRole('button', { name: 'Buscar un ave' })
+    fireEvent.click(find)
+    const field = screen.getByRole('combobox', { name: 'Buscar un ave' })
+    expect(field).toHaveAttribute('placeholder', 'Buscar un ave')
+    fireEvent.change(field, { target: { value: 'zzz' } })
+    expect(screen.getByRole('listbox', { name: 'Aves y grupos que coinciden' })).toHaveTextContent(fmt(es.ui.collage.search.noneThis, { q: 'zzz' }))
+    expect(screen.getByRole('button', { name: 'Cerrar la búsqueda' })).toBeInTheDocument()
+  })
+  it('the legend in Spanish', () => {
+    const { container } = render(<Harness />, { wrapper: withI18n('es') })
+    expect(container.querySelector('.eb-legend')).toHaveTextContent('* solo oída · † encontrada muerta')
+    expect(container.querySelector('.eb-legend')).toHaveTextContent('Los tamaños siguen la masa corporal, equilibrados para que las aves pequeñas se vean')
   })
 })

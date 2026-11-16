@@ -1,3 +1,6 @@
+import { fmt, plural, type Plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import { SLOTS, slotSource, unmatchedKey } from './model'
 import type { ListEntry, Slot, SourceRecord } from './model'
 import type { Saved } from './storage'
@@ -13,24 +16,26 @@ export function slottedRecords(saved: Saved): { slot: Slot; record: SourceRecord
     const slot = u.slot ?? u.source
     const record: SourceRecord = { code, source: slotSource(slot), date: u.date, place: u.place }
     if (u.seen) record.seen = u.seen
+    if (u.seenMonths) record.seenMonths = u.seenMonths
     out.push({ slot, record })
   }
   return out
 }
 
-/** The three sources the summary and "only here" compare: the two eBird files are one. */
-export type Group = 'ebird' | 'inat' | 'manual'
-export const GROUPS: readonly Group[] = ['ebird', 'inat', 'manual']
-const groupOf = (slot: Slot): Group => (slot === 'ebird-list' ? 'ebird' : slot)
+/** The source groups the summary compares: a source's export slots count together. */
+export type Group = 'ebird' | 'inat' | 'obsorg' | 'manual'
+export const GROUPS: readonly Group[] = ['ebird', 'inat', 'obsorg', 'manual']
+const groupOf = (slot: Slot): Group => slotSource(slot)
+const ONLY_IN: Partial<Record<Group, RowCount['onlyIn']>> = { ebird: 'eBird', obsorg: 'observation.org' }
 
 /** One Settings row's counts: the species it brings to the collage, and how many of them no other source has. */
 export type RowCount = {
   species: number
-  /** Species no other source has (the eBird files count as one source); 0 when none, when the other eBird row says
+  /** Species no other source has (a source's two files count as one); 0 when none, when the source's other row says
    *  it, or when no other source has species (then every bird is only there, and the row doesn't say so). */
   only: number
-  /** 'here' ("12 only here"), or 'eBird' ("12 only in eBird") when both eBird files are on the list. */
-  onlyIn: 'here' | 'eBird'
+  /** 'here' ("12 only here"), or the source's name ("12 only in eBird") when both of its files are on the list. */
+  onlyIn: 'here' | 'eBird' | 'observation.org'
 }
 
 export type SourceCounts = {
@@ -50,9 +55,10 @@ export type SourceCounts = {
  * slot, hand ticks (`records.manual` and `edits.added`) in 'manual'. A bird the rules keep only by its records
  * together (one heard, another dead) is credited to every source holding it, so every bird on the list has a source.
  *
- * "Only here" compares the three groups (both eBird files are one source). With one eBird file on the list its row
- * says "only here"; with both, eBird's number is shown once, as "only in eBird", on the eBird row with more species
- * (the life list on a tie), since a bird only in eBird may be in either file or both.
+ * "Only here" compares the groups (both eBird files are one source, and so are both observation.org files). With one
+ * of a source's files on the list its row says "only here"; with both, the source's number is shown once, as "only in
+ * eBird" / "only in observation.org", on its row with more species (the life list on a tie), since a bird only in
+ * that source may be in either file or both.
  */
 export function sourceCounts(saved: Saved, list: readonly ListEntry[]): SourceCounts {
   const onList = new Set(list.map((e) => e.code))
@@ -95,13 +101,21 @@ export function sourceCounts(saved: Saved, list: readonly ListEntry[]): SourceCo
   for (const s of SLOTS) rows[s] = { species: species(s), only: 0, onlyIn: 'here' }
   // With one source, everything is only there: say nothing.
   const many = GROUPS.filter((g) => byGroup.get(g)!.size > 0).length > 1
-  rows.inat.only = many ? onlyOf('inat') : 0
-  rows.manual.only = many ? onlyOf('manual') : 0
-  const ebirdOnly = many ? onlyOf('ebird') : 0
-  const both = species('ebird') > 0 && species('ebird-list') > 0
-  const shows: Slot = !both ? (species('ebird') > 0 ? 'ebird' : 'ebird-list') : species('ebird') > species('ebird-list') ? 'ebird' : 'ebird-list'
-  rows[shows].only = ebirdOnly
-  if (both) rows[shows].onlyIn = 'eBird'
+  // A group's number is on its one row; for a source with two files (eBird, observation.org) with both on the list,
+  // once, as "only in <source>", on the file with more species (the second slot on a tie: the life list).
+  for (const g of GROUPS) {
+    const slots = SLOTS.filter((s) => groupOf(s) === g)
+    const only = many ? onlyOf(g) : 0
+    if (slots.length === 1) {
+      rows[slots[0]].only = only
+      continue
+    }
+    const [a, b] = slots
+    const both = species(a) > 0 && species(b) > 0
+    const shows: Slot = !both ? (species(a) > 0 ? a : b) : species(a) > species(b) ? a : b
+    rows[shows].only = only
+    if (both) rows[shows].onlyIn = ONLY_IN[g]!
+  }
 
   const parts: SourceCounts['parts'] = []
   const before = new Set<string>()
@@ -117,24 +131,25 @@ export function sourceCounts(saved: Saved, list: readonly ListEntry[]): SourceCo
   return { total: list.length, rows, parts }
 }
 
-const num = (x: number) => x.toLocaleString('en-US')
-const FROM: Record<Group, string> = { ebird: 'from eBird', inat: 'from iNaturalist', manual: 'ticked by hand' }
-
 /**
- * Settings' one line above the sources: "Your collage has 199 species: 185 from eBird, 11 more from iNaturalist,
- * 3 ticked by hand." One source: "Your collage has 576 species, all from iNaturalist." Null for an empty list.
+ * Settings' one line above the sources, in `t`'s language: "Your collage has 199 species: 185 from eBird, 11 more from
+ * iNaturalist, 3 ticked by hand." One source: "Your collage has 576 species, all from iNaturalist." Null for an empty
+ * list. Whole templates per group (`t.import.summary`), each plural on its own number, so gender and number agree.
  */
-export function summaryLine(c: SourceCounts): string | null {
+export function summaryLine(c: SourceCounts, t: Ui): string | null {
   if (!c.total) return null
-  const head = `Your collage has ${num(c.total)} species`
-  if (c.parts.length <= 1) return c.parts[0] ? `${head}, all ${FROM[c.parts[0].group]}.` : `${head}.`
-  const body = c.parts.map((p, i) => `${num(p.n)} ${i > 0 && p.group !== 'manual' ? 'more ' : ''}${FROM[p.group]}`)
-  return `${head}: ${body.join(', ')}.`
+  const s = t.import.summary
+  const count = (n: number, p: Plural) => plural(p, n, { n: formatInt(n, t.num) })
+  const head = count(c.total, s.head)
+  if (c.parts.length <= 1) return c.parts[0] ? fmt(s.one, { head, all: count(c.total, s.all[c.parts[0].group]) }) : `${head}.`
+  const parts = c.parts.map((p, i) => count(p.n, i > 0 && p.group !== 'ebird' ? s.more[p.group] : s.first[p.group]))
+  return fmt(s.list, { head, parts: parts.join(', ') })
 }
 
-/** A row's counts as status parts: ["185 species", "12 only here"] (no "only" part at 0). */
-export function countParts(r: RowCount): string[] {
-  const parts = [`${num(r.species)} species`]
-  if (r.only > 0) parts.push(`${num(r.only)} only ${r.onlyIn === 'here' ? 'here' : 'in eBird'}`)
+/** A row's counts as status parts: ["185 species", "12 only here"] (no "only" part at 0), in `t`'s language. */
+export function countParts(r: RowCount, t: Ui): string[] {
+  const n = (x: number) => formatInt(x, t.num)
+  const parts = [plural(t.import.species, r.species, { n: n(r.species) })]
+  if (r.only > 0) parts.push(fmt(r.onlyIn === 'here' ? t.import.onlyHere : r.onlyIn === 'eBird' ? t.import.onlyEbird : t.import.onlyObsorg, { n: n(r.only) }))
   return parts
 }

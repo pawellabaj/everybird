@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { BIRDS, TOTAL } from "../src/components/about/how-it-works-data";
+import { BIRDS, THREATENED, TOTAL } from "../src/components/about/how-it-works-data";
 import { pageTitle } from "../src/lib/list/title";
+import { en } from "../src/i18n/messages/en";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
+import { stampDate, withStamp } from "../src/lib/share/stamp";
 
 // share/image.ts's FOOTER_LINE (that module can't load here: it starts a worker with import.meta); the test checks its
 // definition is still this.
@@ -26,12 +28,30 @@ test("/about says what Everybird is, what True size means, and credits the stick
   const credits = main.locator("#credits");
   await expect(credits.getByRole("link", { name: "Yusuf Taleb" })).toHaveAttribute("href", "https://www.yusuftaleb.com");
   await expect(credits.getByRole("link", { name: "life list on his site" })).toHaveAttribute("href", "https://www.yusuftaleb.com/lifelist");
+  await expect(credits.getByText(/If you enjoy Everybird, you can buy Yusuf a coffee\./)).toBeVisible();
+  // Buy Me a Coffee's own static button, from this origin (nothing from their CDN), 40px tall, a 44px press.
+  const coffee = credits.getByRole("link", { name: "Buy me a coffee" });
+  await expect(coffee).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+  await expect(coffee).toHaveAttribute("target", "_blank");
+  const button = coffee.getByRole("img", { name: "Buy me a coffee" });
+  await expect(button).toHaveAttribute("src", "/buy-me-a-coffee.png");
+  await expect.poll(() => button.evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth)).toBe(545);
+  const box = (await button.boundingBox())!;
+  expect(Math.round(box.height)).toBe(40);
+  const press = (await coffee.boundingBox())!;
+  expect(press.height).toBeGreaterThanOrEqual(44);
   await expect(credits.locator('a[href="https://github.com/alchaincyf/huashu-bird-sticker"]').first()).toBeVisible();
   await expect(credits.getByText("CC BY 4.0").first()).toBeVisible();
   await expect(credits.locator('a[href="https://theodore.net/projects/AvianVisitors/"]')).toBeVisible();
   await expect(credits.getByText(/eBird\/Clements taxonomy, version 20\d\d/)).toBeVisible();
   await expect(credits.getByRole("link", { name: "Debian iso-codes" })).toHaveAttribute("href", "https://salsa.debian.org/iso-codes-team/iso-codes");
   await expect(credits.getByText("Region names · LGPL-2.1")).toBeVisible();
+  // Conservation status: in the filters, its own note (source, version, global not regional) and AviList's credit
+  await expect(main.getByText(/Filter it by group, place, year or conservation status/)).toBeVisible();
+  await expect(main.getByRole("heading", { level: 2, name: "Conservation status" })).toBeVisible();
+  await expect(main.getByText(/from BirdLife v10 via AviList v2026\. It is global, not regional/)).toBeVisible();
+  await expect(credits.getByRole("link", { name: "AviList" })).toHaveAttribute("href", "https://doi.org/10.2173/avilist.v2026");
+  await expect(credits.getByText("Red List categories · CC BY 4.0")).toBeVisible();
   await expect(page.getByRole("banner").getByRole("link", { name: "About" })).toHaveAttribute("aria-current", "page");
   expect(errors).toEqual([]);
 });
@@ -65,6 +85,10 @@ for (const [name, path] of [
     await expect(footer).not.toContainText("CC BY 4.0");
     await expect(footer.getByRole("link", { name: "All credits" })).toHaveAttribute("href", "/about#credits");
     await expect(footer.getByRole("link", { name: "Made by Yusuf Taleb" })).toHaveAttribute("href", "https://www.yusuftaleb.com");
+    const coffee = footer.getByRole("link", { name: "Buy me a coffee" });
+    await expect(coffee).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
+    await expect(coffee).toHaveAttribute("target", "_blank");
+    await expect(coffee).toHaveAttribute("rel", "noopener noreferrer");
     // The code on GitHub, at the row's right edge, with a 44px press
     const gh = footer.getByRole("link", { name: "Everybird on GitHub" });
     await expect(gh).toHaveAttribute("href", "https://github.com/yusuftaleb/everybird");
@@ -192,6 +216,24 @@ for (const { layout, width, height } of SIZES) {
     await ctx.close()
   })
 
+  test(`How it works: each share image's footer, stamped, fits inside the image (${layout})`, async ({ browser }) => {
+    // Under reduced motion the poster is all there is, so nothing replaces it while it's measured. The images are
+    // overflow: hidden; the hidden formats are only opacity 0, so their boxes measure as laid out.
+    const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" })
+    const page = await ctx.newPage()
+    await page.goto("/about")
+    await page.evaluate(() => document.fonts.ready)
+    const out: string[] = []
+    for (const f of ["story", "post", "square"]) {
+      const img = page.locator(`[data-poster="${layout}"] .ebd-img[data-format="${f}"]`)
+      const [a, b] = [await img.boundingBox(), await img.locator(".ebd-img-foot").boundingBox()]
+      if (!a || !b) out.push(`${f}: not laid out`)
+      else if (b.x + b.width > a.x + a.width + 0.5) out.push(`${f}: footer ends ${(b.x + b.width - a.x - a.width).toFixed(1)}px past the image`)
+    }
+    expect(out).toEqual([])
+    await ctx.close()
+  })
+
   test(`How it works: no sticker paints on the count, in the collage and the share images (${layout})`, async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width, height }, reducedMotion: "reduce" })
     const page = await ctx.newPage()
@@ -242,6 +284,24 @@ for (const { layout, width, height } of SIZES) {
   })
 }
 
+// The scene's share preview mirrors the product's: its box is the image's own shape (no letterbox), in both designs.
+test("How it works: the share dialog's preview box has the image's own shape", async ({ page }) => {
+  const ratio = { story: 9 / 16, post: 4 / 5, square: 1 } as Record<string, number>;
+  // Each design shows at its own width (the slot's container query picks one).
+  for (const [layout, width] of [["wide", 1280], ["compact", 390]] as const) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/about");
+    const m = await page.locator(`[data-poster="${layout}"] .ebd-share-preview`).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const img = el.querySelector<HTMLElement>(`.ebd-img[data-format="${(el as HTMLElement).dataset.format}"]`)!.getBoundingClientRect();
+      return { format: (el as HTMLElement).dataset.format!, w: r.width, h: r.height, iw: img.width, ih: img.height };
+    });
+    expect(m.w / m.h, `${layout}: the preview box isn't the ${m.format} image's shape`).toBeCloseTo(ratio[m.format], 2);
+    expect(Math.abs(m.iw - m.w), `${layout}: the image doesn't fill its box`).toBeLessThan(1);
+    expect(Math.abs(m.ih - m.h), `${layout}: the image doesn't fill its box`).toBeLessThan(1);
+  }
+});
+
 test("How it works: the scene's labels are the product's (Settings rows, summary, page head, share formats, image footer)", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto("/about")
@@ -262,22 +322,49 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   // Before the import: "Not added", then the reading line in its place (the product's .eb-status wording)
   await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-a")).toHaveText("Not added")
   await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-b")).toHaveText(/^Reading your file… [\d,]+ rows$/)
-  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
-  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts)!
+  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount, en.ui).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
+  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts, en.ui)!
   await expect(scene.locator(".ebd-sum .ebd-swap-b")).toHaveText(`${sum} See my collage`)
   await expect(scene.locator(".ebd-sum .ebd-swap-a")).toHaveText("Combine any of these into one list.")
   expect(src("src/components/import/ImportPanel.tsx")).toContain("Combine any of these into one list.")
   // The collage page: the title as the product shows an untitled collage, and the taxonomy labels
-  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined))
+  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined, en.ui))
   await expect(scene.locator(".ebd-chips-label")).toHaveText("Orders")
   await expect(scene.locator(".ebd-path-link").first()).toHaveText("All birds")
   await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText("Choose an order")
+  // The controls bar: Places, Time and Red List, in both designs
+  for (const design of ["wide", "compact"]) {
+    const drops = page.locator(`[data-poster="${design}"] .ebd-drop`)
+    await expect(drops).toHaveCount(3)
+    await expect(drops.last()).toHaveText("Red List")
+  }
+  // The wide design's dock holds all three drops on its one row: nothing overflows the column
+  const dock = await scene.locator(".ebd-dock").evaluate((d) => ({ client: d.clientWidth, scroll: d.scrollWidth }))
+  expect(dock.client).toBeGreaterThan(0)
+  expect(dock.scroll).toBeLessThanOrEqual(dock.client)
+  // The stats line counts the demo's threatened birds, as the product's does
+  await expect(scene.locator(".ebd-stats")).toContainText(`${THREATENED} threatened`)
   // The share dialog: its title, Story / Post / Square with their ratios, and each image's footer line
   await expect(scene.locator(".ebd-share-title")).toHaveText("Share your collage")
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)
   expect(formats).toEqual(["Story9:16", "Post4:5", "Square1:1"])
   expect(await scene.locator(".ebd-seg-btn").allTextContents()).toEqual(formats)
-  expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([FOOTER_LINE, FOOTER_LINE, FOOTER_LINE])
+  // The "Show latest lifer" switch, on (the product's default), between the title field and the actions
+  await expect(scene.locator(".ebd-share-switch")).toHaveText("Show latest lifer")
+  await expect(scene.locator(".ebd-share-switch")).toHaveAttribute("data-on", "")
+  expect(src("src/components/share/ShareDialog.tsx")).toContain("<span>Show latest lifer</span>")
+  await expect(page.locator('[data-poster="compact"] .ebd-share-switch')).toHaveCSS("display", "none") // no room in the compact design, as the title field
+  // The dialog still fits inside the stage
+  const fit = await scene.evaluate((s) => {
+    const d = s.querySelector(".ebd-share")!.getBoundingClientRect(), st = s.getBoundingClientRect()
+    return st.bottom - d.bottom
+  })
+  expect(fit).toBeGreaterThanOrEqual(0)
+  // The footer line ends with the demo's fixed date stamp (its "Imported 6 Nov"), as the product's ends with the day's
+  const LINE = withStamp(FOOTER_LINE, stampDate(new Date(2026, 10, 6)))
+  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · 6 Nov 2026")
+  expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
+  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, stampDate(")
   expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")

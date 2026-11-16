@@ -1,0 +1,72 @@
+import { describe, expect, it } from 'vitest'
+import { en } from '@/i18n/messages/en'
+import { ALL, filterChips, withoutFilterChip } from '@/lib/list/chips'
+import { filtersCount, placesSpoken } from '@/lib/list/filter-summary'
+import type { Filter } from '@/lib/list/filters'
+
+const t = en.ui
+const r = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya', PE: 'Peru' }, sub1: { 'CA-BC': 'British Columbia' } }
+
+describe('filterChips', () => {
+  it('one chip per place up to three, in filterPlaceKeys order, short names spoken with their parent', () => {
+    expect(filterChips({ countries: ['EG'], provinces: ['CA-BC'] }, r, t)).toEqual([
+      { kind: 'place', label: 'Egypt', token: 'c:EG', spoken: 'Egypt' },
+      { kind: 'place', label: 'British Columbia', token: 's:CA-BC', spoken: 'British Columbia, Canada' },
+    ])
+    expect(filterChips({ countries: ['CA', 'EG', 'KE'] }, r, t)).toHaveLength(3)
+  })
+
+  it('four or more places collapse to one "N places" chip', () => {
+    const f: Filter = { countries: ['CA', 'EG', 'KE', 'PE'] }
+    expect(filterChips(f, r, t)).toEqual([{ kind: 'place', label: '4 places', token: ALL, spoken: placesSpoken(f, r, t) }])
+  })
+
+  it('time is always one chip, worded by timeSummary and spoken in full', () => {
+    expect(filterChips({ from: '2022-01', to: '2024-12' }, r, t)).toEqual([
+      { kind: 'date', label: '2022–2024', token: '2022-01..2024-12', spoken: 'January 2022 to December 2024' },
+    ])
+    const from = filterChips({ from: '2022-01' }, r, t)[0]
+    expect(from.label).toBe('from 2022')
+    expect(from.token).toBe('2022-01..')
+    expect(filterChips({ from: '2021-09', to: '2021-09' }, r, t)[0].label).toBe('Sep 2021')
+    expect(filterChips({ from: '2020-04', to: '2024-09' }, r, t)[0].label).toBe('Apr 2020–Sep 2024')
+    expect(filterChips({ from: '2020-04' }, r, t)[0].label).toBe('from Apr 2020')
+    expect(filterChips({ to: '2024-09' }, r, t)[0].label).toBe('to Sep 2024')
+  })
+
+  it('spec 12: 7 places, a range and Endangered', () => {
+    const f: Filter = { countries: ['CA', 'EG', 'KE', 'PE', 'US', 'MX', 'BR'], from: '2022-01', to: '2024-12', statuses: ['EN'] }
+    expect(filterChips(f, r, t).map((c) => c.label)).toEqual(['7 places', '2022–2024', 'Endangered'])
+    expect(filtersCount(f)).toBe(3)
+  })
+
+  it('statuses: one chip each up to three in Red List order, then "N statuses"', () => {
+    expect(filterChips({ statuses: ['VU', 'EN', 'CR'] }, r, t).map((c) => c.label)).toEqual(['Vulnerable', 'Endangered', 'Critically Endangered'])
+    expect(filterChips({ statuses: ['LC', 'NT', 'VU', 'EN'] }, r, t)).toEqual([{ kind: 'status', label: '4 statuses', token: ALL }])
+    expect(filterChips({ statuses: ['VU', 'NE'] }, r, t).map((c) => c.label)).toEqual(['Vulnerable', 'Not evaluated'])
+    expect(withoutFilterChip({ statuses: ['VU', 'NE'] }, { kind: 'status', label: 'Not evaluated', token: 'NE' })).toEqual({ statuses: ['VU'] })
+  })
+
+  it('order: places, time, statuses; none for taxonomy or an empty filter', () => {
+    expect(filterChips({ order: 'Strigiformes' }, r, t)).toEqual([])
+    const kinds = filterChips({ statuses: ['VU'], from: '2020-01', countries: ['CA'] }, r, t).map((c) => c.kind)
+    expect(kinds).toEqual(['place', 'date', 'status'])
+  })
+})
+
+describe('withoutFilterChip', () => {
+  it('removes exactly what the chip stands for', () => {
+    const rm = (f: Filter, i: number) => withoutFilterChip(f, filterChips(f, r, t)[i])
+    expect(rm({ countries: ['EG', 'CA'] }, 1)).toEqual({ countries: ['EG'] })
+    const big: Filter = { countries: ['CA'], provinces: ['US-WA'], counties: ['CA-BC|Capital'], order: 'Strigiformes' }
+    // A single key leaves the others alone (a county under a province checked elsewhere stays).
+    expect(withoutFilterChip(big, { kind: 'place', label: 'x', token: 's:US-WA' })).toEqual({ countries: ['CA'], order: 'Strigiformes' })
+    expect(withoutFilterChip(big, { kind: 'place', label: '3 places', token: ALL })).toEqual({ order: 'Strigiformes' })
+    expect(rm({ from: '2020-03', to: '2021-06', countries: ['CA'] }, 1)).toEqual({ countries: ['CA'] })
+    expect(rm({ statuses: ['VU', 'EN'] }, 0)).toEqual({ statuses: ['EN'] })
+    expect(withoutFilterChip({ statuses: ['LC', 'NT', 'VU', 'EN'] }, { kind: 'status', label: '4 statuses', token: ALL })).toEqual({})
+    const f: Filter = { order: 'X' }
+    expect(withoutFilterChip(f, { kind: 'order', label: 'o', token: 'o' })).toBe(f)
+    expect(withoutFilterChip({ order: 'X', group: 'g' }, { kind: 'group', label: 'g', token: 'g' })).toEqual({ order: 'X' })
+  })
+})

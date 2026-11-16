@@ -9,18 +9,32 @@
 // So the box holds whichever face draws it. Satoshi is the widest for every glyph (its "0" 0.705em proportional,
 // the rest 0.66em tabular; Cabinet's widest digit is 0.655em, its "1" 0.323em).
 //
-// Advances in em (1000px measures / 1000), before tracking:
-//            0      1      2      3      4      5      6      7      8      9      ,
-// Cabinet  0.655  0.323  0.595  0.615  0.624  0.623  0.606  0.507  0.606  0.611  0.220
-// Sat tab  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.291
-// Sat prop 0.705  0.398  0.589  0.569  0.646  0.600  0.620  0.538  0.641  0.620  0.291
+// Advances in em (1000px measures / 1000), before tracking ("." added 2026-11-15 with fontkit from the same served
+// woff2 files, scripts/dev/measure-count-glyphs.ts, which reproduces every other column here exactly):
+//            0      1      2      3      4      5      6      7      8      9      ,      .
+// Cabinet  0.655  0.323  0.595  0.615  0.624  0.623  0.606  0.507  0.606  0.611  0.220  0.220
+// Sat tab  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.660  0.291  0.291
+// Sat prop 0.705  0.398  0.589  0.569  0.646  0.600  0.620  0.538  0.641  0.620  0.291  0.291
+// es, pt and nl group with "." (src/i18n/format.ts), as wide as "," in every face: so the drawn count ("1.089") is never
+// wider than the geometry's en-US text ("1,089"), and every language shares one hole.
 // Vertical (em): Satoshi's digits rise 0.745 above the baseline (Cabinet 0.68) and the comma drops 0.115 below it; on
 // a line box of line-height 0.85 the ink spans 0.065..0.925 (Satoshi) or 0.04..0.836 (Cabinet) of the em from the top.
-// Geist Mono 500 (the label): 0.6em per character, caps 0.726em; its normal line box is 1.3em (ascent 1.005 +
-// descent 0.295).
+// Geist Mono 500 (the label): 0.6em per character, caps 0.726em, an accented capital ("É", pt's "ESPÉCIES") 0.909em;
+// its normal line box is 1.3em (ascent 1.005 + descent 0.295), so the line box holds the accent too.
+// The label is sized for COUNT_LABEL_CHARS characters whatever the language says, so the hole is the same in every one.
 
+import { formatInt } from '../../i18n/format'
+import type { Ui } from '../../i18n/messages/en'
+
+/** The table above, 0-9 then ",", per face (scripts/dev/measure-count-glyphs.ts checks itself against it). */
+export const ADV_TABLE = {
+  cabinet: [0.655, 0.323, 0.595, 0.615, 0.624, 0.623, 0.606, 0.507, 0.606, 0.611, 0.22],
+  satTab: [0.66, 0.66, 0.66, 0.66, 0.66, 0.66, 0.66, 0.66, 0.66, 0.66, 0.291],
+  satProp: [0.705, 0.398, 0.589, 0.569, 0.646, 0.6, 0.62, 0.538, 0.641, 0.62, 0.291],
+} as const
 const ADV: Record<string, number> = {
   '0': 0.705, '1': 0.66, '2': 0.66, '3': 0.66, '4': 0.66, '5': 0.66, '6': 0.66, '7': 0.66, '8': 0.66, '9': 0.66, ',': 0.291,
+  '.': 0.291,
 }
 /** The number's tracking (em per character), as .eb-num and the share images draw it. */
 export const NUM_TRACK = -0.02
@@ -33,12 +47,22 @@ const NUM_INK = 0.925
 export const DIGIT_CAP = 0.745
 /** How far the comma's foot drops below the baseline (em; both faces about 0.115). */
 export const COMMA_DROP = 0.12
+/** The geometry's label (measuring only; what is drawn is the UI language's `count.label`, upper-cased). */
 export const LABEL = 'SPECIES'
+/**
+ * The label box holds this many characters, the longest label across the languages ("ESPECIES", "ESPÉCIES" 8;
+ * "SPECIES", "SOORTEN" 7). A new language's `count.label` must fit it (tests/count-box.test.ts).
+ */
+export const COUNT_LABEL_CHARS = 8
 /** Geist Mono: advance per character and the label's tracking (em), caps height, normal line box. */
 export const MONO_EM = 0.6, MONO_TRACK = 0.06, MONO_CAP = 0.73, MONO_LINE = 1.3
+/** Geist Mono 500's accented capital's ink top above the baseline (em; "É" 0.909): the share images' label box. */
+export const MONO_CAP_ACCENT = 0.91
 
-/** The count as shown: "7", "197", "1,089", "11,019". */
+/** The count's geometry text, en-US: "7", "197", "1,089", "11,019". The boxes and countScale key on it in every language. */
 export const countText = (n: number): string => Math.max(0, Math.round(n)).toLocaleString('en-US')
+/** The count as drawn, in the UI language: "1,089", "1.089" (src/i18n/format.ts formatInt). Never wider than countText. */
+export const countDisplay = (n: number, num: Ui['num']): string => formatInt(Math.max(0, Math.round(n)), num)
 
 /** The number's width in em at its tracking (the widest face's advances, plus SAFETY). */
 export function numberEm(text: string): number {
@@ -46,8 +70,9 @@ export function numberEm(text: string): number {
   for (const ch of text) em += (ADV[ch] ?? 0.705) + NUM_TRACK
   return em * SAFETY
 }
-/** The label's width in em at its tracking (the last letter's tracking too, as the DOM box counts it). */
-export const labelEm = (label = LABEL): number => label.length * (MONO_EM + MONO_TRACK) * SAFETY
+/** The label's width in em at its tracking (the last letter's tracking too, as the DOM box counts it), for
+ *  COUNT_LABEL_CHARS characters: the same in every language. */
+export const labelEm = (): number => COUNT_LABEL_CHARS * (MONO_EM + MONO_TRACK) * SAFETY
 
 /**
  * How much smaller the collage's number is drawn than the layout's F: five digits ("11,019", six characters) are drawn

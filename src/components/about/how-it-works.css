@@ -140,6 +140,12 @@
 .ebd .ebd-src-meta { color: var(--muted); font-size: 12px; line-height: 1.4; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ebd .ss-stage[data-layout="compact"] .ebd-src-title { font-size: 12.5px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-src-meta { font-size: 11px; }
+/* Compact: the text takes what the buttons leave, and a status that doesn't fit one line wraps to a second (the row
+   grows from its 48px) instead of running under the buttons. */
+.ebd .ss-stage[data-layout="compact"] .ebd-src-main { height: auto; min-height: 48px; padding-block: 5px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-src-text { flex: 1 1 0; }
+.ebd .ss-stage[data-layout="compact"] .ebd-src-name { display: none; } /* the file's name has no room beside the buttons here */
+.ebd .ss-stage[data-layout="compact"] .ebd-src-meta { white-space: normal; line-height: 1.35; }
 .ebd .ebd-why { color: var(--accent); text-decoration: underline; text-decoration-thickness: from-font; text-underline-offset: 2px; }
 .ebd .ebd-src-acts { display: flex; align-items: center; gap: 6px; flex: none; }
 .ebd .ebd-src-acts > .ebd-btn > .ebd-swap { justify-items: center; }
@@ -178,7 +184,7 @@
 .ebd .ebd-btn-add { font-weight: 500; }
 .ebd .ss-stage[data-layout="compact"] .ebd-btn-add { width: 30px; padding: 0; } /* under 480px: an icon button */
 /* Whole-pixel widths, so their glyphs sit on whole pixels as they press */
-.ebd .ebd-btn-share { width: 82px; will-change: transform; } /* pressed, it lands on its own layer: no sub-pixel hop */
+.ebd .ebd-btn-share { min-width: 82px; will-change: transform; } /* pressed, it lands on its own layer: no sub-pixel hop */
 /* The stats line (.eb-stats, mono). */
 .ebd .ebd-stats {
   margin: 6px 0 0; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase;
@@ -206,7 +212,8 @@
 .ebd .ebd-track { position: relative; display: block; width: 24px; height: 14px; border-radius: 7px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 .ebd .ebd-knob { position: absolute; left: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .ebd .ebd-drop { gap: 5px; }
-.ebd .ebd-drop .ebd-caret { width: 10px; height: 10px; }
+.ebd .ebd-drop-caret { width: 10px; height: 10px; margin-left: -1px; }
+/* One Filters button on the wide design's one row: it fits the 524px column with room to spare, so no special width. */
 .ebd .ss-stage[data-layout="compact"] .ebd-dock { flex-wrap: wrap; row-gap: 3px; margin-top: 8px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-dock-filters {
   order: 1; flex: 1 0 100%; margin: 0 -3px -3px; padding: 3px; border-top: 1px solid var(--hairline);
@@ -219,10 +226,13 @@
 /* The taxonomy filter (.eb-filters): the rank label and the order chips wrapped (on phones the "Choose an order"
    button, .eb-pick), or, an order chosen, the breadcrumb in its place, cross-faded in one fixed box (eb-rise: opacity and
    a 4px drop). */
-.ebd .ebd-filter { position: relative; height: 56px; margin-top: 10px; }
-.ebd .ss-stage[data-layout="compact"] .ebd-filter { height: 30px; margin-top: 8px; }
-.ebd .ebd-chips, .ebd .ebd-path { position: absolute; left: 0; top: 0; right: 0; display: flex; align-items: center; }
-.ebd .ebd-chips { flex-wrap: wrap; gap: 6px 5px; transition: opacity .2s ease .12s; }
+/* Its height follows the chips (two rows in English; a language whose names are longer may need a third), the breadcrumb
+   laid over them. */
+.ebd .ebd-filter { position: relative; min-height: 56px; margin-top: 10px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-filter { min-height: 30px; margin-top: 8px; }
+.ebd .ebd-chips, .ebd .ebd-path { display: flex; align-items: center; }
+.ebd .ebd-path { position: absolute; left: 0; top: 0; right: 0; }
+.ebd .ebd-chips { position: relative; flex-wrap: wrap; gap: 6px 5px; transition: opacity .2s ease .12s; }
 .ebd .ebd-filter[data-chosen] .ebd-chips { opacity: 0; transition: opacity .1s ease; }
 .ebd .ebd-path {
   height: 24px; gap: 7px; font-size: 13px; white-space: nowrap; opacity: 0; transform: translateY(-4px); will-change: transform;
@@ -306,16 +316,18 @@
 .ebd .ebd-sheet-x { width: 14px; height: 14px; margin-left: auto; color: var(--muted); }
 .ebd .ebd-sheet-chips { display: flex; flex-wrap: wrap; gap: 6px 5px; }
 
-/* ---- The share dialog (.eb-share) over the window, on its scrim ---- */
+/* ---- The share dialog (.eb-share) over the window, on its scrim. Wide: anchored by its right edge (112px from the
+   window's, which runs 96px past the stage: 16px inside the stage's edge) so the square dialog (202px preview + 284px
+   controls) starts 16px inside the window's visible part too and the narrower story and post dialogs grow leftward from the same edge, as the product's. ---- */
 .ebd .ebd-share {
-  position: absolute; z-index: 7; left: 30px; top: 16px; width: 496px; box-sizing: border-box; padding: 12px 14px 14px;
+  position: absolute; z-index: 7; right: 112px; top: 16px; box-sizing: border-box; padding: 12px 14px 14px;
   background: var(--paper); border: 1px solid var(--hairline); box-shadow: var(--ss-shadow-satellite);
   border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   opacity: 0; transform: translateY(10px) scale(.98); will-change: transform, opacity;
   transition: opacity .2s ease, transform .3s cubic-bezier(.4, 0, 1, 1);
 }
 .ebd .ebd-share[data-show] { opacity: 1; transform: none; transition: opacity .25s ease, transform .5s var(--eb-arrive); }
-.ebd .ss-stage[data-layout="compact"] .ebd-share { left: 8px; top: 10px; width: 326px; padding: 10px 12px 12px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share { right: auto; left: 8px; top: 10px; width: 326px; padding: 10px 12px 12px; }
 .ebd .ebd-share-head { display: flex; align-items: center; justify-content: space-between; height: 26px; margin-bottom: 10px; }
 .ebd .ebd-share-title { font-family: var(--font-display); font-weight: 700; font-size: 17px; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-title { font-size: 15px; }
@@ -324,12 +336,17 @@
 .ebd .ebd-share-close svg { width: 14px; height: 14px; }
 .ebd .ebd-share-body { display: flex; gap: 16px; align-items: flex-start; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-body { gap: 12px; }
-/* One 4:5 box for every format, the image letterboxed in it on Surface (share.css). */
+/* The box takes the shown image's own shape (share.css): a Hairline and 12px corners round the image, no Surface
+   bands. Wide, it is the dialog's height and the dialog fits around it from a fixed right edge, so the format control
+   and the close button stay put; compact, the image fits a fixed area, centred in it both ways. */
 .ebd .ebd-share-preview {
-  position: relative; flex: none; overflow: hidden; background: var(--surface);
-  border-radius: calc(10px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+  position: relative; flex: none; overflow: hidden; background: var(--paper);
+  border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
+  transition: width .3s var(--eb-ui), height .3s var(--eb-ui), margin .3s var(--eb-ui);
 }
-.ebd .ebd-share-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: 1; }
+.ebd .ebd-share-preview::after { content: ''; position: absolute; inset: 0; z-index: 1; border: 1px solid var(--hairline); border-radius: inherit; pointer-events: none; }
+.ebd .ebd-share-controls { display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: none; width: 284px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share-controls { flex: 1; width: auto; }
 .ebd .ss-stage[data-layout="compact"] .ebd-share-controls { gap: 9px; }
 /* Story / Post / Square (.eb-seg): label and ratio on one line, the pressed one on Surface. */
 .ebd .ebd-seg { display: flex; gap: 3px; padding: 3px; align-self: flex-start; border: 1px solid var(--hairline); border-radius: 11px; }
@@ -339,20 +356,37 @@
   font-size: 12px; font-weight: 500; opacity: .66; border-radius: 8px;
   transition: opacity .25s cubic-bezier(.25, .1, .25, 1), background-color .15s var(--eb-arrive);
 }
-.ebd .ss-stage[data-layout="compact"] .ebd-seg-btn { flex: 1 1 0; height: 24px; padding: 0 4px; font-size: 11.5px; }
-.ebd .ebd-seg-btn svg { width: 13px; height: 13px; flex: none; }
+.ebd .ss-stage[data-layout="compact"] .ebd-seg-btn { flex: 1 1 auto; min-width: 0; height: 24px; padding: 0 3px; font-size: 11px; }
 .ebd .ebd-seg-btn[data-on] { opacity: 1; background: var(--surface); }
 .ebd .ebd-seg-hint { font-family: var(--font-mono); font-size: 10px; letter-spacing: .02em; color: var(--muted); }
-.ebd .ebd-share-field { display: flex; flex-direction: column; gap: 5px; }
+/* The image options (.eb-share-box): one Hairline box holding the title field (its label and a muted "(optional)" side by
+   side) and the two switches ("Show latest lifer" on, "Dark image" off) in one row that wraps only when they don't fit. */
+.ebd .ebd-share-box { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px 10px; border: 1px solid var(--hairline);
+  border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
+.ebd .ebd-share-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ebd .ebd-share-labelrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
 .ebd .ebd-share-label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ebd .ebd-share-optional { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
 .ebd .ebd-share-input {
-  display: flex; align-items: center; height: 30px; padding: 0 10px; box-sizing: border-box; border: 1px solid var(--line); background: var(--surface);
-  font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden;
+  display: flex; align-items: center; height: 28px; padding: 0 10px; box-sizing: border-box; border: 1px solid var(--line); background: var(--surface);
+  font-size: 12px; color: var(--muted); min-width: 0;
   border-radius: calc(8px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
 }
-.ebd .ss-stage[data-layout="compact"] .ebd-share-field { display: none; }
-.ebd .ebd-share-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.ebd .ss-stage[data-layout="compact"] .ebd-share-actions .ebd-btn { flex: 1 1 100%; height: 26px; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share-box { display: none; }
+/* The switches (.eb-share-switch), the dock's track and knob; on, Accent. A long label wraps inside its switch. */
+.ebd .ebd-share-switches { display: flex; flex-wrap: wrap; gap: 6px 16px; min-width: 0; }
+.ebd .ebd-share-switch { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; max-width: 100%; min-height: 20px; font-size: 12px; font-weight: 500; line-height: 1.25; }
+.ebd .ebd-share-switch[data-on] .ebd-track { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ebd .ebd-share-switch[data-on] .ebd-knob { transform: translateX(10px); background: var(--paper); }
+.ebd .ebd-share-switch .ebd-track { flex: none; }
+/* The actions: Share image across, then the quiet row (Download, Copy link, Print), labels as the product's short forms. A
+   label that doesn't fit wraps inside its button (the button grows) instead of running over its edge. */
+.ebd .ebd-share-actions { display: flex; flex-direction: column; gap: 6px; }
+.ebd .ebd-share-primary { width: 100%; }
+.ebd .ebd-share-row { display: flex; gap: 6px; }
+.ebd .ebd-share-row .ebd-btn { flex: 1 1 auto; min-width: 0; padding-inline: 8px; }
+.ebd .ebd-share-actions .ebd-btn { height: auto; min-height: 28px; white-space: normal; text-align: center; line-height: 1.2; }
+.ebd .ss-stage[data-layout="compact"] .ebd-share-actions .ebd-btn { min-height: 26px; }
 
 /* The share image itself (the product's centre-count card at its true layout, scaled into the preview). */
 .ebd .ebd-img {
