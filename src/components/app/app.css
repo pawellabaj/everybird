@@ -99,7 +99,7 @@
 .eb-dock-filters, .eb-dock-end { margin-left: 8px; } /* + the dock's 4px gap = 12px between groups */
 .eb-dock[data-finding] .eb-dock-tabs, .eb-dock[data-finding] .eb-dock-tools,
 .eb-dock[data-finding] .eb-dock-filters, .eb-dock[data-finding] .eb-dock-end { opacity: 0; pointer-events: none; }
-/* Places and Time: a Phosphor glyph, the label (and what it filters, " · 2"), a caret. Open: the pressed tab's Surface;
+/* Places, Time and Status: a Phosphor glyph, the label (and what it filters, " · 2"), a caret. Open: the pressed tab's Surface;
    filtering: Accent text, full opacity, 600 (selection, as a pressed tab). */
 /* At every width a drop can give way: the group may shrink, each drop may shrink (flex's default, said here so the rule
    reads whole), and the label shrinks inside it with an ellipsis, so a long summary ("Time · 2022–2024") cuts its own
@@ -108,7 +108,7 @@
 .eb-dock-filters { min-width: 0; }
 .eb-dock-drop { flex: 0 1 auto; gap: 8px; padding: 0 10px 0 12px; }
 .eb-drop-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.eb-dock-drop svg { width: 18px; height: 18px; }
+.eb-dock-drop svg:not(.eb-drop-caret) { width: 18px; height: 18px; } /* :not() outweighs .eb-dock-tab svg's 20px */
 .eb-dock-drop .eb-drop-caret { width: 14px; height: 14px; transition: transform .2s var(--eb-ease); }
 .eb-dock-drop[aria-expanded="true"] { opacity: 1; background: var(--surface); }
 .eb-dock-drop[aria-expanded="true"] .eb-drop-caret { transform: rotate(180deg); }
@@ -180,7 +180,7 @@
 .eb-dock-find { padding: 0; width: 44px; }
 .eb-short { display: none; }
 /* Phones (LifeList's 600px): the bar's short form whatever the phone's width, so row one is always the view icons,
-   True and Sci. (or the list's "Heaviest") and the magnifier; Places and Time are row two. */
+   True and Sci. (or the list's "Heaviest") and the magnifier; Places, Time (and Status) are row two. */
 @media (max-width: 600px) {
   .eb-dock .eb-long { display: none; }
   .eb-dock .eb-short { display: inline; }
@@ -194,8 +194,8 @@
   .eb-dock-end { margin-left: 2px; }
 }
 /* The bar's own width from here (any screen: a phone, a tablet, a narrow window). Row one must hold the tabs, the tools
-   and the magnifier: the 820px rule lets the bar wrap (for Places and Time), so anything too wide would push the
-   magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–900px). */
+   and the magnifier: the 820px rule (980px with Status) lets the bar wrap (for Places, Time and Status), so anything
+   too wide would push the magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–1100px). */
 @container (max-width: 460px) {
   .eb-dock-tabs .eb-dock-tab span { display: none; }
   .eb-dock-tabs .eb-dock-tab { padding: 0; width: 44px; }
@@ -382,28 +382,30 @@
   .eb-theme { order: 1; margin-left: auto; }
   .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
   .eb-nav ul { justify-content: space-between; }
-  /* The rest of the page at that width: the stats line and button labels wrap, and Places and Time drop their
-     glyphs (the labels say it) so the two still share the bar's second row. */
+  /* The rest of the page at that width: the stats line and button labels wrap, and Places, Time and Status drop
+     their glyphs (the labels say it) so they still share the bar's second row. */
   .eb-stat { white-space: normal; }
   .eb-btn { white-space: normal; text-align: center; }
   .eb-dock-filters { min-width: 0; }
   .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px; }
   .eb-dock-filters .eb-dock-drop svg { display: none; }
   /* Row one can't hold the magnifier too, so the bar is a grid here: the view tabs and the switches, then Places, Time
-     and the magnifier on the second row under one Hairline (never a magnifier alone on a row). */
+     (and Status) and the magnifier on the second row under one Hairline (never a magnifier alone on a row). */
   .eb-dock { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 0; row-gap: 4px; }
   .eb-dock-tabs { grid-area: 1 / 1; }
   .eb-dock-tools { grid-area: 1 / 2 / 2 / 4; justify-self: end; margin-left: 0; }
   .eb-dock-filters { grid-area: 2 / 1 / 3 / 3; margin: 0 0 -4px -4px; border-top: 1px solid var(--hairline); align-self: stretch; }
   .eb-dock-end { grid-area: 2 / 3; margin: 0 -4px -4px 0; padding: 4px; border-top: 1px solid var(--hairline); align-self: stretch; display: flex; align-items: center; }
   /* Three drops beside the magnifier: thirds don't fit, so each takes its label's width, spread across the cell. At 260
-     the dock is 228, its content 218, the magnifier's column 44 + 8 − 4 = 48, so the drops' cell is 218 − 48 + 4 − 8
-     = 166 inside, less two gaps 158: Places 45 + 8, Time 44 (a tab's min-width), Status 45 + 8 = 150. Never a wrap:
-     a label that can't fit ellipses (above). */
+     the dock is 228, its content 218, the magnifier's column 36 (the 310px container rule) + 8 − 4 = 40, so the
+     drops' cell is 218 − 40 + 4 − 8 = 174 inside, less two gaps 166: Places 45 + 8, Time 44 (held at 44 here: the
+     599px row's min-width: 0 would leave it 38, under a 44px press), Status 45 + 8 = 150. Never a wrap: a label that
+     can't fit ellipses (above). */
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters { justify-content: space-between; }
-  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; padding: 0 4px; }
+  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; min-width: 44px; padding: 0 4px; }
 }
-/* Under 240px (a 390px phone at aA 200%): the tabs and the magnifier, then the two switches, then Places and Time. */
+/* Under 240px (a 390px phone at aA 200%): the tabs and the magnifier, then the two switches, then Places and Time
+   (and Status). */
 @media (max-width: 239px) {
   .eb-dock { grid-template-columns: 1fr auto; }
   .eb-dock-tabs { grid-area: 1 / 1; }
@@ -411,8 +413,9 @@
   .eb-dock-tools { grid-area: 2 / 1 / 3 / 3; justify-self: stretch; justify-content: space-between; }
   .eb-dock-filters { grid-area: 3 / 1 / 4 / 3; margin: 0 -4px -4px; }
   /* Three drops on their own row: at 195 the dock is 163, the row 163 − 10 + 8 − 8 = 153 inside, less two gaps 145.
-     At 14px (7px a character) Places 42 + 8, Time 44, Status 42 + 8 = 144: they fit, or ellipsis by a few px. */
-  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; }
+     At 14px (7px a character) Places 42 + 8, Time 44 (min-width), Status 42 + 8 = 144: they fit, or ellipsis by a
+     few px. */
+  :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; min-width: 44px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-drop-label { font-size: 14px; }
 }
 

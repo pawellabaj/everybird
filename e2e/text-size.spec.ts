@@ -264,12 +264,14 @@ for (const width of [195, 260] as const) {
         n: drops.length,
         tops: new Set(drops.map((b) => Math.round(b.getBoundingClientRect().top))).size,
         out: drops.filter((b) => b.getBoundingClientRect().right > d.right - 1 + 0.5).length,
+        narrow: drops.filter((b) => b.getBoundingClientRect().width < 44 - 0.5).map((b) => b.dataset.testid),
         cut: drops.map((b) => b.querySelector<HTMLElement>(".eb-drop-label")!).filter((l) => l.scrollWidth > l.clientWidth).map((l) => l.textContent),
       };
     });
     expect(m.n).toBe(3);
     expect(m.tops, "the drops share one top").toBe(1);
     expect(m.out, "drops ending outside the bar").toBe(0);
+    expect(m.narrow, "drops under a 44px press").toEqual([]);
     if (width === 260) expect(m.cut, "resting labels cut").toEqual([]);
   });
 }

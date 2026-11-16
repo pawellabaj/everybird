@@ -6,7 +6,7 @@
 // (DockSearch.tsx); everything else sits under it, inert, while it is open. Under 820px of bar (980px with Status) the
 // dropdowns take a second row of their own, under 600px split evenly (app.css); under
 // 460px the tabs are icons only; under 540px the switches shorten ("True", "Sci."; "Heaviest" in list view), and
-// under 330px and 310px everything tightens, so row one never breaks between 280 and 900px of bar (e2e
+// under 330px and 310px everything tightens, so row one never breaks between 280 and 1100px of bar (e2e
 // dock-sweep.spec). On phones (600px of screen and under, as /lifelist) the short form holds whatever the width: row
 // one is the icons, the two switches (or "Heaviest") and the magnifier; row two Places, Time and Status.
 import { useCallback, useRef, useState, type ReactNode } from 'react'

@@ -68,6 +68,10 @@ describe("the controls bar's CSS: three drops", () => {
     for (const q of [/@media \(max-width: 299px\)/, /@media \(max-width: 239px\)/]) expect(block(css, q)).toMatch(/\.eb-dock-drop\s*\{\s*flex:\s*0 1 auto/);
     expect(block(css, /@media \(max-width: 299px\)/)).toMatch(/\.eb-dock-filters \{ justify-content: space-between; \}/);
     expect(block(css, /@media \(max-width: 239px\)/)).toMatch(/\.eb-drop-label \{ font-size: 14px; \}/);
+    // Content-sized, each drop still holds a 44px press (the 599px row's min-width: 0 would let "Time" fall to ~38).
+    for (const q of [/@media \(max-width: 299px\)/, /@media \(max-width: 239px\)/]) {
+      expect(block(css, q)).toMatch(new RegExp(`${THREE.replace(/[().:]/g, "\\$&")} \\.eb-dock-filters \\.eb-dock-drop \\{[^}]*min-width: 44px`));
+    }
   });
 
   it("every three-drop rule is scoped under :where(), so it weighs no more than the two-drop rule it follows", () => {
@@ -82,6 +86,11 @@ describe("the controls bar's CSS: three drops", () => {
     expect(css.indexOf("@container (max-width: 599px)")).toBeLessThan(css.indexOf("@container (max-width: 979px)"));
     expect(css.indexOf("@container (max-width: 979px)")).toBeLessThan(css.indexOf("@container (max-width: 319px)"));
     expect(css.indexOf("@container (max-width: 319px)")).toBeLessThan(css.indexOf("@media (max-width: 299px)"));
+  });
+
+  it("the drop glyph is 18px: its rule outweighs .eb-dock-tab svg's 20px, and leaves the 14px caret alone", () => {
+    expect(topLevelRule(css, ".eb-dock-drop svg:not(.eb-drop-caret)")).toMatch(/width: 18px; height: 18px/);
+    expect(topLevelRule(css, ".eb-dock-tab svg")).toMatch(/width: 20px/);
   });
 
   it("the Status panel's long category names wrap rather than cut", () => {
