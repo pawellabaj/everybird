@@ -143,13 +143,13 @@ test.describe("date stamp", () => {
     });
   }
 
-  test("every format's footer line ends with the device's local date: As of 15 Nov 2026", async ({ page }) => {
+  test("every format's footer line ends with the device's local date: 15 Nov 2026", async ({ page }) => {
     test.setTimeout(90_000);
     await stampClock(page);
     const dialog = await openShare(page);
     const preview = dialog.getByTestId("share-preview");
     const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
-    const line = "everybird.yusuftaleb.com · stickers by huashu · As of 15 Nov 2026";
+    const line = "everybird.yusuftaleb.com · stickers by huashu · 15 Nov 2026";
     for (const format of ["Story", "Post", "Square"]) {
       // The story is drawn as the dialog opens; the others on their click, after the previous format's texts are gone.
       if (format !== "Story") {

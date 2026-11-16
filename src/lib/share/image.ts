@@ -10,7 +10,7 @@
 //   bottom  a Hairline rule, "Latest lifer: Western Grebe · Sep 2026" (Satoshi 32px; unless the dialog's "Show latest
 //           lifer" switch is off, when the collage takes its room), then the footer: the Everybird wordmark and one
 //           quiet line beside it, the site, the sticker credit and the date the image was made
-//           ("everybird.yusuftaleb.com · stickers by huashu · As of 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
+//           ("everybird.yusuftaleb.com · stickers by huashu · 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
 //           The full credit, with the licence, travels in the share text.
 // The story keeps Instagram's safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
 // bottom 156px (the reply bar); the post and the square use 64px margins all round. The story's collage is tall (about 952 × 1284 with
@@ -32,7 +32,7 @@ import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
 import { printStickerUrl, stickerUrl } from '@/lib/sticker-url'
 import { PRINT_DESIGN_H, PRINT_DESIGN_W, printDesignH, type PrintSize } from '@/lib/share/print'
 import { formatDate } from '@/lib/format'
-import { asOfDate, withStamp } from '@/lib/share/stamp'
+import { stampDate, withStamp } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_LINE, NUM_LINE, columnBoxes, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
@@ -597,7 +597,7 @@ async function draftCard(opts: ShareImageOpts, scale: number): Promise<CardDraft
   const latest = opts.latest !== false && latestRow ? latestText({ com: latestRow.com, date: latestE!.date }) : undefined
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
-  const footerLine = withStamp(FOOTER_LINE, asOfDate(opts.now ?? new Date()))
+  const footerLine = withStamp(FOOTER_LINE, stampDate(opts.now ?? new Date()))
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
   const L = cardLayout(format, content, print ? printDesignH(opts.printSize ?? 'A4') : undefined)
   // Packed for the format's own frame (the print: at PRINT_DESIGN_H, one pack for every A size, as imagePackSpec).
@@ -662,7 +662,7 @@ function cardFontsReady(d: CardDraft): Promise<void> {
 function placeFooter(d: CardDraft): PreparedCard {
   const { L, fonts: font, footerLine } = d
   // Footer, quiet: the wordmark, then one line on its baseline, the site, the sticker credit and the date stamp ("… ·
-  // stickers by huashu · As of 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
+  // stickers by huashu · 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
   // own line under the wordmark at the bottom safe line, and the wordmark, the hairline and the latest lifer row move
   // up by that line. Estimates without a DOM: Cabinet Grotesk 700 about 0.55 em a character, Geist Mono 0.6.
   const maxW = L.W - 2 * M

@@ -145,6 +145,6 @@ describe('the link preview footer', () => {
   it('link previews carry the footer line without the date stamp', () => {
     const src = readFileSync(resolve('app/s/[token]/opengraph-image.tsx'), 'utf8')
     expect(src).toContain('{FOOTER_LINE}')
-    expect(src).not.toMatch(/asOfDate|withStamp|share\/stamp/)
+    expect(src).not.toMatch(/stampDate|withStamp|share\/stamp/)
   })
 })

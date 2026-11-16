@@ -4,7 +4,7 @@ import { BIRDS, THREATENED, TOTAL } from "../src/components/about/how-it-works-d
 import { pageTitle } from "../src/lib/list/title";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
-import { asOfDate, withStamp } from "../src/lib/share/stamp";
+import { stampDate, withStamp } from "../src/lib/share/stamp";
 
 // share/image.ts's FOOTER_LINE (that module can't load here: it starts a worker with import.meta); the test checks its
 // definition is still this.
@@ -360,10 +360,10 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   })
   expect(fit).toBeGreaterThanOrEqual(0)
   // The footer line ends with the demo's fixed date stamp (its "Imported 6 Nov"), as the product's ends with the day's
-  const LINE = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 10, 6)))
-  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
+  const LINE = withStamp(FOOTER_LINE, stampDate(new Date(2026, 10, 6)))
+  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · 6 Nov 2026")
   expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
-  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, asOfDate(")
+  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, stampDate(")
   expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")

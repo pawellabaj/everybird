@@ -19,10 +19,11 @@ describe('share image draw calls', () => {
       expect(log).toMatchSnapshot()
     })
   }
-  // Mono at 0.75 em: the footer line no longer fits beside the wordmark and takes its own line; the rows above move up.
+  // Mono at 0.85 em: the stamped footer line (59 characters) no longer fits beside the wordmark and takes its own
+  // line; the rows above move up.
   for (const c of CASES.filter((x) => x.name && x.latest)) {
     it(`${caseName(c)}, footer on its own line`, async () => {
-      const logs = installStubs({ monoEm: 0.75 })
+      const logs = installStubs({ monoEm: 0.85 })
       const log = await renderLog(image, logs, c)
       const texts = log.filter((l) => l.startsWith('fillText'))
       const brand = texts.find((l) => l.startsWith('fillText("Everybird"'))!

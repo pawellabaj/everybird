@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { NAME_MAX } from '@/lib/share/link'
 import { IMAGE_SIZE, NAME_MAX_LEN, SHARE_COLORS, cardLayout, countLayout, filterLabel, fitPack, latestText, maxTileFrac, maxTileSide, OG_COUNT_MAX, ogCountHole, packSpec, placeCredit, SPREAD, spreadY, FOOTER_LINE, SHARE_CREDIT, SITE_LABEL } from '@/lib/share/image'
 import { countText, holeExtent, numberEm } from '@/lib/layout/count-box'
-import { asOfDate, withStamp } from '@/lib/share/stamp'
+import { stampDate, withStamp } from '@/lib/share/stamp'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { orderLabel } from '@/lib/species/orders'
 
@@ -311,7 +311,7 @@ describe('the footer line (the site and the sticker credit, never truncated)', (
     expect(r.below).toBe(true)
     expect(measure(FOOTER_LINE)(r.size)).toBeLessThanOrEqual(400)
   })
-  const stamped = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 8, 30))) // the longest English stamp, 65 characters
+  const stamped = withStamp(FOOTER_LINE, stampDate(new Date(2026, 8, 30))) // the longest English stamp; the line is 59 characters
   it('with the date stamp, still sits beside the wordmark at 17px or more for a wordmark up to 280px wide', () => {
     for (const brandW of [140, 200, 280]) {
       const r = placeCredit(measure(stamped), 952 - brandW, 952, 20)
@@ -319,8 +319,8 @@ describe('the footer line (the site and the sticker credit, never truncated)', (
       expect(r.size).toBeGreaterThanOrEqual(17)
     }
   })
-  it('a longer stamp (another language) moves the whole line under the wordmark, never cut', () => {
-    const long = withStamp(FOOTER_LINE, 'Em 14 de nov. de 2026')
+  it('a stamp too long to sit beside a 280px wordmark (a full month name) moves the whole line under it, never cut', () => {
+    const long = withStamp(FOOTER_LINE, '30 septiembre 2026')
     const r = placeCredit(measure(long), 952 - 280, 952, 20)
     expect(r).toEqual({ size: 20, below: true })
     expect(measure(long)(r.size)).toBeLessThanOrEqual(952)
