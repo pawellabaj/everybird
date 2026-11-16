@@ -53,9 +53,6 @@ function threeDropPhoneRow(): string {
 describe("the controls bar's CSS: three drops", () => {
   it("one row from W = 1080: the three-drop break is the derived W (the third label is \"Conservation status\"), and the two-drop 820 break is untouched", () => {
     const w = block(css, /@container \(max-width: 1079px\)/);
-    // 1030.5 estimated (1046 in list view) + 40 for summaries = 1070.5, rounded up to 20 (see app.css's comment).
-    expect(1030.5 + 40).toBeLessThanOrEqual(1080);
-    expect(1046 + 40 - 1080).toBeLessThan(10);
     expect(w).toContain(`${THREE} { flex-wrap: wrap; row-gap: 4px; }`);
     expect(w).toMatch(/\.eb-dock-filters\s*\{\s*order: 1; flex: 1 0 100%/);
     expect(w).toContain(`${THREE} .eb-find`);
@@ -149,5 +146,13 @@ describe("the controls bar's CSS: three drops", () => {
   it("the Conservation status panel's long category names wrap rather than cut", () => {
     const filters = readFileSync(resolve(__dirname, "../src/components/filters/filters.css"), "utf8");
     expect(topLevelRule(filters, ".eb-status-row .eb-check-name")).toMatch(/white-space:\s*normal/);
+  });
+});
+
+describe("About's scene mirrors the dock's short label", () => {
+  it("the scene's third drop is the word FilterDropdowns declares as the Conservation status button's short form", () => {
+    const src = (f: string) => readFileSync(resolve(__dirname, f), "utf8");
+    expect(src("../src/components/filters/FilterDropdowns.tsx")).toContain("label: 'Conservation status', short: 'Status'");
+    expect(src("../src/components/about/HowItWorksScene.tsx")).toMatch(/<StatusIcon \/>Status<\/span>/);
   });
 });

@@ -15,7 +15,7 @@ export const markedName = (name: string, iu: IucnCat | undefined): string =>
   markShown(iu) ? `${name}, ${IUCN_NAMES[iu]}` : name
 
 /**
- * The mark's size in CSS px (status-mark.css: .eb-status: two mono letters at 9px, about 21px wide), the sticker's
+ * The mark's size in CSS px (status-mark.css: .eb-smark: two mono letters at 9px, about 21px wide), the sticker's
  * longest side below which a bird goes unmarked, and the inset from the box's bottom-right corner.
  */
 export const MARK_PX = { w: 22, h: 14, minSide: 32 } as const
@@ -35,7 +35,7 @@ export function markRect(box: Box, W: number, H: number, stagePx: number): Rect 
 }
 
 /**
- * The shown birds whose mark is left out: the sticker's longest side is under the kind's minimum, or the mark's
+ * The shown birds whose mark is left out: the sticker's longest side is under MARK_PX.minSide (32px), or the mark's
  * rectangle comes within MARK_COUNT_AIR_PX of the count's text (the packer keeps silhouettes off the count, not boxes,
  * so a box's corner can sit over it). `count` is the number shown (the count's text); `cat` says each bird's category.
  */

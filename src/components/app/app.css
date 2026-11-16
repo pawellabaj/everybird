@@ -146,11 +146,16 @@
    (the third drop's label was "Status", 123, until Yusuf's rename of 2026-11-15);
    the magnifier 44.
    Two drops: 10 + 202.5 + 286.5 + 235 + 44 + 28 = 806, under today's 820 break. Three: + 4 + 220.5 = 1030.5 (list
-   view 1046); + 40 for summaries = 1070.5, rounded up to 20: one row from 1080px of bar (it was 980 with "Status"). List
-   view rests 34 under it; longer summaries ellipsis (above) before anything moves. The estimate is generous: Satoshi
-   Medium at 14px, from hmtx, measures "Conservation status" 124.7 (not 142.5), "Places" 40.8 (not 45), "Time" 30.7 (not
-   30), so a resting three-drop row needs about 22 less than 1030.5, roughly 1008, which leaves 72 under the break for
-   Bold actives ("Conservation status · 3" 150.6 Bold with tabular digits, "Places · 12" 68.2, "Time · 2022–2024" 127.8).
+   view 1046) by that generous estimate, + 40 for summaries = 1070.5, rounded up to 20: one row from 1080px of bar (it
+   was 980 with "Status"). Measured from Satoshi's advance widths (hmtx, no kerning; weight 600 draws as Bold 700, only
+   400, 500 and 700 load), the resting row is about 967.5px in collage view and 970.3px in list view, so a bar of 1080
+   has about 112 to spare and the widest bar (1088px) about 120. An active drop swaps its resting
+   label for a Bold summary: "Places · 12" 72.8 (resting "Places" 40.8, +32), "Time · 2022–2024" 131.7 (resting
+   "Time" 30.7, +101), "Conservation status · 3" 150.6 (resting 124.7, +25.9). Any one fits (Time alone
+   1068.5), and so do Places with Conservation status (1025.4). Accepted: at the widest bar (1088px), two or three
+   long summaries outgrow it (Places · 12 plus a Time range is 1100.5, all three 1126.4) and the Time or Conservation status label
+   ellipses (the drop labels shrink, min-width 0, rather than push the magnifier); between 1080 and 1088px less
+   is needed. Item 10 replaces the three drops with one Filters button.
    Under 540px of bar, and on phones, the third drop's
    visible label is "Status" (.eb-short, below), so none of the phone-row widths further down change. */
 @container (max-width: 1079px) {
@@ -176,7 +181,11 @@
    there is 15 and 30 to spare). Each grows into what's left, so the row fills. Places and Status never shrink (their
    number is never cut); only Time may, down to a 44px press, and only it ellipses where the row is too short (under
    328px of bar with the widest mix; under 320 the glyphs go and every drop pads 6, below). The grid under 300px of
-   page resets these to its own content-sized `flex: 0 1 auto` and 4px padding (later, same weight). */
+   page resets these to its own content-sized `flex: 0 1 auto` and 4px padding (later, same weight).
+   This block also covers bars of 541-599px on a viewport over 600px (a narrow window, a tablet): there the long label
+   shows ("Conservation status", not "Status"): the row is about 395px at worst (Places and Time active, Conservation
+   status resting with its glyph 166.7; 391 with all three active) against the 523px row of a 541px bar, so every
+   label reads whole there. */
 @container (max-width: 599px) {
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 1 0 auto; min-width: 44px; padding: 0 8px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters [data-active] { padding: 0 6px; }
@@ -223,7 +232,7 @@
 }
 /* The bar's own width from here (any screen: a phone, a tablet, a narrow window). Row one must hold the tabs, the tools
    and the magnifier: the 820px rule (1080px with the third drop) lets the bar wrap (for Places, Time and Conservation status), so anything
-   too wide would push the magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–1100px). */
+   too wide would push the magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–1200px). */
 @container (max-width: 460px) {
   .eb-dock-tabs .eb-dock-tab span { display: none; }
   .eb-dock-tabs .eb-dock-tab { padding: 0; width: 44px; }

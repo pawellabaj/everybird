@@ -6,7 +6,7 @@ import './status-mark.css'
 
 export function StatusMark({ cat }: { cat: IucnCat }) {
   return (
-    <span className="eb-status" data-cat={cat} aria-hidden="true">
+    <span className="eb-smark" data-cat={cat} aria-hidden="true">
       {cat}
     </span>
   )

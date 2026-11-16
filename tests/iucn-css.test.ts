@@ -47,9 +47,12 @@ describe('the Red List pill CSS', () => {
     expect(css).not.toMatch(/data-pill/)
   })
   it('the meta column leaves a 320px phone sheet room: the longest unit fits its 45% cap, so the name wraps, never overflows', () => {
-    // The column never shrinks below its narrowest unit: the name takes all the shrinking (a proportional shrink with
-    // `min-width: 0` hung the badge over a long name).
-    expect(rule('.eb-card-meta')).toMatch(/flex:\s*none/)
+    // The column never shrinks below its narrowest unit, and above it gives back what its wrapped label frees (flex 0 1
+    // auto, at most 45%); the name takes the rest and breaks a long word (a proportional shrink with `min-width: 0`
+    // hung the badge over a long name).
+    expect(rule('.eb-card-meta')).toMatch(/flex:\s*0 1 auto/)
+    expect(rule('.eb-card-name')).toMatch(/overflow-wrap:\s*break-word/)
+    expect(rule('.eb-card-other')).toMatch(/overflow-wrap:\s*break-word/)
     expect(rule('.eb-card-meta')).toMatch(/min-width:\s*min-content/)
     expect(rule('.eb-card-meta')).not.toMatch(/min-width:\s*0/)
     expect(rule('.eb-card-meta')).toMatch(/max-width:\s*45%/)

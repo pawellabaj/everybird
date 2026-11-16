@@ -30,7 +30,7 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
   }, [counted, checked])
 
   return (
-    <div className="eb-places eb-status">
+    <div className="eb-places">
       <div className="eb-places-head">
         <span className="eb-mono">Categories · {fmt(rows.length)}</span>
         {checked.size > 0 && (

@@ -108,18 +108,18 @@ for (const width of [1280, 390]) {
       await seed(page);
       const stage = page.getByTestId("collage-stage");
       for (const [cat, r] of [["VU", BY.VU], ["EN", BY.EN], ["CR", CR[0]]] as const) {
-        const mark = stage.locator(`.eb-bird[data-code="${r.code}"] > .eb-status`);
+        const mark = stage.locator(`.eb-bird[data-code="${r.code}"] > .eb-smark`);
         await expect(mark).toBeVisible();
         await expect(mark).toHaveText(cat);
         await expect(mark).toHaveCSS("pointer-events", "none");
         await expect(stage.locator(`.eb-bird[data-code="${r.code}"]`)).toHaveAccessibleName(new RegExp(`^${r.com}, `));
       }
-      await expect(stage.locator(`.eb-bird[data-code="${BY.LC.code}"] > .eb-status`)).toHaveCount(0);
-      await expect(stage.locator(`.eb-bird[data-code="${NONE[0].code}"] > .eb-status`)).toHaveCount(0);
+      await expect(stage.locator(`.eb-bird[data-code="${BY.LC.code}"] > .eb-smark`)).toHaveCount(0);
+      await expect(stage.locator(`.eb-bird[data-code="${NONE[0].code}"] > .eb-smark`)).toHaveCount(0);
       await page.getByRole("button", { name: "List", exact: true }).click();
       const row = page.locator(`.eb-row-btn[data-code="${BY.VU.code}"]`);
-      await expect(row.locator(".eb-status")).toHaveText("VU");
-      await expect(page.locator(`.eb-row-btn[data-code="${BY.LC.code}"] .eb-status`)).toHaveCount(0);
+      await expect(row.locator(".eb-smark")).toHaveText("VU");
+      await expect(page.locator(`.eb-row-btn[data-code="${BY.LC.code}"] .eb-smark`)).toHaveCount(0);
     });
 
     test("the card shows the pill and the category's name without a press; a bird without a status has none", async ({ page }) => {
