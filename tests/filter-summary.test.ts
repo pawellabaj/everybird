@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COUNT_WORDS, countHead, countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { COUNT_WORDS, fill, filtersCount, filtersSpoken, panelHead, showLabel, countHead, countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
@@ -93,5 +93,29 @@ describe('countHead', () => {
     expect(countHead(14, COUNT_WORDS.county, 0)).toBe('14 counties')
     expect(countHead(5, COUNT_WORDS.status, 2)).toBe('5 categories · 2 checked')
     expect(countHead(1200, COUNT_WORDS.country, 0)).toBe('1,200 countries')
+  })
+})
+
+describe('the Filters button and panel', () => {
+  const r = { countries: { KE: 'Kenya', CA: 'Canada', EG: 'Egypt', PE: 'Peru' }, sub1: { 'CA-BC': 'British Columbia' } }
+  it('filtersCount counts sections, not values', () => {
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'] })).toBe(1)
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'], from: '2020-01' })).toBe(2)
+    expect(filtersCount({ countries: ['CA', 'EG', 'KE', 'PE'], from: '2020-01', statuses: ['VU'] })).toBe(3)
+    expect(filtersCount({ order: 'X' })).toBe(0)
+  })
+  it('filtersSpoken names each section in full', () => {
+    expect(filtersSpoken({ countries: ['KE'], provinces: ['CA-BC'], from: '2020-03', to: '2021-06', statuses: ['VU'] }, r)).toBe(
+      'Places: Kenya; British Columbia, Canada. Time: March 2020 to June 2021. Conservation status: Vulnerable',
+    )
+    expect(filtersSpoken({}, r)).toBeUndefined()
+  })
+  it('panelHead and showLabel', () => {
+    expect(panelHead(3, 118)).toBe('Filters · 3 · 118 species')
+    expect(panelHead(0, 1089)).toBe('Filters · 1,089 species')
+    expect(showLabel(118)).toBe('Show 118 species')
+    expect(showLabel(1)).toBe('Show 1 species')
+    expect(fill('{n} places', { n: 5 })).toBe('5 places')
+    expect(fill('{x}', {})).toBe('{x}')
   })
 })

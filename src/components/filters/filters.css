@@ -143,3 +143,18 @@
   .eb-sheet, .eb-path, .eb-path + .eb-level, .eb-path + .eb-pick, .eb-places-level { animation-name: eb-fade-in; }
   .eb-drill { transition: none; }
 }
+
+/* The chip row under the dock (ChipRow.tsx): the taxonomy chip's shape, always in its active state. */
+.eb-chiprow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 6px; }
+.eb-chiprow .eb-chip { border-color: var(--accent); color: var(--accent); max-width: 100%; padding-right: 6px; }
+.eb-chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The ×: a 20px square-ish press holding a 14px cross. */
+.eb-chip-x-icon, .eb-chip-x { box-sizing: border-box; width: 20px; height: 20px; flex: none; border-radius: calc(6px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2); }
+.eb-chip-x-icon { padding: 3px; }
+.eb-chip-x { display: grid; place-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; position: relative; }
+.eb-chip-x .eb-chip-x-icon { width: 14px; height: 14px; padding: 0; }
+.eb-chip-x::after { content: ''; position: absolute; inset: -12px -6px; } /* 44px press */
+.eb-chip-pair { padding: 0 6px 0 0; cursor: default; }
+.eb-chip-pair button { color: inherit; font: inherit; }
+.eb-chip-open { position: relative; display: inline-flex; align-items: center; min-width: 0; min-height: 30px; padding: 4px 4px 4px 12px; border: 0; background: none; cursor: pointer; }
+.eb-chip-open::after { content: ''; position: absolute; inset: -6px 0; }

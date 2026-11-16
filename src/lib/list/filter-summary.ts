@@ -134,3 +134,46 @@ export function countHead(n: number, words: CountWords, checked: number): string
   const head = `${n.toLocaleString('en-US')} ${n === 1 ? words.one : words.other}`
   return checked > 0 ? `${head} · ${checked.toLocaleString('en-US')} checked` : head
 }
+
+/** The Filters button, panel and chips' words, as `{n}` / `{label}` / `{species}` templates (see `fill`). */
+export const FILTERS_UI = {
+  button: 'Filters', dialog: 'Filters', chips: 'Active filters', close: 'Close',
+  sections: { places: 'Places', time: 'Time', status: 'Conservation status' },
+  species: '{n} species', head: 'Filters · {n} · {species}', headNone: 'Filters · {species}', show: 'Show {species}',
+  manyPlaces: '{n} places', manyStatuses: '{n} statuses',
+  openChip: 'Show {label} in Filters', clearChip: 'Remove all {label}',
+} as const
+
+/** Fills `{key}` in a template; an unknown key is left as it is. */
+export function fill(t: string, vars: Record<string, string | number>): string {
+  return t.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m))
+}
+
+/** The N in "Filters · N": the filter groups in use (Places, Time, Conservation status), 0 to 3, not checked boxes. */
+export function filtersCount(f: Filter): number {
+  return (filterPlaceKeys(f).length ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
+}
+
+/** The Filters button's accessible description: each section in use, "Places: Kenya. Time: March 2020 to June 2021"; undefined for none. */
+export function filtersSpoken(f: Filter, regions: Names): string | undefined {
+  const parts: string[] = []
+  const places = placesSpoken(f, regions)
+  if (places) parts.push(`${FILTERS_UI.sections.places}: ${places}`)
+  const time = timeSpoken(f)
+  if (f.from || f.to) parts.push(`${FILTERS_UI.sections.time}: ${time}`)
+  const status = statusSpoken(f)
+  if (status) parts.push(`${FILTERS_UI.sections.status}: ${status}`)
+  return parts.length ? parts.join('. ') : undefined
+}
+
+const speciesOf = (shown: number) => fill(FILTERS_UI.species, { n: shown.toLocaleString('en-US') })
+
+/** The panel's head: "Filters · 3 · 118 species", or "Filters · 118 species" with no filter in use. */
+export function panelHead(n: number, shown: number): string {
+  return n > 0 ? fill(FILTERS_UI.head, { n, species: speciesOf(shown) }) : fill(FILTERS_UI.headNone, { species: speciesOf(shown) })
+}
+
+/** The sheet's bottom button: "Show 118 species". */
+export function showLabel(shown: number): string {
+  return fill(FILTERS_UI.show, { species: speciesOf(shown) })
+}
