@@ -10,7 +10,7 @@ import { slottedRecords } from './source-counts'
 import type { Edits, ImportResult, ListEntry, Rules, Slot, SourceRecord, Unmatched } from './model'
 import { buildSeen, type SeenIndex } from './seen'
 import * as storage from './storage'
-import { emptySaved, NAME_MAX, removeSource, replaceSource, type EbirdDetails, type InatDetails, type Saved } from './storage'
+import { emptySaved, NAME_MAX, removeSource, replaceSource, type DetailsFor, type Saved } from './storage'
 
 export type AppState = {
   saved: Saved
@@ -30,7 +30,7 @@ export type AppState = {
 
 export type Action =
   /** An import into one slot (model.ts `Slot`: 'ebird' is MyEBirdData, 'ebird-list' the life list download). */
-  | { type: 'import'; source: Slot; result: ImportResult; details?: EbirdDetails | InatDetails }
+  | { type: 'import'; source: Slot; result: ImportResult; details?: DetailsFor<Slot> }
   /** Disconnect one source: its records, unmatched rows and details go; edits stay (storage.ts `removeSource`). */
   | { type: 'remove-source'; source: Slot }
   | { type: 'edit'; edits: Edits }

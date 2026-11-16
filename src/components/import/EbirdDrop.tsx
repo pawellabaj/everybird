@@ -1,10 +1,10 @@
 'use client'
-import { FileCsv } from '@phosphor-icons/react'
-import { useEffect, useId, useRef, useState, type DragEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import type { EbirdJob } from '@/components/app/use-import-jobs'
 import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY } from '@/lib/list/filter-summary'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
 import type { Saved, EbirdDetails } from '@/lib/list/storage'
+import { FileDropzone, useFileDrop } from './FileDropzone'
 import { notCounted } from './NotCounted'
 import { ebirdLine, HowTo, SourceRow } from './SourceLine'
 
@@ -71,7 +71,6 @@ const ROWS: Row[] = [
  */
 export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts }: Props) {
   const id = useId()
-  const [over, setOver] = useState(false)
   const [adding, setAdding] = useState<EbirdConnected['slot'] | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const chooseFull = useRef<HTMLButtonElement>(null)
@@ -94,11 +93,7 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
     if (input.current) input.current.value = ''
   }
 
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault()
-    setOver(false)
-    if (!disabled) read(e.dataTransfer?.files?.[0])
-  }
+  const { over, handlers } = useFileDrop(read, disabled)
   const off = disabled || busy
   const pick = () => input.current?.click()
   // Only the life list download: the full export would add every place, down to the county. A MyEBirdData import saved
@@ -152,9 +147,7 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
       data-testid="ebird-drop"
       data-over={over || undefined}
       data-busy={busy || undefined}
-      onDragOver={(e) => { e.preventDefault(); setOver(true) }}
-      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setOver(false) }}
-      onDrop={onDrop}
+      {...handlers}
     >
       <input
         ref={input}
@@ -207,13 +200,7 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
             {!c && (
               <div id={`${id}-${r.slot}`} className="eb-src-panel" hidden={!open} role="group" aria-label={`Add ${r.title}`}>
                 <p className="eb-note">{r.guide}</p>
-                <div className="eb-dropzone">
-                  <button ref={r.slot === 'ebird' ? chooseFull : undefined} type="button" className="eb-btn" disabled={off} onClick={pick}>
-                    <FileCsv aria-hidden="true" focusable="false" />
-                    Choose your eBird file
-                  </button>
-                  <span className="eb-note eb-drop-hint">or drop it here</span>
-                </div>
+                <FileDropzone label="Choose your eBird file" disabled={off} onPick={pick} buttonRef={r.slot === 'ebird' ? chooseFull : undefined} />
                 <HowTo label="How do I get this file?">{r.help}</HowTo>
               </div>
             )}

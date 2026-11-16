@@ -60,7 +60,7 @@ export default function AboutPage() {
         <h2 id="eb-how-h" className="eb-h2">How it works</h2>
         <HowItWorksDemo />
         <ol className="eb-steps">
-          <li>Bring your list on <Link href="/settings">Settings</Link>: an eBird file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.</li>
+          <li>Bring your list on <Link href="/settings">Settings</Link>: an eBird or observation.org file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.</li>
           <li>Each bird is matched to this year&apos;s eBird taxonomy and keeps its earliest date. Rows that don&apos;t match are listed, so nothing is dropped quietly.</li>
           <li>The collage, the filters and the share images are all made in your browser.</li>
         </ol>
@@ -115,7 +115,7 @@ export default function AboutPage() {
           </Credit>
           <Credit label="Taxonomy" title={<A href="https://www.birds.cornell.edu/clementschecklist/">eBird and Clements</A>}>
             Bird names, species and their order follow the eBird/Clements taxonomy, version {ebirdTaxonomy}, from the Cornell Lab
-            of Ornithology. eBird files are read in your browser.
+            of Ornithology. eBird and observation.org files are read in your browser.
           </Credit>
           <Credit label="Body masses · CC BY 4.0" title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
             Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu&apos;s species table.

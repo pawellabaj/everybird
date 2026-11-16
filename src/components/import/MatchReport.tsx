@@ -5,6 +5,7 @@ import { unmatchedKey, type Unmatched } from '@/lib/list/model'
 import type { Action } from '@/lib/list/store'
 import type { Saved } from '@/lib/list/storage'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { obsorgWhere } from './obsorg-copy'
 import { SpeciesSearch } from './SpeciesSearch'
 import '@/components/filters/filters.css'
 import './import.css'
@@ -12,7 +13,15 @@ import './import.css'
 type Props = { open: Unmatched[]; saved: Saved; species: SpeciesIndex; dispatch: (a: Action) => void }
 
 const where = (u: Unmatched) =>
-  u.source === 'inat' ? `iNaturalist observation ${u.row}` : u.slot === 'ebird-list' ? `eBird life list row ${u.row}` : u.source === 'ebird' ? `eBird row ${u.row}` : `Row ${u.row}`
+  u.source === 'inat'
+    ? `iNaturalist observation ${u.row}`
+    : u.slot === 'ebird-list'
+      ? `eBird life list row ${u.row}`
+      : u.source === 'ebird'
+        ? `eBird row ${u.row}`
+        : u.source === 'obsorg'
+          ? obsorgWhere(u.row, u.slot === 'obsorg-list')
+          : `Row ${u.row}`
 
 /**
  * Rows that couldn't be matched to an eBird species (never dropped silently), as one line under the sources: the count

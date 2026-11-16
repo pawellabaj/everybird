@@ -1,7 +1,22 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { handleParseMessage, type ParseResponse } from '@/lib/import/parse.worker'
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { act, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useImportJobs, type OnImport } from '@/components/app/use-import-jobs'
+import { OBSORG_ERRORS } from '@/components/import/obsorg-copy'
+import { handleParseMessage, type ParseRequest, type ParseResponse, type ParseResult } from '@/lib/import/parse.worker'
 import { ParseError, parseErrorCode, parseInWorker } from '@/lib/import/parse-client'
 import { fixture, regions, taxonomy as t } from './obsorg-helpers'
+
+// The real client by default (its own tests below); the hook tests run the worker's handler in place of a Worker.
+vi.mock('@/lib/import/parse-client', async (orig) => {
+  const actual = await orig<typeof import('@/lib/import/parse-client')>()
+  return { ...actual, parseInWorker: vi.fn(actual.parseInWorker) }
+})
+vi.mock('@/lib/import/places', async (orig) => ({
+  ...(await orig<typeof import('@/lib/import/places')>()),
+  loadRegions: vi.fn(async () => (await import('./obsorg-helpers')).regions),
+}))
 const file = (kind = 'species-observed-nl') => new File([fixture(kind)], 'synthetic.csv')
 
 describe('observation.org worker dispatch', () => {
@@ -94,5 +109,119 @@ describe('parse client', () => {
     expect(e2).toBeInstanceOf(ParseError)
     expect(parseErrorCode(e2)).toBeUndefined()
     expect(parseErrorCode(new Error('x'))).toBeUndefined()
+  })
+})
+
+describe('useImportJobs: one readFile for both file groups', () => {
+  const real = vi.mocked(parseInWorker).getMockImplementation()!
+  const named = (text: string, name: string) => new File([text], name, { type: 'text/csv' })
+  const speciesFile = () => named(fixture('species-observed-nl'), 'o.csv')
+  const observationsFile = () => named(fixture('observations-nl'), 'obs.csv')
+  const ebirdLifeList = () => named(readFileSync('tests/fixtures/ebird/lifelist-basic.csv', 'utf8'), 'ebird_world_life_list.csv')
+  /** The worker's own handler, in place: resolves or rejects as parseInWorker does. */
+  const inPlace = (kind: string, file: File, opts?: Record<string, unknown>) =>
+    new Promise<ParseResult>((resolve, reject) => {
+      const { onProgress, ...extra } = (opts ?? {}) as { onProgress?: (rows: number) => void }
+      void handleParseMessage({ kind, file, ...extra } as ParseRequest, (m) => {
+        if (m.type === 'progress') onProgress?.(m.rows)
+        else if (m.type === 'done') resolve(m.result)
+        else reject(new ParseError(m.message, m.code))
+      }, async () => t)
+    })
+  beforeEach(() => {
+    vi.mocked(parseInWorker).mockImplementation(inPlace as never)
+    vi.stubGlobal('fetch', async (u: string | URL) =>
+      String(u).includes('inat-synonyms') ? new Response('{}') : new Response('no', { status: 404 }))
+  })
+  afterEach(() => {
+    vi.mocked(parseInWorker).mockImplementation(real)
+    vi.unstubAllGlobals()
+  })
+  const setup = () => {
+    const onImport = vi.fn<OnImport>()
+    const hook = renderHook(() => useImportJobs(onImport))
+    return { onImport, hook }
+  }
+
+  it('the observation.org life list lands in obsorg-list with its details', async () => {
+    const { onImport, hook } = setup()
+    await act(() => hook.result.current.readObsOrg(speciesFile()))
+    expect(onImport).toHaveBeenCalledOnce()
+    const [slot, result, details] = onImport.mock.calls[0]
+    expect(slot).toBe('obsorg-list')
+    expect(result.records.length).toBeGreaterThan(0)
+    expect(details).toEqual({ kind: 'species-list', file: 'o.csv', rows: 15, at: expect.any(String) })
+    expect(vi.mocked(parseInWorker)).toHaveBeenCalledWith('obsorg-species', expect.any(File), expect.objectContaining({ synonyms: {} }))
+    expect(hook.result.current.obsorg).toEqual({ busy: false, rows: 0, error: null })
+  })
+  it('the observations export lands in obsorg with its excluded counts, read with the regions', async () => {
+    const { onImport, hook } = setup()
+    await act(() => hook.result.current.readObsOrg(observationsFile()))
+    const [slot, , details] = onImport.mock.calls[0]
+    expect(slot).toBe('obsorg')
+    expect(details).toMatchObject({ kind: 'observations', file: 'obs.csv', excluded: { escape: 1, uncertain: 1 }, at: expect.any(String) })
+    expect(vi.mocked(parseInWorker)).toHaveBeenCalledWith('obsorg-observations', expect.any(File), expect.objectContaining({ synonyms: {}, regions }))
+  })
+  it('the kind decides the slot; the status shows where the file was given', async () => {
+    const { onImport, hook } = setup()
+    let open!: () => void
+    const gate = new Promise<void>((r) => { open = r })
+    vi.mocked(parseInWorker).mockImplementationOnce((async (...a: Parameters<typeof inPlace>) => { await gate; return inPlace(...a) }) as never)
+    let read!: Promise<void>
+    act(() => { read = hook.result.current.readEbird(speciesFile()) })
+    await vi.waitFor(() => expect(hook.result.current.ebird.busy).toBe(true))
+    expect(hook.result.current.obsorg.busy).toBe(false)
+    open()
+    await act(() => read)
+    expect(onImport.mock.calls[0][0]).toBe('obsorg-list')
+    await act(() => hook.result.current.readObsOrg(ebirdLifeList()))
+    expect(onImport.mock.calls[1][0]).toBe('ebird-list')
+    expect(onImport.mock.calls[1][2]).toMatchObject({ kind: 'life-list', file: 'ebird_world_life_list.csv' })
+  })
+  it('the Excel file is refused plainly, on either group', async () => {
+    const { onImport, hook } = setup()
+    const xlsx = () => new File(['PK\u0003\u0004rest'], 'observation-2026-species_observed.xlsx')
+    await act(() => hook.result.current.readObsOrg(xlsx()))
+    expect(hook.result.current.obsorg.error).toBe(OBSORG_ERRORS.xlsx)
+    expect(OBSORG_ERRORS.xlsx).toBe('This is the Excel file. On observation.org, export as CSV and add that file instead.')
+    await act(() => hook.result.current.readEbird(xlsx()))
+    expect(hook.result.current.ebird.error).toBe(OBSORG_ERRORS.xlsx)
+    expect(onImport).not.toHaveBeenCalled()
+  })
+  it('a file without birds says to choose Birds; an unknown file names the exports, by the group it was given to', async () => {
+    const { onImport, hook } = setup()
+    const amphibians = 'name,scientific name,group,date first observed,date last observed,number of observations,number of individuals,number of photos,number of sounds,species type\nToad,Bufo bufo,Amfibieën,2020-01-01,,1,1,0,0,soort\n'
+    await act(() => hook.result.current.readObsOrg(named(amphibians, 'o.csv')))
+    expect(hook.result.current.obsorg.error).toBe('No birds in this file. On observation.org, choose Birds before you export.')
+    await act(() => hook.result.current.readObsOrg(named('name,age\nx,1\n', 'other.csv')))
+    expect(hook.result.current.obsorg.error).toBe("Couldn't read this file. Use observation.org's Observed species export or your observations export, as a CSV.")
+    await act(() => hook.result.current.readEbird(named('name,age\nx,1\n', 'other.csv')))
+    expect(hook.result.current.ebird.error).toBe("Couldn't read this file. Use eBird's life list download or MyEBirdData.csv.")
+    expect(hook.result.current.obsorg.error).toBeNull()
+    const damaged = 'name,scientific name,group,date first observed,species type\nX,"Columba livia,Vogels,,soort\n'
+    await act(() => hook.result.current.readObsOrg(named(damaged, 'o.csv')))
+    expect(hook.result.current.obsorg.error).toBe("Couldn't read this file. It may be damaged or not an observation.org export.")
+    // Any failure on the observation.org rows is in their words, an eBird file's too; on the eBird rows, eBird's.
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken'))
+    await act(() => hook.result.current.readObsOrg(ebirdLifeList()))
+    expect(hook.result.current.obsorg.error).toBe(OBSORG_ERRORS.damaged)
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken'))
+    await act(() => hook.result.current.readEbird(ebirdLifeList()))
+    expect(hook.result.current.ebird.error).toBe("Couldn't read this file. It may be damaged or not an eBird export.")
+    expect(onImport).not.toHaveBeenCalled()
+  })
+  it('one file at a time: a second read while one is busy is ignored', async () => {
+    const { onImport, hook } = setup()
+    let open!: () => void
+    const gate = new Promise<void>((r) => { open = r })
+    vi.mocked(parseInWorker).mockImplementationOnce((async (...a: Parameters<typeof inPlace>) => { await gate; return inPlace(...a) }) as never)
+    let first!: Promise<void>
+    act(() => { first = hook.result.current.readObsOrg(speciesFile()) })
+    await vi.waitFor(() => expect(hook.result.current.obsorg.busy).toBe(true))
+    await act(() => hook.result.current.readEbird(ebirdLifeList()))
+    open()
+    await act(() => first)
+    expect(onImport).toHaveBeenCalledOnce()
+    expect(onImport.mock.calls[0][0]).toBe('obsorg-list')
   })
 })

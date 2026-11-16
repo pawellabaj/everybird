@@ -1,7 +1,8 @@
 'use client'
 import { CaretDown } from '@phosphor-icons/react'
 import { useId, useRef, useState, type ReactNode } from 'react'
-import type { EbirdDetails, InatDetails } from '@/lib/list/storage'
+import type { EbirdDetails, InatDetails, ObsOrgDetails } from '@/lib/list/storage'
+import { OBSORG_FALLBACK } from './obsorg-copy'
 import { SourceMenu, type MenuItem, type SourceMenuHandle } from './SourceMenu'
 
 /** "6 Nov" this year, "6 Nov 2025" before it, or null for a missing or unreadable time. */
@@ -25,6 +26,13 @@ export function ebirdLine(kind: EbirdDetails['kind'], d: EbirdDetails | undefine
   if (!d) return { name: FALLBACK[kind], parts: ['Details unknown'] }
   const date = shortDate(d.at)
   return { name: d.file || FALLBACK[kind], parts: date ? [`Imported ${date}`] : [] }
+}
+
+/** One observation.org file (the Observed species life list, or the observations): its name, then "Imported 6 Nov". */
+export function obsorgLine(kind: ObsOrgDetails['kind'], d: ObsOrgDetails | undefined): SourceState {
+  if (!d) return { name: OBSORG_FALLBACK[kind], parts: ['Details unknown'] }
+  const date = shortDate(d.at)
+  return { name: d.file || OBSORG_FALLBACK[kind], parts: date ? [`Imported ${date}`] : [] }
 }
 
 /** The iNaturalist account: the username, then "Updated 6 Nov". */
