@@ -210,14 +210,22 @@ describe('The threatened count (?v=threat:<letter>)', () => {
   }
   const stats = () => screen.getByTestId('collage-stats')
 
+  const SR = ' (Vulnerable, Endangered or Critically Endangered)'
   it.each([
-    ['a', '4 species · 3 orders · 4 families · 2 threatened · since Jan 2020'],
-    ['b', '4 species · 3 orders · 4 families · 2 globally threatened · since Jan 2020'],
-  ])('variant %s: on the stats line, not in the Status panel', (v, line) => {
+    ['a', '2 threatened', '4 species · 3 orders · 4 families · 2 threatened · since Jan 2020'],
+    ['b', '2 globally threatened', '4 species · 3 orders · 4 families · 2 globally threatened · since Jan 2020'],
+  ])('variant %s: on the stats line, not in the Status panel; screen readers hear the categories it counts', (v, part, line) => {
     vi.stubGlobal('innerWidth', 1000)
     history.replaceState(null, '', `/?v=threat:${v}`)
     render(<View />)
-    expect(stats()).toHaveTextContent(line)
+    // What the eye reads: the line without the visually hidden context.
+    const visible = Array.from(stats().querySelectorAll('.eb-stat')).map((s) => s.firstChild?.textContent).join(' · ')
+    expect(visible).toBe(line)
+    // The threatened part carries its context in an .eb-sr span; no other part does.
+    const threat = Array.from(stats().querySelectorAll('.eb-stat')).find((s) => s.firstChild?.textContent === part)!
+    expect(threat).toHaveTextContent(`${part}${SR}`, { normalizeWhitespace: false })
+    expect(threat.querySelector('.eb-sr')).toHaveTextContent(SR.trim())
+    expect(stats().querySelectorAll('.eb-sr')).toHaveLength(1)
     fireEvent.click(statusBtn())
     expect(screen.queryByTestId('status-threatened')).toBeNull()
   })
@@ -228,7 +236,23 @@ describe('The threatened count (?v=threat:<letter>)', () => {
     render(<View />)
     expect(stats()).toHaveTextContent('4 species · 3 orders · 4 families · since Jan 2020')
     expect(stats()).not.toHaveTextContent('threatened')
+    expect(stats().querySelector('.eb-sr')).toBeNull()
     fireEvent.click(statusBtn())
+    expect(screen.getByTestId('status-threatened')).toHaveTextContent('2 threatened: Vulnerable, Endangered or Critically Endangered.')
+  })
+
+  it('variant c: under an order filter the panel line still counts the whole list', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    history.replaceState(null, '', '/?v=threat:c')
+    function Filtered() {
+      const [state, dispatch] = useReducer(reduce, undefined, () => reduce(seeded(['duck1', 'owl1', 'crow1', 'robin1']), { type: 'filter', filter: { order: 'Strigiformes' } }))
+      return <CollageView state={state} dispatch={dispatch} species={species} regions={regions} label="Test collage" />
+    }
+    render(<Filtered />)
+    expect(stats()).toHaveTextContent('1 of 4 species · 1 family')
+    fireEvent.click(statusBtn())
+    // Owls only: one VU under the filter, but the line is the list's (VU owl1 + EN crow1).
+    expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-VU'])
     expect(screen.getByTestId('status-threatened')).toHaveTextContent('2 threatened: Vulnerable, Endangered or Critically Endangered.')
   })
 })

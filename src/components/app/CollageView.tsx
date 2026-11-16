@@ -60,6 +60,10 @@ const pad = (d: string) => (d.length === 4 ? `${d}-00-00` : d.length === 7 ? `${
  *  the Status panel instead. */
 const THREAT_VARIANTS = ['a', 'b', 'c'] as const
 type ThreatVariant = (typeof THREAT_VARIANTS)[number]
+/** The stats line's threatened part ("12 threatened", "1,200 globally threatened"), and what screen readers hear after
+ *  it: the categories it counts, which the visible line leaves to the Status panel. */
+const THREAT_PART = /^\d[\d,]* (globally )?threatened$/
+const THREAT_SR = ' (Vulnerable, Endangered or Critically Endangered)'
 /** How long a bird picked from the search wears its Accent ring. */
 const RING_MS = 1600
 /** The collage's glide to a new layout (640 ms) and a little slack: then a bird picked from outside the view is shown. */
@@ -193,7 +197,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
       <p className="eb-mono eb-stats" data-testid="collage-stats">
         {/* Each part keeps its words on one line ("since May 2022" never splits); the line wraps between parts. */}
         {(statsPrefix ? `${statsPrefix} · ${stats}` : stats).split(' · ').map((part, i) => (
-          <Fragment key={i}>{i > 0 && ' · '}<span className="eb-stat">{part}</span></Fragment>
+          <Fragment key={i}>{i > 0 && ' · '}<span className="eb-stat">{part}{THREAT_PART.test(part) && <span className="eb-sr">{THREAT_SR}</span>}</span></Fragment>
         ))}
       </p>
       {notice}
