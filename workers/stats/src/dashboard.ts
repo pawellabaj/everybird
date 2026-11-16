@@ -14,10 +14,12 @@ export const MAX_DAYS = 3660
 
 /** Validates ?from=&to=&country=; defaults to the last 14 UTC days. Returns an error message for a bad one. */
 export function parseParams(q: URLSearchParams, today: string): Params | string {
+  const ok = (d: string) => DAY.test(d) && !Number.isNaN(ms(d)) && iso(ms(d)) === d
   const to = q.get('to') ?? today
+  if (!ok(to)) return 'bad date' // before addDays: an invalid date would throw there
   const from = q.get('from') ?? addDays(to, -13)
   const country = (q.get('country') ?? '').toUpperCase()
-  for (const d of [from, to]) if (!DAY.test(d) || Number.isNaN(ms(d)) || iso(ms(d)) !== d) return 'bad date'
+  if (!ok(from)) return 'bad date'
   if (from > to) return 'from is after to'
   if ((ms(to) - ms(from)) / 86_400_000 > MAX_DAYS) return 'range too long'
   if (country && !/^[A-Z]{2}$/.test(country)) return 'bad country'

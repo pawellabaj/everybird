@@ -82,7 +82,7 @@ describe('the dashboard parameters', () => {
   const q = (s: string) => new URLSearchParams(s)
   it('defaults to the last 14 days', () => expect(parseParams(q(''), '2026-11-16')).toEqual({ from: '2026-11-03', to: '2026-11-16', country: '' }))
   it('rejects bad input', () => {
-    for (const s of ['from=2026-13-01', 'from=nope', 'from=2026-11-05&to=2026-11-01', 'country=USA', "country=a'b", 'from=1990-01-01&to=2026-11-16']) expect(typeof parseParams(q(s), '2026-11-16'), s).toBe('string')
+    for (const s of ['from=2026-13-01', 'from=nope', 'from=2026-11-05&to=2026-11-01', 'country=USA', "country=a'b", 'from=1990-01-01&to=2026-11-16', 'to=bad', 'to=2026-02-30']) expect(typeof parseParams(q(s), '2026-11-16'), s).toBe('string')
     expect(parseParams(q('country=mx'), '2026-11-16')).toMatchObject({ country: 'MX' })
   })
 })
