@@ -164,6 +164,8 @@ export const es: Messages = {
         manyStatuses: '{n} estados',
         openChip: 'Mostrar {label} en Filtros',
         clearChip: 'Quitar {label}',
+        clearAll: 'Borrar todo',
+        clearAllLabel: 'Borrar todos los filtros',
       },
       /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
       countHead: {

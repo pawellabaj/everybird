@@ -17,7 +17,7 @@ import { useI18n } from '@/i18n/I18nProvider'
 import { regionsIn } from '@/lib/i18n-places'
 import { filterChips, withoutFilterChip } from '@/lib/list/chips'
 import { filtersCount, filtersSpoken, panelHead, showLabel } from '@/lib/list/filter-summary'
-import type { Filter } from '@/lib/list/filters'
+import { emptyFilter, filterActive, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
 import type { Month } from '@/lib/list/timeline'
@@ -149,6 +149,16 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
 
   const n = filtersCount(filter)
   const head = panelHead(n, shown, t)
+  // Every filter off in one dispatch; the button may vanish with the last filter, so focus stays on the dialog.
+  const clearAll = () => {
+    onFilter(emptyFilter())
+    ref.current?.focus({ preventScroll: true })
+  }
+  const clearButton = filterActive(filter) && (
+    <button type="button" className="eb-textbtn" aria-label={t.filters.panel.clearAllLabel} data-testid="filters-clear-all" onClick={clearAll}>
+      {t.filters.panel.clearAll}
+    </button>
+  )
   const section = (s: FilterSection) => {
     const Icon = ICONS[s]
     return (
@@ -195,13 +205,19 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
       {sheet && (
         <div className="eb-sheet-head">
           <span className="eb-mono" role="status" data-testid="filters-head">{head}</span>
+          {clearButton}
           <button type="button" className="eb-sheet-close" aria-label={t.collage.close} onClick={onClose}>
             <CloseIcon />
           </button>
         </div>
       )}
       <div className="eb-drop-body">
-        {!sheet && <p className="eb-mono eb-fpanel-head" role="status" data-testid="filters-head">{head}</p>}
+        {!sheet && (
+          <div className="eb-fpanel-headrow">
+            <p className="eb-mono eb-fpanel-head" role="status" data-testid="filters-head">{head}</p>
+            {clearButton}
+          </div>
+        )}
         {has('time') && section('time')}
         {sheet ? lower.map(section) : lower.length > 0 && <div className="eb-fpanel-row">{lower.map(section)}</div>}
       </div>
@@ -259,6 +275,10 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const close = useCallback(() => setOpen(null), [])
   const returnFocus = useCallback(() => opener.current, [])
   const onEmpty = useCallback(() => buttonRef.current?.focus(), [])
+  // The chips' scope: group, places, time (and its basis) and statuses; the taxonomy path has its own breadcrumb.
+  // The same as the panel's Clear all: every filter, the taxonomy choice too.
+  const onClearAll = useCallback(() => dispatch({ type: 'filter', filter: emptyFilter() }), [dispatch])
+  const active = chips.length + (filter.order || filter.family ? 1 : 0)
   // Every removal changes the filter, so the chips change and ChipRow's remembered index is used up.
   const onRemove = useCallback(
     (c: (typeof chips)[number]) => dispatch({ type: 'filter', filter: withoutFilterChip(filter, c) }),
@@ -275,7 +295,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
     button: (inert) => <FiltersButton {...shared} inert={inert} buttonRef={buttonRef} panelId={panelId} />,
     below: (
       <>
-        <ChipRow chips={chips} label={t.filters.panel.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} />
+        <ChipRow chips={chips} label={t.filters.panel.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} onClearAll={onClearAll} active={active} />
         {live && (
           <FiltersPanel
             {...shared}

@@ -52,6 +52,7 @@ export function filterChips(f: Filter, regions: Names, t: Ui, groupName?: (id: s
   return out
 }
 
+
 /** The filter without what `chip` stands for; a chip of any other kind leaves it as it is. */
 export function withoutFilterChip(f: Filter, chip: Chip): Filter {
   if (chip.kind === 'group') {

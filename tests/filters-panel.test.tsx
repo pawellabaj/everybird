@@ -64,6 +64,7 @@ function Harness({ hide, sp = species }: { hide?: readonly FilterSection[]; sp?:
       <FiltersDock state={state} dispatch={dispatch} species={sp} regions={regions} time={time} hide={hide} shown={shown} />
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { countries: ['EG', 'US'], provinces: ['CA-BC', 'CA-ON'] } })}>four places</button>
+      <button type="button" onClick={() => dispatch({ type: 'filter', filter: { order: 'Passeriformes', family: 'Corvidae', countries: ['EG'], from: '2019-01', to: '2022-06', basis: 'seen', statuses: ['VU'] } })}>everything</button>
       <output data-testid="filter">{JSON.stringify(state.filter)}</output>
       <output data-testid="previews">{previews}</output>
     </>
@@ -212,7 +213,7 @@ describe('the chip row', () => {
     fireEvent.click(screen.getByTestId('continent-NA'))
     esc()
     const chips = screen.getByTestId('filter-chips')
-    expect(within(chips).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['chip-place-n:AF', 'chip-place-n:NA'])
+    expect(within(chips).getAllByRole('button').map((b) => b.dataset.testid).filter((id) => id !== 'chips-clear-all')).toEqual(['chip-place-n:AF', 'chip-place-n:NA'])
     fireEvent.click(screen.getByTestId('chip-place-n:AF'))
     expect(filterOf()).toEqual({ continents: ['NA'] })
     expect(screen.getByTestId('chip-place-n:NA')).toHaveFocus()
@@ -281,5 +282,48 @@ describe('spec 15: the content below the panel', () => {
     expect(screen.getByRole('dialog', { name: 'Filters' })).toHaveAttribute('aria-modal', 'true')
     expect(below).not.toHaveAttribute('inert')
     expect(below).not.toHaveAttribute('data-dim')
+  })
+
+  it('Clear all: hidden with no filter, shown with one, clears every field in one dispatch and keeps focus in the panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(button())
+    expect(screen.queryByTestId('filters-clear-all')).toBeNull()
+    fireEvent.click(screen.getByTestId('status-VU'))
+    const clear = screen.getByTestId('filters-clear-all')
+    expect(clear).toHaveTextContent('Clear all')
+    expect(clear).toHaveAccessibleName('Clear all filters')
+    expect(within(screen.getByRole('dialog', { name: 'Filters' })).getByTestId('filters-head')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'everything' }))
+    const before = filterOf()
+    expect(before.order).toBe('Passeriformes')
+    expect(before.statuses).toEqual(['VU'])
+    fireEvent.click(screen.getByTestId('filters-clear-all'))
+    expect(filterOf()).toEqual({})
+    expect(screen.queryByTestId('filters-clear-all')).toBeNull()
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toHaveFocus()
+  })
+
+  it('Clear all sits in the sheet head on phones', () => {
+    vi.stubGlobal('innerWidth', 390)
+    render(<Harness />)
+    fireEvent.click(button())
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
+    expect(within(sheet).queryByTestId('filters-clear-all')).toBeNull()
+    fireEvent.click(within(sheet).getByTestId('status-VU'))
+    const clear = within(sheet).getByTestId('filters-clear-all')
+    expect(clear.closest('.eb-sheet-head')).not.toBeNull()
+    fireEvent.click(clear)
+    expect(filterOf()).toEqual({})
+  })
+
+  it('the chip row\'s Clear all clears every filter, as the panel\'s does, and focuses the Filters button', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(screen.getByRole('button', { name: 'everything' }))
+    fireEvent.click(screen.getByTestId('chips-clear-all'))
+    expect(filterOf()).toEqual({})
+    expect(screen.queryByTestId('chips-clear-all')).toBeNull()
+    expect(button()).toHaveFocus()
   })
 })

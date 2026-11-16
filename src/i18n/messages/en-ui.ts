@@ -203,6 +203,8 @@ export const EN_UI = {
       manyStatuses: '{n} statuses',
       openChip: 'Show {label} in Filters',
       clearChip: 'Remove all {label}',
+      clearAll: 'Clear all',
+      clearAllLabel: 'Clear all filters',
     },
     /** The count-first heads of the Places and Status lists ("20 countries"), and " · 7 checked" after them. */
     countHead: {
