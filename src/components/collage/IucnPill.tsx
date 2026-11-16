@@ -4,7 +4,7 @@
 // The span form is decoration beside words that already name the category (the Status panel's rows), so it is
 // hidden from assistive tech. The button form is the bird card's: a toggletip whose label (the full name) shows on a
 // press, on keyboard focus and on a fine pointer's hover. The label is visual only: the button's name already says it.
-import { useId, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { IUCN_COLORS, IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
 import './card-list.css'
 
@@ -21,8 +21,18 @@ export function IucnPill({ cat, as = 'span' }: { cat: IucnCat; as?: 'span' | 'bu
 function IucnToggletip({ cat, style }: { cat: IucnCat; style: CSSProperties }) {
   const [open, setOpen] = useState(false)
   const tipId = useId()
+  const ref = useRef<HTMLSpanElement>(null)
+  // An open tip closes on a press anywhere else or when focus leaves the pill (Esc stays the card's: it closes the card).
+  useEffect(() => {
+    if (!open) return
+    const down = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', down)
+    return () => document.removeEventListener('pointerdown', down)
+  }, [open])
   return (
-    <span className="eb-iucn-wrap" data-open={open || undefined} data-testid="iucn-wrap">
+    <span ref={ref} className="eb-iucn-wrap" data-open={open || undefined} data-testid="iucn-wrap">
       <button
         type="button"
         className="eb-iucn"
@@ -33,6 +43,7 @@ function IucnToggletip({ cat, style }: { cat: IucnCat; style: CSSProperties }) {
         aria-controls={tipId}
         data-testid="iucn-pill"
         onClick={() => setOpen((o) => !o)}
+        onBlur={() => setOpen(false)}
       >
         {cat}
       </button>

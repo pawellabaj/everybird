@@ -222,6 +222,24 @@ describe('BirdCard Red List pill', () => {
     expect(screen.getByTestId('iucn-pill')).toHaveAccessibleName('EN, Endangered (IUCN Red List)')
   })
 
+  it('an open tip closes when focus leaves the pill or on a press elsewhere in the card', () => {
+    renderCard({ iu: 'NT' })
+    const pill = screen.getByTestId('iucn-pill')
+    const wrap = screen.getByTestId('iucn-wrap')
+    fireEvent.click(pill)
+    expect(wrap).toHaveAttribute('data-open')
+    fireEvent.blur(pill)
+    expect(wrap).not.toHaveAttribute('data-open')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(pill)
+    fireEvent.pointerDown(screen.getByText('Status Bird'))
+    expect(wrap).not.toHaveAttribute('data-open')
+    // A press on the pill itself doesn't count as outside.
+    fireEvent.click(pill)
+    fireEvent.pointerDown(pill)
+    expect(wrap).toHaveAttribute('data-open')
+  })
+
   it('Esc still closes the card with the tip open', () => {
     setWidth(1000)
     const onClose = vi.fn()

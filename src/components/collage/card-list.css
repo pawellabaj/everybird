@@ -44,7 +44,7 @@
 /* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill with it: under it
    (pill variant a) or before it on its line (b). */
 .eb-card-meta { margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-[data-pill="b"] .eb-card-meta { flex-direction: row; align-items: center; gap: 6px; }
+[data-pill="b"] .eb-card-meta { position: relative; flex-direction: row; align-items: center; gap: 6px; }
 .eb-card-mass {
   white-space: nowrap;
   font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
@@ -133,7 +133,10 @@ button.eb-iucn::after { content: ""; position: absolute; inset: -13px -9px; }
 .eb-iucn-wrap { position: relative; display: inline-flex; }
 .eb-iucn-tip {
   position: absolute; top: calc(100% + 4px); right: 0; z-index: 1;
-  padding: 4px 8px; white-space: nowrap; pointer-events: none;
+  /* One line when it fits; it wraps rather than run past the card's left edge on the narrowest sheets (the tip ends
+     about 66px from the viewport's right, the card's content starts 23px from its left: 100vw - 96px leaves room). */
+  width: max-content; max-width: calc(100vw - 96px);
+  padding: 4px 8px; white-space: normal; pointer-events: none;
   background: var(--paper); color: var(--ink);
   border: 1px solid var(--hairline);
   border-radius: calc(8px * var(--one-if-corner-shape-supported, .566));
@@ -143,7 +146,9 @@ button.eb-iucn::after { content: ""; position: absolute; inset: -13px -9px; }
   opacity: 0; visibility: hidden;
   transition: opacity 150ms var(--ease-ui), visibility 0s linear 150ms;
 }
-[data-pill="b"] .eb-iucn-tip { right: auto; left: 0; }
+/* b: the tip hangs from the meta row (positioned, above: pill, then mass) and ends at the mass's right edge, as in a,
+   so a long name ("Critically Endangered") never runs past the card. */
+[data-pill="b"] .eb-iucn-wrap { position: static; }
 .eb-iucn-wrap[data-open] .eb-iucn-tip, .eb-iucn:focus-visible + .eb-iucn-tip {
   opacity: 1; visibility: visible; transition-delay: 0s;
 }
