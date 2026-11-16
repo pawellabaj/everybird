@@ -72,24 +72,34 @@ describe('observation.org: the unplaced line, and no MyEBirdData pitch without e
   it('observation.org alone: no MyEBirdData pitch, the unplaced line', () => {
     const s = saved({ 'obsorg-list': [listed('a'), listed('b')] })
     expect(placesNoteFor(s, 2, false)).toBeUndefined()
-    expect(placesUnplacedFor(s)).toBe(true)
+    expect(placesUnplacedFor(s)).toBe('add')
   })
   it('with the eBird life list: both notes', () => {
     const s = saved({ 'obsorg-list': [listed('a')], 'ebird-list': [{ code: 'b', source: 'ebird', place: { country: 'CA' } }] })
     expect(placesNoteFor(s, 2, false)).toBe('add')
-    expect(placesUnplacedFor(s)).toBe(true)
+    expect(placesUnplacedFor(s)).toBe('add')
   })
   it('with MyEBirdData (seen-here full): only the unplaced line', () => {
     const s = saved({ 'obsorg-list': [listed('a')], ebird: [{ code: 'b', source: 'ebird', place: { country: 'CA' }, seen: ['2020-01-01|CA'] }] })
     expect(placesNoteFor(s, 2, true)).toBeUndefined()
-    expect(placesUnplacedFor(s)).toBe(true)
+    expect(placesUnplacedFor(s)).toBe('add')
   })
-  it('the observations place the same birds: the unplaced line goes', () => {
+  it('the observations place the same birds: the unplaced line goes; while some stay unplaced it has no link', () => {
     const obs = (code: string): R => ({ code, source: 'obsorg', place: { country: 'NL' }, seen: ['2020-01-01|NL'] })
-    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a'), obs('b')] }))).toBe(false)
-    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a')] }))).toBe(true)
+    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a'), obs('b')] }))).toBeUndefined()
+    expect(placesUnplacedFor(saved({ 'obsorg-list': [listed('a'), listed('b')], obsorg: [obs('a')] }))).toBe('plain')
   })
   it('an empty list: no line', () => {
-    expect(placesUnplacedFor(saved({}))).toBe(false)
+    expect(placesUnplacedFor(saved({}))).toBeUndefined()
+  })
+  it('birds the birder removed are off the list: they never keep the line', () => {
+    const s = { ...saved({ 'obsorg-list': [listed('a'), listed('b')], ebird: [{ code: 'b', source: 'ebird', place: { country: 'CA' } }] }), edits: { removed: ['a'] } }
+    expect(placesUnplacedFor(s)).toBeUndefined()
+    expect(placesUnplacedFor({ ...s, edits: { removed: [] } })).toBe('add')
+    expect(placesUnplacedFor({ ...s, edits: { removed: ['a', 'b'] } })).toBeUndefined()
+  })
+  it('only records place a bird: a hand tick with a place (edits.added) does not', () => {
+    const s = { ...saved({ 'obsorg-list': [listed('a')] }), edits: { removed: [], added: [{ code: 'a', place: { country: 'NL' } }] } }
+    expect(placesUnplacedFor(s)).toBe('add')
   })
 })

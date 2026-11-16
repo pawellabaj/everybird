@@ -260,6 +260,7 @@ export async function parseObsOrgObservations(
         failed = true
         reject(error)
         parser.abort()
+        if (typeof input !== 'string') (input as unknown as { stop?: () => void }).stop?.()
       }
       Papa.parse<Row>(input as never, {
         ...PARSE,
@@ -286,5 +287,67 @@ export async function parseObsOrgObservations(
   if (typeof csv === 'string') return run(csv.replace(/^\ufeff/, ''))
   // Browsers and workers stream a File through FileReader; Node has no FileReader, so read it as text there.
   if (typeof FileReader === 'undefined') return run((await csv.text()).replace(/^\ufeff/, ''))
-  return run(csv)
+  return run(textStream(csv) as unknown as File)
+}
+
+/**
+ * A File as the Node-style readable papaparse streams from ("data", "end", "error"), decoded by one streaming
+ * TextDecoder. papaparse's own File reader decodes each byte slice on its own, so a character split across two slices
+ * ("België", "Île-de-France" at a chunk boundary) would turn into U+FFFD and its place stop resolving. Slices of
+ * Papa.LocalChunkSize bytes, read one after another; the decoder drops a leading BOM.
+ */
+function textStream(file: File) {
+  const listeners: Record<string, ((x?: unknown) => void)[]> = {}
+  const emit = (ev: string, x?: unknown) => { for (const f of [...(listeners[ev] ?? [])]) f(x) }
+  const decoder = new TextDecoder('utf-8')
+  const size = Math.max(1, Papa.LocalChunkSize)
+  let started = false
+  let stopped = false
+  const read = (start: number) => {
+    if (stopped) return
+    if (start >= file.size) {
+      const tail = decoder.decode()
+      if (tail) emit('data', tail)
+      stopped = true
+      emit('end')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (stopped) return
+      const text = decoder.decode(new Uint8Array(reader.result as ArrayBuffer), { stream: true })
+      if (text) emit('data', text)
+      read(start + size)
+    }
+    reader.onerror = () => {
+      stopped = true
+      emit('error', reader.error ?? new Error('Could not read observation.org CSV.'))
+    }
+    reader.readAsArrayBuffer(file.slice(start, start + size))
+  }
+  return {
+    readable: true as const,
+    read: () => null,
+    pause: () => {},
+    resume: () => {},
+    on(ev: string, f: (x?: unknown) => void) {
+      ;(listeners[ev] ??= []).push(f)
+      // papaparse listens for "data", "end" and "error" in turn: start once all three are in place.
+      if (!started && listeners.data && listeners.end && listeners.error) {
+        started = true
+        read(0)
+      }
+      return this
+    },
+    removeListener(ev: string, f: (x?: unknown) => void) {
+      // papaparse's clean-up after the end or an error: nothing more to read.
+      listeners[ev] = (listeners[ev] ?? []).filter((g) => g !== f)
+      if (ev === 'data') stopped = true
+      return this
+    },
+    /** The parse gave up (a damaged file, `fail`): read no further. */
+    stop() {
+      stopped = true
+    },
+  }
 }

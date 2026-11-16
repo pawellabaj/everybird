@@ -6,7 +6,7 @@
 // filter only through togglePlace / withPlaces (filters.ts) and keeps the same test ids: `country-<ISO2>` and
 // `place-<key>` checkboxes, `drill-<key>` buttons.
 import Link from '@/components/app/IntentLink'
-import { MYEBIRDDATA_PLACES, OBSORG_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY, type FullPlacesSource } from '@/lib/list/filter-summary'
+import { MYEBIRDDATA_PLACES, OBSORG_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY, type FullPlacesSource, type PlacesUnplaced } from '@/lib/list/filter-summary'
 import { useVariant } from '@/lib/variants'
 import type { PlacesBodyProps, PlacesNote } from './places-shared'
 import { PlacesDrill } from './PlacesDrill'
@@ -15,24 +15,30 @@ import { PlacesTree } from './PlacesTree'
 /** The Places panel's designs, the default first: a drills in place (PlacesDrill), b expands rows inline (PlacesTree). */
 export const PLACES_VARIANTS = ['a', 'b'] as const
 
-export function PlacesList({ note, unplaced, ...body }: PlacesBodyProps & { note?: PlacesNote; unplaced?: boolean }) {
+export function PlacesList({ note, unplaced, ...body }: PlacesBodyProps & { note?: PlacesNote; unplaced?: PlacesUnplaced }) {
   const variant = useVariant('places', PLACES_VARIANTS)
   return (
     <div className="eb-places">
-      {unplaced && <PlacesUnplacedLine />}
+      {unplaced && <PlacesUnplacedLine link={unplaced === 'add'} />}
       {note && <PlacesNoteLine note={note} />}
       {variant === 'a' ? <PlacesDrill {...body} /> : <PlacesTree {...body} />}
     </div>
   )
 }
 
-/** Birds only on the observation.org life list have no places, and a link to the observations export's Add panel. */
-export function PlacesUnplacedLine() {
+/** Birds only on the observation.org life list have no places; while the observations aren't on the list, a link to
+ *  their Add panel follows. */
+export function PlacesUnplacedLine({ link = true }: { link?: boolean }) {
   return (
     <p className="eb-note eb-places-note" data-testid="places-unplaced">
-      {OBSORG_PLACES.unplaced}{' '}
-      <Link href={`/settings#${OBSORG_PLACES.anchor}`}>{OBSORG_PLACES.add}</Link>
-      {' '}{OBSORG_PLACES.reach}.
+      {OBSORG_PLACES.unplaced}
+      {link && (
+        <>
+          {' '}
+          <Link href={`/settings#${OBSORG_PLACES.anchor}`}>{OBSORG_PLACES.add}</Link>
+          {' '}{OBSORG_PLACES.reach}.
+        </>
+      )}
     </p>
   )
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode } from 'react'
 import type { EbirdJob } from '@/components/app/use-import-jobs'
 import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY } from '@/lib/list/filter-summary'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
@@ -7,6 +7,7 @@ import type { Saved, EbirdDetails } from '@/lib/list/storage'
 import { FileDropzone, useFileDrop } from './FileDropzone'
 import { notCounted } from './NotCounted'
 import { ebirdLine, HowTo, SourceRow } from './SourceLine'
+import { useAnchorTarget } from './use-anchor-target'
 
 /** An eBird file already on the list: its slot ('ebird' full export, 'ebird-list' life list) and what is known of it. */
 export type EbirdConnected = { slot: 'ebird' | 'ebird-list'; details?: EbirdDetails }
@@ -27,6 +28,8 @@ type Props = {
   saved?: Saved
   /** Each row's species and "only here" (source-counts.ts). */
   counts?: SourceCounts
+  /** When the last import landed (use-import-jobs `landed.at`), from any source: the open Add panels fold. */
+  landedAt?: number
 }
 
 type Row = {
@@ -69,18 +72,16 @@ const ROWS: Row[] = [
  * /settings#add-mydata (the Places panel's note) open MyEBirdData's Add panel and focus its picker (MyEBirdData already
  * on the list: its Replace).
  */
-export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts }: Props) {
+export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected = [], onRemove, saved, counts, landedAt }: Props) {
   const id = useId()
   const [adding, setAdding] = useState<EbirdConnected['slot'] | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const chooseFull = useRef<HTMLButtonElement>(null)
   const replaceFull = useRef<HTMLButtonElement>(null)
-  // Set to focus MyEBirdData's picker once its panel is shown (it is `hidden` until this render commits); `scroll`
-  // centres it first (arrival at #add-mydata, from another page).
-  const [toPicker, setToPicker] = useState<{ scroll: boolean } | null>(null)
   const { busy, rows, error } = job
-  // A file landed (a row connected or went): fold the Add panels away.
-  const on = connected.map((c) => c.slot).join()
+  // A file landed anywhere (in this group or the other, new or a replacement: `landedAt`), or a row went: fold the
+  // Add panels away.
+  const on = `${connected.map((c) => c.slot).join()}|${landedAt ?? ''}`
   const [lastOn, setLastOn] = useState(on)
   if (lastOn !== on) {
     setLastOn(on)
@@ -102,44 +103,8 @@ export function EbirdDrop({ job, onFile, disabled, loaded, placesNote, connected
   const reimport = placesNote === 'reimport'
   const fullOn = connected.some((c) => c.slot === 'ebird')
   const P = MYEBIRDDATA_PLACES
-  // An arrival at #add-mydata while a file is being read (the buttons are disabled): taken up once the read is done.
-  const pendingFull = useRef<boolean | null>(null)
-
   // MyEBirdData's Add panel, opened and its picker focused; with MyEBirdData on the list, its Replace focused.
-  const toFull = (scroll: boolean) => {
-    if (off) {
-      pendingFull.current = scroll
-      return
-    }
-    if (fullOn) replaceFull.current?.focus()
-    else {
-      setAdding('ebird')
-      setToPicker({ scroll })
-    }
-  }
-  useEffect(() => {
-    if (!toPicker) return
-    if (toPicker.scroll) chooseFull.current?.scrollIntoView?.({ block: 'center' })
-    chooseFull.current?.focus()
-  }, [toPicker])
-  const toFullRef = useRef(toFull)
-  useEffect(() => { toFullRef.current = toFull })
-  useEffect(() => {
-    if (off || pendingFull.current === null) return
-    const scroll = pendingFull.current
-    pendingFull.current = null
-    // Not if the birder has since gone elsewhere on the page (#match, #tick). use-import-jobs lands the file and goes
-    // idle in one batch, so the rows have already folded their panels when this runs.
-    if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(scroll)
-  }, [off])
-  useEffect(() => {
-    const onHash = () => { if (window.location.hash === `#${MYEBIRDDATA_PLACES.anchor}`) toFullRef.current(true) }
-    // The Places panel's link is a client navigation: the router writes the new URL after this mounts, and a router
-    // push fires no hashchange. Read it once mounted, as MatchReport reads #match.
-    onHash()
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
-  }, [])
+  const toFull = useAnchorTarget({ anchor: P.anchor, off, connected: fullOn, open: () => setAdding('ebird'), picker: chooseFull, replace: replaceFull })
 
   return (
     <div

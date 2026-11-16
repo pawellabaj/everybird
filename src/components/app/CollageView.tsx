@@ -13,6 +13,7 @@ import { FilterDropdowns, type Panel, type PlacesNote } from '@/components/filte
 import { formatDate } from '@/lib/format'
 import { latestLifer } from '@/lib/list/build-list'
 import { applyFilter, drillTo, filterKey, filterToShow } from '@/lib/list/filters'
+import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { ListEntry } from '@/lib/list/model'
 import { monthBins, todayMonth } from '@/lib/list/timeline'
 import type { Action, AppState } from '@/lib/list/store'
@@ -41,7 +42,7 @@ type Props = {
   /** Every place on the list is a lifer place: the Places dropdown says so, and how to get more (the birder's own collage). */
   placesNote?: PlacesNote
   /** Some birds on the observation.org life list have no places: the Places dropdown says so (the birder's own collage). */
-  placesUnplaced?: boolean
+  placesUnplaced?: PlacesUnplaced
   /** Before the stats ("Sample: a demo birder's life list"). */
   statsPrefix?: string
   /** A line under the stats (the unmatched-rows note on the birder's own collage). */

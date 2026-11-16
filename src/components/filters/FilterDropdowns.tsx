@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
-import { placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { placesSpoken, placesSummary, timeSpoken, timeSummary, type PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
@@ -42,7 +42,7 @@ type Props = {
   hide?: readonly Panel[]
   placesNote?: PlacesNote
   /** Some birds on the observation.org life list have no places: the Places panel says so (the birder's own collage). */
-  placesUnplaced?: boolean
+  placesUnplaced?: PlacesUnplaced
   /** The Time panel's timeline: the known entries, the whole list's months, today. */
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   /** The search covers the bar: the buttons are inert. */

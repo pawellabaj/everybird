@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { countryNameMap, makeObsOrgPlaces, OBSORG_COUNTRY_ALIASES, OBSORG_SUB1_ALIASES } from '@/lib/import/obsorg-places'
 import { SUB1_PARENT } from '@/lib/import/sub1-parents'
 import { sub1Parents } from '../scripts/build-data/build-sub1-parents'
+import { makeSub1Index, sub1Names } from '@/lib/import/sub1-index'
+import { makePlaceResolver } from '@/lib/import/inat'
 import { regions } from './obsorg-helpers'
 const place = () => makeObsOrgPlaces(regions)
 
@@ -97,3 +99,57 @@ describe('observation.org country and division names', () => {
     }
   })
 })
+
+describe('observation.org: shared names, the overseas departments, and every division of the rolled-up countries', () => {
+  const NAMES: Record<string, string> = { BE: 'België', FR: 'Frankrijk', ES: 'Spanje', IT: 'Italië', GB: 'Verenigd Koninkrijk' }
+  // Names regions.v1.json gives two codes whose regions differ, with no alias to settle them: none today (the
+  // overseas departments' twin codes are settled by OBSORG_SUB1_ALIASES). Add one here, with why, only if it is
+  // genuinely ambiguous.
+  const AMBIGUOUS = new Set<string>([])
+  it('a name two codes share resolves to their common region when both roll up to it', () => {
+    // regions.v1.json names GB-WRL "Halton" (GB-HAL's name) and IT-GE "Liguria" (IT-42's).
+    expect(regions.sub1['GB-WRL']).toBe('Halton')
+    expect(regions.sub1['IT-GE']).toBe('Liguria')
+    const p = place()
+    expect(p('Verenigd Koninkrijk', 'Halton')).toEqual({ country: 'GB', sub1: 'GB-ENG' })
+    expect(p('Verenigd Koninkrijk', 'Wirral')).toEqual({ country: 'GB', sub1: 'GB-ENG' })
+    expect(p('Italië', 'Liguria')).toEqual({ country: 'IT', sub1: 'IT-42' })
+    for (const name of ['Genova', 'Genoa']) expect(p('Italië', name)).toEqual({ country: 'IT', sub1: 'IT-42' })
+    // Different tops (or no roll-up) stay the country only.
+    const r = { v: 1 as const, countries: { AA: 'A' }, sub1: { 'AA-1': 'Top', 'AA-2': 'Other', 'AA-11': 'Twin', 'AA-12': 'Twin', 'AA-21': 'Pair', 'AA-22': 'Pair' } }
+    const up: Record<string, string> = { 'AA-11': 'AA-1', 'AA-12': 'AA-1', 'AA-21': 'AA-1', 'AA-22': 'AA-2' }
+    const idx = makeSub1Index(r, [], undefined, { onClash: 'none', rollUp: (c) => up[c] ?? c })
+    expect(idx('AA', 'Twin')).toBe('AA-1')
+    expect(idx('AA', 'Pair')).toBeUndefined()
+    expect(makeSub1Index(r, [])('AA', 'Twin')).toBeUndefined()
+  })
+  it('the overseas departments: one code each, as iNaturalist resolves them, and Réunion under both spellings', () => {
+    const inat = makeSub1Index(regions, undefined, undefined, { onClash: 'first' })
+    const p = place()
+    for (const name of ['Guadeloupe', 'Martinique', 'Mayotte', 'Guyane', 'French Guiana']) {
+      expect(p('Frankrijk', name), name).toEqual({ country: 'FR', sub1: inat('FR', name) })
+    }
+    expect(inat('FR', 'La Réunion')).toBe('FR-974')
+    for (const name of ['Réunion', 'La Réunion']) expect(p('Frankrijk', name), name).toEqual({ country: 'FR', sub1: 'FR-974' })
+  })
+  it('every division name of BE, FR, ES, IT and GB in regions.v1.json resolves to a region, never the country only', () => {
+    const p = place()
+    const missed: string[] = []
+    for (const [code, name] of Object.entries(regions.sub1)) {
+      const cc = code.split('-')[0]
+      if (!NAMES[cc]) continue
+      const inner = /\[([^\]]*)\]\s*$/.exec(name)?.[1]?.replace(/\s+[A-Z]{2}-[A-Z0-9]+$/, '').trim()
+      for (const raw of [name.replace(/\s*\[[^\]]*\]\s*$/, ''), inner].filter((x): x is string => !!x)) {
+        expect(sub1Names(name).length).toBeGreaterThan(0)
+        if (AMBIGUOUS.has(`${code}|${raw}`)) continue
+        if (!p(NAMES[cc], raw)?.sub1) missed.push(`${code} ${raw}`)
+      }
+    }
+    expect(missed).toEqual([])
+  })
+  it('iNaturalist is unchanged: its resolver still takes the first code', () => {
+    const byId = new Map([[1, { id: 1, name: 'France', admin_level: 0 }], [2, { id: 2, name: 'Réunion', admin_level: 10 }]])
+    expect(makePlaceResolver(regions, byId as never)([1, 2])).toEqual({ country: 'FR', sub1: 'FR-RE' })
+  })
+})
+

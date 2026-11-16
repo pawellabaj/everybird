@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { FileJob } from '@/components/app/use-import-jobs'
 import { OBSORG_PLACES } from '@/lib/list/filter-summary'
 import { countParts, type SourceCounts } from '@/lib/list/source-counts'
@@ -8,6 +8,7 @@ import { FileDropzone, useFileDrop } from './FileDropzone'
 import { notCounted } from './NotCounted'
 import { OBSORG_CHOOSE, OBSORG_HOWTO, OBSORG_INPUT, OBSORG_NOTE, OBSORG_ROWS } from './obsorg-copy'
 import { HowTo, obsorgLine, SourceRow } from './SourceLine'
+import { useAnchorTarget } from './use-anchor-target'
 
 /** An observation.org file already on the list: its slot ('obsorg-list' Observed species, 'obsorg' the observations). */
 export type ObsOrgConnected = { slot: 'obsorg' | 'obsorg-list'; details?: ObsOrgDetails }
@@ -24,6 +25,8 @@ type Props = {
   saved?: Saved
   /** Each row's species and "only here" (source-counts.ts). */
   counts?: SourceCounts
+  /** When the last import landed (use-import-jobs `landed.at`), from any source: the open Add panels fold. */
+  landedAt?: number
 }
 
 type Row = { slot: ObsOrgConnected['slot']; kind: ObsOrgDetails['kind'] }
@@ -43,18 +46,16 @@ const ROWS: Row[] = [
  * (the Places panel's line) open the observations' Add panel and focus its picker (observations on the list: its
  * Replace).
  */
-export function ObsOrgDrop({ job, onFile, disabled, connected = [], onRemove, saved, counts }: Props) {
+export function ObsOrgDrop({ job, onFile, disabled, connected = [], onRemove, saved, counts, landedAt }: Props) {
   const id = useId()
   const [adding, setAdding] = useState<ObsOrgConnected['slot'] | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const chooseObs = useRef<HTMLButtonElement>(null)
   const replaceObs = useRef<HTMLButtonElement>(null)
-  // Set to focus the observations' picker once its panel is shown (it is `hidden` until this render commits); `scroll`
-  // centres it first (arrival at #add-obsorg, from another page).
-  const [toPicker, setToPicker] = useState<{ scroll: boolean } | null>(null)
   const { busy, rows, error } = job
-  // A file landed (a row connected or went): fold the Add panels away.
-  const on = connected.map((c) => c.slot).join()
+  // A file landed anywhere (in this group or the other, new or a replacement: `landedAt`), or a row went: fold the
+  // Add panels away.
+  const on = `${connected.map((c) => c.slot).join()}|${landedAt ?? ''}`
   const [lastOn, setLastOn] = useState(on)
   if (lastOn !== on) {
     setLastOn(on)
@@ -72,44 +73,8 @@ export function ObsOrgDrop({ job, onFile, disabled, connected = [], onRemove, sa
   const listOn = connected.some((c) => c.slot === 'obsorg-list')
   const obsOn = connected.some((c) => c.slot === 'obsorg')
   const P = OBSORG_PLACES
-  // An arrival at #add-obsorg while a file is being read (the buttons are disabled): taken up once the read is done.
-  const pendingObs = useRef<boolean | null>(null)
-
   // The observations' Add panel, opened and its picker focused; with the observations on the list, their Replace.
-  const toObs = (scroll: boolean) => {
-    if (off) {
-      pendingObs.current = scroll
-      return
-    }
-    if (obsOn) replaceObs.current?.focus()
-    else {
-      setAdding('obsorg')
-      setToPicker({ scroll })
-    }
-  }
-  useEffect(() => {
-    if (!toPicker) return
-    if (toPicker.scroll) chooseObs.current?.scrollIntoView?.({ block: 'center' })
-    chooseObs.current?.focus()
-  }, [toPicker])
-  const toObsRef = useRef(toObs)
-  useEffect(() => { toObsRef.current = toObs })
-  useEffect(() => {
-    if (off || pendingObs.current === null) return
-    const scroll = pendingObs.current
-    pendingObs.current = null
-    // Not if the birder has since gone elsewhere on the page (#match, #tick). use-import-jobs lands the file and goes
-    // idle in one batch, so the rows have already folded their panels when this runs.
-    if (window.location.hash === `#${OBSORG_PLACES.anchor}`) toObsRef.current(scroll)
-  }, [off])
-  useEffect(() => {
-    const onHash = () => { if (window.location.hash === `#${OBSORG_PLACES.anchor}`) toObsRef.current(true) }
-    // The Places panel's link is a client navigation: the router writes the new URL after this mounts, and a router
-    // push fires no hashchange. Read it once mounted, as MatchReport reads #match.
-    onHash()
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
-  }, [])
+  const toObs = useAnchorTarget({ anchor: P.anchor, off, connected: obsOn, open: () => setAdding('obsorg'), picker: chooseObs, replace: replaceObs })
 
   return (
     <div className="eb-filedrop" data-testid="obsorg-drop" data-over={over || undefined} data-busy={busy || undefined} {...handlers}>

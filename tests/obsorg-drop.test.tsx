@@ -93,20 +93,51 @@ describe('ObsOrgDrop: the two observation.org rows', () => {
     expect(screen.getByTestId('source-obsorg-list')).toHaveTextContent('Details unknown')
   })
 
-  it('the observations row connected: escapes and uncertain records are in why? and the skipped count', () => {
+  it('the observations row connected: escapes and uncertain records are in why?, never in the skipped count', () => {
     const s = emptySaved()
     s.records.obsorg = [{ code: 'norfli', source: 'obsorg' }]
     s.unmatched = [{ source: 'obsorg', row: 9, sci: 'Colaptes spec.', reason: 'not-species' }]
     s.sources = { obsorg: { kind: 'observations', file: 'obs.csv', at: AT, excluded: { escape: 2, uncertain: 1 } } }
     render(<ObsOrgDrop job={idle} onFile={() => {}} connected={[{ slot: 'obsorg', details: s.sources.obsorg }]} saved={s} counts={countsWith({ obsorg: { species: 1, only: 0, onlyIn: 'here' } })} />)
     const row = screen.getByTestId('source-obsorg')
-    expect(row).toHaveTextContent('1 species · 4 skipped why?')
-    fireEvent.click(within(row).getByRole('button', { name: 'Why 4 skipped?' }))
+    expect(row).toHaveTextContent('1 species · 1 skipped why?')
+    expect(row).not.toHaveTextContent('not counted why?')
+    fireEvent.click(within(row).getByRole('button', { name: 'Why 1 skipped?' }))
     const why = within(row).getByTestId('not-counted')
     expect(why).toHaveTextContent('1 entry isn\'t a species: birds only identified to a group')
     expect(why).toHaveTextContent('2 observations marked as escapes and 1 marked uncertain aren\'t counted.')
     // No life-list note: the observations are on the list.
     expect(screen.queryByTestId('places-obsorg-note')).toBeNull()
+  })
+
+  it('only escapes and uncertain records left out: "N observations not counted", its why? opening the sentence', () => {
+    const s = emptySaved()
+    s.records.obsorg = [{ code: 'norfli', source: 'obsorg' }]
+    s.sources = { obsorg: { kind: 'observations', file: 'obs.csv', at: AT, excluded: { escape: 9, uncertain: 3 } } }
+    render(<ObsOrgDrop job={idle} onFile={() => {}} connected={[{ slot: 'obsorg', details: s.sources.obsorg }]} saved={s} counts={countsWith({ obsorg: { species: 1, only: 0, onlyIn: 'here' } })} />)
+    const row = screen.getByTestId('source-obsorg')
+    expect(row).toHaveTextContent('1 species · 12 observations not counted why?')
+    expect(row).not.toHaveTextContent('skipped')
+    const btn = within(row).getByRole('button', { name: 'Why 12 not counted?' })
+    const why = within(row).getByTestId('not-counted')
+    expect(why).not.toBeVisible()
+    fireEvent.click(btn)
+    expect(btn).toHaveAttribute('aria-expanded', 'true')
+    expect(why).toBeVisible()
+    expect(why).toHaveTextContent(/^9 observations marked as escapes and 3 marked uncertain aren't counted\.$/)
+  })
+
+  it('one observation left out reads in the singular; none left out shows no why?', () => {
+    const s = emptySaved()
+    s.records.obsorg = [{ code: 'norfli', source: 'obsorg' }]
+    s.sources = { obsorg: { kind: 'observations', file: 'obs.csv', at: AT, excluded: { escape: 0, uncertain: 1 } } }
+    const { unmount } = render(<ObsOrgDrop job={idle} onFile={() => {}} connected={[{ slot: 'obsorg', details: s.sources.obsorg }]} saved={s} />)
+    expect(screen.getByTestId('source-obsorg')).toHaveTextContent('1 observation not counted why?')
+    unmount()
+    s.sources = { obsorg: { kind: 'observations', file: 'obs.csv', at: AT, excluded: { escape: 0, uncertain: 0 } } }
+    render(<ObsOrgDrop job={idle} onFile={() => {}} connected={[{ slot: 'obsorg', details: s.sources.obsorg }]} saved={s} />)
+    expect(screen.queryByRole('button', { name: /^Why/ })).toBeNull()
+    expect(screen.queryByTestId('not-counted')).toBeNull()
   })
 
   it('the life-list note shows only without the observations, and its link opens their panel and focuses the picker', () => {

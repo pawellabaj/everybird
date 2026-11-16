@@ -16,8 +16,9 @@ export type ParseRequest =
 export type ParseResult = ImportResult & { excluded?: ObsOrgObservationsResult['excluded']; undated?: number }
 /**
  * Why a parse failed, for the UI to switch on: 'no-birds' (a readable file without a bird), 'damaged' (not readable as
- * the CSV it claims to be), 'missing-options' (a caller bug: observation.org without its synonyms or regions). Other
- * failures (the taxonomy didn't load, an unsupported kind, a read error) carry no code.
+ * the CSV it claims to be, or anything else the file's parser or its reading threw), 'missing-options' (a caller bug:
+ * observation.org without its synonyms or regions). Failures that aren't the file's (the taxonomy didn't load, an
+ * unsupported kind) carry no code.
  */
 export type ParseErrorCode = 'no-birds' | 'damaged' | 'missing-options'
 export type ParseResponse =
@@ -38,6 +39,7 @@ export async function handleParseMessage(
   post: (m: ParseResponse) => void,
   load: () => Promise<TaxonomyIndex> = loadTaxonomy,
 ): Promise<void> {
+  let parsing = false
   try {
     // Checked before the taxonomy loads: a caller bug shouldn't wait on a download.
     if (msg.kind === 'obsorg-species' || msg.kind === 'obsorg-observations') {
@@ -45,6 +47,8 @@ export async function handleParseMessage(
       if (msg.kind === 'obsorg-observations' && !msg.regions) throw new MissingOptionError('observation.org regions are required.')
     }
     const t = await load()
+    // From here on a failure is the file's: its reading or its parse.
+    parsing = true
     let last = 0
     let lastRows = 0
     const onProgress = (rows: number) => {
@@ -70,6 +74,7 @@ export async function handleParseMessage(
         result = await parseObsOrgObservations(msg.file, t, msg.synonyms, msg.regions, onProgress)
         break
       default:
+        parsing = false
         throw new Error('Unsupported import kind.')
     }
     if ('error' in result) {
@@ -80,7 +85,7 @@ export async function handleParseMessage(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
     const code: ParseErrorCode | undefined =
-      e instanceof DamagedCsvError ? 'damaged' : e instanceof MissingOptionError ? 'missing-options' : undefined
+      e instanceof DamagedCsvError || parsing ? 'damaged' : e instanceof MissingOptionError ? 'missing-options' : undefined
     post(code ? { type: 'error', code, message } : { type: 'error', message })
   }
 }

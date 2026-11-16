@@ -2,7 +2,7 @@
 import { CaretDown } from '@phosphor-icons/react'
 import { useId, useRef, useState, type ReactNode } from 'react'
 import type { EbirdDetails, InatDetails, ObsOrgDetails } from '@/lib/list/storage'
-import { OBSORG_FALLBACK } from './obsorg-copy'
+import { OBSORG_FALLBACK, obsorgNotCounted } from './obsorg-copy'
 import { SourceMenu, type MenuItem, type SourceMenuHandle } from './SourceMenu'
 
 /** "6 Nov" this year, "6 Nov 2025" before it, or null for a missing or unreadable time. */
@@ -51,8 +51,9 @@ type Props = {
   /** Connected: what the source brings, leading the line ("185 species", "12 only here"; source-counts.ts). */
   counts?: string[]
   /** Entries of this source that weren't counted: "· 10 skipped" after the counts (or the first part), with "why?"
-   *  opening `body`. */
-  skipped?: { n: number; body: ReactNode }
+   *  opening `body`. With no skipped entries but `excluded` observations (observation.org's escapes and uncertain
+   *  records), "· 12 observations not counted" carries the "why?" instead. */
+  skipped?: { n: number; excluded?: number; body: ReactNode }
   /** The row's one button on the right (Add, Replace, Refresh, Tick birds). */
   primary: ReactNode
   /** Connected: the ⋯ menu's items before Remove. */
@@ -80,6 +81,14 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
   const menuBtn = useRef<SourceMenuHandle>(null)
   const items: MenuItem[] = [...(menu ?? []), ...(what ? [{ label: 'Remove', danger: true, keepFocus: true, onSelect: () => setAsking(true) }] : [])]
   const lead = counts ?? parts.slice(0, 1)
+  // The part "why?" follows: the skipped entries, else (nothing skipped) the observations left out.
+  const why0 = !skipped
+    ? null
+    : skipped.n > 0
+      ? { label: `${n(skipped.n)} skipped`, ask: `Why ${n(skipped.n)} skipped?` }
+      : skipped.excluded
+        ? obsorgNotCounted(skipped.excluded)
+        : null
   const rest = counts ? parts : parts.slice(1)
   return (
     <div className="eb-src" data-testid={testId}>
@@ -91,12 +100,12 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
           </h3>
           <p className="eb-src-meta">
             {lead.map((p, i) => <span key={p}>{i > 0 && ' · '}<span className="eb-nowrap">{p}</span></span>)}
-            {skipped && skipped.n > 0 && (
+            {why0 && (
               <>
                 {' · '}
                 <span className="eb-nowrap">
-                  {n(skipped.n)} skipped{' '}
-                  <button type="button" className="eb-whybtn" aria-expanded={why} aria-controls={`${id}-why`} aria-label={`Why ${n(skipped.n)} skipped?`} onClick={() => setWhy((w) => !w)}>
+                  {why0.label}{' '}
+                  <button type="button" className="eb-whybtn" aria-expanded={why} aria-controls={`${id}-why`} aria-label={why0.ask} onClick={() => setWhy((w) => !w)}>
                     why?
                   </button>
                 </span>
@@ -110,7 +119,7 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
           {items.length > 0 && <SourceMenu ref={menuBtn} label={`More for ${title}`} items={items} disabled={disabled} />}
         </div>
       </div>
-      {skipped && skipped.n > 0 && (
+      {why0 && skipped && (
         <div id={`${id}-why`} className="eb-src-why" hidden={!why} data-testid="not-counted">
           {skipped.body}
         </div>

@@ -38,12 +38,19 @@ export const OBSORG_NOTE = {
   tail: ' to place each bird by country and province.',
 } as const
 
-/** The import errors (use-import-jobs.ts `readFile`). */
+/** The import errors (use-import-jobs.ts `readFile`) for an observation.org file, or any file given to its rows. */
 export const OBSORG_ERRORS = {
   unknown: "Couldn't read this file. Use observation.org's Observed species export or your observations export, as a CSV.",
-  xlsx: 'This is the Excel file. On observation.org, export as CSV and add that file instead.',
   noBirds: 'No birds in this file. On observation.org, choose Birds before you export.',
   damaged: "Couldn't read this file. It may be damaged or not an observation.org export.",
+} as const
+
+/** The errors both file groups share (use-import-jobs.ts `readFile`), whichever source the file is from: an Excel file
+ *  (never read), and Everybird's own data (the taxonomy, synonyms or regions) failing to load, which isn't the file's
+ *  fault. */
+export const FILE_ERRORS = {
+  xlsx: 'This is an Excel file. Everybird reads CSV files: export as CSV and add that file instead.',
+  data: "Couldn't load Everybird's bird data. Check your connection and try again.",
 } as const
 
 /** "why?" under an observation.org row: the entries that aren't species. */
@@ -58,6 +65,12 @@ export function obsorgExcluded(escape: number, uncertain: number): string | null
   const unc = uncertain ? (escape ? `${num(uncertain)} marked uncertain` : `${num(uncertain)} ${uncertain === 1 ? 'observation' : 'observations'} marked uncertain`) : ''
   const one = (escape ? escape : uncertain) === 1 && !(escape && uncertain)
   return `${[esc, unc].filter(Boolean).join(' and ')} ${one ? "isn't" : "aren't"} counted.`
+}
+
+/** The observations row's status part when escapes and uncertain records are all that was left out, and its "why?"
+ *  button's name ("· 12 observations not counted why?"). They are observations, not entries: never in "N skipped". */
+export function obsorgNotCounted(n: number): { label: string; ask: string } {
+  return { label: `${num(n)} ${n === 1 ? 'observation' : 'observations'} not counted`, ask: `Why ${num(n)} not counted?` }
 }
 
 /** The match report's place for an observation.org row. */

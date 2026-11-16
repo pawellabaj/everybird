@@ -95,6 +95,10 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
   }
   // One file at a time across both file groups.
   const fileBusy = jobs.ebird.busy || jobs.obsorg.busy
+  // When a file last landed, in either group: the file groups fold their Add panels (an iNaturalist fetch, running
+  // beside them, leaves an open panel alone).
+  const [fileLandedAt, setFileLandedAt] = useState<number | undefined>(undefined)
+  if (jobs.landed && jobs.landed.slot !== 'inat' && jobs.landed.at !== fileLandedAt) setFileLandedAt(jobs.landed.at)
   const listEmpty = Object.values(saved.records).every((r) => r.length === 0) && saved.edits.added.length === 0
   const ticked = counts.rows.manual
   // Arriving at /settings#sources (the welcome's "Make mine"): keyboard and screen-reader focus starts at the sources,
@@ -120,6 +124,7 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
             onRemove={remove}
             saved={saved}
             counts={counts}
+            landedAt={fileLandedAt}
             loaded={{ full: speciesIn(saved.records.ebird), quick: speciesIn(saved.records['ebird-list'] ?? []) }}
             placesNote={placesNote}
           />
@@ -142,6 +147,7 @@ export const ImportPanel = memo(function ImportPanel({ saved, dispatch, species,
             job={jobs.obsorg}
             onFile={(f) => void jobs.readObsOrg(f)}
             disabled={disabled || fileBusy}
+            landedAt={fileLandedAt}
             connected={obsorgConnected}
             onRemove={remove}
             saved={saved}

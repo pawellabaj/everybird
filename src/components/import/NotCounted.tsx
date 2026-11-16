@@ -12,10 +12,12 @@ const reopen = () => requestAnimationFrame(() => window.dispatchEvent(new HashCh
  * species (sp., slashes, hybrids, domestics: `skipped` counts and named `not-species` rows) and rows that couldn't be
  * matched to an eBird species (fixed in the match report, #match). `body` is what "why?" opens: why, in plain words,
  * the names when the import kept them, and the way to the match report. Null when nothing was left out. An
- * observation.org row names its entries by scientific name (the local name after it, muted), and its observations
- * export also counts the records observation.org marks as escapes or uncertain (`sources.obsorg.excluded`).
+ * observation.org row names its entries by scientific name (the local name after it, muted). Its observations export
+ * also leaves out the records observation.org marks as escapes or uncertain (`sources.obsorg.excluded`): those are
+ * observations, not entries, so they stay out of `n` and are `excluded`; their sentence is in `body`, and SourceRow
+ * shows "· N observations not counted why?" when they are all that was left out.
  */
-export function notCounted(saved: Saved, slots: Slot[]): { n: number; body: ReactNode } | null {
+export function notCounted(saved: Saved, slots: Slot[]): { n: number; excluded?: number; body: ReactNode } | null {
   const mine = saved.unmatched.filter((u) => slots.includes(u.slot ?? u.source))
   const named = mine.filter((u) => u.reason === 'not-species')
   const unmatched = mine.filter((u) => u.reason === 'no-match').length
@@ -23,14 +25,15 @@ export function notCounted(saved: Saved, slots: Slot[]): { n: number; body: Reac
   const obsorg = slots.some((s) => s === 'obsorg' || s === 'obsorg-list')
   const ex = slots.includes('obsorg') ? saved.sources?.obsorg?.excluded : undefined
   const excluded = (ex?.escape ?? 0) + (ex?.uncertain ?? 0)
-  const n = groups + unmatched + excluded
-  if (!n) return null
+  const n = groups + unmatched
+  if (!n && !excluded) return null
   const names: ReactNode[] = obsorg
     ? named.filter((u) => u.sci || u.com).map((u) => (u.sci && u.com ? <>{u.sci}<span className="eb-match-sci"> · {u.com}</span></> : (u.sci ?? u.com)))
     : named.map((u) => u.com ?? u.sci).filter((x): x is string => !!x)
   const excludedLine = ex ? obsorgExcluded(ex.escape, ex.uncertain) : null
   return {
     n,
+    ...(excluded ? { excluded } : {}),
     body: (
       <>
         {groups > 0 && (

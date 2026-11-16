@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs'
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useImportJobs, type OnImport } from '@/components/app/use-import-jobs'
-import { OBSORG_ERRORS } from '@/components/import/obsorg-copy'
+import { FILE_ERRORS, OBSORG_ERRORS } from '@/components/import/obsorg-copy'
 import { handleParseMessage, type ParseRequest, type ParseResponse, type ParseResult } from '@/lib/import/parse.worker'
 import { ParseError, parseErrorCode, parseInWorker } from '@/lib/import/parse-client'
+import { loadRegions } from '@/lib/import/places'
 import { fixture, regions, taxonomy as t } from './obsorg-helpers'
 
 // The real client by default (its own tests below); the hook tests run the worker's handler in place of a Worker.
@@ -17,6 +18,7 @@ vi.mock('@/lib/import/places', async (orig) => ({
   ...(await orig<typeof import('@/lib/import/places')>()),
   loadRegions: vi.fn(async () => (await import('./obsorg-helpers')).regions),
 }))
+const EBIRD_DAMAGED = "Couldn't read this file. It may be damaged or not an eBird export."
 const file = (kind = 'species-observed-nl') => new File([fixture(kind)], 'synthetic.csv')
 
 describe('observation.org worker dispatch', () => {
@@ -61,6 +63,18 @@ describe('observation.org worker dispatch', () => {
     const posts: ParseResponse[] = []
     await handleParseMessage({kind:'obsorg-species',file:file(),synonyms:{}},m => posts.push(m),async () => { throw new Error('offline') })
     expect(posts).toEqual([{type:'error',message:'offline'}])
+  })
+  it('anything an eBird file’s reading or parse throws is damaged; the taxonomy failing never is', async () => {
+    const unreadable = { text: async () => { throw new Error('NotReadableError') } } as unknown as File
+    const posts: ParseResponse[] = []
+    await handleParseMessage({kind:'ebird-lifelist',file:unreadable},m => posts.push(m),async () => t)
+    expect(posts).toEqual([{type:'error',code:'damaged',message:'NotReadableError'}])
+    const offline: ParseResponse[] = []
+    await handleParseMessage({kind:'ebird-lifelist',file:unreadable},m => offline.push(m),async () => { throw new Error('offline') })
+    expect(offline).toEqual([{type:'error',message:'offline'}])
+    const odd: ParseResponse[] = []
+    await handleParseMessage({kind:'nope',file:file()} as never,m => odd.push(m),async () => t)
+    expect(odd).toEqual([{type:'error',message:'Unsupported import kind.'}])
   })
 })
 
@@ -178,14 +192,14 @@ describe('useImportJobs: one readFile for both file groups', () => {
     expect(onImport.mock.calls[1][0]).toBe('ebird-list')
     expect(onImport.mock.calls[1][2]).toMatchObject({ kind: 'life-list', file: 'ebird_world_life_list.csv' })
   })
-  it('the Excel file is refused plainly, on either group', async () => {
+  it('an Excel file is refused plainly, in the same neutral words on either group', async () => {
     const { onImport, hook } = setup()
     const xlsx = () => new File(['PK\u0003\u0004rest'], 'observation-2026-species_observed.xlsx')
     await act(() => hook.result.current.readObsOrg(xlsx()))
-    expect(hook.result.current.obsorg.error).toBe(OBSORG_ERRORS.xlsx)
-    expect(OBSORG_ERRORS.xlsx).toBe('This is the Excel file. On observation.org, export as CSV and add that file instead.')
+    expect(hook.result.current.obsorg.error).toBe(FILE_ERRORS.xlsx)
+    expect(FILE_ERRORS.xlsx).toBe('This is an Excel file. Everybird reads CSV files: export as CSV and add that file instead.')
     await act(() => hook.result.current.readEbird(xlsx()))
-    expect(hook.result.current.ebird.error).toBe(OBSORG_ERRORS.xlsx)
+    expect(hook.result.current.ebird.error).toBe(FILE_ERRORS.xlsx)
     expect(onImport).not.toHaveBeenCalled()
   })
   it('a file without birds says to choose Birds; an unknown file names the exports, by the group it was given to', async () => {
@@ -201,14 +215,55 @@ describe('useImportJobs: one readFile for both file groups', () => {
     const damaged = 'name,scientific name,group,date first observed,species type\nX,"Columba livia,Vogels,,soort\n'
     await act(() => hook.result.current.readObsOrg(named(damaged, 'o.csv')))
     expect(hook.result.current.obsorg.error).toBe("Couldn't read this file. It may be damaged or not an observation.org export.")
-    // Any failure on the observation.org rows is in their words, an eBird file's too; on the eBird rows, eBird's.
-    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken'))
+    // A damaged file is named by its kind, wherever it was given: an eBird file in eBird's words, an observation.org
+    // file in observation.org's.
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken', 'damaged'))
     await act(() => hook.result.current.readObsOrg(ebirdLifeList()))
-    expect(hook.result.current.obsorg.error).toBe(OBSORG_ERRORS.damaged)
-    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken'))
+    expect(hook.result.current.obsorg.error).toBe(EBIRD_DAMAGED)
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('broken', 'damaged'))
     await act(() => hook.result.current.readEbird(ebirdLifeList()))
-    expect(hook.result.current.ebird.error).toBe("Couldn't read this file. It may be damaged or not an eBird export.")
+    expect(hook.result.current.ebird.error).toBe(EBIRD_DAMAGED)
+    await act(() => hook.result.current.readEbird(named(damaged, 'o.csv')))
+    expect(hook.result.current.ebird.error).toBe(OBSORG_ERRORS.damaged)
+    await act(() => hook.result.current.readEbird(named(amphibians, 'o.csv')))
+    expect(hook.result.current.ebird.error).toBe(OBSORG_ERRORS.noBirds)
     expect(onImport).not.toHaveBeenCalled()
+  })
+  it("Everybird's own data not loading is never the file's fault", async () => {
+    const { onImport, hook } = setup()
+    expect(FILE_ERRORS.data).toBe("Couldn't load Everybird's bird data. Check your connection and try again.")
+    // The synonyms fail (offline; a fresh module, since a loaded copy is kept): both groups say so, and the worker is
+    // never started.
+    vi.resetModules()
+    const fresh = await import('@/components/app/use-import-jobs')
+    const freshClient = await import('@/lib/import/parse-client')
+    const calls = vi.mocked(freshClient.parseInWorker).mock.calls.length
+    vi.stubGlobal('fetch', async () => { throw new TypeError('offline') })
+    const offline = renderHook(() => fresh.useImportJobs(onImport))
+    await act(() => offline.result.current.readObsOrg(speciesFile()))
+    expect(offline.result.current.obsorg.error).toBe(FILE_ERRORS.data)
+    await act(() => offline.result.current.readEbird(observationsFile()))
+    expect(offline.result.current.ebird.error).toBe(FILE_ERRORS.data)
+    expect(vi.mocked(freshClient.parseInWorker).mock.calls.length).toBe(calls)
+    offline.unmount()
+    vi.stubGlobal('fetch', async (u: string | URL) =>
+      String(u).includes('inat-synonyms') ? new Response('{}') : new Response('no', { status: 404 }))
+    // The regions fail.
+    vi.mocked(loadRegions).mockRejectedValueOnce(new Error('offline'))
+    await act(() => hook.result.current.readObsOrg(observationsFile()))
+    expect(hook.result.current.obsorg.error).toBe(FILE_ERRORS.data)
+    // The worker fails without a code (the taxonomy didn't load, or it crashed), on either kind and group.
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('offline'))
+    await act(() => hook.result.current.readEbird(ebirdLifeList()))
+    expect(hook.result.current.ebird.error).toBe(FILE_ERRORS.data)
+    vi.mocked(parseInWorker).mockRejectedValueOnce(new ParseError('offline'))
+    await act(() => hook.result.current.readObsOrg(speciesFile()))
+    expect(hook.result.current.obsorg.error).toBe(FILE_ERRORS.data)
+    expect(onImport).not.toHaveBeenCalled()
+    // Back online: the same file reads.
+    await act(() => hook.result.current.readObsOrg(speciesFile()))
+    expect(onImport).toHaveBeenCalledOnce()
+    expect(hook.result.current.obsorg.error).toBeNull()
   })
   it('one file at a time: a second read while one is busy is ignored', async () => {
     const { onImport, hook } = setup()

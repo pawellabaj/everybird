@@ -52,39 +52,46 @@ export type Sub1Index = (country: string, name: string) => string | undefined
 
 /**
  * What a real regions.v1.json name that two or more codes in one country share (and no alias settles) resolves to:
- * 'none', nothing, so the place stays the country, never a wrong province (observation.org); 'first', the first such
- * code in regions.sub1 order, as iNaturalist's import always did (kept so its places don't change).
+ * 'none', nothing, so the place stays the country, never a wrong province (observation.org; with `rollUp`, the codes'
+ * common top-level region when every one of them rolls up to the same one); 'first', the first such code in
+ * regions.sub1 order, as iNaturalist's import always did (kept so its places don't change).
  */
 export type Sub1Clash = 'first' | 'none'
 
 /**
  * Province and state names to sub1 codes, within one country. Precedence: the alias tables first (earlier tables win),
  * then a real regions.v1.json name, a shared one by `onClash`. `key` further normalises folded names on both sides
- * (observation.org drops a trailing " (62)").
+ * (observation.org drops a trailing " (62)"). `rollUp` (onClash 'none' only) maps a code to its top-level region
+ * (SUB1_PARENT): a name whose codes all have the same top, itself in regions.sub1, resolves to that top.
  */
 export function makeSub1Index(
   regions: Regions,
   aliasTables: readonly Record<string, string[]>[] = [SUB1_ALIASES],
   key: (folded: string) => string = (s) => s,
-  { onClash = 'none' }: { onClash?: Sub1Clash } = {},
+  { onClash = 'none', rollUp }: { onClash?: Sub1Clash; rollUp?: (code: string) => string } = {},
 ): Sub1Index {
   const byKey = new Map<string, string>()
-  const real = new Map<string, string>()
-  const dead = new Set<string>()
+  // Every code a name belongs to, in regions.sub1 order.
+  const real = new Map<string, string[]>()
   for (const [code, name] of Object.entries(regions.sub1)) {
     const country = code.split('-')[0]
     for (const n of new Set(sub1Names(name).map(key))) {
+      if (!n) continue
       const k = `${country}|${n}`
-      if (!n || dead.has(k)) continue
-      const previous = real.get(k)
-      if (previous === undefined) real.set(k, code)
-      else if (previous !== code && onClash === 'none') {
-        real.delete(k)
-        dead.add(k)
-      }
+      const codes = real.get(k)
+      if (!codes) real.set(k, [code])
+      else if (!codes.includes(code)) codes.push(code)
     }
   }
-  for (const [k, code] of real) byKey.set(k, code)
+  for (const [k, codes] of real) {
+    if (codes.length === 1 || onClash === 'first') {
+      byKey.set(k, codes[0])
+      continue
+    }
+    const tops = rollUp ? new Set(codes.map(rollUp)) : undefined
+    const top = tops?.size === 1 ? [...tops][0] : undefined
+    if (top && regions.sub1[top]) byKey.set(k, top)
+  }
   const aliased = new Set<string>()
   for (const table of aliasTables) {
     for (const [code, names] of Object.entries(table)) {

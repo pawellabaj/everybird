@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
 vi.mock('@/lib/list/filters', async (importOriginal) => {
@@ -60,7 +61,7 @@ function seededOwl() {
   return makeReducer({ species, countryName: name })(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ variant = 'full', note, unplaced }: { variant?: Variant; note?: PlacesNote; unplaced?: boolean }) {
+function Harness({ variant = 'full', note, unplaced }: { variant?: Variant; note?: PlacesNote; unplaced?: PlacesUnplaced }) {
   const reduce = makeReducer({ species, countryName: name })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const [open, setOpen] = useState<Panel | null>(null)
@@ -192,7 +193,7 @@ describe('Places and Time: dropdowns in the controls bar', () => {
 
   it('observation.org life list birds with no places: a line above the lifer-only note, linking to the observations Add panel', () => {
     vi.stubGlobal('innerWidth', 1000)
-    const { unmount } = render(<Harness variant="lifer" note="add" unplaced />)
+    const { unmount } = render(<Harness variant="lifer" note="add" unplaced="add" />)
     fireEvent.click(placesBtn())
     const line = screen.getByTestId('places-unplaced')
     expect(line).toHaveClass('eb-note', 'eb-places-note')
@@ -201,10 +202,19 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     const lifer = screen.getByTestId('places-lifer-only')
     expect(line.compareDocumentPosition(lifer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     unmount()
-    render(<Harness variant="lifer" unplaced />)
+    render(<Harness variant="lifer" unplaced="add" />)
     fireEvent.click(placesBtn())
     expect(screen.getByTestId('places-unplaced')).toBeInTheDocument()
     expect(screen.queryByTestId('places-lifer-only')).toBeNull()
+  })
+
+  it('with the observations on the list: the first sentence only, no link', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" unplaced="plain" />)
+    fireEvent.click(placesBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\.$/)
+    expect(within(line).queryByRole('link')).toBeNull()
   })
 
   it('no unplaced line without the prop', () => {

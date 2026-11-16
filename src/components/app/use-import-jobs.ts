@@ -2,7 +2,7 @@
 // The imports in flight (an eBird or observation.org file being read, an iNaturalist fetch), kept in the provider above the routes, so
 // they keep running and keep their progress while the birder moves between /, /settings and /about.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { OBSORG_ERRORS } from '@/components/import/obsorg-copy'
+import { FILE_ERRORS, OBSORG_ERRORS } from '@/components/import/obsorg-copy'
 import { detectFile, slotOfKind, type FileKind } from '@/lib/import/detect'
 import { importInat, type InatError, type InatProgress } from '@/lib/import/inat'
 import { parseErrorCode, parseInWorker } from '@/lib/import/parse-client'
@@ -11,6 +11,7 @@ import { loadRegions } from '@/lib/import/places'
 import type { ImportResult, Slot } from '@/lib/list/model'
 import type { DetailsFor, EbirdDetails, ObsOrgDetails } from '@/lib/list/storage'
 import { loadTaxonomy } from '@/lib/species/load'
+import type { Regions } from '@/lib/species/types'
 import { fetchData } from '@/lib/data-url'
 
 /** A file being read (an eBird or observation.org export), shown under the row group it was given to. */
@@ -127,12 +128,26 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
         kind = 'unknown'
       }
       const slot = slotOfKind(kind)
-      if (kind === 'xlsx' || kind === 'unknown' || !slot) {
-        set({ ...IDLE_FILE, error: kind === 'xlsx' ? OBSORG_ERRORS.xlsx : via === 'ebird' ? EBIRD_UNKNOWN : OBSORG_ERRORS.unknown })
+      if (kind === 'xlsx') {
+        set({ ...IDLE_FILE, error: FILE_ERRORS.xlsx })
+        return
+      }
+      if (kind === 'unknown' || !slot) {
+        set({ ...IDLE_FILE, error: via === 'ebird' ? EBIRD_UNKNOWN : OBSORG_ERRORS.unknown })
         return
       }
       set({ busy: true, rows: 0, error: null })
       const onProgress = (rows: number) => { if (live.current) set((j) => ({ ...j, rows })) }
+      const obsorgKind = kind === 'obsorg-species' || kind === 'obsorg-observations'
+      // Everybird's own data first: when it doesn't load, the file isn't to blame.
+      let synonyms: Record<string, string> = {}
+      let regions: Regions | undefined
+      try {
+        if (obsorgKind) [synonyms, regions] = await Promise.all([loadSynonyms(), kind === 'obsorg-observations' ? loadRegions() : undefined])
+      } catch {
+        set({ ...IDLE_FILE, error: FILE_ERRORS.data })
+        return
+      }
       try {
         const at = new Date().toISOString()
         let result: ParseResult
@@ -141,11 +156,10 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
           result = await parseInWorker(kind, file, { onProgress })
           details = { kind: kind === 'ebird-lifelist' ? 'life-list' : 'full-export', at } satisfies EbirdDetails
         } else if (kind === 'obsorg-species') {
-          result = await parseInWorker(kind, file, { onProgress, synonyms: await loadSynonyms() })
+          result = await parseInWorker(kind, file, { onProgress, synonyms })
           details = { kind: 'species-list', at } satisfies ObsOrgDetails
         } else {
-          const [synonyms, regions] = await Promise.all([loadSynonyms(), loadRegions()])
-          result = await parseInWorker(kind, file, { onProgress, synonyms, regions })
+          result = await parseInWorker(kind, file, { onProgress, synonyms, regions: regions! })
           details = { kind: 'observations', at, ...(result.excluded ? { excluded: result.excluded } : {}) } satisfies ObsOrgDetails
         }
         if (file.name) details.file = file.name
@@ -153,10 +167,13 @@ export function useImportJobs(onImport: OnImport): ImportJobs {
         if (live.current) land(slot, result, details)
         set(IDLE_FILE)
       } catch (e) {
-        // observation.org's words for its own files (given to either group) and for any file given to its rows.
-        const obsorg = kind === 'obsorg-species' || kind === 'obsorg-observations' || via === 'obsorg'
+        // By the file's kind, wherever it was given: a damaged eBird file in eBird's words, an observation.org file in
+        // its own. A failure without a code (the taxonomy didn't load, the worker crashed) isn't the file's.
         const code = parseErrorCode(e)
-        set({ ...IDLE_FILE, error: code === 'no-birds' ? OBSORG_ERRORS.noBirds : obsorg ? OBSORG_ERRORS.damaged : EBIRD_DAMAGED })
+        const error = code === 'damaged' || code === 'no-birds'
+          ? obsorgKind ? (code === 'no-birds' ? OBSORG_ERRORS.noBirds : OBSORG_ERRORS.damaged) : EBIRD_DAMAGED
+          : FILE_ERRORS.data
+        set({ ...IDLE_FILE, error })
       }
     } finally {
       busyFile.current = false

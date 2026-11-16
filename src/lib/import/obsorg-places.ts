@@ -97,6 +97,17 @@ export const OBSORG_SUB1_ALIASES: Record<string, string[]> = {
   'PT-11': ['Lisboa'],
   'PT-20': ['Açores', 'Região Autónoma dos Açores'],
   'PT-30': ['Região Autónoma da Madeira'],
+  // regions.v1.json names IT-GE "Liguria" and GB-WRL "Halton" (each sharing its name with another code that rolls up
+  // to the same region): their own names.
+  'IT-GE': ['Genova', 'Genoa'],
+  'GB-WRL': ['Wirral'],
+  // The French overseas departments each have two codes in regions.v1.json (FR-971 and FR-GP, ...): the numeric one,
+  // as iNaturalist resolves Guadeloupe, Martinique and Mayotte (FR-973 French Guiana is in SUB1_ALIASES), and Réunion
+  // under both spellings (iNaturalist's 'first' gives "Réunion" FR-RE but "La Réunion" FR-974).
+  'FR-971': ['Guadeloupe'],
+  'FR-972': ['Martinique'],
+  'FR-974': ['La Réunion', 'Réunion'],
+  'FR-976': ['Mayotte'],
 }
 
 // The UK's divisions read "<Nation> - <County>": eBird's subnational1 there is the nation (England, Scotland, Wales,
@@ -145,10 +156,12 @@ const divisionKey = (folded: string) => folded.replace(/\s*\([^()]*\)\s*$/, '').
  */
 export function makeObsOrgPlaces(regions: Regions): (country: string, division: string) => Place | undefined {
   const countries = countryNameMap(regions)
-  const index = makeSub1Index(regions, [SUB1_ALIASES, OBSORG_SUB1_ALIASES], divisionKey, { onClash: 'none' })
+  const topOf = (code: string) => (Object.hasOwn(SUB1_PARENT, code) ? SUB1_PARENT[code] : code)
+  // A name two codes share is the country only, unless every code rolls up to the same region (Halton, Liguria).
+  const index = makeSub1Index(regions, [SUB1_ALIASES, OBSORG_SUB1_ALIASES], divisionKey, { onClash: 'none', rollUp: topOf })
   const sub1Of = (country: string, name: string) => {
     const code = index(country, name)
-    const top = code && Object.hasOwn(SUB1_PARENT, code) ? SUB1_PARENT[code] : undefined
+    const top = code ? topOf(code) : undefined
     return top && regions.sub1[top] ? top : code
   }
   const cache = new Map<string, Place | undefined>()
