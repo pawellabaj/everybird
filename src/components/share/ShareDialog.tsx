@@ -1,6 +1,6 @@
 'use client'
-// The share dialog: story, post or square image with a live preview (a Vertical | Horizontal switch under the format control
-// flips every format at once: desktop, wide and landscape posters; Square has no horizontal shape, so its switch is off), the image options (the optional collage title,
+// The share dialog: story, post or square image with a live preview (a Vertical | Horizontal switch above the format control
+// swaps the formats: Story, Post, Square, or Desktop, Post (5:4), Square, and the landscape poster), the image options (the optional collage title,
 // Saved.name verbatim, and the "Show latest lifer" switch, on at every open; off gives the row's room to the collage),
 // four actions (Share image: the system share sheet when it takes files, else a download; Download image; Copy link;
 // Print a poster) and last, in the bottom right corner, Buy Me a Coffee's static button (self-hosted, never on the images).
@@ -33,7 +33,7 @@ import { PRINT_SIZES, printCm, printDesign, printFileStem, printPx, type PrintSi
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import {
-  IMAGE_SIZE, NAME_MAX_LEN, SHARE_CREDIT, abortError, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage,
+  NAME_MAX_LEN, SHARE_CREDIT, abortError, IMAGE_SIZE, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage,
   type CardFormat, type FormatSlot, type ImagePack, type Orientation,
 } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
@@ -94,7 +94,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const [mode, setMode] = useState<'share' | 'print'>('share')
   const [size, setSize] = useState<PrintSize>('A2')
   const print = mode === 'print'
-  // Square has no horizontal shape: its switch is disabled. In print mode the slot doesn't apply, so the switch is on.
+  // Square is the same in both orientations (its image doesn't change; the dialog keeps its narrow layout for it).
   const squareShare = !print && format === 'square'
   // Horizontal (a desktop or wide image, or a landscape poster) lays out wide: the dialog widens and the preview takes
   // the width left beside the controls' column (share.css, data-layout). Vertical keeps its narrower dialog.
@@ -119,8 +119,8 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
 
-  // One pack per format, name-or-not and lifer-or-not while the dialog is open (the view can't change underneath it; a
-  // name takes a line off the collage and the latest lifer row gives one back, so each gets its own pack); workers end
+  // One pack per format and name-or-not while the dialog is open (the view can't change underneath it; a
+  // name takes a line off the collage, so each gets its own pack; the latest lifer switch never changes the pack); workers end
   // on close.
   const life = useRef<AbortController | null>(null)
   useEffect(() => {
@@ -130,11 +130,12 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   }, [])
   const packFor = useMemo(() => {
     const packs = new Map<string, Promise<ImagePack>>()
-    return (f: CardFormat, named: boolean, lifer: boolean) => {
-      const k = `${f}|${named}|${lifer}`
+    // Not keyed by the latest lifer switch: imagePackSpec packs for the with-row frame, so on and off share one pack.
+    return (f: CardFormat, named: boolean) => {
+      const k = `${f}|${named}`
       let p = packs.get(k)
       if (!p) {
-        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: lifer, count: shown.length })
+        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: true, count: shown.length })
         p = packForImage(shown, species, spec, life.current?.signal)
         packs.set(k, p)
         p.catch(() => packs.delete(k))
@@ -173,7 +174,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       const t = setTimeout(resolve, delay)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
-      .then(() => packFor(cardFormat, !!trimmed, withLatest))
+      .then(() => packFor(cardFormat, !!trimmed))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
         theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal,
@@ -286,7 +287,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     focusNext.current = 'cancel'
     try {
       const mod = await (posterModule.current ?? loadPoster())
-      const pack = await packFor(landscape ? 'printLandscape' : 'print', !!trimmed, withLatest)
+      const pack = await packFor(landscape ? 'printLandscape' : 'print', !!trimmed)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
         { size, landscape, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, strings: t, nameOf: displayName, signal: ctl.signal },
@@ -541,34 +542,35 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
                 <ArrowLeft aria-hidden="true" focusable="false" />
                 {t.share.print.back}
               </button>
-            ) : (
+            ) : null}
+            <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
+              {ORIENTATIONS.map((o) => (
+                <button
+                  key={o} type="button" className="eb-seg-btn" aria-pressed={orientation === o}
+                  onClick={() => setOrientation(o)}
+                >
+                  {t.share.orientation[o]}
+                </button>
+              ))}
+            </div>
+            {!print && (
               <div className="eb-seg" role="group" aria-label={t.share.formats}>
                 {FORMATS.map(({ id, hint, icon }) => {
                   // Horizontal, the story is the desktop wallpaper: its name and icon change, the post keeps its name.
                   const name = landscape && id === 'story' ? t.share.format.desktop : t.share.format[id]
                   const Glyph = icon[orientation]
                   return (
-                    <button key={id} type="button" className="eb-seg-btn" aria-label={fmt(t.share.formatName, { name, ratio: hint[orientation] })} aria-pressed={format === id} onClick={() => setFormat(id)}>
+                    <button key={id} type="button" className="eb-seg-btn" aria-label={hint[orientation] ? fmt(t.share.formatName, { name, ratio: hint[orientation] }) : name} aria-pressed={format === id} onClick={() => setFormat(id)}>
                       <Glyph aria-hidden="true" focusable="false" />
                       <span className="eb-seg-text">
                         <span className="eb-seg-label">{name}</span>
-                        <span className="eb-share-hint">{hint[orientation]}</span>
+                        {hint[orientation] && <span className="eb-share-hint">{hint[orientation]}</span>}
                       </span>
                     </button>
                   )
                 })}
               </div>
             )}
-            <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
-              {ORIENTATIONS.map((o) => (
-                <button
-                  key={o} type="button" className="eb-seg-btn" aria-pressed={orientation === o}
-                  disabled={squareShare} onClick={() => setOrientation(o)}
-                >
-                  {t.share.orientation[o]}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits

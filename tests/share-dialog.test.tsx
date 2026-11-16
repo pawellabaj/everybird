@@ -146,7 +146,7 @@ describe('share dialog', () => {
     expect(writeText).not.toHaveBeenCalled()
   })
 
-  it('"Show latest lifer" is a switch, on by default; off re-renders without the row, packed for the taller collage', async () => {
+  it('"Show latest lifer" is a switch, on by default; off re-renders without the row, with the same pack spec (the with-row frame)', async () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     const sw = screen.getByRole('switch', { name: 'Show latest lifer' })
     expect(sw).toHaveAttribute('aria-checked', 'true')
@@ -164,7 +164,7 @@ describe('share dialog', () => {
       image.imagePackSpec('story', { name: false, filter: false, latest: false, count: 1 }))
   })
 
-  it('turning the switch back on reuses the first pack', async () => {
+  it('turning the switch off and on again never makes another pack: one pack, the same object, for both', async () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     await waitFor(() => expect(renders).toHaveLength(1))
     const sw = screen.getByRole('switch', { name: 'Show latest lifer' })
@@ -172,7 +172,11 @@ describe('share dialog', () => {
     await waitFor(() => expect(renders).toHaveLength(2))
     fireEvent.click(sw)
     await waitFor(() => expect(renders).toHaveLength(3))
-    expect(vi.mocked(image.packForImage)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(image.packForImage)).toHaveBeenCalledTimes(1)
+    const calls = vi.mocked(image.renderShareImage).mock.calls.map((c) => c[0])
+    expect(calls.map((o) => o.latest)).toEqual([true, false, true])
+    expect(calls[1].pack).toBe(calls[0].pack)
+    expect(calls[2].pack).toBe(calls[0].pack)
   })
 
   it('with no dated bird in view there is no latest lifer, so no switch', () => {
@@ -724,12 +728,12 @@ describe('the orientation switch', () => {
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'wide' }))
   })
 
-  it('Square disables the switch; the chosen orientation holds while the dialog is open', async () => {
+  it('Square keeps the switch on; the chosen orientation holds while the dialog is open', async () => {
     render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
     fireEvent.click(screen.getByRole('button', { name: 'Square, 1:1' }))
     const horizontal = screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement
-    expect(horizontal.disabled).toBe(true)
+    expect(horizontal.disabled).toBe(false)
     expect(horizontal).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'square' }))
     fireEvent.click(screen.getByRole('button', { name: 'Desktop, 16:9' }))

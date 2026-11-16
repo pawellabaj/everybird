@@ -18,8 +18,14 @@ function rule(selector: string, after = ''): string {
 describe('the share dialog: the orientation switch clears the options box', () => {
   it('keeps no explicit min-height on the format column (it would let the grid squeeze its row)', () => {
     expect(rule('.eb-share-formats')).not.toMatch(/min-height/)
-    // Its own two rows are what make it 116px: the first at least 54px, the second the orientation switch.
-    expect(rule('.eb-share-formats')).toMatch(/grid-template-rows:\s*minmax\(54px, auto\) auto/)
+    // Its own two rows are what make it 116px: two auto rows 8px apart, no minimum row height (so print's shorter back button adds no extra gap).
+    expect(rule('.eb-share-formats')).toMatch(/grid-template-rows:\s*auto auto/)
+  })
+  it('uses the same 8px gap between the back button, the switch and the sizes box in print mode', () => {
+    expect(rule('.eb-share-formats')).toMatch(/gap:\s*8px/)
+    expect(rule('.eb-share-formats')).not.toMatch(/minmax\(54px/)
+    expect(rule('.eb-share[data-mode="print"] .eb-share-body', '  .eb-share-scrim .eb-share { max-height')).toMatch(/row-gap:\s*8px/)
+    expect(rule('.eb-share-options')).toMatch(/gap:\s*8px/)
   })
   it("gives the desktop body a max-content first row, so the format column's rows can't be squeezed", () => {
     const body = rule('.eb-share-body', '  .eb-share-scrim .eb-share { max-height')

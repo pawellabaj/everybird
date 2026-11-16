@@ -144,14 +144,14 @@ describe('the landscape layouts', () => {
     expect(cardLayout('wide', content).latest?.x).toBe(M)
   })
 
-  it('the one-line row is on the footer’s line, on the right, with the hairline just above both', () => {
+  it('the one-line row is two lines on the footer’s line, on the right, with the hairline 40 above the footer', () => {
     const L = cardLayout('desktop', { name: true, filter: true, latest: true, count: 197 })
     const { latest, footer, rule } = L
     expect(latest!.oneLine).toBe(true)
     expect(latest!.icon).toBe(40)
-    expect(rule.y).toBe(footer.y - 20)
-    // The sticker's middle sits on the footer's line's middle (the label and name share its baseline).
-    expect(latest!.y + latest!.icon / 2).toBeCloseTo(footer.y + footer.size * 0.8 - 8, 0) // the label's caps
+    expect(rule.y).toBe(footer.y - 40)
+    // The sticker's middle sits on the middle of the stacked label (above) and name (on the footer's baseline).
+    expect(latest!.y + latest!.icon / 2).toBeCloseTo(footer.y + footer.size * 0.8 - 22, 0)
   })
 
   it('the collage gets the height the stacked row took: taller than the old two-row desktop, and no empty band', () => {
@@ -177,8 +177,8 @@ describe('the footer’s one line fits in every language', () => {
       const lineEnd = M + card.brandW + card.footerLine.length * 0.6 * card.credit.size
       expect(lineEnd).toBeLessThanOrEqual(card.oneLine!.x - FOOTER_GAP)
       // The row's block, right-aligned to the margin.
-      const blockEnd = card.oneLine!.x + card.L.latest!.icon + ONE_LINE_GAP + card.oneLine!.labelW + ONE_LINE_GAP + card.oneLine!.nameText.length * 0.56 * card.L.latest!.name
-      expect(blockEnd).toBeLessThanOrEqual(card.L.W - M + 1)
+      const blockEnd = card.oneLine!.x + card.L.latest!.icon + ONE_LINE_GAP + Math.max(card.oneLine!.labelW, card.oneLine!.nameText.length * 0.56 * card.oneLine!.nameSize)
+      expect(blockEnd).toBeLessThanOrEqual(card.L.collage.x + card.L.collage.w + 1)
     })
   }
 
