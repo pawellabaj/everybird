@@ -9,6 +9,9 @@ import { ABOUT_DESCRIPTION, ABOUT_TITLE, COFFEE_URL, pageSeo } from '@/lib/site-
 import '@/components/app/app.css'
 import './about.css'
 
+// Only the layout's four languages exist: any other first segment (/nope) is the static 404, never a render.
+export const dynamicParams = false
+
 export const metadata: Metadata = {
   title: ABOUT_TITLE,
   description: ABOUT_DESCRIPTION,

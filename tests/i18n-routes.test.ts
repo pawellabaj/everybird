@@ -173,6 +173,12 @@ describe('coverage', () => {
     }
     expect(readFileSync(join(process.cwd(), 'app/[lang]/layout.tsx'), 'utf8')).not.toMatch(/export const dynamicParams/)
   })
+  it('every prerendered page closes its language, so /nope is the static 404 and never a render', () => {
+    const files = ['(app)/page.tsx', '(app)/about/page.tsx', '(app)/settings/page.tsx', 'make/page.tsx', 'my/page.tsx', 'credits/page.tsx']
+    for (const f of files) {
+      expect(readFileSync(join(process.cwd(), 'app/[lang]', f), 'utf8'), f).toMatch(/^export const dynamicParams = false$/m)
+    }
+  })
 })
 
 describe('stripLang', () => {
