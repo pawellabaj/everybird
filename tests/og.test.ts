@@ -127,7 +127,7 @@ describe('the image route when every font and sticker fetch fails', () => {
       const { encodeShare } = await import('@/lib/share/link')
       const token = encodeShare({ v: 1, name: 'Ada', birds: [{ code: 'grerhe1', ym: 1900 }, { code: 'lesrhe2' }] }).token
       for (const t of [token, 'garbage']) {
-        const res = await Image({ params: Promise.resolve({ token: t }) })
+        const res = await Image({ params: Promise.resolve({ lang: 'en', token: t }) })
         expect(res.status).toBe(200)
         expect(res.headers.get('content-type')).toContain('image/png')
         expect(res.headers.get('cache-control')).toContain('s-maxage=60')
