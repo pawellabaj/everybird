@@ -1,42 +1,56 @@
 // What the Places, Time and Status buttons in the controls bar say about the active filter, and the places and
 // status labels the share image uses. Pure, so the bar, the share image and the tests agree.
+import { continentName, type ContinentId } from '@/lib/places/continents'
 import { THREATENED } from '@/lib/species/iucn'
 import { statusName, type StatusFilterCat } from '@/lib/species/status-filter'
 import type { Regions } from '@/lib/species/types'
-import { filterPlaceKeys, type Filter } from './filters'
+import { filterPlaceKeys, hasPlaces, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
 import type { Saved } from './storage'
 import { monthName, monthShort, rangeLabel } from './timeline'
 
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
+/** Names worded as a short list: "Canada", "Canada + Egypt", "Canada and 2 more"; undefined for none. */
+export function namesLabel(names: readonly string[]): string | undefined {
+  if (!names.length) return undefined
+  const [first, second] = names
+  if (names.length === 1) return first
+  if (names.length === 2) return `${first} + ${second}`
+  return `${first} and ${names.length - 1} more`
+}
+
 /** "Canada", "Canada + Egypt", "Canada and 2 more" (sorted as the filter keeps them); undefined for none. */
 export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string): string | undefined {
-  if (!countries?.length) return undefined
-  const [first, second] = countries.map(name)
-  if (countries.length === 1) return first
-  if (countries.length === 2) return `${first} + ${second}`
-  return `${first} and ${countries.length - 1} more`
+  return countries?.length ? namesLabel(countries.map(name)) : undefined
+}
+
+/** The names of a filter's continents, in CONTINENTS order (the filter keeps them so). */
+export function continentNames(continents: readonly ContinentId[] | undefined): string[] {
+  return (continents ?? []).map(continentName)
 }
 
 /**
- * The share image's places at every level by their short names, worded as `countriesLabel`: "British Columbia",
- * "Kenya + British Columbia", "Capital and 2 more" (in `filterPlaceKeys` order); undefined for none.
+ * The share image's places at every level by their short names, worded as `countriesLabel`, continents first:
+ * "Africa + Canada", "British Columbia", "Kenya + British Columbia", "Capital and 2 more" (keys in `filterPlaceKeys`
+ * order); undefined for none.
  */
 export function placesLabel(f: Filter, regions: Names): string | undefined {
-  const keys = filterPlaceKeys(f)
-  return countriesLabel(keys, (k) => placeName(k, regions))
+  return namesLabel([...continentNames(f.continents), ...filterPlaceKeys(f).map((k) => placeName(k, regions))])
 }
 
 /**
  * The Places button's accessible description of the filter, each place with its parent: "Canada, Egypt" for
- * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas).
+ * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas). The
+ * continents come first, as their own items: "Africa; Kenya, Egypt".
  */
 export function placesSpoken(f: Filter, regions: Names): string | undefined {
   const keys = filterPlaceKeys(f)
-  if (!keys.length) return undefined
+  const continents = continentNames(f.continents)
+  if (!keys.length && !continents.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
-  return keys.map((k) => placeNameLong(k, regions)).join(sep)
+  const items = keys.length ? [keys.map((k) => placeNameLong(k, regions)).join(sep)] : []
+  return [...(continents.length ? [continents.join(', ')] : []), ...items].join('; ')
 }
 
 /** The Status button's accessible description: the full names in filter order ("Vulnerable, Endangered", "Not evaluated"). */
@@ -142,7 +156,7 @@ export function fill(t: string, vars: Record<string, string | number>): string {
 
 /** The N in "Filters · N": the filter groups in use (Places, Time, Conservation status), 0 to 3, not checked boxes. */
 export function filtersCount(f: Filter): number {
-  return (filterPlaceKeys(f).length ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
+  return (hasPlaces(f) ? 1 : 0) + (f.from || f.to ? 1 : 0) + (f.statuses?.length ? 1 : 0)
 }
 
 /** The Filters button's accessible description: each section in use, "Places: Kenya. Time: March 2020 to June 2021"; undefined for none. */

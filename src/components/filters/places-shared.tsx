@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'
-import { filterKey, filterPlaceKeys, placeCounts, placeRows, withPlaces, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
+import { clearPlaces, filterKey, filterPlaceKeys, placeCounts, placeRows, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { SeenIndex } from '@/lib/list/seen'
 import { parentKey, parsePlaceKey, placeName, type PlaceLevel } from '@/lib/list/place-keys'
@@ -47,7 +47,7 @@ const lastCounts = new WeakMap<ListEntry[], { key: string; species: SpeciesIndex
 /** Every Places level counted under the filter's other dimensions (placeCounts), once per change of those. */
 export function placeCountsFor(state: AppState, species: SpeciesIndex): PlaceCounts {
   const { list, filter, seen } = state
-  const others = withPlaces(filter, [])
+  const others = clearPlaces(filter)
   const key = filterKey(others)
   const hit = lastCounts.get(list)
   if (hit && hit.key === key && hit.species === species && hit.seen === seen) return hit.counts
