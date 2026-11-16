@@ -310,6 +310,7 @@ export const nl: Messages = {
       nameLabel: 'Titel van de collage',
       namePlaceholder: 'Optioneel, staat op de afbeelding',
       showLatest: 'Nieuwste soort tonen',
+      showStatus: 'Beschermingsstatus tonen',
       shareImage: 'Beeld delen',
       download: 'Beeld downloaden',
       copyLink: 'Link kopiëren',

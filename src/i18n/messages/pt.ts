@@ -310,6 +310,7 @@ export const pt: Messages = {
       nameLabel: 'Título da colagem',
       namePlaceholder: 'Opcional, aparece na imagem',
       showLatest: 'Última espécie nova',
+      showStatus: 'Estado de conservação',
       shareImage: 'Compartilhar',
       download: 'Baixar imagem',
       copyLink: 'Copiar link',

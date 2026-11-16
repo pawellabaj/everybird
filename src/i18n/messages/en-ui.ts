@@ -373,6 +373,7 @@ export const EN_UI = {
     nameLabel: 'Collage title',
     namePlaceholder: 'Optional, shown on the image',
     showLatest: 'Show latest lifer',
+    showStatus: 'Show conservation status',
     shareImage: 'Share image',
     download: 'Download image',
     copyLink: 'Copy link',

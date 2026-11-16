@@ -19,7 +19,7 @@ const PROPS = [
   'fillStyle', 'strokeStyle', 'lineWidth', 'lineJoin', 'font', 'textAlign', 'textBaseline', 'letterSpacing',
   'imageSmoothingEnabled', 'imageSmoothingQuality',
 ] as const
-const METHODS = ['fillRect', 'fillText', 'drawImage', 'stroke', 'save', 'restore', 'translate', 'scale', 'setTransform', 'resetTransform'] as const
+const METHODS = ['fillRect', 'fillText', 'beginPath', 'roundRect', 'fill', 'drawImage', 'stroke', 'save', 'restore', 'translate', 'scale', 'setTransform', 'resetTransform'] as const
 
 const show = (v: unknown): string => {
   if (v instanceof FakeImage) return `img(${v.src})`
