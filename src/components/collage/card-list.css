@@ -41,13 +41,17 @@
 .eb-card-name[lang] { font-family: var(--font-body); font-weight: 600; font-size: 16px; font-style: italic; }
 .eb-card-other { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 .eb-card-other[lang] { font-style: italic; }
-/* The body mass top-right beside the name (LifeList's card, layout C). */
+/* The body mass top-right beside the name (LifeList's card, layout C); in the card, the Red List pill with it: under it
+   (pill variant a) or before it on its line (b). */
+.eb-card-meta { margin-left: auto; padding-top: 4px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+[data-pill="b"] .eb-card-meta { flex-direction: row; align-items: center; gap: 6px; }
 .eb-card-mass {
-  margin-left: auto; padding-top: 4px; white-space: nowrap;
+  white-space: nowrap;
   font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums;
 }
+/* -3px left: the head's 12px gap leaves 9px before the close button, exactly the pill's press area overhang. */
 .eb-card-close {
-  flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -10px 0 -4px; padding: 0;
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin: -10px -10px 0 -3px; padding: 0;
   border: 0; border-radius: 12px; background: transparent; color: var(--muted); cursor: pointer;
 }
 .eb-card-close svg { width: 20px; height: 20px; }
@@ -120,3 +124,32 @@
 }
 button.eb-iucn { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button.eb-iucn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.eb-iucn { position: relative; }
+/* A 44px press (18px + 2 × 13px) that stops short of the card's close button (9px gap, .eb-card-close). */
+button.eb-iucn::after { content: ""; position: absolute; inset: -13px -9px; }
+
+/* The pill's toggletip: the card's floating look in small, 4px under the pill and above the date line. Shown on a
+   press (data-open), on keyboard focus and on a fine pointer's hover; aria-hidden (the button's name says it). */
+.eb-iucn-wrap { position: relative; display: inline-flex; }
+.eb-iucn-tip {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 1;
+  padding: 4px 8px; white-space: nowrap; pointer-events: none;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: calc(8px * var(--one-if-corner-shape-supported, .566));
+  corner-shape: superellipse(2);
+  box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04);
+  font: 400 12px/1.3 var(--font-mono);
+  opacity: 0; visibility: hidden;
+  transition: opacity 150ms var(--ease-ui), visibility 0s linear 150ms;
+}
+[data-pill="b"] .eb-iucn-tip { right: auto; left: 0; }
+.eb-iucn-wrap[data-open] .eb-iucn-tip, .eb-iucn:focus-visible + .eb-iucn-tip {
+  opacity: 1; visibility: visible; transition-delay: 0s;
+}
+@media (hover: hover) and (pointer: fine) {
+  .eb-iucn:hover + .eb-iucn-tip { opacity: 1; visibility: visible; transition-delay: 0s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eb-iucn-tip { transition: none; }
+}
