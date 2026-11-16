@@ -4,7 +4,7 @@
 // the list, the legend, the hover tooltip and the bird card. Composition after LifeList.tsx (framer-site).
 import { trackFilterUsed } from '@/lib/analytics'
 import { newlySetKinds } from '@/lib/list/filter-kinds'
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { BirdCard } from '@/components/collage/BirdCard'
 import { BirdTip } from '@/components/collage/BirdTip'
 import { Collage, revealBird } from '@/components/collage/Collage'
@@ -164,6 +164,17 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const onApply = useCallback((f: Filter) => dispatch({ type: 'filter', filter: f }), [dispatch])
 
   const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, placesUnplaced, time, threatLine, shown: shownList.length })
+  // While the Filters panel is open the column keeps its height: a filter that empties the collage would otherwise shorten
+  // the page and the browser would clamp the scroll (the panel's own restore puts the position back, but not in time to
+  // avoid the jump). `.eb-view-below` is display: contents, so the freeze goes on this section, which is a box. Only
+  // growth still shows; the height is released on close.
+  const frozen = filtersUi.frozen
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!frozen || !el) return
+    el.style.minHeight = `${el.getBoundingClientRect().height}px`
+    return () => { el.style.minHeight = '' }
+  }, [frozen])
   const close = useCallback(() => setPick(null), [])
   const onPickBird = useCallback((code: string) => {
     const el = box.current?.querySelector<HTMLElement>(`.eb-bird[data-code="${code}"]`) ?? null
