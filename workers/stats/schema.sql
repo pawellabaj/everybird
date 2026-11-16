@@ -8,5 +8,4 @@ CREATE TABLE IF NOT EXISTS events (
   vid TEXT NOT NULL DEFAULT '', -- anonymous visitor id, rotates daily (HMAC of day; hash of IP+UA, neither stored)
   lang TEXT NOT NULL DEFAULT '' -- visit only: the browser language's primary subtag (es, pt, zh), '' if none (migrations/2026-11-15-lang.sql)
 );
-CREATE INDEX IF NOT EXISTS events_day_name ON events (day, name);
 CREATE INDEX IF NOT EXISTS events_day_vid ON events (day, vid);

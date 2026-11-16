@@ -16,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 export const DB = 'everybird-events'
 export const EVENTS = ['visit', 'collage_made', 'image_downloaded', 'shared', 'link_copied', 'ui_language', 'poster_made', 'poster_downloaded', 'search_applied', 'filter_used'] as const
 const TITLES: Record<string, string> = {
-  visit: 'Page views (visit)',
+  visit: 'Page views (visit: once per person, page and day)',
   collage_made: 'Collages made (collage_made, by source)',
   image_downloaded: 'Images downloaded (image_downloaded, by format)',
   shared: 'Shared through the share sheet (shared)',
@@ -131,7 +131,8 @@ function pivot(rows: Row[], rowKey: string, colKey: string, valKey: string, rowO
 }
 
 export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): string {
-  const out: string[] = [`Everybird stats since ${args.since} (UTC days). People are anonymous daily ids: over several days, person-days.`]
+  // Visits are stored once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.
+  const out: string[] = [`Everybird stats since ${args.since} (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.`]
 
   // Visitors per day, with page views by page.
   const pages = ['landing', 'collage', 'settings', 'about', 'shared']
