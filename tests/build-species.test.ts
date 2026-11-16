@@ -83,6 +83,16 @@ describe('conservation status', () => {
     expect(report).toContain('hand1 (Bird hand1): hand-named override -> huashu Gus_rec, EN')
   })
 
+  it('an override A→X refuses A’s status, not that of X’s own species B', () => {
+    const x = rec({ id: 'X', ids: { ebird: 'b1' }, conservation: { iucn: 'VU' } })
+    const { file, report } = buildSpecies([x], [tx('a1', 'Gus alter', 1), tx('b1', 'Gus rec', 2)], { a1: { huashu: 'X', source: 'synthetic' } })
+    const by = new Map(file.species.map((r) => [r.code, r]))
+    expect(by.get('b1')!.iu).toBe('VU')
+    expect(by.get('a1')).not.toHaveProperty('iu')
+    expect(report).toContain('a1 (Bird a1): hand-named override -> huashu X, VU')
+    expect(report).not.toContain('is also matched by')
+  })
+
   it('not when one record is matched by two eBird species: neither takes its status', () => {
     const shared = rec({ ids: { ebird: 'own1' }, previous: [{ scientificName: 'Gus split', relation: 'renamed' }] })
     const { file, report } = buildSpecies([shared], [tx('own1', 'Gus rec', 1), tx('split1', 'Gus split', 2)], {})
@@ -107,6 +117,10 @@ describe('conservation status', () => {
     expect(creditMatchesSources([today, next])).toBe(false)
     expect(creditMatchesSources(['AviList v2026（BirdLife v11）'])).toBe(false)
     expect(creditMatchesSources([today], 'no version here')).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v10）'])).toBe(true)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v100）'])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026（BirdLife v10.1）'])).toBe(false)
+    expect(creditMatchesSources([])).toBe(false)
     const ok = buildSpecies([src(today)], [tx('own1', 'Gus rec', 1)], {}).report
     expect(ok).toContain('IUCN status sources cited by huashu (records) (1)')
     expect(ok).toContain(`- ${today}: 1`)

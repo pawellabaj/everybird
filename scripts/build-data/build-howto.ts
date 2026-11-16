@@ -15,6 +15,7 @@ import { decodeMask } from '../../src/lib/layout/mask'
 import { packBest, packFrame, relSizes, type Box, type PackBird } from '../../src/lib/layout/pack'
 import type { MaskTable } from '../../src/lib/layout/layout.worker'
 import { cardLayout, fitPack, maxTileSide, packSpec, spreadY, SPREAD, type ImageFormat } from '../../src/lib/share/image'
+import { THREATENED as THREAT_CATS } from '../../src/lib/species/iucn'
 import type { SpeciesFile } from '../../src/lib/species/types'
 
 /** The made-up list, every bird of it: the demo draws all TOTAL species (the count is never more than the stickers
@@ -109,6 +110,7 @@ export function makeHowtoData(): string {
     return [format, { W: L.W, H: L.H, tiles, count, latest: L.latest!, rule: L.rule.y, footer: L.footer.y }]
   }))
 
+  const threatened = BIRDS.filter((c) => { const iu = byCode.get(c)!.iu; return !!iu && THREAT_CATS.includes(iu) }).length
   const ar = Object.fromEntries(BIRDS.map((c) => [c, byCode.get(c)!.ar]))
   const sv = Object.fromEntries(BIRDS.flatMap((c) => (byCode.get(c)!.sv ? [[c, byCode.get(c)!.sv]] : [])))
   const names = Object.fromEntries(BIRDS.map((c) => [c, byCode.get(c)!.com]))
@@ -117,6 +119,8 @@ export type Box = [x: number, y: number, w: number, h: number]
 /** The made-up list: ${TOTAL} species, every one drawn in the demo; ${FAMILIES} families. */
 export const TOTAL = ${TOTAL}
 export const FAMILIES = ${FAMILIES}
+/** Its threatened species (VU, EN or CR in species.v1.json \`iu\`), as the stats line counts them. */
+export const THREATENED = ${threatened}
 export const BIRDS: string[] = ${JSON.stringify(BIRDS)}
 export const HERONS: string[] = ${JSON.stringify(HERONS)}
 export const LATEST = ${JSON.stringify({ code: LATEST, name: byCode.get(LATEST)!.com })}

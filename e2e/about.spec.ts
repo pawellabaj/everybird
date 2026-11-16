@@ -45,6 +45,12 @@ test("/about says what Everybird is, what True size means, and credits the stick
   await expect(credits.getByText(/eBird\/Clements taxonomy, version 20\d\d/)).toBeVisible();
   await expect(credits.getByRole("link", { name: "Debian iso-codes" })).toHaveAttribute("href", "https://salsa.debian.org/iso-codes-team/iso-codes");
   await expect(credits.getByText("Region names · LGPL-2.1")).toBeVisible();
+  // Conservation status: in the filters, its own note (source, version, global not regional) and AviList's credit
+  await expect(main.getByText(/Filter it by group, place, year or conservation status/)).toBeVisible();
+  await expect(main.getByRole("heading", { level: 2, name: "Conservation status" })).toBeVisible();
+  await expect(main.getByText(/from BirdLife v10 via AviList v2026\. It is global, not regional/)).toBeVisible();
+  await expect(credits.getByRole("link", { name: "AviList" })).toHaveAttribute("href", "https://doi.org/10.2173/avilist.v2026");
+  await expect(credits.getByText("Red List categories · CC BY 4.0")).toBeVisible();
   await expect(page.getByRole("banner").getByRole("link", { name: "About" })).toHaveAttribute("aria-current", "page");
   expect(errors).toEqual([]);
 });
@@ -325,6 +331,12 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   await expect(scene.locator(".ebd-chips-label")).toHaveText("Orders")
   await expect(scene.locator(".ebd-path-link").first()).toHaveText("All birds")
   await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText("Choose an order")
+  // The controls bar: Places, Time and Status, in both designs
+  for (const design of ["wide", "compact"]) {
+    const drops = page.locator(`[data-poster="${design}"] .ebd-drop`)
+    await expect(drops).toHaveCount(3)
+    await expect(drops.last()).toHaveText("Status")
+  }
   // The share dialog: its title, Story / Post / Square with their ratios, and each image's footer line
   await expect(scene.locator(".ebd-share-title")).toHaveText("Share your collage")
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)

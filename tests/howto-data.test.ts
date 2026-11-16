@@ -2,13 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { HOWTO_DATA, makeHowtoData } from '../scripts/build-data/build-howto'
-import { BIRDS, COLLAGE, FAMILIES, HERONS, SHARE, TOTAL } from '@/components/about/how-it-works-data'
+import { BIRDS, COLLAGE, FAMILIES, HERONS, SHARE, THREATENED, TOTAL } from '@/components/about/how-it-works-data'
 import { ORDERS } from '@/components/about/HowItWorksScene'
 import { collageHole, touchesHole, type Rect } from '@/lib/layout/count-box'
 import { decodeMask, maskCell, type Mask } from '@/lib/layout/mask'
 import { relSizes, type PackBird } from '@/lib/layout/pack'
 import { EXP } from '@/lib/layout/constants'
 import { orderLabel } from '@/lib/species/orders'
+import { THREATENED as THREAT_CATS } from '@/lib/species/iucn'
 import type { MaskTable } from '@/lib/layout/layout.worker'
 import type { SpeciesFile } from '@/lib/species/types'
 
@@ -45,6 +46,11 @@ describe('the About demo', () => {
     expect(new Set(BIRDS.map((c) => byCode.get(c)!.fam)).size).toBe(FAMILIES)
     // Each chip's count is the birds of that order drawn
     for (const [label, k] of ORDERS) expect(BIRDS.filter((c) => orderLabel(byCode.get(c)!.ord) === label), label).toHaveLength(k)
+  })
+
+  it('counts the threatened birds (VU, EN, CR) the stats line shows from species.v1.json', () => {
+    expect(THREATENED).toBe(BIRDS.filter((c) => { const iu = byCode.get(c)!.iu; return !!iu && THREAT_CATS.includes(iu) }).length)
+    expect(THREATENED).toBe(1) // lesyel, VU
   })
 
   it('has chips whose counts add up to its total, each order a real one with a bird in the demo, Herons six', () => {

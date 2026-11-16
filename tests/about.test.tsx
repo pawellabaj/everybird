@@ -1,0 +1,44 @@
+// @vitest-environment jsdom
+import '@testing-library/jest-dom/vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import AboutPage from '../app/(app)/about/page'
+import { IUCN_SOURCE } from '@/lib/species/iucn'
+
+vi.mock('@/components/about/HowItWorksDemo', () => ({ HowItWorksDemo: () => null }))
+vi.mock('@/components/app/IntentLink', () => ({ default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }))
+vi.mock('@/components/app/PageHead', () => ({ PageHead: ({ title }: { title: string }) => <h1>{title}</h1> }))
+
+afterEach(cleanup)
+
+describe('About: conservation status', () => {
+  it('names conservation status among the filters', () => {
+    render(<AboutPage />)
+    expect(screen.getByText(/Filter it by group, place, year or conservation status/)).toBeInTheDocument()
+  })
+
+  it('has a Conservation status note after True size: source, version, global not regional', () => {
+    render(<AboutPage />)
+    const h = screen.getByRole('heading', { level: 2, name: 'Conservation status' })
+    const section = h.closest('section')!
+    expect(section).toHaveAttribute('aria-labelledby', 'eb-status-h')
+    expect(h.id).toBe('eb-status-h')
+    expect(section.previousElementSibling).toHaveAttribute('aria-labelledby', 'eb-size-h')
+    expect(section.textContent).toContain(
+      `Each species' status is its global IUCN Red List category, from ${IUCN_SOURCE}. It is global, not regional: a bird common where you live can still be threatened worldwide, and the other way round. Species without a category show none.`,
+    )
+    expect(screen.getByText(/global, not regional/)).toBeInTheDocument()
+  })
+
+  it('credits AviList for the Red List categories after AVONET', () => {
+    render(<AboutPage />)
+    expect(screen.getByRole('link', { name: 'AviList' })).toHaveAttribute('href', 'https://doi.org/10.2173/avilist.v2026')
+    expect(screen.getByText('Red List categories · CC BY 4.0')).toBeInTheDocument()
+    const credit = screen.getByText('Red List categories · CC BY 4.0').closest('li')!
+    expect(credit.textContent).toContain(
+      "IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team, 2026), via huashu's species table.",
+    )
+    expect(credit.previousElementSibling!.textContent).toContain('AVONET')
+  })
+})

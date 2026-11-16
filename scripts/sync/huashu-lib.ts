@@ -2,6 +2,7 @@
 // No file or network access here, so the unit tests (tests/huashu-sync.test.ts) cover all of it.
 import { createHash } from 'node:crypto'
 import type { HuashuRecord, SpeciesRow } from '../../src/lib/species/types'
+import { IUCN_SOURCE } from '../../src/lib/species/iucn'
 
 export const HUASHU_REPO = 'https://github.com/alchaincyf/huashu-bird-sticker'
 export const SPECIES_JSON = 'data/species.json'
@@ -50,7 +51,7 @@ export function parseLsTree(text: string): Map<string, string> {
 
 /**
  * The fields of a huashu record that Everybird's build reads (crosswalk, mass, sticker, quality bar, forms and raw
- * IUCN status), as a digest. Optional forms and status are appended only when present, preserving older digests for
+ * IUCN status and its cited source), as a digest. Optional forms, status and source are appended only when present, preserving older digests for
  * records without them. Digest the raw status so a possibly-extinct flag change is build-relevant too.
  */
 export function recordDigest(h: HuashuRecord): string {
@@ -63,6 +64,8 @@ export function recordDigest(h: HuashuRecord): string {
     fields.push(h.forms.map((f) => [f.formerSpecies?.scientificName ?? null, f.sticker ? [f.sticker.file, !!f.sticker.meetsQualityBar] : null]))
   }
   if (h.conservation?.iucn !== undefined) fields.push(['iucn', h.conservation.iucn])
+  // The cited source (a new BirdLife or AviList release) is build-relevant too: About's credit names its versions.
+  if (h.conservation?.sources?.iucn !== undefined) fields.push(['iucnSource', h.conservation.sources.iucn])
   return createHash('sha256').update(JSON.stringify(fields)).digest('hex').slice(0, 12)
 }
 
@@ -244,11 +247,16 @@ export type Summary = {
   /** Rebuilt stickers left for a later sync by the cap, and the cap. */
   deferred: number
   cap: number
+  /** The Red List sources huashu cites (with record counts) and whether About's credit (IUCN_SOURCE) still names their
+   * versions; only when the run read species.json. */
+  iucnCredit?: IucnCredit
 }
+export type IucnCredit = { sources: [string, number][]; ok: boolean }
 
 export function summarise(o: {
   from: string; to: string; stickers: readonly StickerChange[]; rows: readonly RowChange[]; records: RecordChanges
   names: ReadonlyMap<string, string>; website: ReadonlySet<string>; files: string[]; deferred?: number; cap?: number
+  iucnCredit?: IucnCredit
 }): Summary {
   const entries: SummaryEntry[] = []
   const rowsBy = new Map(o.rows.map((r) => [r.code, r.fields]))
@@ -263,7 +271,8 @@ export function summarise(o: {
   }
   const order = { changed: 0, new: 1, removed: 2, data: 3 }
   entries.sort((a, b) => order[a.kind] - order[b.kind] || (a.com < b.com ? -1 : a.com > b.com ? 1 : 0))
-  return { from: o.from, to: o.to, repo: HUASHU_REPO, entries, records: o.records, files: o.files, deferred: o.deferred ?? 0, cap: o.cap ?? 0 }
+  return { from: o.from, to: o.to, repo: HUASHU_REPO, entries, records: o.records, files: o.files, deferred: o.deferred ?? 0, cap: o.cap ?? 0,
+    ...(o.iucnCredit ? { iucnCredit: o.iucnCredit } : {}) }
 }
 const base = (p: string) => p.split('/').pop()!
 
@@ -278,6 +287,11 @@ export const TABLE_MAX = 300
 export const BODY_MAX = 60_000
 
 export type SheetInfo = { pages: number; rows: number }
+
+const creditLine = (c: IucnCredit) => {
+  const cited = c.sources.map(([src, k]) => `${src}: ${k}`).join('; ') || 'none'
+  return `- About's Red List credit ("${IUCN_SOURCE}"): ${c.ok ? `matches huashu's sources (${cited})` : `**does not match** huashu's sources (${cited}): update IUCN_SOURCE and About`}`
+}
 
 /**
  * The pull request's body. ARTIFACT_URL stands for the run's artifact (summary.json and the paged before/after
@@ -298,6 +312,7 @@ export function renderPrBody(s: Summary, o: { sheets?: SheetInfo | null; tableMa
     `- Other data (mass, names, quality bar, status): ${n.data} species`,
     `- huashu records with build-relevant changes: ${s.records.changed.length} changed, ${s.records.added.length} added, ${s.records.removed.length} removed`,
     `- On the website's /lifelist: ${web.length ? web.map((e) => `\`${e.code}\``).join(', ') : 'none'}`,
+    ...(s.iucnCredit ? [creditLine(s.iucnCredit)] : []),
     '',
     `Artifacts: [summary.json and the before/after sheets](${ARTIFACT_URL})${o.sheets ? ` (old and new 128 px sticker side by side, ${o.sheets.rows} rows on ${o.sheets.pages} page${o.sheets.pages === 1 ? '' : 's'})` : ''}; kept 30 days.`,
     '',

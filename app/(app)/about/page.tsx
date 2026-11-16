@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { HowItWorksDemo } from '@/components/about/HowItWorksDemo'
 import { PageHead } from '@/components/app/PageHead'
 import { ABOUT_DESCRIPTION, ABOUT_TITLE, COFFEE_URL, pageSeo } from '@/lib/site-meta'
+import { IUCN_SOURCE } from '@/lib/species/iucn'
 import '@/components/app/app.css'
 import './about.css'
 
@@ -51,8 +52,8 @@ export default function AboutPage() {
         <h2 id="eb-what-h" className="eb-h2">What it is</h2>
         <p className="eb-prose">
           Your life list is already the record of a lifetime of birds. Everybird lays it out as one collage: every species
-          a sticker, sized by its body mass, with the count in the middle. Filter it by group, place or year, then share it as an
-          image or a link.
+          a sticker, sized by its body mass, with the count in the middle. Filter it by group, place, year or conservation status,
+          then share it as an image or a link.
         </p>
       </section>
 
@@ -83,6 +84,14 @@ export default function AboutPage() {
           True size uses the cube root of mass for length instead. Birds are roughly similar in density, so mass tracks volume,
           and its cube root tracks length: a bird eight times heavier is drawn about twice as long, covering four times the area.
           It&apos;s an estimate of relative size, not a measured length. Slim, long-necked birds can look a little small and chunky ones a little big, swimming poses hide part of the body, and each species uses one average mass, so males, females and seasons aren&apos;t told apart.
+        </p>
+      </section>
+
+      <section className="eb-block" aria-labelledby="eb-status-h">
+        <h2 id="eb-status-h" className="eb-h2">Conservation status</h2>
+        <p className="eb-prose">
+          Each species&apos; status is its global IUCN Red List category, from {IUCN_SOURCE}. It is global, not regional: a bird
+          common where you live can still be threatened worldwide, and the other way round. Species without a category show none.
         </p>
       </section>
 
@@ -119,6 +128,10 @@ export default function AboutPage() {
           </Credit>
           <Credit label="Body masses · CC BY 4.0" title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
             Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu&apos;s species table.
+          </Credit>
+          <Credit label="Red List categories · CC BY 4.0" title={<A href="https://doi.org/10.2173/avilist.v2026">AviList</A>}>
+            IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team,
+            2026), via huashu&apos;s species table.
           </Credit>
           <Credit label="API" title={<A href="https://api.inaturalist.org/v1/docs/">iNaturalist</A>}>
             Observations come from iNaturalist&apos;s public API, called straight from your browser, about once a second.

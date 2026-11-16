@@ -81,10 +81,14 @@ export function iucnSources(huashu: readonly HuashuRecord[]): [string, number][]
   return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
 }
 
-/** Whether every cited source names each version in the credit (`BirdLife v10`, `AviList v2026`). */
+/**
+ * Whether every cited source names each version in the credit (`BirdLife v10`, `AviList v2026`), as a whole token:
+ * `v10` matches neither `v100` nor `v10.1`. No cited source at all is not a match.
+ */
 export function creditMatchesSources(sources: readonly string[], credit: string = IUCN_SOURCE): boolean {
-  const versions = credit.match(/[A-Za-z]+ v[\d.]+/g) ?? []
-  return versions.length > 0 && sources.every((s) => versions.every((v) => s.includes(v)))
+  const versions = (credit.match(/[A-Za-z]+ v\d+(?:\.\d+)*/g) ?? [])
+    .map((v) => new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\d.])`))
+  return versions.length > 0 && sources.length > 0 && sources.every((s) => versions.every((v) => v.test(s)))
 }
 
 // Pure crosswalk: which huashu record (and so which sticker file) belongs to each eBird species. A record matches an
@@ -162,9 +166,12 @@ export function buildSpecies(
   const noSticker: string[] = [], massFallback: string[] = []
   const statusConcept: string[] = [], statusUnknown: string[] = [], statusBorrowed: string[] = []
   // A status is the record's taxon's. A record named by hand (an override) or matched by several eBird species may be
-  // a broader or another taxon, so neither lends its status (forms never carry one: formMatch drops it).
-  const users = new Map<string, string[]>() // huashu id -> eBird codes matched to it, not through a form
-  for (const [code, rec] of matches) if (rec.form === undefined) users.set(rec.id, [...(users.get(rec.id) ?? []), code])
+  // a broader or another taxon, so neither lends its status (forms never carry one: formMatch drops it). An override
+  // refuses only its own species' status: the record's own species, matched without one, keeps it.
+  const users = new Map<string, string[]>() // huashu id -> eBird codes matched to it, not through a form or an override
+  for (const [code, rec] of matches) {
+    if (rec.form === undefined && !overrides[code]?.huashu) users.set(rec.id, [...(users.get(rec.id) ?? []), code])
+  }
   const borrowedWhy = (t: TaxonRow, rec: HuashuRecord | undefined): string | undefined => {
     if (!rec || rec.form !== undefined) return undefined
     if (overrides[t.code]?.huashu) return `hand-named override -> huashu ${rec.id}`

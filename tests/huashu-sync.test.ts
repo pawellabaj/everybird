@@ -78,6 +78,10 @@ describe('the huashu lock', () => {
       .not.toBe(recordDigest({ ...clone(a), conservation: { iucn: 'CR' } }))
     const form = { taxon: 'Avis alba minor', formerSpecies: { scientificName: 'Avis minor' } }
     expect(recordDigest({ ...clone(vu), forms: [form] })).not.toBe(recordDigest({ ...clone(a), forms: [form] }))
+    const cited = { ...clone(a), conservation: { iucn: 'VU', sources: { iucn: 'AviList v2026（BirdLife v10）' } } } as HuashuRecord
+    expect(recordDigest(cited)).not.toBe(recordDigest(vu))
+    expect(recordDigest({ ...clone(a), conservation: { iucn: 'VU', sources: { iucn: 'AviList v2027（BirdLife v11）' } } } as HuashuRecord))
+      .not.toBe(recordDigest(cited))
   })
 
   it('throws when a code’s sticker file is missing from the tree', () => {
@@ -301,6 +305,18 @@ describe('PR and issue bodies', () => {
     expect(renderPrBody(summary)).not.toContain('side by side')
     expect(renderPrBody(summary, { tableMax: 2 })).toContain('| … and 2 more (summary.json has them all) |')
     expect(renderPrBody({ ...summary, deferred: 5283, cap: 600 })).toContain('- Left for the next sync: 5283 more rebuilt stickers (this run ships at most 600')
+  })
+
+  it('surfaces whether About’s Red List credit still matches huashu’s cited sources', () => {
+    expect(renderPrBody(summary)).not.toContain('Red List credit')
+    const ok = renderPrBody({ ...summary, iucnCredit: { sources: [['AviList v2026（BirdLife v10）', 10100]], ok: true } })
+    expect(ok).toContain(`- About's Red List credit ("BirdLife v10 via AviList v2026"): matches huashu's sources (AviList v2026（BirdLife v10）: 10100)`)
+    const bad = renderPrBody({ ...summary, iucnCredit: { sources: [['AviList v2027（BirdLife v11）', 10], ['AviList v2026（BirdLife v10）', 2]], ok: false } })
+    expect(bad).toContain('does not match')
+    expect(bad).toContain(`**does not match** huashu's sources (AviList v2027（BirdLife v11）: 10; AviList v2026（BirdLife v10）: 2): update IUCN_SOURCE and About`)
+    const s2 = summarise({ from: 'a'.repeat(40), to: 'b'.repeat(40), stickers: [], rows: [], records: { changed: [], added: [], removed: [] },
+      names: new Map(), website: new Set(), files: [], iucnCredit: { sources: [], ok: false } })
+    expect(s2.iucnCredit).toEqual({ sources: [], ok: false })
   })
 
   it('keeps the body under GitHub’s limit however long the table', () => {

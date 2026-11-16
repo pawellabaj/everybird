@@ -32,7 +32,9 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HuashuRecord, Overrides, Regions, SpeciesFile, SpeciesRow, TaxonomyFile } from '../../src/lib/species/types'
 import { STICKER_BASE, SMALL, stickerPath } from '../../src/lib/sticker-url'
-import { applyStickerVersions, buildSpecies, loadHuashu, matchHuashu, taxonomyFromPublic, STICKER_VERSIONS } from '../build-data/build-species'
+import {
+  applyStickerVersions, buildSpecies, creditMatchesSources, iucnSources, loadHuashu, matchHuashu, taxonomyFromPublic, STICKER_VERSIONS,
+} from '../build-data/build-species'
 import {
   ARTIFACT_URL, HUASHU_REPO, MAX_REBUILD, PR_URL, SPECIES_JSON, STICKERS_PREFIX, UpstreamInconsistency, codesFromMatches,
   diffRecords, diffRows, diffStickers, implausible, lockJson, makeLock, nextShipped, nextVersions, parseLsTree,
@@ -290,9 +292,13 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
 
   const names = new Map(rows.map((r) => [r.code, r.com]))
   for (const r of prevRows) if (!names.has(r.code)) names.set(r.code, r.com)
+  // About's Red List credit against the sources the new species.json cites (only when this run read it).
+  const cited = huashu ? iucnSources(huashu) : undefined
+  const iucnCredit = cited && { sources: cited, ok: creditMatchesSources(cited.map(([src]) => src)) }
   const summary = summarise({
     from: lock.commit, to: commit, stickers: ship, rows: rowChanges, records: recs, names, website: repo.website,
     files: changedFiles.sort(), deferred: deferred.length, cap: a.maxRebuild,
+    iucnCredit,
   })
 
   // Before/after sheets for every sticker this run ships, 60 rows a page, the website's species first.
