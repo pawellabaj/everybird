@@ -224,7 +224,7 @@ export const pt: Messages = {
         EW: 'Extinta na natureza',
         EX: 'Extinta',
         DD: 'Dados insuficientes',
-        NE: 'Não avaliado',
+        NE: 'Não avaliada',
       },
       threatened: 'Ameaçadas',
       pillName: 'Lista Vermelha: {name}',
