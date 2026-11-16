@@ -2,7 +2,7 @@ import { SITE_ICONS } from "@/lib/site-icons";
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import { SHARE_ORIGIN } from "@/lib/share/origin";
-import { pageSeo, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site-meta";
+import { pageSeo, SITE_NAME } from "@/lib/site-meta";
 import { STICKER_READY_SCRIPT } from "@/lib/sticker-ready";
 import { THEME_SCRIPT } from "@/lib/theme";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -15,7 +15,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+/** The site's metadata in the page's language (`page.meta`); pages that set their own title replace the SEO part. */
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const lang = await langParam(params);
+  const { description } = getMessages(lang).page.meta;
+  return { ...BASE_METADATA, description, ...pageSeo("/", SITE_NAME, description, lang) };
+}
+
+const BASE_METADATA: Metadata = {
   // Absolute og:image URLs. Production: the real origin. Vercel preview/other environments: that deployment's own URL
   // (previews must not point at production). Local dev: undefined, so Next uses the request origin (localhost).
   metadataBase:
@@ -25,10 +32,9 @@ export const metadata: Metadata = {
         ? new URL(`https://${process.env.VERCEL_URL}`)
         : undefined,
   title: SITE_NAME,
-  description: SITE_DESCRIPTION,
-  // The landing page's canonical, Open Graph and Twitter card. Every page that sets its own title sets its own copy of
-  // these (about, settings) or replaces them (/s/<token>, which also says noindex), so none inherits "/".
-  ...pageSeo("/", SITE_NAME, SITE_DESCRIPTION),
+  // generateMetadata adds the description and the landing page's canonical, Open Graph and Twitter card. Every page
+  // that sets its own title sets its own copy of these (about, settings) or replaces them (/s/<token>, which also says
+  // noindex), so none inherits "/".
   // A share link's token is the birder's list: never let it leave as a Referer, not even to our own pages
   // (analytics beacons send one). Origin only, everywhere. No analytics script here: Cloudflare Web Analytics loads from
   // app/[lang]/(app)/layout.tsx only, so a shared view (/s/<token>) never loads it.

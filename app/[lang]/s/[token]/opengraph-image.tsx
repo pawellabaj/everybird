@@ -6,15 +6,17 @@ import { EXP, LAYOUTS } from '@/lib/layout/constants'
 import { packBest, relSizes, type Box } from '@/lib/layout/pack'
 import { latestLifer } from '@/lib/list/build-list'
 import type { ListEntry } from '@/lib/list/model'
-import { formatDate } from '@/lib/format'
-import { EN_UI } from '@/i18n/messages/en'
+import { formatMonth } from '@/i18n/format'
+import { getMessages } from '@/i18n/server'
 import { countDisplay } from '@/lib/layout/count-box'
 import { OG_COUNT_MAX, SHARE_COLORS, FOOTER_LINE, countLayout, ogCountHole, type CountLayout } from '@/lib/share/image'
 import { ymToDate } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
-import { OG_COLLAGE, OG_SIZE, ogName, ogResponseOptions, pickOgStickers, tryDecodeShare, OG_DESCRIPTION } from '@/lib/share/og'
+import { OG_COLLAGE, OG_SIZE, ogDescription, ogName, ogResponseOptions, pickOgStickers, tryDecodeShare } from '@/lib/share/og'
 import { OG_LARGE_TILE, fetchStickers, ogFonts, serverMasks, serverSpecies } from '@/lib/share/og-server'
 
+// English in every language: Next's file convention takes a static `alt`, and a per-language one (generateImageMetadata)
+// would move the image to /opengraph-image/<id>.
 export const alt = "A birder's life list as a sticker collage, on Everybird"
 export const size = OG_SIZE
 export const contentType = 'image/png'
@@ -71,6 +73,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   // never a render cached for a year under a made-up prefix.
   const { lang, token } = await params
   if (!isLang(lang)) notFound()
+  // The card's words in the URL's language (base names only: the card is cached a year per URL). No date stamp here.
+  const t = getMessages(lang).ui
   const [payload, fonts] = [tryDecodeShare(token), ogFonts()]
   let placed: Placed[] = [], expected = 0, failed = false, latest: { name: string; date?: string } | undefined
   if (payload) {
@@ -83,18 +87,17 @@ export default async function Image({ params }: { params: Promise<{ lang: string
       const top = latestLifer(entries, (c) => species.get(c)?.to ?? 0)
       const row = top && species.get(top.code)
       // The latest lifer row: a mono label with the month over the bird's name, as the share images.
-      if (top && row) latest = { name: row.com, date: formatDate(top.date) || undefined }
+      if (top && row) latest = { name: row.com, date: formatMonth(top.date, t.date.months) || undefined }
     } catch (e) {
       failed = true // the text card stands in: cached briefly, not for a year
       console.warn('og image: collage unavailable, rendering the text card', e) // still a valid image
     }
   }
-  const name = payload ? ogName(payload) : 'Everybird'
+  const name = payload ? ogName(payload, t) : 'Everybird'
   const K = payload ? ogCount(payload.birds.length) : null
-  // The drawn count (K's number and label are the geometry's): English until the preview takes the page's language.
-  const strings = EN_UI
-  const countNum = payload ? countDisplay(payload.birds.length, strings.num) : ''
-  const countLabel = strings.count.label.toUpperCase()
+  // The drawn count in the URL's language (K's number and label are the geometry's, the same in every language).
+  const countNum = payload ? countDisplay(payload.birds.length, t.num) : ''
+  const countLabel = t.count.label.toUpperCase()
 
   // The footer, as the share images': the wordmark and one quiet line, the site and the sticker credit ("… · stickers by
   // huashu"). Beside the wordmark on the wide text card; under it beside the collage, where the column is too narrow.
@@ -135,11 +138,11 @@ export default async function Image({ params }: { params: Promise<{ lang: string
               <div style={{ display: 'flex', fontFamily: MONO, fontSize: 24, letterSpacing: 1.4, color: C.muted }}>{countLabel}</div>
             </div>
           )}
-          {!K && <div style={{ display: 'flex', fontSize: 34, fontWeight: 500, color: C.muted, marginTop: 24 }}>{OG_DESCRIPTION}</div>}
+          {!K && <div style={{ display: 'flex', fontSize: 34, fontWeight: 500, color: C.muted, marginTop: 24 }}>{ogDescription(t)}</div>}
           {latest && (
             <div style={{ display: 'flex', flexDirection: 'column', marginTop: 40, gap: 8 }}>
               <div style={{ display: 'flex', fontFamily: MONO, fontSize: 15, letterSpacing: 0.9, color: C.muted }}>
-                {`LATEST LIFER${latest.date ? ` · ${latest.date.toUpperCase()}` : ''}`}
+                {[t.share.latestLifer, latest.date].filter(Boolean).join(' · ').toUpperCase()}
               </div>
               <div style={{ display: 'flex', fontSize: 28, fontWeight: 500, lineHeight: 1.2 }}>{latest.name}</div>
             </div>

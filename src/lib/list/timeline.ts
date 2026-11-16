@@ -31,7 +31,7 @@ export const addMonths = (m: Month, k: number): Month => fromIndex(toIndex(m) + 
 export const monthName = (m: Month, t: Ui): string =>
   fmt(t.filters.timeline.month, { month: t.filters.timeline.months[Number(m.slice(5, 7)) - 1], year: m.slice(0, 4) })
 /** "Mar 2020" ("sept 2020"). */
-export const monthShort = (m: Month, t: Ui): string => formatMonth(m, t.date.months)
+export const monthShort = (m: Month, t: Pick<Ui, 'date'>): string => formatMonth(m, t.date.months)
 /** The current month (UTC). */
 export const todayMonth = (now = new Date()): Month => `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 
@@ -172,7 +172,7 @@ export function rangeFilter(f: Filter, lo: number, hi: number, months: readonly 
 }
 
 /** The range in words, in `t`'s language: "2020", "Sep 2020", "Mar 2020 to Jun 2021", "From Mar 2020", "Up to Jun 2021". */
-export function rangeLabel(from: Month | undefined, to: Month | undefined, t: Ui): string | undefined {
+export function rangeLabel(from: Month | undefined, to: Month | undefined, t: Pick<Ui, 'filters' | 'date'>): string | undefined {
   const tl = t.filters.timeline
   if (from && to) {
     if (from === to) return monthShort(from, t)

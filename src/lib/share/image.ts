@@ -9,7 +9,7 @@
 //   bottom  a Hairline rule, "Latest lifer: Western Grebe · Sep 2026" (Satoshi 32px; unless the dialog's "Show latest
 //           lifer" switch is off, when the collage takes its room), then the footer: the Everybird wordmark and one
 //           quiet line beside it, the site, the sticker credit and the date the image was made
-//           ("everybird.yusuftaleb.com · stickers by huashu · As of 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
+//           ("everybird.yusuftaleb.com · stickers by huashu · 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
 //           The full credit, with the licence, travels in the share text.
 // The story keeps Instagram's safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
 // bottom 156px (the reply bar); the post and the square use 64px margins all round. The story's collage is tall (about 952 × 1284 with
@@ -22,11 +22,11 @@
 import { SHARE_ORIGIN } from '@/lib/share/origin'
 import { BIRD_PATH, OUTLINE_SCALE } from '@/lib/bird-outline'
 import { stickerUrl } from '@/lib/sticker-url'
-import { formatDate } from '@/lib/format'
-import { asOfDate, withStamp } from '@/lib/share/stamp'
+import { formatMonth } from '@/i18n/format'
+import { stampDate, stampStrings, withStamp } from '@/lib/share/stamp'
 import type { Box } from '@/lib/layout/pack'
 import { COMMA_DROP, DIGIT_CAP, LABEL, MONO_CAP, MONO_CAP_ACCENT, MONO_LINE, NUM_LINE, columnBoxes, countDisplay, countText, labelEm, numberEm, scaleHole, type Hole } from '@/lib/layout/count-box'
-import { EN_UI, type Ui } from '@/i18n/messages/en'
+import type { Ui } from '@/i18n/messages/en'
 import type { ListEntryMsg, WorkerReply, WorkerRequest } from '@/lib/layout/layout.worker'
 import { latestLifer } from '@/lib/list/build-list'
 import { countriesLabel, placesLabel } from '@/lib/list/filter-summary'
@@ -38,6 +38,10 @@ import type { Regions } from '@/lib/species/types'
 import { orderLabel } from '@/lib/species/orders'
 
 export type ImageFormat = 'story' | 'post' | 'square' // 1080×1920, 1080×1350, 1080×1080
+
+/** The UI language's strings a share image draws: the count, the filter label (orders, places, months, ranges), the
+ *  latest lifer row's label and the date stamp. The credit line (FOOTER_LINE) is the same in every language. */
+export type ShareStrings = Pick<Ui, 'share' | 'count' | 'num' | 'date' | 'filters' | 'orders' | 'places'>
 export const IMAGE_SIZE: Record<ImageFormat, [w: number, h: number]> = { story: [1080, 1920], post: [1080, 1350], square: [1080, 1080] }
 /** The longest name the dialog accepts: what a share link carries (link.ts NAME_MAX; a test keeps them equal). */
 export const NAME_MAX_LEN = 40
@@ -58,32 +62,33 @@ export const SHARE_COLORS = {
 } as const
 
 /**
- * The latest lifer row's two lines: the mono label "Latest lifer · Sep 2026" (the date part only when there is one)
- * and the bird's name.
+ * The latest lifer row's two lines: the mono label "Latest lifer · Sep 2026" ("Última especie nueva · sept 2026"; the
+ * date part only when there is one) and the bird's name.
  */
-export function latestText(latest: { com: string; date?: string }): { label: string; name: string } {
-  const d = formatDate(latest.date)
-  return { label: `Latest lifer${d ? ` · ${d}` : ''}`, name: latest.com }
+export function latestText(latest: { com: string; date?: string }, t: Pick<Ui, 'share' | 'date'>): { label: string; name: string } {
+  const d = formatMonth(latest.date, t.date.months)
+  return { label: `${t.share.latestLifer}${d ? ` · ${d}` : ''}`, name: latest.com }
 }
 
 /**
- * The current filter in words, birds then places then time: "Egypt · 2026", "Herons · Canada + Egypt"; a range reads
- * "Mar 2020 to Jun 2021" (timeline.ts rangeLabel). With `regions`, places at every level by their short names
- * ("Owls · British Columbia"); without, the countries only.
+ * The current filter in words, in `t`'s language, birds then places then time: "Egypt · 2026", "Herons · Canada +
+ * Egypt"; a range reads "Mar 2020 to Jun 2021" (timeline.ts rangeLabel). With `regions`, places at every level by their
+ * short names ("Owls · British Columbia"); without, the countries only. Country names are whatever `regions` and
+ * `countryName` say (the dialog passes them localized, i18n-places.ts regionsIn); family names are the data's.
  * Undefined when nothing is filtered.
  */
 export function filterLabel(
   f: Filter,
   ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
+  t: ShareStrings,
 ): string | undefined {
   // Places: "Canada", "Canada + Egypt", "Capital and 2 more".
-  // English for now: Task 7 draws the share images in the UI language.
-  const place = ctx.regions ? placesLabel(f, ctx.regions, EN_UI) : countriesLabel(f.countries, ctx.countryName, EN_UI)
+  const place = ctx.regions ? placesLabel(f, ctx.regions, t) : countriesLabel(f.countries, ctx.countryName, t)
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
-  else if (f.order) parts.push(orderLabel(f.order, EN_UI))
+  else if (f.order) parts.push(orderLabel(f.order, t))
   if (place) parts.push(place)
-  const range = rangeLabel(f.from, f.to, EN_UI)
+  const range = rangeLabel(f.from, f.to, t)
   if (range) parts.push(range)
   else if (f.year) parts.push(f.year)
   return parts.length ? parts.join(' · ') : undefined
@@ -458,8 +463,9 @@ export type ShareImageOpts = {
   now?: Date
   /** The latest lifer row; default true. False leaves it out and gives its room to the collage (cardLayout's `latest: false`). */
   latest?: boolean
-  /** The UI language's strings the image draws (the count's number and label); default English. */
-  strings?: Pick<Ui, 'num' | 'count'>
+  /** The UI language's strings the image draws: the count's number and label, the latest lifer's label and month, and
+   *  the stamp's month. The filter label comes in words already (`filterLabel`, from the same strings). */
+  strings: ShareStrings
   signal?: AbortSignal
 }
 
@@ -518,10 +524,11 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const shown = entries.filter((e) => species.byCode.has(e.code))
   const latestE = latestLifer(shown, (c) => species.byCode.get(c)?.to ?? Number.MAX_SAFE_INTEGER)
   const latestRow = latestE && species.byCode.get(latestE.code)!
-  const latest = opts.latest !== false && latestRow ? latestText({ com: latestRow.com, date: latestE!.date }) : undefined
+  const strings = opts.strings
+  const latest = opts.latest !== false && latestRow ? latestText({ com: latestRow.com, date: latestE!.date }, strings) : undefined
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
-  const footerLine = withStamp(FOOTER_LINE, asOfDate(opts.now ?? new Date()))
+  const footerLine = withStamp(FOOTER_LINE, stampDate(opts.now ?? new Date(), stampStrings(strings)))
   const content: CardContent = { name: !!name, filter: !!label, latest: !!latest, count: shown.length }
   const L = cardLayout(format, content)
   const pack = opts.pack ?? (await packForImage(shown, species, packSpec(L), signal))
@@ -561,7 +568,6 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const g = Math.min(fit.grow, 1.3)
   const K = { ...L.count, size: Math.round(L.count.size * g), labelSize: Math.round(L.count.labelSize * Math.min(g, 1.15)), gap: Math.round(L.count.gap * g) }
   // What the count draws, in the UI language ("1.089", "ESPÉCIES"); K's number and label are the geometry's.
-  const strings = opts.strings ?? EN_UI
   const countNum = countDisplay(content.count, strings.num)
   const countLabel = strings.count.label.toUpperCase()
   const [imgs] = await Promise.all([
@@ -622,7 +628,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   if (label && L.filter) draw(label, font.filter, L.filter, 24, C.accent)
 
   // Footer, quiet: the wordmark, then one line on its baseline, the site, the sticker credit and the date stamp ("… ·
-  // stickers by huashu · As of 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
+  // stickers by huashu · 14 Nov 2026", never truncated). If it doesn't fit there at 17px or more, it takes its
   // own line under the wordmark at the bottom safe line, and the wordmark, the hairline and the latest lifer row move
   // up by that line.
   ctx.textBaseline = 'alphabetic'

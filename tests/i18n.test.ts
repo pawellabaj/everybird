@@ -14,9 +14,9 @@ import { withI18n } from './i18n-render'
 /** Values that may read the same as English: names, formats, and words the languages share. */
 const ALLOW_SAME = [
   'eBird', 'iNaturalist', 'CSV', 'JSON', 'Everybird', 'GitHub', 'Collage',
-  // Words the languages share: nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
+  // Words the languages share: pt "Story" (Instagram's word in Brazil), nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
   // Flamingos, pt Seriemas, nl Hoatzin, nl Trogons); nl's full month needs no "de" ("maart 2020").
-  'Filters', 'Families', '{n} families', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
+  'Filters', 'Families', '{n} families', 'Story', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
 ]
 
 const OTHERS = { es, pt, nl } as const
@@ -76,12 +76,11 @@ describe('the dictionaries', () => {
     expect([en, es, pt, nl].map((m) => m.ui.count.label)).toEqual(['species', 'especies', 'espécies', 'soorten'])
   })
 
-  it('the tables: separators, 12 months, the stamp lead', () => {
+  it('the tables: separators, 12 months', () => {
     expect([en, es, pt, nl].map((m) => m.ui.num.group + m.ui.num.decimal)).toEqual([',.', '.,', '.,', '.,'])
     expect(es.ui.date.months.join(' ')).toBe('ene feb mar abr may jun jul ago sept oct nov dic')
     expect(pt.ui.date.months.join(' ')).toBe('jan fev mar abr mai jun jul ago set out nov dez')
     expect(nl.ui.date.months.join(' ')).toBe('jan feb mrt apr mei jun jul aug sep okt nov dec')
-    expect([en, es, pt, nl].map((m) => m.ui.date.asOf)).toEqual(['As of', 'Al', 'Em', 'Per'])
   })
 })
 

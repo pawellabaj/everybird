@@ -9,6 +9,9 @@ import { initialState } from '@/lib/list/store'
 import { decodeShare } from '@/lib/share/link'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
+import { downloadBlob } from '@/lib/download'
+import { LANGS } from '@/i18n/langs'
+import { MESSAGES, withI18n } from './i18n-render'
 
 // The renderer is replaced by a promise the test resolves, so "busy" is under the test's control.
 const renders: { resolve: (b: Blob) => void }[] = []
@@ -18,6 +21,7 @@ vi.mock('@/lib/share/image', async (orig) => ({
   renderShareImage: vi.fn(() => new Promise<Blob>((resolve) => renders.push({ resolve }))),
   clearStickerCache: vi.fn(),
 }))
+vi.mock('@/lib/download', () => ({ downloadBlob: vi.fn() }))
 
 const row = (code: string, to: number) => ({ code, com: code, sci: code, ord: 'Struthioniformes', fam: 'Struthionidae', famCom: 'Ostriches', to, g: 100000, gSrc: 'family', st: true, ar: 1, q: true }) as SpeciesRow
 const species = buildSpeciesIndex([row('ostric2', 1), row('emu1', 2)])
@@ -185,5 +189,56 @@ describe('share dialog', () => {
     await waitFor(() => expect(renders).toHaveLength(2))
     await act(async () => renders[1].resolve(new Blob(['png'], { type: 'image/png' })))
     await waitFor(() => expect(box).toHaveAttribute('data-format', 'post'))
+  })
+
+  it('the link is the same in every language (a link carries no language, its places stay English)', async () => {
+    const urls: string[] = []
+    for (const lang of LANGS) {
+      const writeText = vi.fn(async () => {})
+      vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+      const state = stateWith([entry('ostric2'), entry('emu1')])
+      state.saved = { ...state.saved, name: 'Aves de 2026' }
+      render(<ShareDialog state={state} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />, { wrapper: withI18n(lang) })
+      fireEvent.click(screen.getByRole('button', { name: MESSAGES[lang].ui.share.copyLink }))
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+      urls.push((writeText.mock.calls[0] as unknown as [string])[0])
+      cleanup()
+      vi.unstubAllGlobals()
+    }
+    expect(new Set(urls).size).toBe(1)
+    expect(decodeShare(urls[0].split('/s/')[1]).places).toEqual(['Canada'])
+  })
+
+  it('in Spanish: the labels, the image strings, the filter label, and an English download name', async () => {
+    const es = MESSAGES.es.ui
+    const state = stateWith([entry('ostric2')])
+    state.filter = { countries: ['CA'] }
+    render(<ShareDialog state={state} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    expect(screen.getByRole('heading', { name: 'Comparte tu collage' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Formato de imagen' })).toBeInTheDocument()
+    for (const label of ['Historia', 'Publicación', 'Cuadrado']) expect(screen.getByRole('button', { name: new RegExp(label) })).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Mostrar la última especie nueva' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copiar enlace' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Título del collage')).toBeInTheDocument()
+    expect(screen.getByText('La imagen muestra el filtro actual.')).toBeInTheDocument()
+    await waitFor(() => expect(renders).toHaveLength(1))
+    const opts = vi.mocked(image.renderShareImage).mock.calls[0][0]
+    expect(opts.strings).toBe(es)
+    expect(opts.filterLabel).toBe('Canadá')
+    await act(async () => renders[0].resolve(new Blob(['png'], { type: 'image/png' })))
+    const dl = screen.getByRole('button', { name: 'Descargar imagen' }) as HTMLButtonElement
+    await waitFor(() => expect(dl.disabled).toBe(false))
+    fireEvent.click(dl)
+    await waitFor(() => expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('everybird-story.png')
+    await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Se guardó everybird-story.png.'))
+  })
+
+  it('in Spanish: the copied note, with a bird left out', async () => {
+    const writeText = vi.fn(async () => {})
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    render(<ShareDialog state={stateWith([entry('ostric2'), entry('notabird1')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar enlace' }))
+    await waitFor(() => expect(screen.getByTestId('share-note').textContent).toBe('Enlace copiado. 1 ave es demasiado nueva para los enlaces y se dejó fuera.'))
   })
 })

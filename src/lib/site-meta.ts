@@ -1,13 +1,18 @@
 // Search and link-preview metadata for the public pages. Absolute URLs on the production origin, so a preview
 // deployment's canonical still names the real site. Never anything from /s/<token>: a share token is the birder's list.
+// Titles and descriptions are per language (`page.meta` in src/i18n/messages); canonicals stay unprefixed in every
+// language (the rewrites serve /about in the visitor's language), and og:locale says which one a copy is in.
 import type { Metadata } from 'next'
+import type { Lang } from '@/i18n/langs'
 import { SHARE_ORIGIN } from '@/lib/share/origin'
 
 export const SITE_NAME = 'Everybird'
-export const SITE_DESCRIPTION = 'Your life list as a sticker collage, from eBird, iNaturalist, or by hand.'
-export const ABOUT_TITLE = 'About · Everybird'
-export const ABOUT_DESCRIPTION =
-  'What Everybird is, how it works, what True size means, and the data, stickers, fonts and code it is built from.'
+
+/** Open Graph's locale per UI language (Portuguese is Brazilian Portuguese). */
+export const OG_LOCALE: Record<Lang, string> = { en: 'en_US', es: 'es_ES', pt: 'pt_BR', nl: 'nl_NL' }
+
+/** A page's document title: "About · Everybird" ("Acerca de · Everybird"). */
+export const siteTitle = (page: string) => `${page} · ${SITE_NAME}`
 
 /** Buy Me a Coffee: a quiet way to support the maker (the footer, About#credits and the share dialog; never on the images). */
 export const COFFEE_URL = 'https://buymeacoffee.com/yusuftaleb'
@@ -23,12 +28,12 @@ const ICON = { url: '/icons/icon-512.png', width: 512, height: 512, alt: SITE_NA
 
 export const siteUrl = (path: string) => new URL(path, SHARE_ORIGIN).toString()
 
-/** Canonical, Open Graph and Twitter card for one public page. */
-export function pageSeo(path: string, title: string, description: string): Pick<Metadata, 'alternates' | 'openGraph' | 'twitter'> {
+/** Canonical (unprefixed), Open Graph (with the language's locale) and Twitter card for one public page. */
+export function pageSeo(path: string, title: string, description: string, lang: Lang): Pick<Metadata, 'alternates' | 'openGraph' | 'twitter'> {
   const url = siteUrl(path)
   return {
     alternates: { canonical: url },
-    openGraph: { type: 'website', siteName: SITE_NAME, url, title, description, images: [ICON] },
+    openGraph: { type: 'website', siteName: SITE_NAME, url, title, description, images: [ICON], locale: OG_LOCALE[lang] },
     twitter: { card: 'summary', title, description, images: [ICON.url] },
   }
 }

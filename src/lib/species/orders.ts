@@ -52,6 +52,6 @@ export const ORDERS: Record<string, string> = {
 
 /** Label for an order in the UI language (`t.orders`), else the English label, else the scientific name. `t` defaults
  *  to English for callers not yet translated (Tick by hand, Task 5). */
-export function orderLabel(ord: string, t: Ui = EN_UI): string {
+export function orderLabel(ord: string, t: Pick<Ui, 'orders'> = EN_UI): string {
   return (t.orders as Record<string, string>)[ord] ?? ORDERS[ord] ?? ord
 }

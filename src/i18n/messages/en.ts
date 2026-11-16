@@ -13,10 +13,9 @@ import type { Plural } from '../core'
 const ui = {
   /** Number separators (src/i18n/format.ts): grouped from 4 digits. */
   num: { group: ',', decimal: '.' },
-  /** Dates: the 12 short months, January first (= src/lib/format.ts MONTHS), and the share stamp's lead ("As of 14 Nov 2026"). */
+  /** Dates: the 12 short months, January first (= src/lib/format.ts MONTHS), the share images' date stamp too ("14 Nov 2026", no lead). */
   date: {
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    asOf: 'As of',
   },
   /** The count's label under the number (Tally, share images, link previews). At most 8 characters: the hole is sized for it. */
   count: {
@@ -298,9 +297,62 @@ const ui = {
     Psittaciformes: 'Parrots',
     Passeriformes: 'Perching birds',
   },
+  /** The share dialog (ShareDialog), the share images' words (image.ts) and the link preview's (og.ts, the image
+   *  route). The credits (FOOTER_LINE, SHARE_CREDIT) and the download names stay English and are not here. */
+  share: {
+    title: 'Share your collage',
+    /** The format control's group name and its three segments (their 9:16, 4:5, 1:1 hints are in code). */
+    formats: 'Image format',
+    format: { story: 'Story', post: 'Post', square: 'Square' },
+    /** The preview image's alt text, per format. */
+    preview: { story: 'Preview of the story image', post: 'Preview of the post image', square: 'Preview of the square image' },
+    failed: "Couldn't make the image.",
+    imageFailed: 'Couldn’t make the image. Try again.',
+    linkFailed: 'Couldn’t make the link. Try again.',
+    tooLarge: 'This list is too large for a link. Share the image instead.',
+    nameLabel: 'Collage title',
+    namePlaceholder: 'Optional, shown on the image',
+    showLatest: 'Show latest lifer',
+    shareImage: 'Share image',
+    download: 'Download image',
+    copyLink: 'Copy link',
+    /** After a download; {file} is the file's name (everybird-story.png, English in every language). */
+    saved: 'Saved {file}.',
+    savedPost: 'Saved {file}. Post it from your photos or files.',
+    /** Copy link's note: `copied`, then the level's reason when the list was too large for regions, then `dropped`
+     *  (joined by a space in code). Copied by hand: the reason, `dropped`, then `copyThis`. */
+    copied: 'Link copied.',
+    level: {
+      countries: 'Your list is large, so the link carries countries instead of regions.',
+      dates: 'Your list is large, so the link carries dates but no places.',
+      species: 'Your list is large, so the link carries the species only, without dates or places.',
+    },
+    dropped: { one: '{n} bird is too new for links and left out.', other: '{n} birds are too new for links and left out.' },
+    copyThis: 'Copy this link:',
+    /** The hand-copy field's aria-label. */
+    linkField: 'Share link',
+    filtered: 'The image shows the current filter.',
+    /** The latest lifer row's mono label on the images and the link preview ("LATEST LIFER · SEP 2026"; upper-cased in code). */
+    latestLifer: 'Latest lifer',
+    /** A link made before titles carries a bare name: its title (og.ts shareTitle). */
+    oldLinkTitle: "{name}'s life list",
+    /** The shared page's document title for a link without a title ({n} formatted). */
+    untitledTitle: { one: 'A life list: {n} species', other: 'A life list: {n} species' },
+  },
 }
 
-const page = {}
+const page = {
+  /** Page metadata (title, description, Open Graph, Twitter) per language (generateMetadata under app/[lang]). Titles
+   *  get " · Everybird" in code; the site's own title is just "Everybird". The shared view's are og.ts's, from `ui`. */
+  meta: {
+    description: 'Your life list as a sticker collage, from eBird, iNaturalist, or by hand.',
+    about: {
+      title: 'About',
+      description: 'What Everybird is, how it works, what True size means, and the data, stickers, fonts and code it is built from.',
+    },
+    settings: { title: 'Settings' },
+  },
+}
 
 export const en = { ui, page }
 

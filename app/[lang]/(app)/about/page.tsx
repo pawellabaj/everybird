@@ -5,17 +5,20 @@ import Link from '@/components/app/IntentLink'
 import type { ReactNode } from 'react'
 import { HowItWorksDemo } from '@/components/about/HowItWorksDemo'
 import { PageHead } from '@/components/app/PageHead'
-import { ABOUT_DESCRIPTION, ABOUT_TITLE, COFFEE_URL, pageSeo } from '@/lib/site-meta'
+import { getMessages, langParam } from '@/i18n/server'
+import { COFFEE_URL, pageSeo, siteTitle } from '@/lib/site-meta'
 import '@/components/app/app.css'
 import './about.css'
 
 // Only the layout's four languages exist: any other first segment (/nope) is the static 404, never a render.
 export const dynamicParams = false
 
-export const metadata: Metadata = {
-  title: ABOUT_TITLE,
-  description: ABOUT_DESCRIPTION,
-  ...pageSeo('/about', ABOUT_TITLE, ABOUT_DESCRIPTION),
+/** About's title and description in the page's language (its prose is English until Task 10). */
+export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const lang = await langParam(params)
+  const { title: page, description } = getMessages(lang).page.meta.about
+  const title = siteTitle(page)
+  return { title, description, ...pageSeo('/about', title, description, lang) }
 }
 
 /** The public repo (created at launch, Task 25). */

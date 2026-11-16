@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 const ROOT = resolve(__dirname, '..')
 
 /** The directories scanned (every .tsx under them). */
-export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'app']
+export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'src/components/share', 'app']
 
 /** Files in a scope that another task translates, or that stay English, each with why. */
 export const SKIP: Record<string, string> = {
@@ -19,7 +19,6 @@ export const SKIP: Record<string, string> = {
   'src/components/app/SettingsPage.tsx': 'Task 5: Settings',
   'src/components/app/RestoreBackup.tsx': 'Task 5: Settings',
   'app/[lang]/(app)/about/page.tsx': 'Task 10: About (server prose in `page`)',
-  'app/[lang]/s/[token]/opengraph-image.tsx': 'Task 7: link previews',
   'app/global-not-found.tsx': 'English by design: no route, so no language (its own document)',
 }
 

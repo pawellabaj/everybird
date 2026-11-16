@@ -11,7 +11,7 @@ import { monthName, monthShort, rangeLabel } from './timeline'
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
 /** "Canada", "Canada + Egypt", "Canada and 2 more" (sorted as the filter keeps them; `t.places.andMore`); undefined for none. */
-export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string, t: Ui): string | undefined {
+export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string, t: Pick<Ui, 'places'>): string | undefined {
   if (!countries?.length) return undefined
   const [first, second] = countries.map(name)
   if (countries.length === 1) return first
@@ -23,7 +23,7 @@ export function countriesLabel(countries: readonly string[] | undefined, name: (
  * The share image's places at every level by their short names, worded as `countriesLabel`: "British Columbia",
  * "Kenya + British Columbia", "Capital and 2 more" (in `filterPlaceKeys` order); undefined for none.
  */
-export function placesLabel(f: Filter, regions: Names, t: Ui): string | undefined {
+export function placesLabel(f: Filter, regions: Names, t: Pick<Ui, 'places'>): string | undefined {
   const keys = filterPlaceKeys(f)
   return countriesLabel(keys, (k) => placeName(k, regions), t)
 }

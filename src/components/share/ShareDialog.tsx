@@ -6,14 +6,18 @@
 // The link encoder (and its ~111 KB species index) is a separate chunk, fetched when the dialog opens, so a Copy link
 // click awaits nothing slow (iOS drops the clipboard permission once a click handler waits on the network).
 // Share image and Download wait for the current render: they're disabled while it's busy, so a click has the PNG at hand.
+// Every word is the UI language's (ui.share), the image's too; the credit line, the share text (SHARE_CREDIT), the
+// download names and the link stay the same in every language (a link carries no language).
 import { DeviceMobile, DownloadSimple, FrameCorners, LinkSimple, ShareNetwork, Square, X, type Icon } from '@phosphor-icons/react'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
+import { fmt, plural } from '@/i18n/core'
+import { useI18n } from '@/i18n/I18nProvider'
+import { countryName, regionsIn } from '@/lib/i18n-places'
 import { track } from '@/lib/analytics'
 import { currentTheme, subscribeTheme, type Theme } from '@/lib/theme'
 import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
-import { stripBracket } from '@/lib/import/places'
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import {
@@ -30,20 +34,16 @@ import './share.css'
 type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesIndex; regions: Regions; onClose: () => void }
 
 const RENDER_DELAY_MS = 250
-const FORMATS: { id: ImageFormat; label: string; hint: string; icon: Icon }[] = [
-  { id: 'story', label: 'Story', hint: '9:16', icon: DeviceMobile },
-  { id: 'post', label: 'Post', hint: '4:5', icon: FrameCorners },
-  { id: 'square', label: 'Square', hint: '1:1', icon: Square },
+const FORMATS: { id: ImageFormat; hint: string; icon: Icon }[] = [
+  { id: 'story', hint: '9:16', icon: DeviceMobile },
+  { id: 'post', hint: '4:5', icon: FrameCorners },
+  { id: 'square', hint: '1:1', icon: Square },
 ]
 type LinkResult = ReturnType<typeof MakeShareLink>
 const loadLinkModule = () => import('@/lib/share/make-link')
 
-const LEVEL_NOTE: Record<ShareLevel, string> = {
-  regions: 'Link copied.',
-  countries: 'Link copied. Your list is large, so the link carries countries instead of regions.',
-  dates: 'Link copied. Your list is large, so the link carries dates but no places.',
-  species: 'Link copied. Your list is large, so the link carries the species only, without dates or places.',
-}
+/** Why a link carries less than the regions (a large list), or nothing for a full link. */
+const levelReason = (level: ShareLevel, t: ReturnType<typeof useI18n>['t']) => (level === 'regions' ? '' : t.share.level[level])
 
 /** The page's current theme (light unless the visitor switched to dark): the image follows it. */
 function useTheme(): Theme {
@@ -57,6 +57,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   useEscapeCapture(onClose)
   useFocusInAndBack(ref)
   useHoldTopBar()
+  const { lang, t } = useI18n()
 
   const { list, filter, saved, seen } = state
   const [format, setFormat] = useState<ImageFormat>('story')
@@ -64,14 +65,15 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const [showLatest, setShowLatest] = useState(true)
   const theme = useTheme()
 
-  // What the image shows: the current view (the filter applied), and the filter in words.
+  // What the image shows: the current view (the filter applied), and the filter in words, in the UI language (countries
+  // named by regionsIn; the link below is made from the English `regions`, so it is the same in every language).
   const known = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
   const fk = filterKey(filter)
   const shown = useMemo(() => (fk ? applyFilter(known, filter, species, seen) : known), [known, filter, fk, species, seen])
-  const label = useMemo(
-    () => labelFor(filter, { species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso), regions }),
-    [filter, species, regions],
-  )
+  const label = useMemo(() => {
+    const named = regionsIn(regions, lang)
+    return labelFor(filter, { species, countryName: (iso) => countryName(iso, lang, regions), regions: named }, t)
+  }, [filter, species, regions, lang, t])
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
 
@@ -109,7 +111,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const previewUrl = useRef<string | null>(null)
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${format}|${trimmed}|${theme}|${withLatest}`
+  const key = `${format}|${trimmed}|${theme}|${withLatest}|${lang}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   useEffect(() => {
@@ -122,7 +124,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
       .then(() => packFor(format, !!trimmed, withLatest))
-      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, latest: withLatest, signal: life.current?.signal }))
+      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, latest: withLatest, strings: t, signal: life.current?.signal }))
     current.current = job
     job.then(
       (blob) => {
@@ -139,7 +141,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       },
     )
     return () => { live = false; cancel() }
-  }, [key, format, trimmed, theme, withLatest, packFor, shown, species, label])
+  }, [key, format, trimmed, theme, withLatest, packFor, shown, species, label, t])
   useEffect(() => () => { if (previewUrl.current) URL.revokeObjectURL(previewUrl.current) }, [])
 
   // The link module starts loading as soon as the dialog opens (still out of the main bundle).
@@ -172,14 +174,14 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   }
   const download = async () => {
     const blob = await getBlob()
-    if (!blob) return setNote({ text: 'Couldn’t make the image. Try again.', error: true })
+    if (!blob) return setNote({ text: t.share.imageFailed, error: true })
     downloadBlob(blob, fileName)
     track('image_downloaded', { format })
-    setNote({ text: `Saved ${fileName}.` })
+    setNote({ text: fmt(t.share.saved, { file: fileName }) })
   }
   const share = async () => {
     const blob = await getBlob()
-    if (!blob) return setNote({ text: 'Couldn’t make the image. Try again.', error: true })
+    if (!blob) return setNote({ text: t.share.imageFailed, error: true })
     const file = new File([blob], fileName, { type: 'image/png' })
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean }
     if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
@@ -195,7 +197,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     }
     downloadBlob(blob, fileName)
     track('image_downloaded', { format })
-    setNote({ text: `Saved ${fileName}. Post it from your photos or files.` })
+    setNote({ text: fmt(t.share.savedPost, { file: fileName }) })
   }
   const copyLink = async () => {
     setManual(null)
@@ -217,19 +219,20 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
     try {
       link = await making
     } catch (e) {
-      if ((e as Error)?.name === 'ShareTooLarge') return setNote({ text: 'This list is too large for a link. Share the image instead.', error: true })
+      if ((e as Error)?.name === 'ShareTooLarge') return setNote({ text: t.share.tooLarge, error: true })
       console.warn('Everybird share link failed:', e)
-      return setNote({ text: 'Couldn’t make the link. Try again.', error: true })
+      return setNote({ text: t.share.linkFailed, error: true })
     }
     const { url, level, dropped } = link
     // Counted once the link exists, whether the clipboard takes it or the birder copies it by hand.
     track('link_copied', { level })
-    const missing = dropped ? ` ${dropped === 1 ? '1 bird is' : `${dropped} birds are`} too new for links and left out.` : ''
+    // The note's sentences, joined by a space: why the link carries less (a large list), then the birds left out.
+    const why = [levelReason(level, t), dropped ? plural(t.share.dropped, dropped) : ''].filter(Boolean)
     let ok = await copied
     if (!ok && typeof clip?.writeText === 'function') ok = await clip.writeText(url).then(() => true, () => false)
-    if (ok) return setNote({ text: LEVEL_NOTE[level] + missing })
+    if (ok) return setNote({ text: [t.share.copied, ...why].join(' ') })
     setManual(url)
-    setNote({ text: `${level === 'regions' ? '' : `${LEVEL_NOTE[level].replace('Link copied. ', '')} `}${missing.trim()}${missing ? ' ' : ''}Copy this link:` })
+    setNote({ text: [...why, t.share.copyThis].join(' ') })
   }
 
   const [w, h] = IMAGE_SIZE[preview?.format ?? format]
@@ -258,8 +261,8 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
         onKeyDown={(e) => trapTab(e, ref.current)}
       >
         <div className="eb-share-head">
-          <h2 id={titleId} className="eb-share-title">Share your collage</h2>
-          <button type="button" className="eb-share-close" aria-label="Close" onClick={onClose}>
+          <h2 id={titleId} className="eb-share-title">{t.share.title}</h2>
+          <button type="button" className="eb-share-close" aria-label={t.collage.close} onClick={onClose}>
             <X aria-hidden="true" focusable="false" weight="bold" />
           </button>
         </div>
@@ -267,12 +270,12 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
         <div className="eb-share-body">
           {/* Its own column on top of the controls beside the preview; above the preview on phones (share.css). */}
           <div className="eb-share-formats">
-            <div className="eb-seg" role="group" aria-label="Image format">
-              {FORMATS.map(({ id, label: text, hint, icon: Glyph }) => (
+            <div className="eb-seg" role="group" aria-label={t.share.formats}>
+              {FORMATS.map(({ id, hint, icon: Glyph }) => (
                 <button key={id} type="button" className="eb-seg-btn" aria-pressed={format === id} onClick={() => setFormat(id)}>
                   <Glyph aria-hidden="true" focusable="false" />
                   <span className="eb-seg-text">
-                    <span className="eb-seg-label">{text}</span>
+                    <span className="eb-seg-label">{t.share.format[id]}</span>
                     <span className="eb-share-hint">{hint}</span>
                   </span>
                 </button>
@@ -286,22 +289,22 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             {preview && (
               // A blob URL of the rendered PNG: next/image has nothing to optimise here.
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview.url} width={w} height={h} alt={`Preview of the ${preview.format} image`} />
+              <img src={preview.url} width={w} height={h} alt={t.share.preview[preview.format]} />
             )}
             {busy && <span className="eb-share-spin" aria-hidden="true" />}
-            {failed && !busy && <p className="eb-error eb-share-failed">Couldn&apos;t make the image.</p>}
+            {failed && !busy && <p className="eb-error eb-share-failed">{t.share.failed}</p>}
           </div>
 
           <div className="eb-share-controls">
             <div className="eb-share-field">
-              <label htmlFor={nameId} className="eb-share-label">Collage title</label>
+              <label htmlFor={nameId} className="eb-share-label">{t.share.nameLabel}</label>
               <input
                 id={nameId}
                 className="eb-share-input"
                 type="text"
                 autoComplete="off"
                 maxLength={NAME_MAX_LEN}
-                placeholder="Optional, shown on the image"
+                placeholder={t.share.namePlaceholder}
                 value={name}
                 onChange={(e) => setName(e.target.value)} // this share only: Settings > Name your collage stays as it is
               />
@@ -309,7 +312,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
 
             {hasLatest && (
               <button type="button" role="switch" aria-checked={showLatest} className="eb-switch eb-share-switch" onClick={() => setShowLatest((v) => !v)}>
-                <span>Show latest lifer</span>
+                <span>{t.share.showLatest}</span>
                 <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
               </button>
             )}
@@ -317,25 +320,25 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
             <div className="eb-share-actions">
               <button type="button" className="eb-btn" disabled={busy} onClick={() => void share()}>
                 <ShareNetwork aria-hidden="true" focusable="false" weight="bold" />
-                Share image
+                {t.share.shareImage}
               </button>
               <button type="button" className="eb-btn eb-btn-quiet" disabled={busy} onClick={() => void download()}>
                 <DownloadSimple aria-hidden="true" focusable="false" />
-                Download image
+                {t.share.download}
               </button>
               <button type="button" className="eb-btn eb-btn-quiet" onClick={() => void copyLink()}>
                 <LinkSimple aria-hidden="true" focusable="false" />
-                Copy link
+                {t.share.copyLink}
               </button>
             </div>
 
             <p className={note?.error ? 'eb-error' : 'eb-note'} role="status" data-testid="share-note">{note?.text ?? ''}</p>
             {manual && (
-              <input ref={manualRef} className="eb-share-input" type="text" readOnly value={manual} aria-label="Share link" onFocus={(e) => e.currentTarget.select()} />
+              <input ref={manualRef} className="eb-share-input" type="text" readOnly value={manual} aria-label={t.share.linkField} onFocus={(e) => e.currentTarget.select()} />
             )}
-            {fk && <p className="eb-note">The image shows the current filter.</p>}
+            {fk && <p className="eb-note">{t.share.filtered}</p>}
             <p className="eb-note eb-share-coffee">
-              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+              <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">{t.shell.footer.coffee}</a>
             </p>
           </div>
         </div>
