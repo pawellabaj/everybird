@@ -180,11 +180,15 @@ describe('IucnPill', () => {
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#d81e05')
     expect(pill.style.getPropertyValue('--iucn-text')).toBe('#ffffff')
   })
-  it('the card badge: the pill and the full name as plain text, no button', () => {
+  it('the badge: a pill button with a toggletip in the card, a plain span without', () => {
+    render(<IucnBadge cat="VU" tip />)
+    const btn = screen.getByRole('button', { name: 'Red List: Vulnerable' })
+    expect(btn).toHaveTextContent('VU')
+    cleanup()
     render(<IucnBadge cat="VU" />)
     const badge = screen.getByTestId('iucn-badge')
     expect(badge.querySelector('button')).toBeNull()
-    expect(badge).toHaveTextContent('VUVulnerable (IUCN Red List)')
+    expect(badge).toHaveTextContent(/^VU$/)
     expect(badge.querySelector('.eb-iucn')).toHaveAttribute('aria-hidden', 'true')
   })
 })
