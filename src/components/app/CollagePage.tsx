@@ -9,6 +9,7 @@ import { useI18n } from '@/i18n/I18nProvider'
 import { pageTitle } from '@/lib/list/title'
 import { placesNoteFor } from '@/lib/list/filter-summary'
 import { undoRemove } from '@/lib/list/tick'
+import { nameOfCode } from '@/lib/species/names'
 import type { Edits, ListEntry } from '@/lib/list/model'
 import { CollageView } from './CollageView'
 import { useEverybirdContext } from './EverybirdProvider'
@@ -51,7 +52,7 @@ export function CollagePage() {
         edits={saved.edits}
         dispatch={dispatch}
         onRemoved={() => {
-          setRemoved({ codes: [entry.code], text: removedText([data?.species.byCode.get(entry.code)?.com ?? entry.code], t), before: editsRef.current })
+          setRemoved({ codes: [entry.code], text: removedText([data ? nameOfCode(data.species.byCode, entry.code) : entry.code], t), before: editsRef.current })
           close()
         }}
       />

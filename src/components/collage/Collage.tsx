@@ -17,6 +17,7 @@ import { labelBounds } from '@/lib/layout/count-box'
 import type { StateLayout } from '@/lib/layout/layout-client'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, useNames } from '@/lib/species/names'
 import { Bird, type BirdInit } from './Bird'
 import { loadDeferred, unloadSticker } from './Sticker'
 import { birdAt, ensureMasks } from './collage-hit'
@@ -96,6 +97,7 @@ function makeInit(code: string, layout: StateLayout, visible: Set<string>, m: Mo
 
 export function Collage({ entries, species, layout, visible, mode, onPick, onHover, className, still }: CollageProps) {
   const { t } = useI18n()
+  const names = useNames() // birds are named in the local language once its names file arrives
   const stage = useRef<HTMLDivElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   const els = useRef(new Map<string, HTMLButtonElement>())
@@ -537,7 +539,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         inits.set(code, init)
       }
       const r = row(code)
-      return <Bird key={code} code={code} name={r?.com ?? code} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} init={init} register={register} />
+      return <Bird key={code} code={code} name={r ? displayName(r) : code} st={!!r?.st} ar={r?.ar ?? 1} sv={r?.sv} init={init} register={register} />
     })
     if (!windowed) return list
     // Windowed: in groups of GROUP (display: contents, so nothing changes for layout or paint order). WebKit restyles
@@ -549,7 +551,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
     return groups
     // layout and visible are read only to seed birds new to the list; their changes are written in the layout effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draw, row, register, motion, inits, windowed])
+  }, [draw, row, register, motion, inits, windowed, names])
   // The layer element itself is memoised too, so a new layout re-renders the stage without walking 1,000 birds.
   const birdLayer = useMemo(() => <div ref={layer} className="eb-layer">{birds}</div>, [birds])
 

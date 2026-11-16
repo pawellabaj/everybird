@@ -7,11 +7,13 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { NAME_BASES } from '../../src/lib/species/name-locales'
+import type { NameSet } from '../../src/lib/species/names'
 import { LAYOUTS } from '../../src/lib/layout/constants'
 import { createLayoutHandler, type MaskLoader, type MaskTable } from '../../src/lib/layout/layout.worker'
 import { buildList } from '../../src/lib/list/build-list'
 import { sampleToSaved, type SampleFile } from '../../src/lib/list/sample'
-import type { PackedLayout, SamplePackFile } from '../../src/lib/list/sample-pack'
+import type { PackedLayout, PackNames, SamplePackFile } from '../../src/lib/list/sample-pack'
 import type { Regions, SpeciesFile, SpeciesRow } from '../../src/lib/species/types'
 
 const r2 = (x: number) => Math.round(x * 100) / 100
@@ -24,10 +26,29 @@ export function sampleCodes(sample: SampleFile, byCode: Map<string, SpeciesRow>)
 }
 
 /**
- * Build the pack: the rows and region names the sample uses, and each layout class's full even collage, packed by
- * the layout worker's own handler (so the worker later lands on the same boxes).
+ * The base languages' names for these rows and their families, from the committed names files (public/data/names.<base>.v1.json,
+ * read from `dir`: the repo's, so the weekly huashu sync keeps `loc` with no extra input). Only names that differ from English.
  */
-export async function makeSamplePack(sample: SampleFile, species: SpeciesRow[], regions: Regions, loadMasks: MaskLoader): Promise<SamplePackFile> {
+export function packNames(rows: SpeciesRow[], dir = join(process.cwd(), 'public/data')): PackNames {
+  const out = {} as PackNames
+  for (const base of NAME_BASES) {
+    const set = JSON.parse(readFileSync(join(dir, `names.${base}.v1.json`), 'utf8')) as NameSet
+    const names: Record<string, string> = {}, fam: Record<string, string> = {}
+    for (const r of rows) {
+      if (set.names[r.code]) names[r.code] = set.names[r.code]
+      if (set.fam[r.fam]) fam[r.fam] = set.fam[r.fam]
+    }
+    out[base] = { names, fam }
+  }
+  return out
+}
+
+/**
+ * Build the pack: the rows and region names the sample uses, and each layout class's full even collage, packed by
+ * the layout worker's own handler (so the worker later lands on the same boxes). `dataDir` is where the committed
+ * names files are (default: this repo's public/data).
+ */
+export async function makeSamplePack(sample: SampleFile, species: SpeciesRow[], regions: Regions, loadMasks: MaskLoader, dataDir?: string): Promise<SamplePackFile> {
   const byCode = new Map(species.map((r) => [r.code, r]))
   const codes = sampleCodes(sample, byCode)
   const rows = codes.map((c) => byCode.get(c)!)
@@ -46,7 +67,7 @@ export async function makeSamplePack(sample: SampleFile, species: SpeciesRow[], 
     if (r.type !== 'result') throw new Error(r.type === 'error' ? r.message : 'layout failed')
     layouts.push({ layout: l.name, W: r2(r.W), H: r2(r.H), base: r.base, codes: r.codes, boxes: Array.from(r.boxes, r2) })
   }
-  return { ...sample, species: rows, regions: { v: 1, ...used }, layouts }
+  return { ...sample, species: rows, regions: { v: 1, ...used }, layouts, loc: packNames(rows, dataDir) }
 }
 
 const DATA = join(process.cwd(), 'public/data')

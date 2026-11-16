@@ -13,7 +13,7 @@ import { OG_COUNT_MAX, SHARE_COLORS, FOOTER_LINE, countLayout, ogCountHole, type
 import { ymToDate } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
 import { OG_COLLAGE, OG_SIZE, ogDescription, ogName, ogResponseOptions, pickOgStickers, tryDecodeShare } from '@/lib/share/og'
-import { OG_LARGE_TILE, fetchStickers, ogFonts, serverMasks, serverSpecies } from '@/lib/share/og-server'
+import { OG_LARGE_TILE, fetchStickers, ogFonts, serverMasks, serverNames, serverSpecies } from '@/lib/share/og-server'
 
 // English in every language: Next's file convention takes a static `alt`, and a per-language one (generateImageMetadata)
 // would move the image to /opengraph-image/<id>.
@@ -87,7 +87,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
       const top = latestLifer(entries, (c) => species.get(c)?.to ?? 0)
       const row = top && species.get(top.code)
       // The latest lifer row: a mono label with the month over the bird's name, as the share images.
-      if (top && row) latest = { name: row.com, date: formatMonth(top.date, t.date.months) || undefined }
+      const local = await serverNames(lang)
+      if (top && row) latest = { name: local[row.code] ?? row.com, date: formatMonth(top.date, t.date.months) || undefined }
     } catch (e) {
       failed = true // the text card stands in: cached briefly, not for a year
       console.warn('og image: collage unavailable, rendering the text card', e) // still a valid image

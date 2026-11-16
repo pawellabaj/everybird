@@ -34,7 +34,7 @@ import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
-import type { Regions } from '@/lib/species/types'
+import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { orderLabel } from '@/lib/species/orders'
 
 export type ImageFormat = 'story' | 'post' | 'square' // 1080×1920, 1080×1350, 1080×1080
@@ -79,13 +79,13 @@ export function latestText(latest: { com: string; date?: string }, t: Pick<Ui, '
  */
 export function filterLabel(
   f: Filter,
-  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
+  ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'>; /** A family's name to show (default: English). */ familyName?: (row: SpeciesRow) => string },
   t: ShareStrings,
 ): string | undefined {
   // Places: "Canada", "Canada + Egypt", "Capital and 2 more".
   const place = ctx.regions ? placesLabel(f, ctx.regions, t) : countriesLabel(f.countries, ctx.countryName, t)
   const parts: string[] = []
-  if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
+  if (f.family) { const r = ctx.species.rows.find((x) => x.fam === f.family); parts.push(r ? (ctx.familyName?.(r) ?? r.famCom) || f.family : f.family) }
   else if (f.order) parts.push(orderLabel(f.order, t))
   if (place) parts.push(place)
   const range = rangeLabel(f.from, f.to, t)
@@ -466,6 +466,8 @@ export type ShareImageOpts = {
   /** The UI language's strings the image draws: the count's number and label, the latest lifer's label and month, and
    *  the stamp's month. The filter label comes in words already (`filterLabel`, from the same strings). */
   strings: ShareStrings
+  /** A bird's name to draw (the latest lifer's); default its English name. The dialog passes the display name. */
+  nameOf?: (row: SpeciesRow) => string
   signal?: AbortSignal
 }
 
@@ -525,7 +527,7 @@ export async function drawShareImage(opts: ShareImageOpts): Promise<HTMLCanvasEl
   const latestE = latestLifer(shown, (c) => species.byCode.get(c)?.to ?? Number.MAX_SAFE_INTEGER)
   const latestRow = latestE && species.byCode.get(latestE.code)!
   const strings = opts.strings
-  const latest = opts.latest !== false && latestRow ? latestText({ com: latestRow.com, date: latestE!.date }, strings) : undefined
+  const latest = opts.latest !== false && latestRow ? latestText({ com: opts.nameOf?.(latestRow) ?? latestRow.com, date: latestE!.date }, strings) : undefined
   const label = opts.filterLabel?.trim() || undefined
   const name = opts.name?.trim() || undefined
   const footerLine = withStamp(FOOTER_LINE, stampDate(opts.now ?? new Date(), stampStrings(strings)))

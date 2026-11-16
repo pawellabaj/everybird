@@ -9,6 +9,7 @@ import { unmatchedKey, type Unmatched } from '@/lib/list/model'
 import type { Action } from '@/lib/list/store'
 import type { Saved } from '@/lib/list/storage'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, useNames } from '@/lib/species/names'
 import { SpeciesSearch } from './SpeciesSearch'
 import '@/components/filters/filters.css'
 import './import.css'
@@ -66,6 +67,7 @@ export const MatchReport = memo(function MatchReport({ open, saved, species, dis
 function MatchRow({ u, species, onFix }: { u: Unmatched; species: SpeciesIndex; onFix: (code: string) => void }) {
   const { t } = useI18n()
   const [searching, setSearching] = useState(false)
+  useNames() // the suggestion's name follows the names file and the English switch
   const name = u.com ?? u.sci ?? where(u, t)
   const suggestion = u.suggestion ? species.byCode.get(u.suggestion) : undefined
   return (
@@ -79,7 +81,7 @@ function MatchRow({ u, species, onFix }: { u: Unmatched; species: SpeciesIndex; 
         {suggestion && (
           <button type="button" className="eb-chip" onClick={() => onFix(suggestion.code)}>
             <Check aria-hidden="true" focusable="false" className="eb-chip-icon" />
-            <span className="eb-chip-label">{fmt(t.import.match.use, { name: suggestion.com })}</span>
+            <span className="eb-chip-label">{fmt(t.import.match.use, { name: displayName(suggestion) })}</span>
           </button>
         )}
         <button type="button" className="eb-chip" aria-expanded={searching} onClick={() => setSearching(!searching)}>

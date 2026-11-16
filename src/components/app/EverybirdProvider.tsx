@@ -9,6 +9,7 @@ import { slotSource, SLOTS, type ImportResult, type Slot } from '@/lib/list/mode
 import type { EbirdDetails, InatDetails, Saved } from '@/lib/list/storage'
 import { useEverybird, type Action, type AppState, type EverybirdMeta } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { useLoadNames } from '@/lib/species/names'
 import type { Regions } from '@/lib/species/types'
 import { useAppPath } from '@/i18n/path'
 import { useImportJobs, type ImportJobs } from './use-import-jobs'
@@ -38,6 +39,7 @@ const Ctx = createContext<Everybird | null>(null)
 export function EverybirdProvider({ children }: { children: ReactNode }) {
   // On the landing page, a visitor without a list sees the pre-packed sample; the species file can wait.
   const [state, dispatch, meta] = useEverybird({ deferIfEmpty: useAppPath() === '/' })
+  useLoadNames(state.list)
   const [regions, setRegions] = useState<Regions | null>(null)
   const [regionsFailed, setRegionsFailed] = useState(false)
   useEffect(() => {

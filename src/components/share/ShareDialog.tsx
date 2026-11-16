@@ -26,6 +26,7 @@ import {
 import type { ShareLevel } from '@/lib/share/link'
 import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, familyName, useNames } from '@/lib/species/names'
 import type { Regions } from '@/lib/species/types'
 import '@/components/app/app.css'
 import '@/components/collage/collage.css'
@@ -51,6 +52,7 @@ function useTheme(): Theme {
 }
 
 export default function ShareDialog({ state, species, regions, onClose }: Props) {
+  const names = useNames()
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
   const nameId = useId()
@@ -72,8 +74,9 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
   const shown = useMemo(() => (fk ? applyFilter(known, filter, species, seen) : known), [known, filter, fk, species, seen])
   const label = useMemo(() => {
     const named = regionsIn(regions, lang)
-    return labelFor(filter, { species, countryName: (iso) => countryName(iso, lang, regions), regions: named }, t)
-  }, [filter, species, regions, lang, t])
+    return labelFor(filter, { species, countryName: (iso) => countryName(iso, lang, regions), regions: named, familyName }, t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  }, [filter, species, regions, lang, t, names])
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
 
@@ -124,7 +127,7 @@ export default function ShareDialog({ state, species, regions, onClose }: Props)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
       .then(() => packFor(format, !!trimmed, withLatest))
-      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, latest: withLatest, strings: t, signal: life.current?.signal }))
+      .then((pack) => renderShareImage({ format, entries: shown, species, filterLabel: label, name: trimmed || undefined, theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal }))
     current.current = job
     job.then(
       (blob) => {

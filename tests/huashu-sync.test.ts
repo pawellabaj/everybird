@@ -392,3 +392,16 @@ describe('local builds stay on the lock', () => {
     } finally { rmSync(tmp, { recursive: true, force: true }) }
   })
 })
+
+describe('the sample pack the sync regenerates', () => {
+  it('still carries the base names (loc), read from the committed names files, with no new input', async () => {
+    const { makeSamplePack } = await import('../scripts/build-data/build-sample-pack')
+    const dir = resolve(__dirname, '../public/data')
+    const read = <T,>(f: string) => JSON.parse(readFileSync(join(dir, f), 'utf8')) as T
+    const rows = read<SpeciesFile>('species.v1.json').species // the sync passes its rebuilt rows the same way
+    const pack = await makeSamplePack(read('sample.v1.json'), rows, read('regions.v1.json'), async () => ({}), dir)
+    expect(Object.keys(pack.loc).sort()).toEqual(['es', 'nl', 'pt_BR'])
+    expect(Object.keys(pack.loc.es.names).length).toBeGreaterThan(100)
+    expect(pack.loc).toEqual(read<{ loc: unknown }>('sample-pack.v1.json').loc)
+  })
+})

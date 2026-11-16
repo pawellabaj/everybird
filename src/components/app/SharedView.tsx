@@ -5,6 +5,7 @@ import { loadRegions, stripBracket } from '@/lib/import/places'
 import { initialState, makeReducer } from '@/lib/list/store'
 import { emptySaved } from '@/lib/list/storage'
 import { loadSpecies, type SpeciesIndex } from '@/lib/species/load'
+import { useLoadNames } from '@/lib/species/names'
 import type { Regions } from '@/lib/species/types'
 import { payloadToRecords } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
@@ -53,6 +54,7 @@ function Loaded({ payload, species, regions }: { payload: SharePayload; species:
     saved.records.ebird = shown.records
     return reducer(initialState(), { type: 'restore', saved })
   })
+  useLoadNames(state.list) // the link's own places decide the regional names
   const miss = missingFilters(payload)
   const hide = miss.places && miss.dates ? NEITHER : miss.places ? NO_PLACES : miss.dates ? NO_DATES : NONE
   // What the link leaves out is said quietly under the filters, not before the birds.

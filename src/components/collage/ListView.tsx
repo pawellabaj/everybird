@@ -7,6 +7,7 @@ import { regionsIn } from '@/lib/i18n-places'
 import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, useNames } from '@/lib/species/names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { massValue } from './BirdCard'
 import { Marks } from './Marks'
@@ -34,6 +35,8 @@ type RowProps = { entry: ListEntry; row: SpeciesRow; place: string; sci: boolean
 
 /** LifeList's row: thumb | name | mass, then place and date at the far right (date rightmost). */
 const Row = memo(function Row({ entry, row, place, sci, onPick, t }: RowProps) {
+  useNames()
+  const com = displayName(row)
   const date = formatMonth(entry.date, t.date.months)
   const fit = Math.min(THUMB_W / Math.max(row.ar, 0.01), THUMB_H) // sticker fitted in 56 x 40 without stretching
   return (
@@ -43,8 +46,8 @@ const Row = memo(function Row({ entry, row, place, sci, onPick, t }: RowProps) {
           <span style={{ width: Math.round(fit * row.ar), height: Math.round(fit) }}><Sticker code={entry.code} st={row.st} ar={row.ar} sv={row.sv} w={fit * row.ar} h={fit} /></span>
         </span>
         <span className="eb-row-name">
-          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}</span><Marks entry={entry} /></span>
-          <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</span>
+          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}</span><Marks entry={entry} /></span>
+          <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</span>
         </span>
         <span className="eb-row-meta">
           <span className="eb-mono eb-row-mass" title={t.card.mass}><span className="eb-sr">{t.card.mass} </span>{massValue(row, t)}</span>

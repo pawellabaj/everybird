@@ -5,6 +5,7 @@ import path from 'node:path'
 import sharp from 'sharp'
 import type { MaskLoader, MaskTable } from '@/lib/layout/layout.worker'
 import { stickerUrl } from '@/lib/sticker-url'
+import { baseOfLang } from '@/lib/species/name-locales'
 import type { SpeciesFile, SpeciesRow } from '@/lib/species/types'
 
 const dataFile = (...p: string[]) => path.join(process.cwd(), 'public', 'data', ...p)
@@ -17,6 +18,23 @@ export function serverSpecies(): Promise<Map<string, SpeciesRow>> {
     speciesP.catch(() => { speciesP = null })
   }
   return speciesP
+}
+
+const namesByBase = new Map<string, Promise<Record<string, string>>>()
+/**
+ * The card's local bird names for a URL's language: the base set (es, pt_BR, nl; never a regional one, since the card
+ * is cached a year per URL), read from disk like the species file. English, and a failure, give none (English names).
+ */
+export function serverNames(lang: string): Promise<Record<string, string>> {
+  const base = baseOfLang(lang)
+  if (!base) return Promise.resolve({})
+  let p = namesByBase.get(base)
+  if (!p) {
+    p = readFile(dataFile(`names.${base}.v1.json`), 'utf8').then((t) => (JSON.parse(t) as { names: Record<string, string> }).names)
+    namesByBase.set(base, p)
+    p.catch(() => { namesByBase.delete(base) })
+  }
+  return p.catch(() => ({}))
 }
 
 const maskTables = new Map<string, Promise<MaskTable>>()

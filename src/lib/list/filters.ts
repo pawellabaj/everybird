@@ -1,4 +1,5 @@
 import type { SpeciesIndex } from '@/lib/species/load'
+import type { SpeciesRow } from '@/lib/species/types'
 import { orderLabel } from '@/lib/species/orders'
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
@@ -121,6 +122,8 @@ export function options(
   species: SpeciesIndex,
   name: (code: string) => string = (code) => code,
   seen?: SeenIndex,
+  /** A family's label (the names files' family names); default the English family name. */
+  famName: (row: SpeciesRow) => string = (row) => row.famCom,
 ): ChipOption[] {
   if (level === 'family' && !f.order) return []
   const m = matcher(f, species, new Set(SKIP[level]), seen)
@@ -137,7 +140,7 @@ export function options(
       const key = level === 'order' ? row.ord : row.fam
       bump(key)
       if (!firstTo.has(key) || row.to < firstTo.get(key)!) firstTo.set(key, row.to)
-      if (level === 'family') famLabel.set(key, row.famCom)
+      if (level === 'family') famLabel.set(key, famName(row))
     } else if (level === 'country') {
       const here = new Set<string>()
       for (const p of seenOf(seen, e)) here.add(p.country)

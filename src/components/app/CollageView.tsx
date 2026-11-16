@@ -20,6 +20,7 @@ import type { ListEntry } from '@/lib/list/model'
 import { monthBins, todayMonth } from '@/lib/list/timeline'
 import type { Action, AppState } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, useNames } from '@/lib/species/names'
 import type { CollageHit } from '@/lib/species/name-search'
 import type { Regions } from '@/lib/species/types'
 import type { StateLayout } from '@/lib/layout/layout-client'
@@ -95,6 +96,7 @@ function latestLine(name: string, date: string | undefined, t: Ui): ReactNode {
 export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
   const { list, filter, mode, view, massOrder, sci, seen } = state
   const { t } = useI18n()
+  useNames() // the legend's latest lifer, the search results and the filters follow the names
   const box = useRef<HTMLElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const [pick, setPick] = useState<{ code: string; anchor: HTMLElement | null } | null>(null)
@@ -236,7 +238,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
 
       <div className="eb-mono eb-legend">
         <p>
-          {latest && latestRow ? <>{latestLine(latestRow.com, latest.date, t)} · </> : null}
+          {latest && latestRow ? <>{latestLine(displayName(latestRow), latest.date, t)} · </> : null}
           {sizes}
         </p>
         <p>{t.collage.legend.marks}</p>

@@ -19,6 +19,7 @@ import type { Edits, Place } from '@/lib/list/model'
 import type { Action } from '@/lib/list/store'
 import { addTicked, filterTickRows, removeTicked, undoRemove } from '@/lib/list/tick'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, familyName, nameOfCode, useNames } from '@/lib/species/names'
 import { orderLabel } from '@/lib/species/orders'
 import type { Regions } from '@/lib/species/types'
 import { parseManualDate } from './manual-date'
@@ -42,6 +43,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
   const ids = useId()
   const { lang, t } = useI18n()
   const tt = t.tick
+  const names = useNames() // the names file arrived or the English switch flipped
   const num = (x: number) => formatInt(x, t.num)
   const [q, setQ] = useState('')
   const [order, setOrder] = useState('')
@@ -67,12 +69,14 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
   const families = useMemo(() => {
     if (!order) return []
     const seen = new Map<string, { com: string; to: number }>()
-    for (const r of species.rows) if (r.ord === order && (!seen.has(r.fam) || r.to < seen.get(r.fam)!.to)) seen.set(r.fam, { com: r.famCom || r.fam, to: r.to })
+    for (const r of species.rows) if (r.ord === order && (!seen.has(r.fam) || r.to < seen.get(r.fam)!.to)) seen.set(r.fam, { com: familyName(r), to: r.to })
     return [...seen].sort((a, b) => a[1].to - b[1].to)
-  }, [species, order])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  }, [species, order, names])
   // The list follows the search a beat behind the keys, so typing never waits on a pass over 11,000 names.
   const dq = useDeferredValue(q)
-  const rows = useMemo(() => filterTickRows(species.rows, { q: dq, order, family }), [species, dq, order, family])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  const rows = useMemo(() => filterTickRows(species.rows, { q: dq, order, family }), [species, dq, order, family, names])
   // Country names in the UI language (Intl.DisplayNames, src/lib/i18n-places.ts), sorted in its order.
   const countries = useMemo(
     () => Object.entries(regionsIn(regions, lang).countries).map(([iso, name]) => [iso, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], lang)),
@@ -128,7 +132,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
     if (!drop.length) return
     dispatch({ type: 'edit', edits: removeTicked(edits, drop) })
     setDone('')
-    setRemoved({ codes: drop, text: removedText(drop.map((c) => species.byCode.get(c)?.com ?? c), t), before: edits })
+    setRemoved({ codes: drop, text: removedText(drop.map((c) => nameOfCode(species.byCode, c)), t), before: edits })
     setDropped(new Set())
   }
   // Undo: exactly what the removal changed comes back (the removed list, hand records as they were), later edits kept.
@@ -203,7 +207,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
                 id={`${ids}-r-${r.code}`}
                 role="option"
                 aria-selected={sel}
-                aria-label={on ? fmt(tt.onListLabel, { name: `${r.com}, ${r.sci}` }) : `${r.com}, ${r.sci}`}
+                aria-label={on ? fmt(tt.onListLabel, { name: `${displayName(r)}, ${r.sci}` }) : `${displayName(r)}, ${r.sci}`}
                 data-on={on || undefined}
                 className="eb-tickrow"
                 data-active={i === at || undefined}
@@ -214,7 +218,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
                 <span className="eb-tickbox" aria-hidden="true">{sel && <Check weight="bold" />}</span>
                 <span className="eb-tickthumb" aria-hidden="true"><span style={{ width: Math.round(fit * r.ar), height: Math.round(fit) }}><Sticker code={r.code} st={r.st} ar={r.ar} sv={r.sv} w={fit * r.ar} h={fit} /></span></span>
                 <span className="eb-tickname">
-                  <span>{r.com}</span>
+                  <span>{displayName(r)}</span>
                   <i lang="la">{r.sci}</i>
                 </span>
                 {on && <span className="eb-mono eb-tickon">{sel ? tt.onList : tt.toRemove}</span>}

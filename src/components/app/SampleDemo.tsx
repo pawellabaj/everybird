@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useReducer, useState } from 'react'
 import { useI18n } from '@/i18n/I18nProvider'
 import { stripBracket } from '@/lib/import/places'
+import { baseOfLang } from '@/lib/species/name-locales'
+import { seedNames } from '@/lib/species/names'
 import { loadSamplePack, type SamplePack } from '@/lib/list/sample-pack'
 import { initialState, makeReducer } from '@/lib/list/store'
 import { CollageView } from './CollageView'
@@ -27,7 +29,13 @@ export function SampleDemo() {
 
 function Loaded({ pack }: { pack: SamplePack }) {
   const { species, regions } = pack
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
+  // The sample reads in the UI language from its own base names until the full names file arrives (then that replaces them).
+  useEffect(() => {
+    const base = baseOfLang(lang)
+    const loc = base ? pack.loc?.[base] : undefined
+    if (base && loc) seedNames({ v: 1, locale: base, taxonomy: '', names: loc.names, fam: loc.fam })
+  }, [pack, lang])
   const reducer = useMemo(
     () => makeReducer({ species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso) }),
     [species, regions],

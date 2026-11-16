@@ -3,6 +3,7 @@
 import { HTML_LANG, type Lang } from '@/i18n/langs'
 import { EN_UI, type Ui } from '@/i18n/messages/en'
 import { orderLabel } from './orders'
+import { displayName, familyName, localName, namesVersion } from './names'
 import { foldName } from './resolve'
 import type { SpeciesRow } from './types'
 
@@ -14,16 +15,22 @@ export function searchKey(s: string): string {
     .trim()
 }
 
-type Pre = { com: string; sci: string; cw: string[]; sw: string[] }
+type Pre = { com: string; sci: string; cw: string[]; sw: string[]; loc: string; lw: string[]; v: number }
 const wordsOf = (s: string) => (s ? s.split(' ') : [])
 const PRE = new WeakMap<object, Pre>()
 
-/** A row's normalised names and words, computed once per row. */
-export function prepared(r: Pick<SpeciesRow, 'com' | 'sci'>): Pre {
+/**
+ * A row's normalised names and words, computed once per row and again when the names change (a names file arrived,
+ * the switch flipped). A row without a code (an order or family) has no local name.
+ */
+export function prepared(r: Pick<SpeciesRow, 'com' | 'sci'> & { code?: string }): Pre {
+  const v = namesVersion()
   let p = PRE.get(r)
-  if (!p) {
+  if (!p || p.v !== v) {
     const com = searchKey(r.com ?? ''), sci = searchKey(r.sci ?? '')
-    p = { com, sci, cw: wordsOf(com), sw: wordsOf(sci) }
+    const local = r.code ? localName(r.code) : undefined
+    const loc = local ? searchKey(local) : com
+    p = { com, sci, cw: wordsOf(com), sw: wordsOf(sci), loc, lw: loc === com ? wordsOf(com) : wordsOf(loc), v }
     PRE.set(r, p)
   }
   return p
@@ -32,17 +39,18 @@ export function prepared(r: Pick<SpeciesRow, 'com' | 'sci'>): Pre {
 const hasPrefix = (ws: string[], t: string) => ws.some((w) => w.startsWith(t))
 
 /**
- * How well a row matches a search key (from searchKey): 0 exact common or scientific name, 1 every word a prefix
- * of a common-name word, 2 of a scientific-name word, 3 of either; -1 no match. An empty key matches nothing.
+ * How well a row matches a search key (from searchKey): 0 exact local, English or scientific name, 1 every word a
+ * prefix of a local-name word (or of an English-name word), 2 of a scientific-name word, 3 of any of them mixed; -1 no
+ * match. An empty key matches nothing. With no names set the local name is the English one, so tiers are as ever.
  */
-export function nameTier(key: string, r: Pick<SpeciesRow, 'com' | 'sci'>): number {
+export function nameTier(key: string, r: Pick<SpeciesRow, 'com' | 'sci'> & { code?: string }): number {
   if (!key) return -1
   const p = prepared(r)
-  if (p.com === key || p.sci === key) return 0
+  if (p.loc === key || p.com === key || p.sci === key) return 0
   const toks = key.split(' ')
-  if (toks.every((t) => hasPrefix(p.cw, t))) return 1
+  if (toks.every((t) => hasPrefix(p.lw, t)) || toks.every((t) => hasPrefix(p.cw, t))) return 1
   if (toks.every((t) => hasPrefix(p.sw, t))) return 2
-  if (toks.every((t) => hasPrefix(p.cw, t) || hasPrefix(p.sw, t))) return 3
+  if (toks.every((t) => hasPrefix(p.lw, t) || hasPrefix(p.cw, t) || hasPrefix(p.sw, t))) return 3
   return -1
 }
 
@@ -89,7 +97,7 @@ export function searchCollage(
   const key = searchKey(q)
   if (!key) return []
   const orders = new Map<string, Group & { fams: Set<string> }>()
-  const fams = new Map<string, Group & { com: string; order: string }>()
+  const fams = new Map<string, Group & { com: string; en: string; order: string }>()
   const found: { hit: CollageHit; tier: number; to: number }[] = []
   for (const e of entries) {
     const r = species.byCode.get(e.code)
@@ -101,25 +109,27 @@ export function searchCollage(
     o.to = Math.min(o.to, r.to)
     o.fams.add(r.fam)
     orders.set(r.ord, o)
-    const f = fams.get(r.fam) ?? { count: 0, shown: 0, to: r.to, com: r.famCom || r.fam, order: r.ord }
+    const f = fams.get(r.fam) ?? { count: 0, shown: 0, to: r.to, com: familyName(r), en: r.famCom || r.fam, order: r.ord }
     f.count++
     if (on) f.shown++
     f.to = Math.min(f.to, r.to)
     fams.set(r.fam, f)
     const tier = nameTier(key, r)
-    if (tier >= 0) found.push({ hit: { kind: 'species', value: r.code, com: r.com, sci: r.sci, count: 1, order: r.ord, inFilter: on }, tier, to: r.to })
+    if (tier >= 0) found.push({ hit: { kind: 'species', value: r.code, com: displayName(r), sci: r.sci, count: 1, order: r.ord, inFilter: on }, tier, to: r.to })
   }
   for (const [ord, o] of orders) {
     const com = orderLabel(ord, t)
-    const tier = nameTier(key, { com, sci: ord })
+    const tiers = [nameTier(key, { com, sci: ord }), nameTier(key, { com: orderLabel(ord), sci: ord })].filter((x) => x >= 0)
+    const tier = tiers.length ? Math.min(...tiers) : -1
     if (tier >= 0) found.push({ hit: { kind: 'order', value: ord, com, sci: ord, count: o.shown || o.count, inFilter: o.shown > 0 }, tier, to: o.to })
   }
   for (const [fam, f] of fams) {
     const o = orders.get(f.order)!
-    // Family names are English (until the names files), so the English order label counts too.
-    const famKey = searchKey(f.com)
-    if (o.fams.size === 1 && (famKey === searchKey(orderLabel(f.order, t)) || famKey === searchKey(orderLabel(f.order)))) continue
-    const tier = nameTier(key, { com: f.com, sci: fam })
+    // A family named like its order's only family is left out; either language's name counts, English order label too.
+    const famKeys = [searchKey(f.com), searchKey(f.en)]
+    if (o.fams.size === 1 && famKeys.some((k) => k === searchKey(orderLabel(f.order, t)) || k === searchKey(orderLabel(f.order)))) continue
+    const tiers = [nameTier(key, { com: f.com, sci: fam }), nameTier(key, { com: f.en, sci: fam })].filter((x) => x >= 0)
+    const tier = tiers.length ? Math.min(...tiers) : -1
     if (tier >= 0) found.push({ hit: { kind: 'family', value: fam, com: f.com, sci: fam, count: f.shown || f.count, order: f.order, inFilter: f.shown > 0 }, tier, to: f.to })
   }
   const out = (x: { hit: CollageHit }) => (x.hit.inFilter ? 0 : 1)

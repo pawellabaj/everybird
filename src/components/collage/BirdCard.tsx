@@ -8,6 +8,7 @@ import { regionsIn } from '@/lib/i18n-places'
 import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, useNames } from '@/lib/species/names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { CloseIcon } from './icons'
 import { markLabel, Marks, marksOf } from './Marks'
@@ -52,6 +53,7 @@ export const massValue = (row: SpeciesRow, t: Ui) => `${row.gSrc === 'family' ||
 export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow }: Props) {
   const row = species.byCode.get(entry.code)
   const { t } = useI18n()
+  useNames() // the card's name follows the names file and the English switch
   const sheet = useIsSheet()
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -160,7 +162,7 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
       className="eb-card"
       role="dialog"
       aria-modal={sheet ? true : undefined}
-      aria-label={row.com}
+      aria-label={displayName(row)}
       data-variant={sheet ? 'sheet' : 'popover'}
       tabIndex={-1}
       onKeyDown={trap}
@@ -190,6 +192,8 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, ch
   entry: ListEntry; row: SpeciesRow; regions: Regions; sci?: boolean; heading?: boolean; children?: ReactNode
 }) {
   const { lang, t } = useI18n()
+  useNames()
+  const com = displayName(row)
   const place = formatPlace(entry.place, regionsIn(regions, lang))
   const date = formatMonth(entry.date, t.date.months)
   const marks = marksOf(entry).map((m) => markLabel(m.k, t))
@@ -199,8 +203,8 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, ch
     <>
       <div className="eb-card-head">
         <div className="eb-card-names">
-          <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}<Marks entry={entry} /></Name>
-          <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</p>
+          <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}<Marks entry={entry} /></Name>
+          <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</p>
         </div>
         <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
         {children}

@@ -7,7 +7,7 @@ import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
 import { OG_CACHE_COMPLETE, OG_CACHE_DEGRADED, ogCacheControl, ogDescription, ogName, ogResponseOptions, ogTitle, pickOgBirds, shareTitle, pickOgStickers, tryDecodeShare } from '@/lib/share/og'
-import { coversLatin1, parseFontFaces, pickFaces } from '@/lib/share/og-server'
+import { coversLatin1, parseFontFaces, pickFaces, serverNames } from '@/lib/share/og-server'
 
 const T = en.ui
 
@@ -227,5 +227,21 @@ describe('the link preview footer', () => {
     const src = readFileSync(resolve('app/[lang]/s/[token]/opengraph-image.tsx'), 'utf8')
     expect(src).toContain('{FOOTER_LINE}')
     expect(src).not.toMatch(/stampDate|withStamp|share\/stamp/)
+  })
+})
+
+describe('the link preview names', () => {
+  const file = (l: string) => (JSON.parse(readFileSync(resolve(__dirname, `../public/data/names.${l}.v1.json`), 'utf8')) as { names: Record<string, string> }).names
+  it("uses the URL language's base names, never a regional set", async () => {
+    expect((await serverNames('es')).amerob).toBe(file('es').amerob)
+    expect((await serverNames('es')).amerob).toBe('Zorzal americano')
+    const pt = await serverNames('pt')
+    expect(pt.houspa).toBe(file('pt_BR').houspa)
+    expect(pt.houspa).not.toBe(file('pt_PT').houspa) // pt_PT says "Pardal-do-telhado"
+    expect((await serverNames('nl')).houspa).toBe('Huismus')
+  })
+  it('English has none (the card draws the English name)', async () => {
+    expect(await serverNames('en')).toEqual({})
+    expect(await serverNames('zz')).toEqual({})
   })
 })

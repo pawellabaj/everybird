@@ -14,6 +14,7 @@ import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { useNames } from '@/lib/species/names'
 import { searchCollage, type CollageHit } from '@/lib/species/name-search'
 import { orderLabel } from '@/lib/species/orders'
 
@@ -63,8 +64,10 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
   const list = useRef<HTMLUListElement>(null)
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(-1)
+  const names = useNames()
   const typed = query.trim().length > 0
-  const hits = useMemo(() => (typed ? searchCollage(entries, query, species, { shown, t, lang }) : []), [entries, query, species, typed, shown, t, lang])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  const hits = useMemo(() => (typed ? searchCollage(entries, query, species, { shown, t, lang }) : []), [entries, query, species, typed, shown, t, lang, names])
   const firstOutside = shown ? hits.findIndex((h) => !h.inFilter) : -1
   const at = cursor < hits.length ? cursor : -1
 

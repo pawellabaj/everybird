@@ -13,6 +13,7 @@ import type { Ui } from '@/i18n/messages/en'
 import { options, type ChipOption, type Filter, type FilterLevel } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { familyName, useNames } from '@/lib/species/names'
 import { orderLabel } from '@/lib/species/orders'
 import { LevelRow } from './LevelRow'
 import './filters.css'
@@ -45,6 +46,7 @@ type Crumb = { label: string; latin: boolean; to?: Filter }
 export const FilterBar = memo(function FilterBar({ state, dispatch, species }: Props) {
   const sheet = useIsSheet()
   const { t } = useI18n()
+  const names = useNames() // family names follow the names file and the English switch
   const { list, filter, sci, seen } = state
   const BIRDS = birds(t)
 
@@ -52,10 +54,11 @@ export const FilterBar = memo(function FilterBar({ state, dispatch, species }: P
   const opts = useMemo(() => {
     const out: Partial<Record<Level, ChipOption[]>> = {}
     const [top, child] = LEVELS
-    out[top] = options(list, filter, top, species, undefined, seen)
-    if (child && filter[top]) out[child] = options(list, filter, child, species, undefined, seen)
+    out[top] = options(list, filter, top, species, undefined, seen, familyName)
+    if (child && filter[top]) out[child] = options(list, filter, child, species, undefined, seen, familyName)
     return out
-  }, [list, filter, species, seen])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  }, [list, filter, species, seen, names])
 
   const set = (level: Level, value: string | undefined) => dispatch({ type: 'filter', filter: withLevel(filter, level, value) })
   const toggle = (level: Level, value: string) => set(level, filter[level] === value ? undefined : value)
@@ -65,7 +68,7 @@ export const FilterBar = memo(function FilterBar({ state, dispatch, species }: P
   const nameOf = (level: Level, v: string): string => {
     if (sci && LATIN.has(level)) return v
     if (level === 'order') return orderLabel(v, t)
-    return opts.family?.find((o) => o.value === v)?.label ?? species.rows.find((r) => r.fam === v)?.famCom ?? v
+    return opts.family?.find((o) => o.value === v)?.label ?? (() => { const r = species.rows.find((x) => x.fam === v); return r ? familyName(r) : v })()
   }
   const chipText = (level: Level, o: ChipOption) => (sci && LATIN.has(level) ? o.value : level === 'order' ? orderLabel(o.value, t) : o.label)
   const chipLabel = (level: FilterLevel, o: ChipOption) => chipText(level as Level, o)

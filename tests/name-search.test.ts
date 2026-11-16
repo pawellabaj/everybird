@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import { nameTier, searchCollage, searchKey } from '@/lib/species/name-search'
+import { setEnglishNames, setNames } from '@/lib/species/names'
 import type { SpeciesRow } from '@/lib/species/types'
 
 const sp = (code: string, com: string, sci: string, ord: string, to: number): SpeciesRow =>
@@ -85,5 +86,43 @@ describe('searchCollage (the dock search: orders, families and species among the
   it('an empty query finds nothing; a capped search keeps the best matches, still sorted by name', () => {
     expect(hits('   ')).toEqual([])
     expect(hits('t', all, 2)).toEqual(['family:Thrushes:2', 'family:Toucans:1'])
+  })
+})
+
+describe('local names in search', () => {
+  const set = { v: 1 as const, locale: 'es' as const, taxonomy: 't', names: { amerob: 'Zorzal americano', comeid: 'Eider común', norfli: 'Espátula' }, fam: {} }
+  afterEach(() => { setNames(null); setEnglishNames(false) })
+
+  it('finds a bird by its Spanish or its English name', () => {
+    setNames(set)
+    const find = (q: string) => species.search(q, 10).map((r) => r.code)
+    expect(find('zorzal')).toContain('amerob')
+    expect(find('robin')).toContain('amerob')
+    expect(find('americano')).toContain('amerob')
+    expect(find('american')).toContain('amerob')
+  })
+  it('folds accents: "espatula" finds "Espátula"', () => {
+    setNames(set)
+    expect(species.search('espatula', 5).map((r) => r.code)).toEqual(['norfli'])
+    expect(species.search('comun', 5).map((r) => r.code)).toEqual(['comeid'])
+  })
+  it('a stale cache is rebuilt when the names change', () => {
+    expect(species.search('zorzal', 5)).toEqual([]) // computed (and cached) with no names
+    setNames(set)
+    expect(species.search('zorzal', 5).map((r) => r.code)).toEqual(['amerob'])
+    setNames(null)
+    expect(species.search('zorzal', 5)).toEqual([])
+  })
+  it('an exact local name outranks a prefix match; hits carry the display name', () => {
+    setNames({ ...set, names: { ...set.names, rufhum: 'Zorzal' } })
+    expect(species.search('zorzal', 5).map((r) => r.code)).toEqual(['rufhum', 'amerob'])
+    const hits = searchCollage(rows.map((r) => entry(r.code)), 'zorzal', species, { lang: 'es' })
+    expect(hits.map((h) => h.com)).toEqual(['Zorzal', 'Zorzal americano'])
+  })
+  it('the English switch drops local names from display and search (English still matches)', () => {
+    setEnglishNames(true) // no localStorage in node: kept in memory
+    setNames(set)
+    expect(searchCollage([entry('amerob')], 'robin', species, { lang: 'es' })[0].com).toBe('American Robin')
+    expect(species.search('zorzal', 5)).toEqual([])
   })
 })

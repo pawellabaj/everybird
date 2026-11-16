@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { makeSamplePack, sampleCodes } from '../scripts/build-data/build-sample-pack'
+import { makeSamplePack, packNames, sampleCodes } from '../scripts/build-data/build-sample-pack'
 import { createLayoutHandler } from '@/lib/layout/layout.worker'
 import type { SampleFile } from '@/lib/list/sample'
 import { fromPackFile, seedLayouts, type SamplePackFile } from '@/lib/list/sample-pack'
@@ -62,5 +62,30 @@ describe('the landing sample pack', () => {
     const byCode = new Map(read<SpeciesFile>('species.v1.json').species.map((r) => [r.code, r]))
     expect(pack.species).toEqual(sampleCodes(committed, byCode).map((c) => byCode.get(c)))
     for (const l of pack.layouts) expect(l.codes).toEqual(pack.species.map((r) => r.code))
+  })
+
+  it('carries the base names (es, pt_BR, nl; never a regional set) for its codes, as the committed names files have them', () => {
+    const read = <T,>(f: string) => JSON.parse(readFileSync(join(process.cwd(), 'public/data', f), 'utf8')) as T
+    const pack = read<SamplePackFile>('sample-pack.v1.json')
+    expect(Object.keys(pack.loc).sort()).toEqual(['es', 'nl', 'pt_BR'])
+    for (const base of ['es', 'pt_BR', 'nl'] as const) {
+      const file = read<{ names: Record<string, string>; fam: Record<string, string> }>(`names.${base}.v1.json`)
+      for (const r of pack.species) {
+        expect(pack.loc[base].names[r.code], `${base} ${r.code}`).toBe(file.names[r.code])
+        expect(pack.loc[base].fam[r.fam], `${base} ${r.fam}`).toBe(file.fam[r.fam])
+      }
+      expect(Object.keys(pack.loc[base].names).every((c) => pack.species.some((r) => r.code === c))).toBe(true)
+    }
+    expect(Object.keys(pack.loc.es.names).length).toBeGreaterThan(100)
+  })
+
+  it('makeSamplePack (the huashu sync calls it) keeps loc with no extra input', async () => {
+    const real = [{ ...sp('amerob', 1, 80), com: 'American Robin' }, { ...sp('houspa', 2, 28), com: 'House Sparrow' }]
+    const f = await makeSamplePack({ v: 1, note: 'synthetic', birds: [{ code: 'amerob' }, { code: 'houspa' }] }, real, regions, noMasks)
+    expect(f.loc).toEqual(packNames(real))
+    expect(f.loc.es.names.amerob).toBe('Zorzal americano')
+    expect(f.loc.pt_BR.names.houspa).toBe('Pardal') // pt_BR's, not pt_PT's "Pardal-do-telhado"
+    expect(f.loc.nl.names.houspa).toBe('Huismus')
+    expect(fromPackFile(f).loc).toBe(f.loc)
   })
 })
