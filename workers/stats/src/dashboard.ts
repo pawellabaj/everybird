@@ -37,10 +37,12 @@ export function statements(p: Params): Stmt[] {
   const cb = p.country ? [p.country] : []
   const wide = [prevFrom, p.to, ...cb]
   const cur = [p.from, p.to, ...cb]
+  // People per day: only the range itself, plus the day before `to` for the headline's comparison on a one-day range.
+  const ppl = [p.from === p.to ? addDays(p.to, -1) : p.from, p.to, ...cb]
   const w = 'WHERE day BETWEEN ? AND ?'
   return [
     { sql: `SELECT day, name, COUNT(*) AS n FROM events ${w}${c} GROUP BY day, name`, binds: wide },
-    { sql: `SELECT day, ${VID} AS people FROM events ${w}${c} GROUP BY day`, binds: wide },
+    { sql: `SELECT day, ${VID} AS people FROM events ${w}${c} GROUP BY day`, binds: ppl },
     { sql: `SELECT name, value, COUNT(*) AS n, ${PD} AS pd FROM events ${w}${c} GROUP BY name, value`, binds: cur },
     { sql: `SELECT CASE WHEN name IN ('image_downloaded', 'poster_downloaded') THEN 'downloaded' ELSE name END AS step, ${PD} AS pd FROM events ${w}${c} GROUP BY step`, binds: cur },
     { sql: `SELECT country, COUNT(*) AS n, ${PD} AS pd FROM events ${w} GROUP BY country ORDER BY pd DESC, country`, binds: [p.from, p.to] },
@@ -69,11 +71,12 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
     for (const [d, m] of perDay) if (d >= a && d <= b) for (const n of names) t += m[n] ?? 0
     return t
   }
+  const on = (d: string, names: readonly string[]) => names.reduce((t, n) => t + (perDay.get(d)?.[n] ?? 0), 0)
   const tiles = {} as Record<Metric, { value: number; prev: number }>
   for (const k of Object.keys(METRICS) as Metric[]) tiles[k] = { value: sum(p.from, p.to, METRICS[k]), prev: sum(prevFrom, prevTo, METRICS[k]) }
   const days: { d: string; people: number; collages: number; downloads: number; shares: number; posters: number }[] = []
   for (let d = from; d <= p.to; d = addDays(d, 1)) {
-    days.push({ d, people: peopleOn.get(d) ?? 0, collages: sum(d, d, METRICS.collages), downloads: sum(d, d, METRICS.downloads), shares: sum(d, d, METRICS.shares), posters: sum(d, d, METRICS.posters) })
+    days.push({ d, people: peopleOn.get(d) ?? 0, collages: on(d, METRICS.collages), downloads: on(d, METRICS.downloads), shares: on(d, METRICS.shares), posters: on(d, METRICS.posters) })
   }
   const by = (name: string) => values.filter((r) => r.name === name).map((r) => ({ k: r.value as string, n: num(r.n) })).sort((a, b) => b.n - a.n)
   const step = (s: string) => num(steps.find((r) => r.step === s)?.pd)
@@ -88,7 +91,7 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
       { k: 'collage_made', n: step('collage_made') }, { k: 'downloaded', n: step('downloaded') },
     ],
     breakdowns: {
-      formats: by('image_downloaded'), shareFormats: by('shared'), posterSizes: by('poster_made'), filters: by('filter_used'),
+      formats: by('image_downloaded'), posterSizes: by('poster_made'), filters: by('filter_used'),
       search: by('search_applied'), uiLanguages: by('ui_language'),
       browserLanguages: langs.map((r) => ({ k: r.lang as string, n: num(r.pd) })),
       devices: devices.map((r) => ({ k: r.device as string, n: num(r.pd) })),

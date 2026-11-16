@@ -46,6 +46,11 @@ describe.skipIf(!sqlite)('the dashboard aggregation', () => {
     const d = run(seeded(), p)
     expect(d.days.map((x) => [x.d, x.people, x.collages])).toEqual([['2026-11-04', 2, 2], ['2026-11-05', 2, 0], ['2026-11-06', 1, 0]])
   })
+  it('compares a one-day range with the day before', () => {
+    const d = run(seeded(), { from: '2026-11-05', to: '2026-11-05', country: '' })
+    expect(d.tiles.peopleLast).toEqual({ value: 2, prev: 2, day: '2026-11-05' })
+    expect(d.days.map((x) => x.d)).toEqual(['2026-11-05'])
+  })
   it('builds the funnel in person-days', () => {
     expect(run(seeded(), p).funnel).toEqual([{ k: 'landing', n: 4 }, { k: 'settings', n: 1 }, { k: 'collage', n: 1 }, { k: 'collage_made', n: 1 }, { k: 'downloaded', n: 1 }])
   })
