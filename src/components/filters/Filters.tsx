@@ -148,7 +148,6 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
           <Icon aria-hidden="true" focusable="false" />
           {FILTERS_UI.sections[s]}
         </h3>
-        {s === 'status' && <p className="eb-fsec-note" data-testid="status-note">{FILTERS_UI.statusNote}</p>}
         {s === 'places' ? (
           <PlacesSection state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
         ) : s === 'status' ? (

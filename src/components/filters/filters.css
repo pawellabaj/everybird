@@ -97,7 +97,6 @@
 .eb-fsec { outline: none; }
 .eb-fsec-title { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: inherit; font-weight: 500; }
 .eb-fsec-title svg { width: 16px; height: 16px; flex: none; }
-.eb-fsec-note { margin: -4px 0 8px; font-family: var(--font-mono); font-size: 11px; line-height: 1.4; color: var(--muted); }
 .eb-fpanel-foot { padding: 8px 16px 12px; border-top: 1px solid var(--hairline); }
 .eb-fpanel-foot .eb-btn { width: 100%; }
 .eb-dockwrap > .eb-chiprow { margin-top: 12px; }

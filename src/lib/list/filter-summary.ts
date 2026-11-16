@@ -7,7 +7,7 @@ import type { Regions } from '@/lib/species/types'
 import { filterPlaceKeys, hasPlaces, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
 import type { Saved } from './storage'
-import { monthName, monthShort, rangeLabel } from './timeline'
+import { monthName, rangeLabel, rangeShort } from './timeline'
 
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
@@ -67,21 +67,12 @@ export function statusLabel(statuses: readonly StatusFilterCat[] | undefined): s
   return countriesLabel(statuses, (c) => statusName(c as StatusFilterCat))
 }
 
-const year = (m: string) => m.slice(0, 4)
-
 /**
- * The Time button's short summary: a range by years ("2022–2024", "2022" within one
- * year, "Sep 2021" for one month, "from 2022", "to 2024"); undefined with no time chosen.
+ * The Time chip's and button's short summary, `rangeShort` (the timeline's readout wording): "2022–2024" for whole
+ * years, "Apr 2022–Sep 2024", "Sep 2021", "from Apr 2022", "to 2024"; undefined with no time chosen.
  */
 export function timeSummary(f: Filter): string | undefined {
-  const { from, to } = f
-  if (from && to) {
-    if (from === to) return monthShort(from)
-    return year(from) === year(to) ? year(from) : `${year(from)}–${year(to)}`
-  }
-  if (from) return `from ${year(from)}`
-  if (to) return `to ${year(to)}`
-  return undefined
+  return rangeShort(f.from, f.to)
 }
 
 /** The Time button's accessible description: "March 2020 to June 2021", "September 2021". */
@@ -143,7 +134,6 @@ export function countHead(n: number, words: CountWords, checked: number): string
 export const FILTERS_UI = {
   button: 'Filters', dialog: 'Filters', chips: 'Active filters', close: 'Close',
   sections: { places: 'Places', time: 'Time', status: 'Conservation status' },
-  statusNote: 'IUCN Red List categories (global)',
   species: '{n} species', head: 'Filters · {n} · {species}', headNone: 'Filters · {species}', show: 'Show {species}',
   manyPlaces: '{n} places', manyStatuses: '{n} statuses',
   openChip: 'Show {label} in Filters', clearChip: 'Remove all {label}',

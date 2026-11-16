@@ -8,7 +8,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
-import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeLabel, sliderKey, timeless, type Month } from '@/lib/list/timeline'
+import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeShort, sliderKey, timeless, type Month } from '@/lib/list/timeline'
 import type { SeenIndex } from '@/lib/list/seen'
 import type { SpeciesIndex } from '@/lib/species/load'
 import './timeline.css'
@@ -188,7 +188,7 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   // Readout: the range and its species.
   const ranged = lo > 0 || hi < N - 1
   const inRange = bins.counts.slice(lo, hi + 1).reduce((a, b) => a + b, 0) + (ranged ? 0 : bins.undated)
-  const read = `${ranged ? rangeLabel(months[lo], months[hi]) : `${monthShort(months[0])} to ${monthShort(months[N - 1])}`} · ${n(inRange)} species`
+  const read = `${ranged ? rangeShort(months[lo], months[hi]) : `${monthShort(months[0])}–${monthShort(months[N - 1])}`} · ${n(inRange)} species`
 
   if (!N) return <p className="eb-note" data-testid="timeline-empty">This list has no dates, so there is no timeline.</p>
   const width = `max(100%, ${axis.units * MONTH_PX}px)`

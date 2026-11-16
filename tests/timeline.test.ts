@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import {
-  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, sliderKey,
+  addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, rangeShort, sliderKey,
   todayMonth,
 } from '@/lib/list/timeline'
 
@@ -123,6 +123,20 @@ describe('range filter', () => {
     expect(rangeFilter({ order: 'X', year: '2020' }, 1, 2, months)).toEqual({ order: 'X', from: '2020-02', to: '2020-03' })
     expect(rangeFilter({ from: '2020-02' }, 0, 3, months)).toEqual({})
     expect(rangeFilter({}, 2, 1, months)).toEqual({ from: '2020-02', to: '2020-03' }) // swapped ends
+  })
+  it('rangeShort: whole years, one month, months, open ends', () => {
+    expect(rangeShort('2020-01', '2024-12')).toBe('2020–2024')
+    expect(rangeShort('2020-01', '2020-12')).toBe('2020')
+    expect(rangeShort('2021-09', '2021-09')).toBe('Sep 2021')
+    expect(rangeShort('2021-01', '2021-01')).toBe('Jan 2021')
+    expect(rangeShort('2020-04', '2024-09')).toBe('Apr 2020–Sep 2024')
+    expect(rangeShort('2020-01', '2024-09')).toBe('2020–Sep 2024')
+    expect(rangeShort('2020-04', '2024-12')).toBe('Apr 2020–2024')
+    expect(rangeShort('2020-04', undefined)).toBe('from Apr 2020')
+    expect(rangeShort('2020-01', undefined)).toBe('from 2020')
+    expect(rangeShort(undefined, '2024-09')).toBe('to Sep 2024')
+    expect(rangeShort(undefined, '2024-12')).toBe('to 2024')
+    expect(rangeShort(undefined, undefined)).toBeUndefined()
   })
   it('rangeLabel says the range in words', () => {
     expect(rangeLabel('2020-01', '2020-12')).toBe('2020')
