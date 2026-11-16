@@ -34,14 +34,15 @@ h2 { font: 700 18px/1.2 var(--display); margin: 0; }
 }
 .chip { position: relative; }
 .chip::after { content: ""; position: absolute; inset: -6px -3px; }
-.chip[aria-pressed="true"], .seg button[aria-pressed="true"] { border-color: var(--accent); }
+.chip[aria-pressed="true"] { border-color: var(--accent); }
 .chip:hover, select:hover, .btn:hover { border-color: var(--line); }
 .chip[aria-pressed="true"]:hover { border-color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 select { max-width: 100%; }
-.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--hairline); border-radius: calc(12px * var(--corner)); corner-shape: superellipse(2); }
-.seg button { border-color: transparent; background: transparent; }
-.seg button[aria-pressed="true"] { background: var(--paper); border-color: var(--accent); color: var(--accent); }
+/* The site's segmented control (.eb-seg): no accent; the chosen one is full opacity on Surface, the rest at 66%. */
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--hairline); border-radius: calc(16px * var(--corner)); corner-shape: superellipse(2); }
+.seg button { border: 0; background: none; opacity: .66; min-height: 44px; padding: 0 14px; border-radius: calc(12px * var(--corner)); }
+.seg button[aria-pressed="true"] { opacity: 1; background: var(--surface); }
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 @media (min-width: 720px) { .tiles { grid-template-columns: repeat(6, 1fr); } }
 .card { border: 1px solid var(--hairline); border-radius: calc(16px * var(--corner)); corner-shape: superellipse(2); padding: 14px 16px 16px; min-width: 0; }
@@ -187,7 +188,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     var slot = (W - L - R) / days.length, bw = Math.max(1, Math.min(28, slot * .7)), bars = [];
     days.forEach(function (d, i) {
       var hh = (H - B - T) * d[key] / max, x = L + slot * i + (slot - bw) / 2;
-      var r = sv('rect', { x: x, y: H - B - hh, width: bw, height: Math.max(hh, d[key] ? 1 : 0), rx: Math.min(4, bw / 2), fill: 'var(--accent)' });
+      var r = sv('rect', { x: x, y: H - B - hh, width: bw, height: Math.max(hh, d[key] ? 1 : 0), rx: Math.min(4, bw / 2), fill: 'var(--muted)' });
       svg.appendChild(r); bars.push(r);
     });
     [0, Math.floor((days.length - 1) / 2), days.length - 1].filter(function (v, i, a) { return a.indexOf(v) === i; }).forEach(function (i, n, a) {
@@ -199,13 +200,13 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     function at(ev) {
       var rect = svg.getBoundingClientRect(), x = (ev.clientX - rect.left) * W / rect.width;
       var i = Math.max(0, Math.min(days.length - 1, Math.floor((x - L) / slot)));
-      bars.forEach(function (b, j) { b.style.opacity = j === i ? '1' : '.45'; });
+      bars.forEach(function (b, j) { b.style.fill = j === i ? 'var(--accent)' : ''; });
       clear(tip); tip.appendChild(h('b', null, fmt(days[i][key]))); tip.appendChild(h('span', null, ' ' + label.toLowerCase() + ' · ' + dayLabel(days[i].d)));
       tip.hidden = false;
       var px = (L + slot * (i + .5)) * rect.width / W; tip.style.left = Math.max(60, Math.min(rect.width - 60, px)) + 'px';
       tip.style.top = Math.max(26, (H - B - (H - B - T) * days[i][key] / max) * rect.height / H - 6) + 'px';
     }
-    function off() { tip.hidden = true; bars.forEach(function (b) { b.style.opacity = ''; }); }
+    function off() { tip.hidden = true; bars.forEach(function (b) { b.style.fill = ''; }); }
     // A touch "leaves" as the finger lifts, so a tapped tip stays until a tap elsewhere (hideTip, below).
     svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at);
     svg.addEventListener('pointerleave', function (ev) { if (ev.pointerType !== 'touch') off(); });
