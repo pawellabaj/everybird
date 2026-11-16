@@ -54,7 +54,7 @@ type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesI
 const RENDER_DELAY_MS = 250
 /** The format buttons: each slot's ratio and icon in each orientation (the square is square in both). */
 const FORMATS: { id: FormatSlot; hint: Record<Orientation, string>; icon: Record<Orientation, Icon> }[] = [
-  // The horizontal story is the desktop wallpaper: no ratio, its shape follows the screen (desktopSize).
+  // The horizontal story is the desktop wallpaper: no ratio (it is always 16:9, its content in the central 3:2 column).
   { id: 'story', hint: { vertical: '9:16', horizontal: '' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
   { id: 'post', hint: { vertical: '4:5', horizontal: '5:4' }, icon: { vertical: FrameCorners, horizontal: FrameCorners } },
   { id: 'square', hint: { vertical: '1:1', horizontal: '1:1' }, icon: { vertical: Square, horizontal: Square } },
