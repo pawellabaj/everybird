@@ -7,14 +7,14 @@ import { loadSpecies, type SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
 import { payloadToRecords } from '@/lib/share/convert'
 import type { SharePayload } from '@/lib/share/link'
-import type { Panel } from '@/components/filters/FilterDropdowns'
+import type { FilterSection } from '@/components/filters/Filters'
 import { CollageView } from './CollageView'
 import './app.css'
 
-const NO_PLACES: readonly Panel[] = ['places']
-const NO_DATES: readonly Panel[] = ['time']
-const NEITHER: readonly Panel[] = ['places', 'time']
-const NONE: readonly Panel[] = []
+const NO_PLACES: readonly FilterSection[] = ['places']
+const NO_DATES: readonly FilterSection[] = ['time']
+const NEITHER: readonly FilterSection[] = ['places', 'time']
+const NONE: readonly FilterSection[] = []
 
 /** What a link carries decides which filters exist: it holds places or dates only at the levels that fit. */
 export function missingFilters(p: SharePayload): { places: boolean; dates: boolean } {
@@ -58,5 +58,5 @@ function Loaded({ payload, species, regions }: { payload: SharePayload; species:
       {miss.places && miss.dates ? 'This link carries no places or dates' : miss.places ? 'This link carries no places' : 'This link carries no dates'}, so those filters are left out.
     </p>
   ) : undefined
-  return <CollageView state={state} dispatch={dispatch} species={species} regions={shown.regions} label="Shared collage" hidePanels={hide} filterNote={note} />
+  return <CollageView state={state} dispatch={dispatch} species={species} regions={shown.regions} label="Shared collage" hideSections={hide} filterNote={note} />
 }

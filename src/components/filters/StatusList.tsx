@@ -1,5 +1,5 @@
 'use client'
-// The Status panel's body (the Status dropdown in FilterDropdowns.tsx), on the Places panel's structure: the head
+// The Status panel's body (the Conservation status section of Filters.tsx), on the Places panel's structure: the head
 // "N categories" with Clear, then one checklist of global IUCN Red List categories in Red List order,
 // each row the box, the pill, the full name and the count (species under the OTHER filters, statusOptions). A checked
 // category another filter left with no species stays, at 0, so it can be unchecked. At most eight rows: no search.

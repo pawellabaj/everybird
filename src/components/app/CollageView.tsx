@@ -9,7 +9,7 @@ import { Collage, revealBird } from '@/components/collage/Collage'
 import { reduced } from '@/components/collage/collage-motion'
 import { ListView } from '@/components/collage/ListView'
 import { FilterBar } from '@/components/filters/FilterBar'
-import { FilterDropdowns, type Panel, type PlacesNote } from '@/components/filters/FilterDropdowns'
+import { useFiltersUi, type FilterSection, type PlacesNote } from '@/components/filters/Filters'
 import { formatDate } from '@/lib/format'
 import { latestLifer } from '@/lib/list/build-list'
 import { applyFilter, drillTo, filterKey, filterToShow, threatenedCount } from '@/lib/list/filters'
@@ -37,8 +37,8 @@ type Props = {
   label: string
   /** Extra actions in the bird card (EditBird on the birder's own collage). `close` closes the card. */
   cardActions?: (entry: ListEntry, close: () => void) => ReactNode
-  /** The Places and Time dropdowns to leave out. */
-  hidePanels?: readonly Panel[]
+  /** The Filters panel's sections to leave out (a shared link that carries no places or dates). */
+  hideSections?: readonly FilterSection[]
   /** Every place on the list is a lifer place: the Places dropdown says so, and how to get more (the birder's own collage). */
   placesNote?: PlacesNote
   /** Before the stats ("Sample: a demo birder's life list"). */
@@ -91,13 +91,12 @@ export function statsLine(all: ListEntry[], shown: ListEntry[], species: Species
   return parts.join(' · ')
 }
 
-export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
+export function CollageView({ state, dispatch, species, regions, label, cardActions, hideSections, placesNote, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
   const { list, filter, mode, view, massOrder, sci, seen } = state
   const box = useRef<HTMLElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const [pick, setPick] = useState<{ code: string; anchor: HTMLElement | null } | null>(null)
   const [tip, setTip] = useState<string | null>(null)
-  const [panel, setPanel] = useState<Panel | null>(null)
 
   const entries = useMemo(() => list.filter((e) => species.byCode.has(e.code)), [list, species])
   // The timeline's months (first lifer to today).
@@ -123,6 +122,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
 
+  const filtersUi = useFiltersUi({ state, dispatch, species, regions, hide: hideSections, placesNote, time, threatLine, shown: shownList.length })
   const close = useCallback(() => setPick(null), [])
   const onPickBird = useCallback((code: string) => {
     const el = box.current?.querySelector<HTMLElement>(`.eb-bird[data-code="${code}"]`) ?? null
@@ -211,11 +211,12 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
         sci={sci}
         onSci={(on) => dispatch({ type: 'sci', sci: on })}
         search={{ entries, shown: fk ? shownCodes : undefined, species, onPick: onSearchPick, whose }}
-        filters={(inert) => (
-          <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={panel} onOpen={setPanel} hide={hidePanels} placesNote={placesNote} time={time} inert={inert} threatLine={threatLine} />
-        )}
+        filters={filtersUi.button}
+        below={filtersUi.below}
       />
 
+      {/* Everything under the dock: dimmed and inert while the Filters popover is open (a press there closes it). */}
+      <div className="eb-view-below" inert={filtersUi.dimmed || undefined} data-dim={filtersUi.dimmed || undefined}>
       <FilterBar state={state} dispatch={dispatch} species={species} />
       {filterNote}
 
@@ -241,6 +242,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
           {sizes}
         </p>
         <p>* heard only · † found dead</p>
+      </div>
       </div>
 
       {picked && pick && (

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { useReducer, useState } from 'react'
+import { useReducer } from 'react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 
@@ -11,15 +11,15 @@ vi.mock('@/lib/list/filters', async (importOriginal) => {
   return { ...actual, placeCounts: vi.fn(actual.placeCounts) }
 })
 
-const { FilterDropdowns, SEARCH_FROM } = await import('@/components/filters/FilterDropdowns')
+const { SEARCH_FROM } = await import('@/components/filters/Filters')
+const { FiltersDock } = await import('./filters-dock')
 const { initialState, makeReducer } = await import('@/lib/list/store')
 const { emptySaved } = await import('@/lib/list/storage')
 const { buildSpeciesIndex } = await import('@/lib/species/load')
 const { monthBins } = await import('@/lib/list/timeline')
 const { placeCounts } = await import('@/lib/list/filters')
 const counted = vi.mocked(placeCounts)
-type Panel = import('@/components/filters/FilterDropdowns').Panel
-type PlacesNote = import('@/components/filters/FilterDropdowns').PlacesNote
+type PlacesNote = import('@/components/filters/Filters').PlacesNote
 
 const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => ({
   code, com: code, sci: `Avis ${code}`, ord, fam, famCom: fam, to, g: 100, gSrc: 'avonet', st: true, ar: 1, q: true,
@@ -63,13 +63,10 @@ function seededOwl() {
 function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
   const reduce = makeReducer({ species, countryName: name })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
-  const [open, setOpen] = useState<Panel | null>(null)
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
     <>
-      <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} time={time} />
-      </div>
+      <FiltersDock state={state} dispatch={dispatch} species={species} regions={regions} placesNote={note} time={time} />
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
@@ -79,37 +76,29 @@ function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesN
   )
 }
 const filterOf = () => JSON.parse(screen.getByTestId('filter').textContent || '{}')
-const placesBtn = () => screen.getByTestId('filter-tab-places')
-const timeBtn = () => screen.getByTestId('filter-tab-time')
+// One Filters button opens one panel; a second press closes it, so these open only when closed.
+const filtersBtn = () => screen.getByTestId('filters-button')
+const openFilters = () => { if (filtersBtn().getAttribute('aria-expanded') !== 'true') fireEvent.click(filtersBtn()) }
 
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
 })
 
-describe('Places and Time: dropdowns in the controls bar', () => {
-  it('two buttons with aria-expanded; a button opens its panel, a second tap closes it, one panel at a time', () => {
+describe('Places and Time: sections of the Filters panel', () => {
+  it('the Places and Time sections sit in the one Filters panel, the timeline beside the checklist', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    expect(placesBtn()).toHaveAttribute('aria-expanded', 'false')
-    fireEvent.click(placesBtn())
-    expect(placesBtn()).toHaveAttribute('aria-expanded', 'true')
-    const panel = screen.getByRole('dialog', { name: 'Places' })
-    expect(placesBtn()).toHaveAttribute('aria-controls', panel.id)
-    expect(panel).not.toHaveAttribute('aria-modal') // a popover on wider screens
-    fireEvent.click(timeBtn())
-    expect(screen.queryByRole('dialog', { name: 'Places' })).toBeNull()
-    expect(screen.getByRole('dialog', { name: 'Time' })).toBeInTheDocument()
-    expect(screen.getByTestId('timeline')).toBeInTheDocument()
+    openFilters()
+    expect(within(screen.getByRole('group', { name: 'Places' })).getByRole('list', { name: 'Countries' })).toBeInTheDocument()
+    expect(within(screen.getByRole('group', { name: 'Time' })).getByTestId('timeline')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Play/ })).toBeNull()
-    fireEvent.click(timeBtn())
-    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('Places is a checklist of countries: real checkboxes with flags and seen-here counts, sorted by count; several may be checked', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     const list = screen.getByRole('list', { name: 'Countries' })
     const boxes = within(list).getAllByRole('checkbox')
     // Canada 3 (seen-here: the crow too), then Egypt 1 and the US 1 by name.
@@ -121,9 +110,11 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     fireEvent.click(screen.getByTestId('country-US'))
     expect(filterOf()).toEqual({ countries: ['EG', 'US'] })
     expect(screen.getByTestId('country-EG')).toBeChecked()
-    // The button says how many, and its accessible name names them.
-    expect(placesBtn()).toHaveTextContent('Places · 2')
-    expect(placesBtn()).toHaveAccessibleName('Places: Egypt, United States of America')
+    // The button counts the group, its accessible name names the places, and each place is a chip.
+    expect(filtersBtn()).toHaveTextContent('Filters · 1')
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: Egypt, United States of America')
+    expect(screen.getByTestId('chip-place-c:EG')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-place-c:US')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('country-EG'))
     expect(filterOf()).toEqual({ countries: ['US'] })
     fireEvent.click(screen.getByTestId('places-clear'))
@@ -134,21 +125,21 @@ describe('Places and Time: dropdowns in the controls bar', () => {
   it('a search field only for more than SEARCH_FROM countries', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(SEARCH_FROM).toBe(8)
     expect(screen.queryByRole('searchbox', { name: 'Find a country' })).toBeNull()
   })
 
-  it('Esc and a press outside close the popover; focus returns to its button', () => {
+  it('Esc and a press outside close the popover; focus returns to the Filters button', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    placesBtn().focus()
-    fireEvent.click(placesBtn())
-    expect(screen.getByRole('dialog', { name: 'Places' })).toContainElement(document.activeElement as HTMLElement)
+    filtersBtn().focus()
+    openFilters()
+    expect(screen.getByRole('dialog', { name: 'Filters' })).toContainElement(document.activeElement as HTMLElement)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(placesBtn()).toHaveFocus()
-    fireEvent.click(timeBtn())
+    expect(filtersBtn()).toHaveFocus()
+    openFilters()
     fireEvent.pointerDown(screen.getByRole('button', { name: 'elsewhere' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
@@ -156,36 +147,37 @@ describe('Places and Time: dropdowns in the controls bar', () => {
   it('at phone width the panel is a modal bottom sheet with a close button', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
-    fireEvent.click(placesBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Places' })
+    openFilters()
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('a range shows on the Time button as years, spoken in full', () => {
+  it('a range shows as a chip and on the Filters button, spoken in full', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(timeBtn())
+    openFilters()
     const lo = screen.getByRole('slider', { name: 'Start month' })
     vi.useFakeTimers()
     fireEvent.keyDown(lo, { key: 'PageUp' })
     act(() => { vi.advanceTimersByTime(400) })
     vi.useRealTimers()
     expect(filterOf()).toEqual({ from: '2020-01' })
-    expect(timeBtn()).toHaveTextContent('Time · from 2020')
-    expect(timeBtn()).toHaveAccessibleName('Time: from January 2020')
+    expect(filtersBtn()).toHaveTextContent('Filters · 1')
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Time: from January 2020')
+    expect(screen.getByTestId('chip-date-2020-01..')).toHaveTextContent('from 2020')
   })
 
   it('the lifer-only notice, inside Places: add MyEBirdData, or import it again for an old save; both link to its Add panel', () => {
     vi.stubGlobal('innerWidth', 1000)
     const { unmount } = render(<Harness variant="lifer" note="add" />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Add MyEBirdData to filter by every place you recorded each bird, down to the county\.$/)
     expect(screen.getByRole('link', { name: 'Add MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
     unmount()
     render(<Harness variant="lifer" note="reimport" />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
   })
@@ -195,7 +187,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('a country with provinces has a drill button; drilling shows its provinces under a breadcrumb, focus on "All of Canada"', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.queryByTestId('drill-c:EG')).toBeNull()
     expect(screen.queryByTestId('places-path')).toBeNull()
     expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Show states and provinces in Canada')
@@ -217,7 +209,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('checking a province narrows a checked country; the button counts and names it', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('country-CA'))
     expect(filterOf()).toEqual({ countries: ['CA'] })
     fireEvent.click(screen.getByTestId('drill-c:CA'))
@@ -226,8 +218,8 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(filterOf()).toEqual({ provinces: ['CA-BC'] })
     expect(screen.getByTestId('place-all')).not.toBeChecked()
     expect(screen.getByTestId('place-s:CA-BC')).toBeChecked()
-    expect(placesBtn()).toHaveTextContent('Places · 1')
-    expect(placesBtn()).toHaveAccessibleName('Places: British Columbia, Canada')
+    expect(filtersBtn()).toHaveTextContent('Filters · 1')
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: British Columbia, Canada')
     // "All of Canada" checks the country again, which holds the province.
     fireEvent.click(screen.getByTestId('place-all'))
     expect(filterOf()).toEqual({ countries: ['CA'] })
@@ -236,7 +228,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('the head counts the checked rows of the level shown', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('country-EG'))
     fireEvent.click(screen.getByTestId('country-CA'))
     expect(screen.getByText(/^3 countries · 2 checked$/)).toBeInTheDocument()
@@ -249,7 +241,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('counties: drill again, check one; the breadcrumb steps back and focus returns to the drill button', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
@@ -258,7 +250,7 @@ describe('Places drills down: country, then state or province, then county', () 
     expect(screen.getByTestId('place-all')).toHaveFocus()
     fireEvent.click(screen.getByRole('checkbox', { name: 'Capital, 1 species' }))
     expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
-    expect(placesBtn()).toHaveAccessibleName('Places: Capital, British Columbia')
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: Capital, British Columbia')
     // One step back: Canada's provinces, focus on British Columbia's drill button.
     fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'Canada' }))
     expect(screen.getByText(/2 states and provinces/)).toBeInTheDocument()
@@ -277,7 +269,7 @@ describe('Places drills down: country, then state or province, then county', () 
     Element.prototype.scrollIntoView = into
     try {
       render(<Harness />)
-      fireEvent.click(placesBtn())
+      openFilters()
       fireEvent.click(screen.getByTestId('drill-c:CA'))
       fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
       expect(scrolled.at(-1)).toBe(screen.getByTestId('drill-c:CA'))
@@ -289,7 +281,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('Clear clears every level', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('country-EG'))
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('place-s:CA-ON'))
@@ -304,7 +296,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('a province alone shows Clear, and Clear empties it', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     expect(screen.queryByTestId('places-clear')).toBeNull()
     fireEvent.click(screen.getByTestId('place-s:CA-BC'))
@@ -319,12 +311,12 @@ describe('Places drills down: country, then state or province, then county', () 
     const scrolled: Element[] = []
     Element.prototype.scrollIntoView = function (this: Element) { scrolled.push(this) }
     onTestFinished(() => { delete (Element.prototype as Partial<Element>).scrollIntoView })
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getByText(/^1 county · 1 checked$/)).toBeInTheDocument()
     expect(screen.getByTestId('places-path')).toHaveTextContent('All countries/Canada/British Columbia')
     expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeChecked()
@@ -338,14 +330,14 @@ describe('Places drills down: country, then state or province, then county', () 
   it('reopened with places under several parents (or countries only), the panel starts at the countries', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('place-s:CA-ON'))
     fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
     fireEvent.click(screen.getByTestId('drill-c:US'))
     fireEvent.click(screen.getByTestId('place-s:US-WA'))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getByText(/^3 countries$/)).toBeInTheDocument()
     expect(screen.queryByTestId('places-path')).toBeNull()
   })
@@ -353,7 +345,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('every county row keeps the drill button\'s room, so the counts stay in one column', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     const level = screen.getByRole('list', { name: 'Counties' })
@@ -363,7 +355,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('a checked place that another filter empties stays listed at 0 so it can be unchecked', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('place-s:CA-ON'))
     fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
@@ -378,7 +370,7 @@ describe('Places drills down: country, then state or province, then county', () 
   it('a drilled level with nothing left under the other filters says so, the breadcrumb kept', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     // The owl was only ever seen in Ontario: nothing in British Columbia's counties is left.
@@ -408,28 +400,28 @@ describe('Places drills down: country, then state or province, then county', () 
   it('countries-only lists show no drill buttons and no breadcrumb', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness variant="countries" />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getAllByRole('checkbox')).toHaveLength(3)
     expect(screen.queryAllByRole('button', { name: /^Show / })).toHaveLength(0)
     expect(screen.queryByTestId('places-path')).toBeNull()
   })
 
-  it('Esc closes the panel from a drilled level and focus returns to the Places button', () => {
+  it('Esc closes the panel from a drilled level and focus returns to the Filters button', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    placesBtn().focus()
-    fireEvent.click(placesBtn())
+    filtersBtn().focus()
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(placesBtn()).toHaveFocus()
+    expect(filtersBtn()).toHaveFocus()
   })
 
   it('at phone width the drilled sheet keeps Tab inside and its drill buttons are buttons', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
-    fireEvent.click(placesBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Places' })
+    openFilters()
+    const sheet = screen.getByRole('dialog', { name: 'Filters' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     const drill = within(sheet).getByTestId('drill-c:CA')
     expect(drill.tagName).toBe('BUTTON')
@@ -437,8 +429,8 @@ describe('Places drills down: country, then state or province, then county', () 
     fireEvent.click(drill)
     expect(within(sheet).getByTestId('place-all')).toHaveFocus()
     expect(within(sheet).getByTestId('drill-s:CA-BC').tagName).toBe('BUTTON')
-    // Tab from the last control wraps to the first (the sheet's close button); Shift+Tab from the first to the last.
-    const last = within(sheet).getByTestId('place-s:CA-ON') // British Columbia (2) and its drill button come first
+    // Tab from the last control (the footer's "Show N species") wraps to the first (the sheet's close button); Shift+Tab from the first to the last.
+    const last = within(sheet).getByTestId('filters-show')
     last.focus()
     fireEvent.keyDown(last, { key: 'Tab' })
     expect(within(sheet).getByRole('button', { name: 'Close' })).toHaveFocus()
@@ -460,14 +452,14 @@ describe('Places drill: checked places stay reachable, the list is counted once'
   ])('a checked %s stays reachable when another filter empties its ancestor %s', (county, ancestor, path, spoken) => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     for (const k of path) fireEvent.click(screen.getByTestId(`drill-${k}`))
     fireEvent.click(screen.getByTestId(`place-${county}`))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     // The owl was only ever seen in Ontario.
     fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
     // Reopened, the panel starts at the county's level (its checkbox in view). From the countries, the emptied ancestor is listed at 0 and still drills.
-    fireEvent.click(placesBtn())
+    openFilters()
     backToCountries(county)
     for (const k of path) {
       const btn = screen.getByTestId(`drill-${k}`)
@@ -483,14 +475,14 @@ describe('Places drill: checked places stay reachable, the list is counted once'
   it('a checked county stays reachable when another filter leaves its province listed with no counties', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     // The crow was seen in British Columbia, but in no county there.
     fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
-    fireEvent.click(placesBtn())
+    openFilters()
     backToCountries('k:CA-BC|Capital')
     for (const k of ['c:CA', 's:CA-BC']) {
       const btn = screen.getByTestId(`drill-${k}`)
@@ -506,14 +498,14 @@ describe('Places drill: checked places stay reachable, the list is counted once'
   it('selects a province, then a county, through the same filter', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('place-s:CA-BC'))
     expect(filterOf()).toEqual({ provinces: ['CA-BC'] })
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
     expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
-    expect(placesBtn()).toHaveAccessibleName('Places: Capital, British Columbia')
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: Capital, British Columbia')
   })
 
   describe('counting', () => {
@@ -521,7 +513,7 @@ describe('Places drill: checked places stay reachable, the list is counted once'
       vi.stubGlobal('innerWidth', 1000)
       render(<Harness />)
       counted.mockClear()
-      fireEvent.click(placesBtn())
+      openFilters()
       expect(counted).toHaveBeenCalledTimes(1)
       fireEvent.click(screen.getByTestId('country-EG'))
       fireEvent.click(screen.getByTestId('drill-c:CA'))
@@ -538,7 +530,7 @@ describe('Places drill: checked places stay reachable, the list is counted once'
   it('the panel drills in place: no disclosure buttons, a breadcrumb once drilled', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    fireEvent.click(placesBtn())
+    openFilters()
     expect(screen.getByTestId('drill-c:CA')).not.toHaveAttribute('aria-expanded')
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     expect(screen.getByTestId('places-path')).toBeInTheDocument()

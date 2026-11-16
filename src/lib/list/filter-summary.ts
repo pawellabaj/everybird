@@ -27,12 +27,6 @@ export function placesLabel(f: Filter, regions: Names): string | undefined {
   return countriesLabel(keys, (k) => placeName(k, regions))
 }
 
-/** The Places button's short summary: the number of checked places at every level ("3"), or undefined for none. */
-export function placesSummary(f: Filter): string | undefined {
-  const n = filterPlaceKeys(f).length
-  return n ? String(n) : undefined
-}
-
 /**
  * The Places button's accessible description of the filter, each place with its parent: "Canada, Egypt" for
  * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas).
@@ -42,11 +36,6 @@ export function placesSpoken(f: Filter, regions: Names): string | undefined {
   if (!keys.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
   return keys.map((k) => placeNameLong(k, regions)).join(sep)
-}
-
-/** The Status button's short summary: the number of checked categories ("2"), or undefined for none. */
-export function statusSummary(f: Filter): string | undefined {
-  return f.statuses?.length ? String(f.statuses.length) : undefined
 }
 
 /** The Status button's accessible description: the full names in `IUCN_CATS` order ("Vulnerable, Endangered"). */

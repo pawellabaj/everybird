@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COUNT_WORDS, fill, filtersCount, filtersSpoken, panelHead, showLabel, countHead, countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, statusLabel, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { COUNT_WORDS, fill, filtersCount, filtersSpoken, panelHead, showLabel, countHead, countriesLabel, placesLabel, placesNoteFor, placesSpoken, statusLabel, statusSpoken, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
@@ -15,16 +15,12 @@ describe('countriesLabel (share image)', () => {
   })
 })
 
-describe('the bar buttons', () => {
-  it('Places: the number checked; spoken as the names', () => {
-    expect(placesSummary({})).toBeUndefined()
-    expect(placesSummary({ countries: ['CA', 'EG'] })).toBe('2')
+describe('the Filters button’s words', () => {
+  it('Places: spoken as the names', () => {
     expect(placesSpoken({ countries: ['CA', 'EG'] }, regions)).toBe('Canada, Egypt')
     expect(placesSpoken({}, regions)).toBeUndefined()
   })
-  it('Places at every level: counted together; spoken in full, "; " between places once a province or county is in', () => {
-    expect(placesSummary({ countries: ['KE'], provinces: ['CA-BC'], counties: ['CA-ON|Ottawa'] })).toBe('3')
-    expect(placesSummary({ provinces: ['CA-BC'] })).toBe('1')
+  it('Places at every level: spoken in full, "; " between places once a province or county is in', () => {
     expect(placesSpoken({ countries: ['KE'], provinces: ['CA-BC'] }, regions)).toBe('Kenya; British Columbia, Canada')
     expect(placesSpoken({ counties: ['CA-BC|Capital'] }, regions)).toBe('Capital, British Columbia')
   })
@@ -64,10 +60,7 @@ describe('placesNoteFor (the lifer-only notice)', () => {
 })
 
 describe('Status in words', () => {
-  it('the button: the number checked; spoken as the full names in IUCN_CATS order', () => {
-    expect(statusSummary({})).toBeUndefined()
-    expect(statusSummary({ statuses: [] })).toBeUndefined()
-    expect(statusSummary({ statuses: ['VU', 'EN'] })).toBe('2')
+  it('spoken as the full names in IUCN_CATS order', () => {
     expect(statusSpoken({})).toBeUndefined()
     expect(statusSpoken({ statuses: ['VU', 'EN'] })).toBe('Vulnerable, Endangered')
     expect(statusSpoken({ statuses: ['CR', 'EX', 'DD'] })).toBe('Critically Endangered, Extinct, Data Deficient')

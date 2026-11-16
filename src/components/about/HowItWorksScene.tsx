@@ -398,7 +398,7 @@ function CollagePage({ s, layout }: { s: S; layout: Layout }) {
 
 /** The controls bar (ControlsBar): one row on the wide page; on phones the short labels, Places, Time and Status on row two.
  *  A compressed one-row mock that uses the short label "Status" for the third drop (the product's button is named
- *  "Conservation status", short form "Status": FilterDropdowns' PANELS; tests/dock-css.test.ts keeps them in step). */
+ *  "Conservation status", short form "Status": Filters.tsx' section icons; tests/dock-css.test.ts keeps them in step). */
 function Dock({ wide }: { wide: boolean }) {
   const sw = (label: string, italic?: boolean) => (
     <span className="ebd-tab ebd-sw" data-italic={italic || undefined}>{label}<span className="ebd-track"><span className="ebd-knob" /></span></span>
