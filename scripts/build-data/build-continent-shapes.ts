@@ -32,9 +32,9 @@ const RADIUS = 112
 const CENTRE = 128
 const CELL = 2 // raster cell, in viewBox units (128 × 128 cells)
 const N = VIEW / CELL
-const BUDGET = 1200 // bytes of path data per continent (the brief: under 1.5 KB; the module under 10 KB)
-const MIN_AREA = 78 // loops enclosing less than this (viewBox units²) are islands and are dropped: about 0.05% of the sphere
-const FINEST = 6 // the finest simplification (viewBox units, about half a display pixel at 18px): hard simplification
+const BUDGET = 700 // bytes of path data per continent: the detail target (the tests cap it at 1,200)
+const MIN_AREA = 40 // loops enclosing less than this (viewBox units²) are islets and are dropped: New Zealand and Sicily stay, the atolls go
+const FINEST = 2 // the finest simplification, in viewBox units (about 0.07 px at 18px): keeps the headlands and gulfs
 const RU_SPLIT = 60 // Russia: the part west of 60°E is Europe, the rest Asia (Chukotka, east of -170°, is Asia too)
 const RU_EAST = -170
 

@@ -33,6 +33,7 @@ describe('continent globes', () => {
     expect(d).toMatch(/^[MZ\d\s.-]+$/)
     const pts = points(d)
     expect(pts.length).toBeGreaterThanOrEqual(3)
+    expect(Buffer.byteLength(d)).toBeGreaterThanOrEqual(300)
     for (const [x, y] of pts) {
       expect(Number.isInteger(x)).toBe(true)
       expect(Number.isInteger(y)).toBe(true)
@@ -43,8 +44,8 @@ describe('continent globes', () => {
     }
   })
 
-  it.each(IDS)('%s: under 1.5 KB', (id) => {
-    expect(Buffer.byteLength(CONTINENT_GLOBES[id])).toBeLessThan(1500)
+  it.each(IDS)('%s: under 1.2 KB', (id) => {
+    expect(Buffer.byteLength(CONTINENT_GLOBES[id])).toBeLessThan(1200)
   })
 
   it('keeps the module under 10 KB', () => {
