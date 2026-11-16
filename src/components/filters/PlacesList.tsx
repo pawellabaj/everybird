@@ -1,26 +1,19 @@
 'use client'
-// The Places panel's body (the Places dropdown in FilterDropdowns.tsx): the lifer-only note, then the places in the
-// design the preview switch picks (`places`, src/lib/variants.ts; a, the default: PlacesDrill.tsx, one level at a
-// time drilled in place; b: PlacesTree.tsx, one checklist whose rows expand inline). What every design shares lives in
-// places-shared.tsx: a level's rows, one checkbox row, the search field, the level's words. Every design writes the
-// filter only through togglePlace / withPlaces (filters.ts) and keeps the same test ids: `country-<ISO2>` and
-// `place-<key>` checkboxes, `drill-<key>` buttons.
+// The Places panel's body (the Places dropdown in FilterDropdowns.tsx): the lifer-only note, then the places drilled
+// in place, one level at a time (PlacesDrill.tsx; Yusuf chose the drill-down over expandable rows, 2026-11-15). What
+// it shares lives in places-shared.tsx: a level's rows, one checkbox row, the search field, the level's words. The
+// filter is written only through togglePlace / withPlaces (filters.ts); test ids: `country-<ISO2>` and `place-<key>`
+// checkboxes, `drill-<key>` buttons.
 import Link from '@/components/app/IntentLink'
 import { MYEBIRDDATA_PLACES, PLACES_EVERY, PLACES_FIRST_ONLY, type FullPlacesSource } from '@/lib/list/filter-summary'
-import { useVariant } from '@/lib/variants'
 import type { PlacesBodyProps, PlacesNote } from './places-shared'
 import { PlacesDrill } from './PlacesDrill'
-import { PlacesTree } from './PlacesTree'
-
-/** The Places panel's designs, the default first: a drills in place (PlacesDrill), b expands rows inline (PlacesTree). */
-export const PLACES_VARIANTS = ['a', 'b'] as const
 
 export function PlacesList({ note, ...body }: PlacesBodyProps & { note?: PlacesNote }) {
-  const variant = useVariant('places', PLACES_VARIANTS)
   return (
     <div className="eb-places">
       {note && <PlacesNoteLine note={note} />}
-      {variant === 'a' ? <PlacesDrill {...body} /> : <PlacesTree {...body} />}
+      <PlacesDrill {...body} />
     </div>
   )
 }

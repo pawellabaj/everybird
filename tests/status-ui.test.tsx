@@ -5,8 +5,9 @@ import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollageView } from '@/components/app/CollageView'
 import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
+import { STATUS_ICON } from '@/components/filters/status-icon'
 import { StatusList } from '@/components/filters/StatusList'
-import { IucnPill } from '@/components/collage/IucnPill'
+import { IucnBadge, IucnPill } from '@/components/collage/IucnPill'
 import { initialState, makeReducer, type AppState } from '@/lib/list/store'
 import { emptySaved } from '@/lib/list/storage'
 import { monthBins } from '@/lib/list/timeline'
@@ -59,19 +60,20 @@ describe('Status: a dropdown in the controls bar', () => {
   it('a Status button after Time; its panel lists the categories on the list, in Red List order, with counts', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    const group = screen.getByRole('group', { name: 'Places, time and status' })
+    const group = screen.getByRole('group', { name: 'Places, time and conservation status' })
     expect(group).toHaveClass('eb-dock-filters')
     expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
     // app.css's three-drop rules key on a third drop in the group (.eb-dock-drop:nth-child(3)): Status is it.
     expect(group.querySelector('.eb-dock-drop:nth-child(3)')).toBe(statusBtn())
-    expect(statusBtn()).toHaveAccessibleName('Status')
+    expect(statusBtn()).toHaveAccessibleName('Conservation status')
     fireEvent.click(statusBtn())
-    const panel = screen.getByRole('dialog', { name: 'Status' })
+    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
     expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
-    expect(screen.getByText('Global IUCN Red List categories. Birds without one are left out once you pick a category.')).toBeInTheDocument()
+    // The source note lives only on About.
+    expect(screen.queryByText(/Global IUCN Red List categories/)).toBeNull()
     // Each row: the box, the pill (hidden from assistive tech), the full name, the count.
     const label = screen.getByTestId('status-VU').closest('label')!
     const pill = label.querySelector('.eb-iucn')!
@@ -89,8 +91,12 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ statuses: ['VU', 'EN'] })
     expect(screen.getByTestId('status-VU')).toBeChecked()
-    expect(statusBtn()).toHaveTextContent('Status · 2')
-    expect(statusBtn()).toHaveAccessibleName('Status: Vulnerable, Endangered')
+    // The visible label is the long form with the short "Status" beside it (app.css shows one by container query).
+    expect(statusBtn().querySelector('.eb-long')).toHaveTextContent('Conservation status')
+    expect(statusBtn().querySelector('.eb-short')).toHaveTextContent('Status')
+    expect(statusBtn().querySelector('.eb-short')).toHaveAttribute('aria-hidden', 'true')
+    expect(statusBtn().querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
+    expect(statusBtn()).toHaveAccessibleName('Conservation status: Vulnerable, Endangered')
     // The counts are under the other filters: checking a category changes none of them.
     expect(screen.getByRole('checkbox', { name: 'Least Concern, 1 species' })).not.toBeChecked()
     fireEvent.click(screen.getByTestId('status-clear'))
@@ -144,7 +150,7 @@ describe('Status: a dropdown in the controls bar', () => {
     const { unmount } = render(<Harness />)
     statusBtn().focus()
     fireEvent.click(statusBtn())
-    expect(screen.getByRole('dialog', { name: 'Status' })).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('dialog', { name: 'Conservation status' })).toContainElement(document.activeElement as HTMLElement)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(statusBtn()).toHaveFocus()
@@ -153,7 +159,7 @@ describe('Status: a dropdown in the controls bar', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
     fireEvent.click(statusBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Status' })
+    const sheet = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(within(sheet).getByTestId('status-LC')).toBeInTheDocument()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
@@ -180,14 +186,24 @@ describe('IucnPill', () => {
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#d81e05')
     expect(pill.style.getPropertyValue('--iucn-text')).toBe('#ffffff')
   })
-  it('the button form: a button named by the abbreviation and the full name', () => {
-    render(<IucnPill cat="VU" as="button" />)
-    const pill = screen.getByTestId('iucn-pill')
-    expect(pill.tagName).toBe('BUTTON')
-    expect(pill).toHaveAttribute('type', 'button')
-    expect(pill).toHaveAccessibleName('VU, Vulnerable (IUCN Red List)')
-    expect(pill).toHaveTextContent('VU')
-    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
+  it('the card badge: the pill and the full name as plain text, no button', () => {
+    render(<IucnBadge cat="VU" />)
+    const badge = screen.getByTestId('iucn-badge')
+    expect(badge.querySelector('button')).toBeNull()
+    expect(badge).toHaveTextContent('VUVulnerable (IUCN Red List)')
+    expect(badge.querySelector('.eb-iucn')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('The Conservation status button’s glyph', () => {
+  it('is Phosphor Leaf, one constant shared with the How it works scene; Places and Time keep their own', () => {
+    const { container } = render(<STATUS_ICON />)
+    const leaf = container.querySelector('svg')!.innerHTML
+    cleanup()
+    render(<Harness />)
+    expect(statusBtn().querySelector('svg')!.innerHTML).toBe(leaf)
+    expect(screen.getByTestId('filter-tab-places').querySelector('svg')!.innerHTML).not.toBe(leaf)
+    expect(screen.getByTestId('filter-tab-time').querySelector('svg')!.innerHTML).not.toBe(leaf)
   })
 })
 

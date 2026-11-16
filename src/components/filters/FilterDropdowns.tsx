@@ -1,18 +1,19 @@
 'use client'
-// Places, Time and Status: dropdown buttons in the controls bar, between Scientific and the search. Each button says
-// what it filters when active ("Places · 2", "Time · 2022–2024", "Status · 2"), so the bar itself shows every active
+// Places, Time and Conservation status: dropdown buttons in the controls bar, between Scientific and the search. Each
+// button says what it filters when active ("Places · 2", "Time · 2022–2024", "Conservation status · 2"; the bar's short
+// form, under 540px of bar and on phones, reads "Status · 2", the accessible name stays whole), so the bar itself shows every active
 // place, time or status filter;
 // taxonomy sits under the bar (wrapped chips; the "Choose an order" picker on phones). A button opens its panel (one at a time; a second tap, Esc or a press outside
 // closes it and focus returns to the button): a popover under the bar on wider screens, a bottom sheet on phones.
 // Filters apply live.
-//  - Places (PlacesList.tsx): checklists of places, one level at a time (?v=places:b: rows that expand inline):
+//  - Places (PlacesList.tsx): checklists of places, one level at a time:
 //    countries (flag, name, species seen there), then a country's states and provinces, then a province's counties,
 //    each sorted by count; several places at any levels may be checked (the collage keeps species seen in ANY of them); Clear clears every level; a search field
 //    once a level has more than SEARCH_FROM rows. A list whose places are all lifer places says so (PlacesNote).
 //  - Time: the timeline (Timeline.tsx): month bars, a year axis, a range of months; Clear.
-//  - Status (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
+//  - Conservation status (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
 //    species on the list has a status (or one is checked), as `hide` leaves out what a shared link doesn't carry.
-import { CalendarBlank, CaretDown, GlobeHemisphereWest, Leaf } from '@phosphor-icons/react'
+import { CalendarBlank, CaretDown, GlobeHemisphereWest } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
@@ -25,6 +26,7 @@ import type { Month } from '@/lib/list/timeline'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
 import { PlacesList } from './PlacesList'
+import { STATUS_ICON } from './status-icon'
 import type { PlacesNote } from './places-shared'
 import { StatusList } from './StatusList'
 import { Timeline } from './Timeline'
@@ -53,10 +55,10 @@ type Props = {
   threatLine?: number
 }
 
-const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] = [
+const PANELS: { id: Panel; label: string; /** The bar's short form (under 540px of bar, on phones). */ short?: string; Icon: typeof GlobeHemisphereWest }[] = [
   { id: 'places', label: 'Places', Icon: GlobeHemisphereWest },
   { id: 'time', label: 'Time', Icon: CalendarBlank },
-  { id: 'status', label: 'Status', Icon: Leaf },
+  { id: 'status', label: 'Conservation status', short: 'Status', Icon: STATUS_ICON },
 ]
 
 export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert, threatLine }: Props) {
@@ -77,8 +79,8 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
 
   return (
     <>
-      <div className="eb-dock-filters" role="group" aria-label="Places, time and status" inert={inert}>
-        {shown.map(({ id, label, Icon }) => {
+      <div className="eb-dock-filters" role="group" aria-label="Places, time and conservation status" inert={inert}>
+        {shown.map(({ id, label, short, Icon }) => {
           const s = summary(id)
           const said = spoken(id)
           return (
@@ -98,7 +100,12 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
             >
               <Icon aria-hidden="true" focusable="false" />
               <span className="eb-drop-label">
-                {label}
+                {short ? (
+                  <>
+                    <span className="eb-long">{label}</span>
+                    <span className="eb-short" aria-hidden="true">{short}</span>
+                  </>
+                ) : label}
                 {s && <span className="eb-drop-sum"> · {s}</span>}
               </span>
               <CaretDown aria-hidden="true" focusable="false" className="eb-drop-caret" />

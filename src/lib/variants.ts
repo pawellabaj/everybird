@@ -16,7 +16,7 @@ export function variantsEnabled(host: string | undefined = typeof location === '
   return host !== PROD_HOST
 }
 
-/** `?v=b` → `{ '*': 'b' }`; `?v=stamp:b,pill:c` → `{ stamp: 'b', pill: 'c' }`; letters a–z only, the rest ignored. */
+/** `?v=b` → `{ '*': 'b' }`; `?v=places:b,threat:c` → `{ places: 'b', threat: 'c' }`; letters a–z only, the rest ignored. */
 export function parseVariants(search: string): Record<string, string> {
   return parseValue(new URLSearchParams(search).get('v') ?? '')
 }

@@ -5,7 +5,10 @@ import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { markShown } from '@/lib/species/status-mark'
+import { IUCN_NAMES } from '@/lib/species/iucn'
 import { Marks } from './Marks'
+import { StatusMark } from './StatusMark'
 import { Sticker } from './Sticker'
 import './card-list.css'
 
@@ -39,7 +42,7 @@ const Row = memo(function Row({ entry, row, place, sci, onPick }: RowProps) {
           <span style={{ width: Math.round(fit * row.ar), height: Math.round(fit) }}><Sticker code={entry.code} st={row.st} ar={row.ar} sv={row.sv} w={fit * row.ar} h={fit} /></span>
         </span>
         <span className="eb-row-name">
-          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}</span><Marks entry={entry} /></span>
+          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}</span><Marks entry={entry} />{markShown(row.iu) && (<><span className="eb-sr">, {IUCN_NAMES[row.iu]}</span><StatusMark cat={row.iu} /></>)}</span>
           <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</span>
         </span>
         <span className="eb-row-meta">
