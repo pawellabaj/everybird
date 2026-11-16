@@ -390,3 +390,42 @@ test("the collage's Fix it opens Settings with the match report open", async ({ 
   await expect(page.locator("#match").getByRole("button", { name: /^Fix it/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#eb-match-rows")).toBeVisible();
 });
+
+// The language switch (preview variant lang:a, the default): the top bar's button beside the theme switch opens a menu
+// of the four languages; a choice sets the everybird-lang cookie and reloads, and every page follows it, after a
+// reload too. Settings' "Language" field shows the same choice.
+test("Language: Español from the top bar switches every page and stays after a reload", async ({ page, context }) => {
+  await page.goto("/");
+  const bar = page.getByTestId("topbar");
+  const btn = bar.getByRole("button", { name: "Language: English" });
+  await expect(btn).toHaveText("EN");
+  await btn.click();
+  const menu = page.getByRole("menu", { name: "Language" });
+  await expect(menu.getByRole("menuitemradio", { name: "English" })).toHaveAttribute("aria-checked", "true");
+  await expect(menu.getByRole("menuitemradio", { name: "English" })).toBeFocused();
+  await Promise.all([page.waitForEvent("load"), menu.getByRole("menuitemradio", { name: "Español" }).click()]);
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(bar.getByRole("button", { name: "Idioma: Español" })).toHaveText("ES");
+  expect((await context.cookies()).find((c) => c.name === "everybird-lang")?.value).toBe("es");
+  for (const [name, path] of [["Ajustes", "/settings"], ["Acerca de", "/about"], ["Collage", "/"]] as const) {
+    await bar.getByRole("link", { name, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${path === "/" ? "/" : path}$`));
+    await expect(page.locator("html")).toHaveAttribute("lang", "es");
+    await expect(bar.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
+  }
+  await page.goto("/settings");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "es");
+  await expect(page.getByRole("combobox", { name: "Idioma" })).toHaveValue("es");
+  await expect(page.getByRole("switch", { name: "Mostrar los nombres de las aves en inglés" })).toBeVisible();
+});
+
+test("Settings still fits about 1.5 screens at 1280x800 with the language field, in the Settings-only variant (?v=lang:b)", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await importLifeList(page);
+  await page.goto("/settings?v=lang:b");
+  await expect(page.getByRole("combobox", { name: "Language" })).toBeVisible();
+  await expect(page.getByTestId("topbar").getByRole("button", { name: /^Language/ })).toHaveCount(0);
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  expect(height).toBeLessThanOrEqual(1.6 * 800);
+});

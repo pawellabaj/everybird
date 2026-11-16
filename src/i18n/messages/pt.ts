@@ -23,6 +23,17 @@ export const pt: Messages = {
         coffee: 'Me pague um café',
         github: 'Everybird no GitHub',
       },
+      language: {
+        button: 'Idioma: {name}',
+        menu: 'Idioma',
+      },
+    },
+    settings: {
+      language: 'Idioma',
+      enNames: {
+        label: 'Mostrar os nomes das aves em inglês',
+        note: 'Onde aparecerem nomes de aves, neste dispositivo.',
+      },
     },
   },
   page: {},

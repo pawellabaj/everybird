@@ -23,6 +23,17 @@ export const nl: Messages = {
         coffee: 'Trakteer me op koffie',
         github: 'Everybird op GitHub',
       },
+      language: {
+        button: 'Taal: {name}',
+        menu: 'Taal',
+      },
+    },
+    settings: {
+      language: 'Taal',
+      enNames: {
+        label: 'Vogelnamen in het Engels tonen',
+        note: 'Overal waar vogelnamen staan, op dit apparaat.',
+      },
     },
   },
   page: {},

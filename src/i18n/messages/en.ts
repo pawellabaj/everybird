@@ -38,6 +38,21 @@ const ui = {
       /** The GitHub link's aria-label. */
       github: 'Everybird on GitHub',
     },
+    /** The top bar's language button (LanguageMenu, variant lang:a): its aria-label ({name} from LANG_NAMES) and its menu's. */
+    language: {
+      button: 'Language: {name}',
+      menu: 'Language',
+    },
+  },
+  /** Settings (SettingsPage). */
+  settings: {
+    /** Your data > the language select's label (LanguageField). */
+    language: 'Language',
+    /** Your data > the English-names switch (EnglishNamesSwitch), shown when the UI isn't English. */
+    enNames: {
+      label: 'Show bird names in English',
+      note: 'Wherever bird names appear, on this device.',
+    },
   },
 }
 

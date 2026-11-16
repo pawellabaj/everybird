@@ -34,3 +34,19 @@ export function refreshLangCookie(doc: CookieDoc = document): void {
     // Cookies blocked: the browser's language decides, as without a choice.
   }
 }
+
+/** The language picker's preview variants (`useVariant('lang', LANG_VARIANTS)`): a, the top bar's LanguageMenu beside
+ *  the theme toggle plus the Settings field (default); b, the Settings field only. */
+export const LANG_VARIANTS = ['a', 'b'] as const
+
+/** A new choice: the cookie, then a full reload, because the router cache and the page's HTML belong to the old
+ *  language. The callers skip the current language (it only closes the menu). */
+export function chooseLang(lang: Lang): void {
+  try {
+    setLangCookie(lang)
+  } catch {
+    // Cookies blocked: nothing to remember, and the reload would show the same language.
+    return
+  }
+  location.reload()
+}

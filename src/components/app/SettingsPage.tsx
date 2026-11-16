@@ -12,6 +12,7 @@ import { placesNoteFor } from '@/lib/list/filter-summary'
 import { sourceCounts, summaryLine } from '@/lib/list/source-counts'
 import { NAME_MAX, type Saved } from '@/lib/list/storage'
 import { useEverybirdContext } from './EverybirdProvider'
+import { EnglishNamesSwitch, LanguageField } from './LanguageField'
 import { AppNotices } from './Notices'
 import { PageHead } from './PageHead'
 import { RestoreBackup } from './RestoreBackup'
@@ -51,7 +52,7 @@ function NameField({ stored, onName }: { stored: string; onName: (name: string) 
 
 /**
  * `/settings`, three tight sections: "Your list" (one row per source, the match report), "Counting" (the rules) and
- * "Your data" (your name, downloads, restore, forget). "Your list" opens with one line on what each source brings
+ * "Your data" (the language, then your name, downloads, restore, forget). "Your list" opens with one line on what each source brings
  * (source-counts.ts), ending, after an import, with "See my collage" back to the collage.
  */
 export function SettingsPage() {
@@ -99,11 +100,15 @@ export function SettingsPage() {
       )}
       <div className={mine ? 'eb-settings-pair' : 'eb-settings-one'}>
       {mine && <RulesSwitches saved={saved} dispatch={dispatch} />}
-      {(mine || data) && (
-        <section className="eb-block" aria-labelledby="eb-data-h">
+      {/* Always shown: the language comes first, with or without a list, in the prerendered page too. */}
+      <section className="eb-block" aria-labelledby="eb-data-h">
           <div className="eb-block-head">
             <h2 id="eb-data-h" className="eb-h2">Your data</h2>
-            <p className="eb-note">{mine ? 'Your list lives on this device. Download it, or move it to another device with the backup.' : 'Moving from another device? Restore the backup you downloaded there.'}</p>
+            {(mine || data) && <p className="eb-note">{mine ? 'Your list lives on this device. Download it, or move it to another device with the backup.' : 'Moving from another device? Restore the backup you downloaded there.'}</p>}
+          </div>
+          <div className="eb-langrow">
+            <LanguageField />
+            <EnglishNamesSwitch />
           </div>
           {mine ? (
             <div className="eb-datarow">
@@ -124,7 +129,7 @@ export function SettingsPage() {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : data && (
             <div className="eb-tools">
               <RestoreBackup onRestore={(s) => { dispatch({ type: 'restore', saved: s }); router.push('/') }} />
             </div>
@@ -148,7 +153,6 @@ export function SettingsPage() {
             </div>
           )}
         </section>
-      )}
       </div>
     </main>
   )

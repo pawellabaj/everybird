@@ -1,15 +1,18 @@
 'use client'
 // The top bar on every page, after the site's phone top bar (framer-site code-components/SiteNav.tsx): the Everybird
 // wordmark home on the left, then Collage, Settings and About (the current page carries aria-current="page" and the
-// site's active style: Surface fill, Hairline border, Accent), and the sun/moon theme switch on the right. One row
-// down to 320px. Sticky with headroom (src/lib/headroom.ts): it slides out of view while the page scrolls down and back
+// site's active style: Surface fill, Hairline border, Accent), then on the right the language button (preview variant
+// lang:a, the default; LanguageMenu) and the sun/moon theme switch, together in row one at every width. One row down
+// to 300px; under it the nav takes its own second row. Sticky with headroom (src/lib/headroom.ts): it slides out of view while the page scrolls down and back
 // on any upward scroll, at the top, while a dialog holds it and while focus is inside it.
 import Link from '@/components/app/IntentLink'
 import { useEffect, useRef } from 'react'
+import { LANG_VARIANTS } from '@/i18n/choose'
 import { useI18n } from '@/i18n/I18nProvider'
 import { useAppPath } from '@/i18n/path'
 import { attachHeadroom } from '@/lib/headroom'
-import { rememberVariants } from '@/lib/variants'
+import { rememberVariants, useVariant } from '@/lib/variants'
+import { LanguageMenu } from './LanguageMenu'
 import { ThemeToggle } from './ThemeToggle'
 
 const PAGES = [
@@ -26,6 +29,8 @@ export function TopBar() {
   useEffect(() => (ref.current ? attachHeadroom(ref.current) : undefined), [])
   // Preview variants: a `?v=` on any page load is remembered for the tab (src/lib/variants.ts).
   useEffect(rememberVariants, [])
+  // a: the language button beside the theme switch (the prerendered bar); b: Settings only.
+  const langVariant = useVariant('lang', LANG_VARIANTS)
   return (
     <header ref={ref} className="eb-topbar" data-testid="topbar">
       <div className="eb-topbar-in">
@@ -39,7 +44,10 @@ export function TopBar() {
             ))}
           </ul>
         </nav>
-        <ThemeToggle />
+        <div className="eb-topbar-end">
+          {langVariant === 'a' && <LanguageMenu />}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )
