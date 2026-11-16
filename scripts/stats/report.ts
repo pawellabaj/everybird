@@ -131,8 +131,8 @@ function pivot(rows: Row[], rowKey: string, colKey: string, valKey: string, rowO
 }
 
 export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): string {
-  // Visits are stored once per person, page and day from the Worker version of 2026-11-16 on; earlier days count every view.
-  const out: string[] = [`Everybird stats since ${args.since} (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day (from 2026-11-16; earlier days count every view).`]
+  // Visits are stored once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.
+  const out: string[] = [`Everybird stats since ${args.since} (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.`]
 
   // Visitors per day, with page views by page.
   const pages = ['landing', 'collage', 'settings', 'about', 'shared']
