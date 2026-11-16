@@ -231,14 +231,14 @@ describe('the conservation status on /', () => {
     // gilfli VU + yerwar EN; norfli LC and the two without a status don't count.
     expect(stats()).toHaveTextContent('2 threatened (Vulnerable, Endangered or Critically Endangered)')
     fireEvent.click(screen.getByTestId('filter-tab-status'))
-    const panel = screen.getByRole('dialog', { name: 'Red List' })
+    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
     expect(within(panel).getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
     fireEvent.click(within(panel).getByTestId('status-VU'))
     fireEvent.click(within(panel).getByTestId('status-EN'))
     await waitFor(() => expect(stats()).toHaveTextContent(/^2 of 5 species · 2 families$/))
     expect(stats()).not.toHaveTextContent('threatened') // only on the unfiltered line
     expect(screen.getByTestId('filter-tab-status').querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
-    expect(screen.getByTestId('filter-tab-status')).toHaveAccessibleName(/^Red List: /)
+    expect(screen.getByTestId('filter-tab-status')).toHaveAccessibleName(/^Conservation status: /)
     // The list view shows what applyFilter (the layout client's resolve) returns for the same filter.
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     const shown = Array.from(document.querySelectorAll<HTMLElement>('.eb-lrow [data-code]')).map((b) => b.dataset.code).sort()
