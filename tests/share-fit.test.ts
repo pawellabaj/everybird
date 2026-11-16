@@ -16,6 +16,8 @@ const css = readFileSync('src/components/share/share.css', 'utf8')
 const EM = 0.58 // Satoshi 500 and 700, per character
 const MONO_EM = 0.62 // Geist Mono 12px plus .02em of tracking
 const RATIOS = ['9:16', '4:5', '1:1']
+/** Horizontal: 16:9 (the desktop, in place of the story), 5:4 (the wide post) and 1:1 (square). */
+const RATIOS_WIDE = ['16:9', '5:4', '1:1']
 const text = (s: string, px: number) => s.length * EM * px
 const COLUMNS = { desktop: 420, narrow: 300, phone: 246 }
 
@@ -28,9 +30,9 @@ const FORMAT_STEPS: FormatStep[] = [
   { name: 'small words', min: 240, query: '@container (max-width: 289px)', icon: false, hint: false, px: 14, padX: 4, gap: 2, segPad: 2 },
 ]
 
-const formatNeed = (labels: string[], s: FormatStep) =>
+const formatNeed = (labels: string[], s: FormatStep, ratios: string[] = RATIOS) =>
   2 + 2 * s.segPad + 2 * s.gap +
-  labels.reduce((sum, label, i) => sum + 2 * s.padX + (s.icon ? 18 + 8 : 0) + text(label, s.px) + (s.hint ? 8 + RATIOS[i].length * MONO_EM * 12 : 0), 0)
+  labels.reduce((sum, label, i) => sum + 2 * s.padX + (s.icon ? 18 + 8 : 0) + text(label, s.px) + (s.hint ? 8 + ratios[i].length * MONO_EM * 12 : 0), 0)
 
 type RowStep = { name: string; min: number; query: string | null; icon: boolean; px: number; padX: number; gap: number }
 const ROW_STEPS: RowStep[] = [
@@ -54,6 +56,32 @@ describe("the share dialog's rows", () => {
       const labels = [f.story, f.post, f.square]
       for (const s of FORMAT_STEPS) {
         const need = formatNeed(labels, s)
+        if (need > s.min) over.push(`${lang} ${s.name}: needs ${Math.ceil(need)}px, step starts at ${s.min}px`)
+      }
+    }
+    expect(over).toEqual([])
+  })
+
+  it("keeps each language's horizontal labels (Desktop, 5:4) inside the control at every step", () => {
+    const over: string[] = []
+    for (const [lang, m] of Object.entries(LANG)) {
+      const f = m.ui.share.format
+      const labels = [f.desktop, f.post, f.square]
+      for (const s of FORMAT_STEPS) {
+        const need = formatNeed(labels, s, RATIOS_WIDE)
+        if (need > s.min) over.push(`${lang} ${s.name}: needs ${Math.ceil(need)}px, step starts at ${s.min}px`)
+      }
+    }
+    expect(over).toEqual([])
+  })
+
+  it('keeps Vertical | Horizontal on one line in every language at every step', () => {
+    const over: string[] = []
+    for (const [lang, m] of Object.entries(LANG)) {
+      const o = m.ui.share.orientation
+      // Two segments, no icon and no ratio: the format control's padding and gaps, so the budget is the same kind.
+      for (const s of FORMAT_STEPS) {
+        const need = formatNeed([o.vertical, o.horizontal], { ...s, icon: false, hint: false })
         if (need > s.min) over.push(`${lang} ${s.name}: needs ${Math.ceil(need)}px, step starts at ${s.min}px`)
       }
     }

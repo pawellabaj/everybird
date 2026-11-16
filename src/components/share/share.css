@@ -1,6 +1,6 @@
 /* The share dialog: a modal, preview beside the controls from 720px, stacked below. The preview is as large
    as the window allows (Yusuf, 2026-11-15: no narrow story between grey bands): its box takes the shown image's own
-   shape (data-format: 9:16, 4:5 or 1:1), so nothing is letterboxed, and it sits centred in an area as large as the
+   shape (data-format: 9:16, 4:5 or 1:1, or horizontal 16:9, 5:4 and the landscape poster), so nothing is letterboxed, and it sits centred in an area as large as the
    story's box (the tallest), which the story fills and a post or square sits in the middle of (Yusuf, 2026-11-15).
    The area keeps its height in every format, so the controls never move: beside them the dialog's width follows the
    format leftward from a fixed right edge; stacked, the buttons under the area keep their place.
@@ -23,8 +23,8 @@
      a phone: "A1 · 59.4 × 84.1 cm · 7016 × 9933 px at 150 dpi" is about 340px at 14px) + 8 (the group's gap) = 110
      more, so 550. Each keeps the primary action on the first screen, 26px above the dialog's bottom edge, with the
      top of the quiet row showing under it. */
-  .eb-share .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 440px, 600px)); }
-  .eb-share[data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 550px, 600px)); }
+  .eb-share .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 502px, 600px)); }
+  .eb-share[data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 612px, 600px)); }
 }
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
@@ -51,7 +51,7 @@
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
 /* At least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px), so print
    mode's shorter "Share images" button in its place moves nothing below it. */
-.eb-share-formats { min-width: 0; min-height: 54px; container-type: inline-size; }
+.eb-share-formats { display: grid; gap: 8px; min-width: 0; min-height: 54px; container-type: inline-size; }
 
 /* The image's shape, from the format it shows. */
 .eb-share-preview { --ar: calc(9 / 16); }
@@ -59,6 +59,10 @@
 .eb-share-preview[data-format="square"] { --ar: 1; }
 /* The poster's preview: an A size (1:√2, wider than 9:16), so it sits inside the story's area as a post does. */
 .eb-share-preview[data-format="print"] { --ar: calc(1240 / 1754); }
+/* Horizontal: the desktop wallpaper (16:9), the wide post (5:4) and a landscape poster (the portrait A size's ratio turned). */
+.eb-share-preview[data-format="desktop"] { --ar: calc(16 / 9); }
+.eb-share-preview[data-format="wide"] { --ar: calc(5 / 4); }
+.eb-share-preview[data-format="printLandscape"] { --ar: calc(1754 / 1240); }
 .eb-share-preview {
   position: relative; justify-self: center; align-self: center; box-sizing: border-box; overflow: hidden;
   background: var(--surface); border: 1px solid var(--hairline);
@@ -78,10 +82,11 @@
 /* Stacked (phones): the preview's area (the body's middle row) is --cap tall in every format: as tall as the screen
    allows while Share image stays on the first screen, ending 26px above the dialog's bottom edge with the top 18px of
    the Download / Copy link row showing under it as a cue to scroll (the head, the format control, the title field, the
-   switch, the button and that margin take 409px with the dialog's padding and gaps; measured at 390 x 844 and 700), at
+   switch, the button and that margin take 409px with the dialog's padding and gaps; measured at 390 x 844 and 700; with the
+   orientation row above the preview, 54px and 8px more: 471), at
    most 62% of the screen and 600px, at least 240px. The box is at most --cap tall and as wide as the dialog allows,
    centred in the row both ways: the story fills its height, a post or square leaves equal bands above and below. */
-.eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 409px, 600px)); grid-template-rows: auto var(--cap) auto; }
+.eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 471px, 600px)); grid-template-rows: auto var(--cap) auto; }
 
 /* Beside the controls: the window's height minus the chrome (16px scrim padding twice, the dialog's padding, head,
    gap and 1px borders: 134px), at most 760px, and never wider than the window leaves beside the controls' column
@@ -229,6 +234,10 @@
   .eb-share .eb-share-switch, .eb-share-switch .eb-track, .eb-share-switch .eb-knob { transition: none; }
   .eb-share-bar-fill { transition: none; }
 }
+
+/* The orientation switch (Vertical | Horizontal) under the format control: the same control, its two segments sharing the
+   column. Disabled while Square is chosen (it has no horizontal shape): the choice stays pressed, just dimmed. */
+.eb-share-orient .eb-seg-btn:disabled { opacity: .4; cursor: default; }
 
 /* The Story / Post / Square choice: a small segmented control in the dock's style. */
 .eb-seg {

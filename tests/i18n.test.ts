@@ -17,6 +17,8 @@ const ALLOW_SAME = [
   // Words the languages share: pt "Story" (Instagram's word in Brazil), nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
   // Flamingos, pt Seriemas, nl Hoatzin, nl Trogons); nl "{n} continent" (the same word); nl's full month needs no "de" ("maart 2020").
   'Filters', '{n} continent', 'Filters · {n} · {species}', 'Filters · {species}', 'Families', '{n} families', 'Story', 'Post', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
+  // The orientation switch and the desktop format: es and pt keep "Vertical" and "Horizontal", and pt and nl "Desktop".
+  'Vertical', 'Horizontal', 'Desktop',
   // Templates with no words: the summary line's joins (ui.import.summary).
   '{head}: {parts}.', '{head}, {all}.',
   // About's credits: es and nl keep "Stickers" and "API" as they are; nl "Credits" and "Code".

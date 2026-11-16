@@ -12,15 +12,18 @@
 // strip canvas is width × rows, capped by it.
 //
 // An abort disposes the encoder at once, so a wait on it (backpressure, end) rejects even if the worker never replies.
-import { abortError, paintCard, prepareCard, tileInRange, type PaintRange, type ShareImageOpts, type Tile } from './image'
-import { IOS_CANVAS_AREA, PRINT_PT, PRINT_PX, STRIP_AREA, STRIP_DESIGN_ROWS, printScale, stripRanges, type PrintSize } from './print'
+import { abortError, paintCard, prepareCard, tileInRange, type CardFormat, type PaintRange, type ShareImageOpts, type Tile } from './image'
+import { IOS_CANVAS_AREA, STRIP_AREA, STRIP_DESIGN_ROWS, printPt, printPx, printScale, stripRanges, type PrintSize } from './print'
 import { createPrintStickers, type PrintStickers } from './print-stickers'
 import type { PrintWorkerReply, PrintWorkerRequest } from './print.worker'
 
-export type PosterOpts = Omit<ShareImageOpts, 'format' | 'printSize' | 'signal'> & { size: PrintSize; signal?: AbortSignal }
+/** `landscape`: the poster is wider than it is tall (the A size's sides swapped; print.ts printPx, printPt, printDesign). */
+export type PosterOpts = Omit<ShareImageOpts, 'format' | 'printSize' | 'signal'> & { size: PrintSize; landscape?: boolean; signal?: AbortSignal }
 
 export type Poster = {
   size: PrintSize
+  /** Landscape: the file's pixels and page are the A size's, swapped. */
+  landscape: boolean
   /** The compressed image data, without either file's wrapper. */
   bytes: number
   /** Stickers drawn from their 384 file because the 1024 one failed. */
@@ -211,7 +214,7 @@ export function stickerSpans(tiles: Tile[], ranges: PaintRange[]): Map<string, {
 export async function makePoster(
   opts: PosterOpts, onProgress: (done: number, total: number) => void, deps: Partial<PosterDeps> = {},
 ): Promise<Poster> {
-  const { size, signal, ...rest } = opts
+  const { size, landscape = false, signal, ...rest } = opts
   const check = () => { if (signal?.aborted) throw abortError() }
   const stickers = deps.stickers ?? createPrintStickers()
   const frame = deps.frame ?? nextFrame
@@ -221,8 +224,9 @@ export async function makePoster(
   try {
     check()
     const k = printScale(size)
-    const [width, height] = PRINT_PX[size]
-    const card = await prepareCard({ ...rest, format: 'print', printSize: size, signal }, k).catch((error: unknown) => {
+    const [width, height] = printPx(size, landscape)
+    const format: CardFormat = landscape ? 'printLandscape' : 'print'
+    const card = await prepareCard({ ...rest, format, printSize: size, signal }, k).catch((error: unknown) => {
       throw error instanceof Error && error.message === NO_CANVAS ? memoryError() : error
     })
     check()
@@ -296,11 +300,11 @@ export async function makePoster(
     const done = encoder
     const files = new Map<'png' | 'pdf', Promise<Blob>>()
     return {
-      size, bytes, soft, missing,
+      size, landscape, bytes, soft, missing,
       file(kind) {
         let p = files.get(kind)
         if (!p) {
-          p = done.file(kind, PRINT_PT[size]).then(async (blob) => new Blob([await blob.arrayBuffer()], { type: blob.type }))
+          p = done.file(kind, printPt(size, landscape)).then(async (blob) => new Blob([await blob.arrayBuffer()], { type: blob.type }))
           p.catch(() => files.delete(kind))
           files.set(kind, p)
         }

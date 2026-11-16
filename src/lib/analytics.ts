@@ -49,8 +49,8 @@ export const PRODUCTION_HOST = 'everybird.yusuftaleb.com'
 export const ALLOWED: Record<EventName, readonly string[]> = {
   visit: ['landing', 'collage', 'settings', 'about', 'shared'],
   collage_made: ['ebird', 'ebird-list', 'inat', 'obsorg', 'manual', 'sample', 'restore', 'mixed'],
-  image_downloaded: ['story', 'post', 'square'],
-  shared: ['story', 'post', 'square', 'link'],
+  image_downloaded: ['story', 'post', 'square', 'desktop', 'wide'],
+  shared: ['story', 'post', 'square', 'desktop', 'wide', 'link'],
   link_copied: ['full', 'compact', 'minimal', 'species'],
   ui_language: ['en', 'es', 'pt', 'nl'],
   poster_made: ['a4', 'a3', 'a2', 'a1'],

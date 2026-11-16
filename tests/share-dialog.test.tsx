@@ -25,7 +25,7 @@ vi.mock('@/lib/share/image', async (orig) => ({
 vi.mock('@/lib/download', () => ({ downloadBlob: vi.fn() }))
 
 // The poster is made by a promise the test settles; it records the progress callback, the signal and the opts.
-type FakePoster = { size: string; bytes: number; soft: number; missing: number; file: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }
+type FakePoster = { size: string; landscape: boolean; bytes: number; soft: number; missing: number; file: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }
 const makes: { opts: { size: string; signal?: AbortSignal; pack?: unknown }; onProgress: (d: number, t: number) => void; resolve: (p: FakePoster) => void; reject: (e: unknown) => void }[] = []
 const posterMock = () => ({
   makePoster: vi.fn((opts, onProgress) => new Promise((resolve, reject) => makes.push({ opts, onProgress, resolve, reject }))),
@@ -34,7 +34,7 @@ vi.mock('@/lib/share/poster', () => posterMock()) // called at the first import,
 vi.mock('@/lib/analytics', () => ({ track: vi.fn() }))
 vi.mock('@/lib/download', () => ({ downloadBlob: vi.fn() }))
 const fakePoster = (over: Partial<FakePoster> = {}): FakePoster => ({
-  size: 'A2', bytes: 1, soft: 0, missing: 0,
+  size: 'A2', landscape: false, bytes: 1, soft: 0, missing: 0,
   file: vi.fn(async (kind: string) => new Blob([kind], { type: kind === 'png' ? 'image/png' : 'application/pdf' })),
   dispose: vi.fn(),
   ...over,
@@ -706,5 +706,70 @@ describe('share dialog: the poster module fails to load', () => {
     expect(screen.getByTestId('share-note').textContent).toBe('Making the poster.')
     warn.mockRestore()
     vi.doMock('@/lib/share/poster', posterMock)
+  })
+})
+
+describe('the orientation switch', () => {
+  it('starts Vertical; Horizontal turns the story into Desktop (16:9) and the post into 5:4', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    expect(screen.getByRole('button', { name: 'Vertical' })).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(renders).toHaveLength(1))
+    expect(vi.mocked(image.renderShareImage).mock.calls[0][0]).toMatchObject({ format: 'story' })
+    fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
+    expect(screen.getByRole('button', { name: 'Horizontal' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Desktop, 16:9' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Post, 5:4' })).toBeInTheDocument()
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'desktop' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Post, 5:4' }))
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'wide' }))
+  })
+
+  it('Square disables the switch; the chosen orientation holds while the dialog is open', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Square, 1:1' }))
+    const horizontal = screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement
+    expect(horizontal.disabled).toBe(true)
+    expect(horizontal).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'square' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Desktop, 16:9' }))
+    expect((screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement).disabled).toBe(false)
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'desktop' }))
+  })
+
+  it('Download image names the landscape file and counts it as desktop', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)![0]).toMatchObject({ format: 'desktop' }))
+    await act(async () => renders.at(-1)!.resolve(new Blob(['png'], { type: 'image/png' })))
+    const dl = screen.getByRole('button', { name: 'Download image' }) as HTMLButtonElement
+    await waitFor(() => expect(dl.disabled).toBe(false))
+    fireEvent.click(dl)
+    await waitFor(() => expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('everybird-desktop.png')
+    expect(vi.mocked(track)).toHaveBeenCalledWith('image_downloaded', { format: 'desktop' })
+  })
+
+  it('print mode follows the orientation: a landscape poster, sizes swapped, its file named -landscape', async () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Horizontal' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+    expect((screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement).disabled).toBe(false)
+    await waitFor(() => expect(vi.mocked(image.renderShareImage).mock.calls.at(-1)?.[0]).toMatchObject({ format: 'printLandscape', printSize: 'A2' }))
+    expect(screen.getByText('A2 · 59.4 × 42 cm · 3508 × 2480 px at 150 dpi')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Make poster' }))
+    await waitFor(() => expect(makes).toHaveLength(1))
+    expect(makes[0].opts).toMatchObject({ size: 'A2', landscape: true })
+    await act(async () => makes[0].resolve(fakePoster({ landscape: true })))
+    fireEvent.click(await screen.findByRole('button', { name: 'Download PNG' }))
+    await waitFor(() => expect(vi.mocked(downloadBlob)).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(downloadBlob).mock.calls[0][1]).toBe('everybird-a2-landscape.png')
+  })
+
+  it('in print mode the switch is on whatever the share format (a poster has no square)', () => {
+    render(<ShareDialog state={stateWith([entry('ostric2')])} dispatch={() => {}} species={species} regions={regions} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Square, 1:1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Print a poster' }))
+    expect((screen.getByRole('button', { name: 'Horizontal' }) as HTMLButtonElement).disabled).toBe(false)
   })
 })

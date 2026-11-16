@@ -5,8 +5,8 @@
 export const ALLOWED: Record<string, Set<string>> = {
   visit: new Set(['landing', 'collage', 'settings', 'about', 'shared']),
   collage_made: new Set(['ebird', 'ebird-list', 'inat', 'obsorg', 'manual', 'sample', 'restore', 'mixed']),
-  image_downloaded: new Set(['story', 'post', 'square']),
-  shared: new Set(['story', 'post', 'square', 'link']),
+  image_downloaded: new Set(['story', 'post', 'square', 'desktop', 'wide']),
+  shared: new Set(['story', 'post', 'square', 'desktop', 'wide', 'link']),
   link_copied: new Set(['full', 'compact', 'minimal', 'species']),
   ui_language: new Set(['en', 'es', 'pt', 'nl']),
   poster_made: new Set(['a4', 'a3', 'a2', 'a1']),

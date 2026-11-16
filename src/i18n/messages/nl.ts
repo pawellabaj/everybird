@@ -332,10 +332,12 @@ export const nl: Messages = {
     share: {
       title: 'Deel je collage',
       formats: 'Afbeeldingsformaat',
-      format: { story: 'Verhaal', post: 'Bericht', square: 'Vierkant' },
+      format: { story: 'Verhaal', post: 'Bericht', square: 'Vierkant', desktop: 'Desktop' },
       /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
       formatName: '{name}, verhouding {ratio}',
-      preview: { story: 'Voorbeeld van de verhaalafbeelding', post: 'Voorbeeld van de berichtafbeelding', square: 'Voorbeeld van de vierkante afbeelding' },
+      /** The orientation switch above the format control (Vertical or Horizontal; Square has neither). */
+      orientation: { group: 'Oriëntatie', vertical: 'Staand', horizontal: 'Liggend' },
+      preview: { story: 'Voorbeeld van de verhaalafbeelding', post: 'Voorbeeld van de berichtafbeelding', square: 'Voorbeeld van de vierkante afbeelding', desktop: 'Voorbeeld van de bureaubladafbeelding', wide: 'Voorbeeld van de liggende berichtafbeelding' },
       failed: 'De afbeelding kon niet worden gemaakt.',
       imageFailed: 'De afbeelding kon niet worden gemaakt. Probeer het opnieuw.',
       linkFailed: 'De link kon niet worden gemaakt. Probeer het opnieuw.',

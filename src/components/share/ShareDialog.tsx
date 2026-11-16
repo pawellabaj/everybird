@@ -1,5 +1,6 @@
 'use client'
-// The share dialog: story, post or square image with a live preview, the image options (the optional collage title,
+// The share dialog: story, post or square image with a live preview (a Vertical | Horizontal switch under the format control
+// flips every format at once: desktop, wide and landscape posters; Square has no horizontal shape, so its switch is off), the image options (the optional collage title,
 // Saved.name verbatim, and the "Show latest lifer" switch, on at every open; off gives the row's room to the collage),
 // four actions (Share image: the system share sheet when it takes files, else a download; Download image; Copy link;
 // Print a poster) and last, in the bottom right corner, Buy Me a Coffee's static button (self-hosted, never on the images).
@@ -15,7 +16,7 @@
 // drops a finished poster. Counted: poster_made (by size) when a make finishes, poster_downloaded (png|pdf) when a file is saved; link_copied isn't. "Share images" in the format control's place goes back.
 // The actions: Share image over a row of three quiet buttons. Print mode keeps the same pattern.
 import {
-  ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Printer, ShareNetwork, Square, X, type Icon,
+  ArrowClockwise, ArrowLeft, DeviceMobile, DownloadSimple, FilePdf, FrameCorners, LinkSimple, Monitor, Printer, ShareNetwork, Square, X, type Icon,
 } from '@phosphor-icons/react'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar } from '@/components/dialog-utils'
@@ -28,11 +29,12 @@ import { currentTheme, type Theme } from '@/lib/theme'
 import { COFFEE_URL } from '@/lib/site-meta'
 import { downloadBlob } from '@/lib/download'
 import type { Poster } from '@/lib/share/poster'
-import { PRINT_CM, PRINT_PX, PRINT_SIZES, printDesignH, type PrintSize } from '@/lib/share/print'
+import { PRINT_SIZES, printCm, printDesign, printFileStem, printPx, type PrintSize } from '@/lib/share/print'
 import { applyFilter, filterKey } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import {
-  IMAGE_SIZE, NAME_MAX_LEN, SHARE_CREDIT, abortError, clearStickerCache, filterLabel as labelFor, imagePackSpec, packForImage, renderShareImage, type CardFormat, type ImageFormat, type ImagePack,
+  IMAGE_SIZE, NAME_MAX_LEN, SHARE_CREDIT, abortError, clearStickerCache, filterLabel as labelFor, imagePackSpec, imageShape, isPrint, packForImage, renderShareImage,
+  type CardFormat, type FormatSlot, type ImagePack, type Orientation,
 } from '@/lib/share/image'
 import type { ShareLevel } from '@/lib/share/link'
 import type { makeShareLink as MakeShareLink } from '@/lib/share/make-link'
@@ -50,11 +52,13 @@ const PREVIEW_EASE_MS = 420
 type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesIndex; regions: Regions; onClose: () => void }
 
 const RENDER_DELAY_MS = 250
-const FORMATS: { id: ImageFormat; hint: string; icon: Icon }[] = [
-  { id: 'story', hint: '9:16', icon: DeviceMobile },
-  { id: 'post', hint: '4:5', icon: FrameCorners },
-  { id: 'square', hint: '1:1', icon: Square },
+/** The format buttons: each slot's ratio and icon in each orientation (the square is square in both). */
+const FORMATS: { id: FormatSlot; hint: Record<Orientation, string>; icon: Record<Orientation, Icon> }[] = [
+  { id: 'story', hint: { vertical: '9:16', horizontal: '16:9' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
+  { id: 'post', hint: { vertical: '4:5', horizontal: '5:4' }, icon: { vertical: FrameCorners, horizontal: FrameCorners } },
+  { id: 'square', hint: { vertical: '1:1', horizontal: '1:1' }, icon: { vertical: Square, horizontal: Square } },
 ]
+const ORIENTATIONS: Orientation[] = ['vertical', 'horizontal']
 type LinkResult = ReturnType<typeof MakeShareLink>
 const loadLinkModule = () => import('@/lib/share/make-link')
 type PosterModule = typeof import('@/lib/share/poster')
@@ -81,10 +85,17 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     [fmt(pt.ready, { size: p.size }), p.soft > 0 ? pt.soft : '', p.missing > 0 ? plural(pt.missing, p.missing, { n: formatInt(p.missing, t.num) }) : ''].filter(Boolean).join(' ')
 
   const { list, filter, saved, seen } = state
-  const [format, setFormat] = useState<ImageFormat>('story')
+  const [format, setFormat] = useState<FormatSlot>('story')
+  // The orientation flips every format at once (Square stays square; its switch is off). It holds while the dialog is open.
+  const [orientation, setOrientation] = useState<Orientation>('vertical')
+  const landscape = orientation === 'horizontal'
+  /** The share image's shape: the slot in this orientation (story is desktop, post is wide when horizontal). */
+  const shape = imageShape(format, orientation)
   const [mode, setMode] = useState<'share' | 'print'>('share')
   const [size, setSize] = useState<PrintSize>('A2')
   const print = mode === 'print'
+  // Square has no horizontal shape: its switch is disabled. In print mode the slot doesn't apply, so the switch is on.
+  const squareShare = !print && format === 'square'
   const [name, setName] = useState(saved.name ?? '') // starts from Settings > Name your collage
   const [showLatest, setShowLatest] = useState(true)
   // The look of everything the dialog makes: the app's theme when the dialog opens, then this dialog's own choice.
@@ -144,11 +155,11 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const shownSize = useRef<[number, number]>([0, 0])
   const first = useRef(true)
   const trimmed = name.trim()
-  const key = `${print ? `print|${size}` : format}|${trimmed}|${theme}|${withLatest}|${lang}|${names}|${fk}`
+  const key = `${print ? `print|${size}|${landscape}` : shape}|${trimmed}|${theme}|${withLatest}|${lang}|${names}|${fk}`
   const busy = preview?.key !== key && failedKey !== key
   const failed = failedKey === key
   // What the render depends on: in print mode not the share format, so switching it there never starts a needless render.
-  const cardFormat: CardFormat = print ? 'print' : format
+  const cardFormat: CardFormat = print ? (landscape ? 'printLandscape' : 'print') : shape
   useEffect(() => {
     let live = true
     let cancel = () => {}
@@ -213,7 +224,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
 
   // The poster: one make at a time, for `posterKey`. A new key, leaving print mode or closing the dialog cancels the
   // make and drops the poster (its encoder ends with it).
-  const posterKey = `print|${size}|${trimmed}|${theme}|${withLatest}|${fk}`
+  const posterKey = `print|${size}|${landscape}|${trimmed}|${theme}|${withLatest}|${fk}`
   const [poster, setPoster] = useState<{ key: string; p: Poster } | null>(null)
   const [making, setMaking] = useState<{ key: string; done: number; total: number } | null>(null)
   const makeCtl = useRef<AbortController | null>(null)
@@ -271,10 +282,10 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     focusNext.current = 'cancel'
     try {
       const mod = await (posterModule.current ?? loadPoster())
-      const pack = await packFor('print', !!trimmed, withLatest)
+      const pack = await packFor(landscape ? 'printLandscape' : 'print', !!trimmed, withLatest)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
-        { size, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, strings: t, nameOf: displayName, signal: ctl.signal },
+        { size, landscape, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, strings: t, nameOf: displayName, signal: ctl.signal },
         (done, total) => { if (!ctl.signal.aborted) setMaking({ key: forKey, done, total }) },
       )
       if (ctl.signal.aborted) { p.dispose(); return }
@@ -316,7 +327,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const savePoster = async (kind: 'png' | 'pdf') => {
     const p = posterNow
     if (!p) return
-    const file = `everybird-${p.size.toLowerCase()}.${kind}`
+    const file = `${printFileStem(p.size, p.landscape)}.${kind}`
     let blob: Blob
     try {
       blob = await p.file(kind)
@@ -335,7 +346,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     setNote({ text: fmt(t.share.saved, { file }), print: true })
   }
 
-  const fileName = `everybird-${format}.png`
+  const fileName = `everybird-${shape}.png`
   /** The newest render's PNG: at hand once it's done (the buttons are disabled before), else waiting for it; null if it failed. */
   const getBlob = async (): Promise<Blob | null> => {
     if (ready.current?.key === key) return ready.current.blob
@@ -354,7 +365,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     const blob = await getBlob()
     if (!blob) return setNote({ text: t.share.imageFailed, error: true })
     downloadBlob(blob, fileName)
-    track('image_downloaded', { format })
+    track('image_downloaded', { format: shape })
     setNote({ text: fmt(t.share.saved, { file: fileName }) })
   }
   const share = async () => {
@@ -366,7 +377,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       try {
         // The image says "stickers by huashu"; the post's text carries the full CC BY 4.0 credit and its link.
         await nav.share({ files: [file], title: 'Everybird', text: SHARE_CREDIT })
-        track('shared', { via: format })
+        track('shared', { via: shape })
         return
       } catch (e) {
         if ((e as Error)?.name === 'AbortError') return // the birder closed the share sheet: not shared, nothing sent
@@ -374,7 +385,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       }
     }
     downloadBlob(blob, fileName)
-    track('image_downloaded', { format })
+    track('image_downloaded', { format: shape })
     setNote({ text: fmt(t.share.savedPost, { file: fileName }) })
   }
   const copyLink = async () => {
@@ -413,12 +424,14 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     setNote({ text: [...why, t.share.copyThis].join(' ') })
   }
 
-  const shownCard: CardFormat = preview?.format ?? (print ? 'print' : format)
-  const [w, h] = shownCard === 'print' ? [1080, Math.round(printDesignH(preview?.size ?? size))] : IMAGE_SIZE[shownCard]
+  const shownCard: CardFormat = preview?.format ?? cardFormat
+  const [w, h] = isPrint(shownCard)
+    ? (printDesign(preview?.size ?? size, shownCard === 'printLandscape').map(Math.round) as [number, number])
+    : IMAGE_SIZE[shownCard]
   shownSize.current = [w, h]
   const pct = makingNow && makingNow.total > 0 ? Math.round((makingNow.done / makingNow.total) * 100) : 0
-  const [cmW, cmH] = PRINT_CM[size]
-  const [pxW, pxH] = PRINT_PX[size]
+  const [cmW, cmH] = printCm(size, landscape)
+  const [pxW, pxH] = printPx(size, landscape)
   // The box eases to a new format's shape (data-resizing, share.css), but follows a window resize at once.
   const previewBox = useRef<HTMLDivElement>(null)
   const shownFormat = preview?.format
@@ -514,17 +527,32 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
               </button>
             ) : (
               <div className="eb-seg" role="group" aria-label={t.share.formats}>
-                {FORMATS.map(({ id, hint, icon: Glyph }) => (
-                  <button key={id} type="button" className="eb-seg-btn" aria-label={fmt(t.share.formatName, { name: t.share.format[id], ratio: hint })} aria-pressed={format === id} onClick={() => setFormat(id)}>
-                    <Glyph aria-hidden="true" focusable="false" />
-                    <span className="eb-seg-text">
-                      <span className="eb-seg-label">{t.share.format[id]}</span>
-                      <span className="eb-share-hint">{hint}</span>
-                    </span>
-                  </button>
-                ))}
+                {FORMATS.map(({ id, hint, icon }) => {
+                  // Horizontal, the story is the desktop wallpaper: its name and icon change, the post keeps its name.
+                  const name = landscape && id === 'story' ? t.share.format.desktop : t.share.format[id]
+                  const Glyph = icon[orientation]
+                  return (
+                    <button key={id} type="button" className="eb-seg-btn" aria-label={fmt(t.share.formatName, { name, ratio: hint[orientation] })} aria-pressed={format === id} onClick={() => setFormat(id)}>
+                      <Glyph aria-hidden="true" focusable="false" />
+                      <span className="eb-seg-text">
+                        <span className="eb-seg-label">{name}</span>
+                        <span className="eb-share-hint">{hint[orientation]}</span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
+            <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
+              {ORIENTATIONS.map((o) => (
+                <button
+                  key={o} type="button" className="eb-seg-btn" aria-pressed={orientation === o}
+                  disabled={squareShare} onClick={() => setOrientation(o)}
+                >
+                  {t.share.orientation[o]}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* The box takes the shown image's format (share.css), so it changes shape with the image, not before it; it sits
@@ -540,7 +568,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={preview.url} className="eb-share-in" src={preview.url} width={w} height={h}
-                alt={preview.format === 'print' ? fmt(t.share.print.previewAlt, { size: preview.size }) : t.share.preview[preview.format]}
+                alt={isPrint(preview.format) ? fmt(t.share.print.previewAlt, { size: preview.size }) : t.share.preview[preview.format]}
               />
             )}
             {busy && <span className="eb-share-spin" aria-hidden="true" />}

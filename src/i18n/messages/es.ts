@@ -332,10 +332,12 @@ export const es: Messages = {
     share: {
       title: 'Comparte tu collage',
       formats: 'Formato de imagen',
-      format: { story: 'Historia', post: 'Post', square: 'Cuadrado' },
+      format: { story: 'Historia', post: 'Post', square: 'Cuadrado', desktop: 'Escritorio' },
       /** A format button's spoken name: the label and its ratio, which the button hides when it is tight. */
       formatName: '{name}, relación {ratio}',
-      preview: { story: 'Vista previa de la imagen de historia', post: 'Vista previa de la imagen de publicación', square: 'Vista previa de la imagen cuadrada' },
+      /** The orientation switch above the format control (Vertical or Horizontal; Square has neither). */
+      orientation: { group: 'Orientación', vertical: 'Vertical', horizontal: 'Horizontal' },
+      preview: { story: 'Vista previa de la imagen de historia', post: 'Vista previa de la imagen de publicación', square: 'Vista previa de la imagen cuadrada', desktop: 'Vista previa de la imagen de escritorio', wide: 'Vista previa de la imagen de publicación horizontal' },
       failed: 'No se pudo crear la imagen.',
       imageFailed: 'No se pudo crear la imagen. Inténtalo de nuevo.',
       linkFailed: 'No se pudo crear el enlace. Inténtalo de nuevo.',

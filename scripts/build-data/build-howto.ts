@@ -110,7 +110,9 @@ export function makeHowtoData(): string {
     }))
     const g = Math.min(fit.grow, 1.3)
     const count = { cx: r1(fit.cx), cy: r1(fit.cy), size: Math.round(L.count.size * g), labelSize: Math.round(L.count.labelSize * Math.min(g, 1.15)), gap: Math.round(L.count.gap * g) }
-    return [format, { W: L.W, H: L.H, tiles, count, latest: L.latest!, rule: L.rule.y, footer: L.footer.y }]
+    // The row's four numbers (the About demo draws the row above the hairline; x and the column width are the card's own).
+    const { y, icon, label, name } = L.latest!
+    return [format, { W: L.W, H: L.H, tiles, count, latest: { y, icon, label, name }, rule: L.rule.y, footer: L.footer.y }]
   }))
 
   const threatened = BIRDS.filter((c) => { const iu = byCode.get(c)!.iu; return !!iu && THREAT_CATS.includes(iu) }).length
