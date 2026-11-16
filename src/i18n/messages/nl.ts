@@ -452,6 +452,11 @@ export const nl: Messages = {
       },
       researchOff: 'Voor iNaturalist-waarnemingen. Voeg hierboven iNaturalist toe om dit te gebruiken.',
     },
+    /** About's "How it works" figure (HowItWorksDemo): its sticker credit (<link> is huashu-bird-sticker's repo) and the caption that tells the same story in words ({total} is the demo's species count). The scene itself draws the product's own keys. */
+    demo: {
+      credit: 'Stickers van <link>huashu-bird-sticker</link>, CC BY 4.0',
+      caption: 'Een animatie van Everybird aan het werk: een eBird-exportbestand wordt op Instellingen gesleept, onder Je lijst, en de rijen worden gelezen; MyEBirdData is gekoppeld en de collage heeft {total} soorten, allemaal van eBird. Daarna bouwt de collage zich op, met stickers die rond het aantal verschijnen tot {total} soorten. Kies je de orde Reigers, dan komen de zes reigers in het midden; Alle vogels, in het kruimelpad, brengt iedereen terug. Delen opent het deelvenster: de afbeelding, met de stickers rond {total} soorten, de nieuwste soort en de voettekst, in de formaten Verhaal, Bericht en Vierkant.',
+    },
   },
   page: {
     meta: {
@@ -461,6 +466,60 @@ export const nl: Messages = {
         description: 'Wat Everybird is, hoe het werkt, wat Ware grootte betekent, en de data, stickers, lettertypen en code waarmee het gemaakt is.',
       },
       settings: { title: 'Instellingen' },
+    },
+    /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
+    about: {
+      lede: 'Everybird maakt van de levenslijst van elke vogelaar een stickercollage.',
+      what: { head: 'Wat het is', body: 'Je levenslijst is al het verslag van een leven vol vogels. Everybird legt die neer als één collage: elke soort een sticker, op grootte naar lichaamsgewicht, met het aantal in het midden. Filter op groep, plaats of jaar en deel de collage als afbeelding of link.' },
+      how: {
+        head: 'Hoe het werkt',
+        steps: [
+          'Breng je lijst binnen via <link>Instellingen</link>: een eBird-bestand, een iNaturalist-gebruikersnaam of vogels die je met de hand aanvinkt. Combineer ze als je meer dan één lijst bijhoudt.',
+          'Elke vogel wordt gekoppeld aan de eBird-taxonomie van dit jaar en houdt zijn vroegste datum. Rijen die niet passen, staan in een lijst, zodat er niets stilletjes wegvalt.',
+          'De collage, de filters en de afbeeldingen om te delen worden allemaal in je browser gemaakt.',
+        ],
+        privacy: 'Je lijst verlaat je browser nooit. We tellen bezoeken met Cloudflare Web Analytics, anoniem en zonder cookies, en een paar acties (een collage gemaakt, een afbeelding gedeeld of bewaard, een link gekopieerd) met een kleine eigen teller die nooit je vogels, namen of plaatsen ziet. Een anonieme id die elke dag verandert, laat ons unieke bezoekers tellen zonder iemand van dag tot dag te volgen. Geen van beide draait als je browser vraagt om niet gevolgd te worden. Je taalkeuze wordt bewaard in een klein cookie op dit apparaat; het verlaat het apparaat alleen om je de juiste pagina te tonen. De bezoekteller bevat de taal van je browser (alleen “es”, “pt” of “nl”).',
+      },
+      size: {
+        head: 'Wat Ware grootte betekent',
+        even: 'Elke sticker wordt geschaald op het gemiddelde lichaamsgewicht van de vogel, uit AVONET, naar de oppervlakte die hij op de pagina beslaat, zodat de sleep van een pauw of de poten van een reiger hem niet klein laten lijken. Standaard worden de groottes gelijkgetrokken: de oppervlakte volgt het gewicht tot de macht 0,4, zodat kleine vogels zichtbaar blijven naast grote.',
+        true: 'Ware grootte gebruikt in plaats daarvan de derdemachtswortel van het gewicht voor de lengte. Vogels hebben ongeveer dezelfde dichtheid, dus gewicht volgt volume en de derdemachtswortel volgt lengte: een vogel die acht keer zwaarder is, wordt ongeveer twee keer zo lang getekend en beslaat vier keer de oppervlakte. Het is een schatting van de relatieve grootte, geen gemeten lengte. Slanke vogels met een lange hals kunnen wat klein lijken en gedrongen vogels wat groot, zwemhoudingen verbergen een deel van het lijf en elke soort gebruikt één gemiddeld gewicht, dus mannetjes, vrouwtjes en seizoenen worden niet onderscheiden.',
+      },
+      credits: {
+        head: 'Credits',
+        madeBy: 'Gemaakt door <you>Yusuf Taleb</you>. Het groeide uit de <life>levenslijst op zijn site</life> en is gebouwd met het gul gedeelde werk van anderen.',
+        coffee: 'Als je Everybird leuk vindt, kun je Yusuf op een kop koffie trakteren.',
+        /** Each credit's mono label (its kind, then the licence). */
+        label: {
+          stickers: 'Stickers · CC BY 4.0',
+          inspiration: 'Inspiratie',
+          taxonomy: 'Taxonomie',
+          masses: 'Lichaamsgewichten · CC BY 4.0',
+          api: 'API',
+          countries: 'Landnamen · Publiek domein',
+          regions: 'Regionamen · LGPL-2.1',
+          fonts: 'Lettertypen · ITF Free Font License',
+          mono: 'Lettertype · OFL',
+          flags: 'Vlaggen · MIT',
+          phosphor: 'Pictogrammen · MIT',
+          icons8: 'Pictogrammen',
+          code: 'Code · MIT',
+        },
+        stickers: { lead: 'Elke vogelsticker komt uit huashu-bird-sticker van alchaincyf, onder de licentie <cc>CC BY 4.0</cc>. De stickers zijn verkleind en bijgesneden voor het web; verder is er niets aan veranderd.', commit: 'Bron-commit <code>{sha}</code>.', tail: 'Ongeveer 2% van de soorten heeft nog geen sticker; die zie je als een omtrek, en nieuwe tekeningen komen vanzelf binnen naarmate de stickerset groeit.' },
+        inspiration: 'Avian Visitors van Teddy Warner liet zien hoe mooi een muur vol vogels kan zijn. Everybird begon daar.',
+        taxonomyTitle: 'eBird en Clements',
+        taxonomy: 'Vogelnamen, soorten en hun volgorde volgen de eBird/Clements-taxonomie, versie {version}, van het Cornell Lab of Ornithology. eBird-bestanden worden in je browser gelezen.',
+        masses: 'De stickergroottes gebruiken lichaamsgewichten uit AVONET (Tobias et al. 2022, Ecology Letters), via de soortentabel van huashu.',
+        api: 'Waarnemingen komen uit de openbare API van iNaturalist, rechtstreeks vanuit je browser aangeroepen, ongeveer één keer per seconde.',
+        countries: 'Landnamen en de meeste regionamen komen van Natural Earth.',
+        regions: 'De rest van de namen van staten en provincies komt uit de ISO 3166-2-gegevens van Debian iso-codes, alleen gebruikt voor de namen.',
+        fonts: 'Satoshi en Cabinet Grotesk van Indian Type Foundry, geleverd door Fontshare.',
+        mono: 'Geist Mono van Vercel, onder de SIL Open Font License.',
+        flags: 'Landenvlaggen uit flag-icons van Panayiotis Lipiridis, onder de MIT-licentie.',
+        phosphor: 'Pictogrammen van Phosphor Icons, onder de MIT-licentie.',
+        icons8: 'De origamivogel van het sitepictogram: <link>Origami</link> (Fluent Systems Regular) van Icons8.',
+        code: 'De code van Everybird is open source onder de <link>MIT-licentie</link>.',
+      },
     },
   },
 }

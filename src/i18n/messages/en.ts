@@ -558,6 +558,11 @@ const ui = {
     },
     researchOff: 'For iNaturalist sightings. Add iNaturalist above to use it.',
   },
+  /** About's "How it works" figure (HowItWorksDemo): its sticker credit (<link> is huashu-bird-sticker's repo) and the caption that tells the same story in words ({total} is the demo's species count). The scene itself draws the product's own keys. */
+  demo: {
+    credit: 'Stickers: <link>huashu-bird-sticker</link>, CC BY 4.0',
+    caption: 'An animation of Everybird at work: an eBird export file is dropped onto Settings, under Your list, and its rows are read; MyEBirdData is connected and the collage has {total} species, all from eBird. Then the collage builds, stickers arriving around the count as it rolls up to {total} species. Choosing the Herons order brings the six herons into the middle; All birds, in the breadcrumb, brings everyone back. Share opens the share dialog: the image, with the stickers around {total} species, the latest lifer and the footer line, in the Story, Post and Square formats.',
+  },
 }
 
 const page = {
@@ -570,6 +575,60 @@ const page = {
       description: 'What Everybird is, how it works, what True size means, and the data, stickers, fonts and code it is built from.',
     },
     settings: { title: 'Settings' },
+  },
+  /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
+  about: {
+    lede: "Everybird turns any birder's life list into a sticker collage.",
+    what: { head: 'What it is', body: 'Your life list is already the record of a lifetime of birds. Everybird lays it out as one collage: every species a sticker, sized by its body mass, with the count in the middle. Filter it by group, place or year, then share it as an image or a link.' },
+    how: {
+      head: 'How it works',
+      steps: [
+        'Bring your list on <link>Settings</link>: an eBird file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.',
+        "Each bird is matched to this year's eBird taxonomy and keeps its earliest date. Rows that don't match are listed, so nothing is dropped quietly.",
+        'The collage, the filters and the share images are all made in your browser.',
+      ],
+      privacy: "Your list never leaves your browser. We count visits with Cloudflare Web Analytics, anonymous and cookieless, and a few actions (a collage made, an image shared or saved, a link copied) with a small counter of our own that never sees your birds, names or places. A daily-changing anonymous id lets us count unique visitors without tracking anyone across days. Neither runs if your browser asks not to be tracked. Your language choice is kept in a small cookie on this device; it never leaves it except to show you the right page. The visit count includes your browser's language (just “es”, “pt” or “nl”).",
+    },
+    size: {
+      head: 'What True size means',
+      even: "Each sticker is sized from the bird's average body mass, from AVONET, by the area it covers on the page, so a peafowl's train or a heron's legs don't make it read small. The default evens sizes out: the area follows mass to the power of 0.4, so small birds stay visible next to big ones.",
+      true: "True size uses the cube root of mass for length instead. Birds are roughly similar in density, so mass tracks volume, and its cube root tracks length: a bird eight times heavier is drawn about twice as long, covering four times the area. It's an estimate of relative size, not a measured length. Slim, long-necked birds can look a little small and chunky ones a little big, swimming poses hide part of the body, and each species uses one average mass, so males, females and seasons aren't told apart.",
+    },
+    credits: {
+      head: 'Credits',
+      madeBy: "Made by <you>Yusuf Taleb</you>. It grew out of the <life>life list on his site</life>, and is built from other people's generous work.",
+      coffee: 'If you enjoy Everybird, you can buy Yusuf a coffee.',
+      /** Each credit's mono label (its kind, then the licence). */
+      label: {
+        stickers: 'Stickers · CC BY 4.0',
+        inspiration: 'Inspiration',
+        taxonomy: 'Taxonomy',
+        masses: 'Body masses · CC BY 4.0',
+        api: 'API',
+        countries: 'Country names · Public domain',
+        regions: 'Region names · LGPL-2.1',
+        fonts: 'Fonts · ITF Free Font License',
+        mono: 'Font · OFL',
+        flags: 'Flags · MIT',
+        phosphor: 'Icons · MIT',
+        icons8: 'Icons',
+        code: 'Code · MIT',
+      },
+      stickers: { lead: 'Every bird sticker comes from huashu-bird-sticker by alchaincyf, licensed <cc>CC BY 4.0</cc>. The stickers were resized and trimmed for the web; nothing else was changed.', commit: 'Source commit <code>{sha}</code>.', tail: "About 2% of species don't have a sticker yet; they show as an outline, and new drawings arrive automatically as the sticker set grows." },
+      inspiration: "Teddy Warner's Avian Visitors showed how lovely a wall of birds can be. Everybird started there.",
+      taxonomyTitle: 'eBird and Clements',
+      taxonomy: 'Bird names, species and their order follow the eBird/Clements taxonomy, version {version}, from the Cornell Lab of Ornithology. eBird files are read in your browser.',
+      masses: "Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu's species table.",
+      api: "Observations come from iNaturalist's public API, called straight from your browser, about once a second.",
+      countries: 'Country names and most region names come from Natural Earth.',
+      regions: "The rest of the state and province names come from Debian's iso-codes ISO 3166-2 data, used for names only.",
+      fonts: 'Satoshi and Cabinet Grotesk by Indian Type Foundry, served by Fontshare.',
+      mono: 'Geist Mono by Vercel, under the SIL Open Font License.',
+      flags: 'Country flags from flag-icons by Panayiotis Lipiridis, under the MIT licence.',
+      phosphor: 'Icons from Phosphor Icons, under the MIT licence.',
+      icons8: 'The site icon’s origami bird: <link>Origami</link> (Fluent Systems Regular) by Icons8.',
+      code: "Everybird's code is open source under the <link>MIT licence</link>.",
+    },
   },
 }
 

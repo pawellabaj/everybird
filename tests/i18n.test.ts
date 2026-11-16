@@ -19,6 +19,8 @@ const ALLOW_SAME = [
   'Filters', 'Families', '{n} families', 'Story', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
   // Templates with no words: the summary line's joins (ui.import.summary).
   '{head}: {parts}.', '{head}, {all}.',
+  // About's credits: es and nl keep "Stickers" and "API" as they are; nl "Credits" and "Code".
+  'Stickers · CC BY 4.0', 'API', 'Credits', 'Code · MIT',
 ]
 
 const OTHERS = { es, pt, nl } as const

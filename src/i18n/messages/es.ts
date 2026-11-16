@@ -452,6 +452,11 @@ export const es: Messages = {
       },
       researchOff: 'Para observaciones de iNaturalist. Añade iNaturalist arriba para usarlo.',
     },
+    /** About's "How it works" figure (HowItWorksDemo): its sticker credit (<link> is huashu-bird-sticker's repo) and the caption that tells the same story in words ({total} is the demo's species count). The scene itself draws the product's own keys. */
+    demo: {
+      credit: 'Stickers de <link>huashu-bird-sticker</link>, CC BY 4.0',
+      caption: 'Una animación de Everybird en acción: un archivo de exportación de eBird se suelta en Ajustes, en Tu lista, y se leen sus filas; MyEBirdData queda conectado y el collage tiene {total} especies, todas de eBird. Luego el collage se arma, con los stickers llegando alrededor del recuento hasta llegar a {total} especies. Al elegir el orden Garzas, las seis garzas pasan al centro; Todas las aves, en la ruta de navegación, devuelve a todas. Compartir abre el diálogo para compartir: la imagen, con los stickers alrededor de {total} especies, la última especie nueva y la línea del pie, en los formatos Historia, Publicación y Cuadrado.',
+    },
   },
   page: {
     meta: {
@@ -461,6 +466,60 @@ export const es: Messages = {
         description: 'Qué es Everybird, cómo funciona, qué significa Tamaño real, y los datos, stickers, fuentes y código con los que está hecho.',
       },
       settings: { title: 'Ajustes' },
+    },
+    /** About (app/[lang]/(app)/about/page.tsx). `<tag>` words become links; proper names, licences and the Buy Me a Coffee button stay as they are. */
+    about: {
+      lede: 'Everybird convierte la lista de vida de cualquier observador de aves en un collage de stickers.',
+      what: { head: 'Qué es', body: 'Tu lista de vida ya es el registro de toda una vida de aves. Everybird la dispone en un solo collage: cada especie es un sticker, con el tamaño según su masa corporal, y el recuento en el centro. Fíltrala por grupo, lugar o año y compártela como imagen o como enlace.' },
+      how: {
+        head: 'Cómo funciona',
+        steps: [
+          'Trae tu lista en <link>Ajustes</link>: un archivo de eBird, un nombre de usuario de iNaturalist o aves marcadas a mano. Combínalos si llevas más de un registro.',
+          'Cada ave se empareja con la taxonomía de eBird de este año y conserva su fecha más antigua. Las filas que no coinciden aparecen en una lista, así que nada se descarta en silencio.',
+          'El collage, los filtros y las imágenes para compartir se hacen en tu navegador.',
+        ],
+        privacy: 'Tu lista nunca sale de tu navegador. Contamos las visitas con Cloudflare Web Analytics, de forma anónima y sin cookies, y unas pocas acciones (un collage hecho, una imagen compartida o guardada, un enlace copiado) con un pequeño contador propio que nunca ve tus aves, nombres ni lugares. Un identificador anónimo que cambia cada día nos permite contar visitantes únicos sin seguir a nadie de un día a otro. Ninguno de los dos funciona si tu navegador pide que no se le rastree. Tu elección de idioma se guarda en una pequeña cookie en este dispositivo; solo sale de él para mostrarte la página correcta. El recuento de visitas incluye el idioma de tu navegador (solo “es”, “pt” o “nl”).',
+      },
+      size: {
+        head: 'Qué significa Tamaño real',
+        even: 'El tamaño de cada sticker sale de la masa corporal media del ave, según AVONET, y se aplica al área que ocupa en la página, de modo que la cola de un pavo real o las patas de una garza no la hacen parecer pequeña. Por defecto los tamaños se igualan: el área sigue la masa elevada a 0,4, así que las aves pequeñas se siguen viendo junto a las grandes.',
+        true: 'Tamaño real usa en cambio la raíz cúbica de la masa para la longitud. Las aves tienen una densidad parecida, así que la masa sigue al volumen y su raíz cúbica sigue a la longitud: un ave ocho veces más pesada se dibuja con el doble de largo y cubre cuatro veces el área. Es una estimación del tamaño relativo, no una longitud medida. Las aves esbeltas y de cuello largo pueden verse un poco pequeñas y las rechonchas un poco grandes, las posturas de nado ocultan parte del cuerpo y cada especie usa una sola masa media, así que no se distinguen machos, hembras ni estaciones.',
+      },
+      credits: {
+        head: 'Créditos',
+        madeBy: 'Hecho por <you>Yusuf Taleb</you>. Surgió de la <life>lista de vida de su sitio</life> y está hecho con el generoso trabajo de otras personas.',
+        coffee: 'Si te gusta Everybird, puedes invitar a Yusuf a un café.',
+        /** Each credit's mono label (its kind, then the licence). */
+        label: {
+          stickers: 'Stickers · CC BY 4.0',
+          inspiration: 'Inspiración',
+          taxonomy: 'Taxonomía',
+          masses: 'Masas corporales · CC BY 4.0',
+          api: 'API',
+          countries: 'Nombres de países · Dominio público',
+          regions: 'Nombres de regiones · LGPL-2.1',
+          fonts: 'Fuentes · ITF Free Font License',
+          mono: 'Fuente · OFL',
+          flags: 'Banderas · MIT',
+          phosphor: 'Iconos · MIT',
+          icons8: 'Iconos',
+          code: 'Código · MIT',
+        },
+        stickers: { lead: 'Cada sticker de ave viene de huashu-bird-sticker, de alchaincyf, con licencia <cc>CC BY 4.0</cc>. Los stickers se redimensionaron y recortaron para la web; no se cambió nada más.', commit: 'Commit de origen <code>{sha}</code>.', tail: 'Alrededor del 2% de las especies aún no tienen sticker; aparecen como un contorno, y los dibujos nuevos llegan solos a medida que crece el conjunto de stickers.' },
+        inspiration: 'Avian Visitors, de Teddy Warner, mostró lo bonito que puede ser un muro de aves. Everybird empezó ahí.',
+        taxonomyTitle: 'eBird y Clements',
+        taxonomy: 'Los nombres de las aves, las especies y su orden siguen la taxonomía eBird/Clements, versión {version}, del Laboratorio de Ornitología de Cornell. Los archivos de eBird se leen en tu navegador.',
+        masses: 'Los tamaños de los stickers usan masas corporales de AVONET (Tobias et al. 2022, Ecology Letters), a través de la tabla de especies de huashu.',
+        api: 'Las observaciones vienen de la API pública de iNaturalist, a la que se llama directamente desde tu navegador, más o menos una vez por segundo.',
+        countries: 'Los nombres de los países y de la mayoría de las regiones vienen de Natural Earth.',
+        regions: 'El resto de los nombres de estados y provincias vienen de los datos ISO 3166-2 de iso-codes de Debian, usados solo para los nombres.',
+        fonts: 'Satoshi y Cabinet Grotesk, de Indian Type Foundry, servidas por Fontshare.',
+        mono: 'Geist Mono, de Vercel, con la licencia SIL Open Font License.',
+        flags: 'Banderas de países de flag-icons, de Panayiotis Lipiridis, con licencia MIT.',
+        phosphor: 'Iconos de Phosphor Icons, con licencia MIT.',
+        icons8: 'El ave de origami del icono del sitio: <link>Origami</link> (Fluent Systems Regular), de Icons8.',
+        code: 'El código de Everybird es de código abierto, con <link>licencia MIT</link>.',
+      },
     },
   },
 }

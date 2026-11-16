@@ -11,17 +11,21 @@ import { describe, expect, it } from 'vitest'
 const ROOT = resolve(__dirname, '..')
 
 /** The directories scanned (every .tsx under them). */
-export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'src/components/import', 'src/components/share', 'app']
+export const SCOPES = ['src/components/app', 'src/components/collage', 'src/components/filters', 'src/components/edit', 'src/components/import', 'src/components/share', 'src/components/about', 'app']
 
 /** Files in a scope that another task translates, or that stay English, each with why. */
 export const SKIP: Record<string, string> = {
   'src/components/collage/Tally.tsx': "Task 6: the count's label and live text",
-  'app/[lang]/(app)/about/page.tsx': 'Task 10: About (server prose in `page`)',
   'app/global-not-found.tsx': 'English by design: no route, so no language (its own document)',
 }
 
 /** Texts that are the same in every language: names and glyphs. */
-export const ALLOW = new Set<string>(['Everybird', 'iNaturalist'])
+export const ALLOW = new Set<string>([
+  'Everybird', 'iNaturalist',
+  // About's credits: the names of what Everybird is built from, and the Buy Me a Coffee button's own words (its image is English).
+  'Yusuf Taleb', 'huashu-bird-sticker', 'Avian Visitors', 'AVONET', 'Natural Earth', 'Debian iso-codes', 'Fontshare', 'Geist Mono',
+  'flag-icons', 'Phosphor', 'Icons8', 'Buy me a coffee', 'MyEBirdData', 'CSV',
+])
 
 const ATTRS = new Set(['aria-label', 'title', 'placeholder', 'alt'])
 const WORD = /\p{L}{2,}/u

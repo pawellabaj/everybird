@@ -5,6 +5,7 @@ import Link from '@/components/app/IntentLink'
 import type { ReactNode } from 'react'
 import { HowItWorksDemo } from '@/components/about/HowItWorksDemo'
 import { PageHead } from '@/components/app/PageHead'
+import { fmt, rich } from '@/i18n/core'
 import { getMessages, langParam } from '@/i18n/server'
 import { COFFEE_URL, pageSeo, siteTitle } from '@/lib/site-meta'
 import '@/components/app/app.css'
@@ -13,7 +14,7 @@ import './about.css'
 // Only the layout's four languages exist: any other first segment (/nope) is the static 404, never a render.
 export const dynamicParams = false
 
-/** About's title and description in the page's language (its prose is English until Task 10). */
+/** About's title and description in the page's language. */
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const lang = await langParam(params)
   const { title: page, description } = getMessages(lang).page.meta.about
@@ -38,6 +39,12 @@ function A({ href, children }: { href: string; children: ReactNode }) {
   return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
 }
 
+/** A tag's words as an external link, for `rich`. */
+function link(href: string): (chunk: string) => ReactNode {
+  // eslint-disable-next-line react/display-name -- a render callback for `rich`, not a component
+  return (chunk) => <A href={href}>{chunk}</A>
+}
+
 function Credit({ label, title, children }: { label: string; title: ReactNode; children: ReactNode }) {
   return (
     <li className="eb-credit">
@@ -47,111 +54,94 @@ function Credit({ label, title, children }: { label: string; title: ReactNode; c
   )
 }
 
-export default function AboutPage() {
+export default async function AboutPage({ params }: { params: Promise<{ lang: string }> }) {
+  const lang = await langParam(params)
+  const { page } = getMessages(lang)
+  const a = page.about
+  const c = a.credits
   const { ebirdTaxonomy, huashuCommit } = dataVersions()
   return (
     <main className="eb-page eb-about eb-page-titled">
-      <PageHead title="About" lede="Everybird turns any birder's life list into a sticker collage." />
+      <PageHead title={page.meta.about.title} lede={a.lede} />
 
       <section className="eb-block" aria-labelledby="eb-what-h">
-        <h2 id="eb-what-h" className="eb-h2">What it is</h2>
-        <p className="eb-prose">
-          Your life list is already the record of a lifetime of birds. Everybird lays it out as one collage: every species
-          a sticker, sized by its body mass, with the count in the middle. Filter it by group, place or year, then share it as an
-          image or a link.
-        </p>
+        <h2 id="eb-what-h" className="eb-h2">{a.what.head}</h2>
+        <p className="eb-prose">{a.what.body}</p>
       </section>
 
       <section className="eb-block" aria-labelledby="eb-how-h">
-        <h2 id="eb-how-h" className="eb-h2">How it works</h2>
+        <h2 id="eb-how-h" className="eb-h2">{a.how.head}</h2>
         <HowItWorksDemo />
         <ol className="eb-steps">
-          <li>Bring your list on <Link href="/settings">Settings</Link>: an eBird file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.</li>
-          <li>Each bird is matched to this year&apos;s eBird taxonomy and keeps its earliest date. Rows that don&apos;t match are listed, so nothing is dropped quietly.</li>
-          <li>The collage, the filters and the share images are all made in your browser.</li>
+          <li>{rich(a.how.steps[0], { link: (chunk) => <Link href="/settings">{chunk}</Link> })}</li>
+          <li>{a.how.steps[1]}</li>
+          <li>{a.how.steps[2]}</li>
         </ol>
-        <p className="eb-prose">
-          Your list never leaves your browser. We count visits with Cloudflare Web Analytics, anonymous and cookieless, and a
-          few actions (a collage made, an image shared or saved, a link copied) with a small counter of our own that never
-          sees your birds, names or places. A daily-changing anonymous id lets us count unique visitors without tracking
-          anyone across days. Neither runs if your browser asks not to be tracked.
-        </p>
+        <p className="eb-prose">{a.how.privacy}</p>
       </section>
 
       <section className="eb-block" aria-labelledby="eb-size-h">
-        <h2 id="eb-size-h" className="eb-h2">What True size means</h2>
-        <p className="eb-prose">
-          Each sticker is sized from the bird&apos;s average body mass, from AVONET, by the area it covers on the page, so a
-          peafowl&apos;s train or a heron&apos;s legs don&apos;t make it read small. The default evens sizes out: the area follows
-          mass to the power of 0.4, so small birds stay visible next to big ones.
-        </p>
-        <p className="eb-prose">
-          True size uses the cube root of mass for length instead. Birds are roughly similar in density, so mass tracks volume,
-          and its cube root tracks length: a bird eight times heavier is drawn about twice as long, covering four times the area.
-          It&apos;s an estimate of relative size, not a measured length. Slim, long-necked birds can look a little small and chunky ones a little big, swimming poses hide part of the body, and each species uses one average mass, so males, females and seasons aren&apos;t told apart.
-        </p>
+        <h2 id="eb-size-h" className="eb-h2">{a.size.head}</h2>
+        <p className="eb-prose">{a.size.even}</p>
+        <p className="eb-prose">{a.size.true}</p>
       </section>
 
       <section id="credits" className="eb-block" aria-labelledby="eb-credits-h" tabIndex={-1}>
-        <h2 id="eb-credits-h" className="eb-h2">Credits</h2>
+        <h2 id="eb-credits-h" className="eb-h2">{c.head}</h2>
         <p className="eb-prose">
-          Made by <A href="https://www.yusuftaleb.com">Yusuf Taleb</A>. It grew out of the{' '}
-          <A href="https://www.yusuftaleb.com/lifelist">life list on his site</A>, and is built from other people&apos;s generous work.
+          {rich(c.madeBy, { you: link('https://www.yusuftaleb.com'), life: link('https://www.yusuftaleb.com/lifelist') })}
         </p>
         <div className="eb-coffee">
-          <p className="eb-prose">If you enjoy Everybird, you can buy Yusuf a coffee.</p>
+          <p className="eb-prose">{c.coffee}</p>
           <a className="eb-coffee-btn" href={COFFEE_URL} target="_blank" rel="noopener noreferrer">
             {/* Buy Me a Coffee's standard static button (https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png, 545 × 153),
-                self-hosted so nothing loads from them before a click: no widget, no script, no cookies. */}
+                self-hosted so nothing loads from them before a click: no widget, no script, no cookies. The image says
+                "Buy me a coffee" in English in every language, so its alt does too. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/buy-me-a-coffee.png" width={143} height={40} alt="Buy me a coffee" />
           </a>
         </div>
         <ul className="eb-credits">
-          <Credit label="Stickers · CC BY 4.0" title={<A href={HUASHU_URL}>huashu-bird-sticker</A>}>
-            Every bird sticker comes from huashu-bird-sticker by alchaincyf, licensed{' '}
-            <A href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</A>. The stickers were resized and trimmed for the
-            web; nothing else was changed.
-            {huashuCommit && <> Source commit <code className="eb-mono eb-credit-code">{huashuCommit.slice(0, 7)}</code>.</>}{' '}
-            About 2% of species don&apos;t have a sticker yet; they show as an outline, and new drawings arrive automatically as
-            the sticker set grows.
+          <Credit label={c.label.stickers} title={<A href={HUASHU_URL}>huashu-bird-sticker</A>}>
+            {rich(c.stickers.lead, { cc: link('https://creativecommons.org/licenses/by/4.0/') })}
+            {huashuCommit && <>{' '}{rich(fmt(c.stickers.commit, { sha: huashuCommit.slice(0, 7) }), { code: (chunk) => <code className="eb-mono eb-credit-code">{chunk}</code> })}</>}{' '}
+            {c.stickers.tail}
           </Credit>
-          <Credit label="Inspiration" title={<A href="https://theodore.net/projects/AvianVisitors/">Avian Visitors</A>}>
-            Teddy Warner&apos;s Avian Visitors showed how lovely a wall of birds can be. Everybird started there.
+          <Credit label={c.label.inspiration} title={<A href="https://theodore.net/projects/AvianVisitors/">Avian Visitors</A>}>
+            {c.inspiration}
           </Credit>
-          <Credit label="Taxonomy" title={<A href="https://www.birds.cornell.edu/clementschecklist/">eBird and Clements</A>}>
-            Bird names, species and their order follow the eBird/Clements taxonomy, version {ebirdTaxonomy}, from the Cornell Lab
-            of Ornithology. eBird files are read in your browser.
+          <Credit label={c.label.taxonomy} title={<A href="https://www.birds.cornell.edu/clementschecklist/">{c.taxonomyTitle}</A>}>
+            {fmt(c.taxonomy, { version: ebirdTaxonomy })}
           </Credit>
-          <Credit label="Body masses · CC BY 4.0" title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
-            Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu&apos;s species table.
+          <Credit label={c.label.masses} title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
+            {c.masses}
           </Credit>
-          <Credit label="API" title={<A href="https://api.inaturalist.org/v1/docs/">iNaturalist</A>}>
-            Observations come from iNaturalist&apos;s public API, called straight from your browser, about once a second.
+          <Credit label={c.label.api} title={<A href="https://api.inaturalist.org/v1/docs/">iNaturalist</A>}>
+            {c.api}
           </Credit>
-          <Credit label="Country names · Public domain" title={<A href="https://www.naturalearthdata.com/">Natural Earth</A>}>
-            Country names and most region names come from Natural Earth.
+          <Credit label={c.label.countries} title={<A href="https://www.naturalearthdata.com/">Natural Earth</A>}>
+            {c.countries}
           </Credit>
-          <Credit label="Region names · LGPL-2.1" title={<A href="https://salsa.debian.org/iso-codes-team/iso-codes">Debian iso-codes</A>}>
-            The rest of the state and province names come from Debian&apos;s iso-codes ISO 3166-2 data, used for names only.
+          <Credit label={c.label.regions} title={<A href="https://salsa.debian.org/iso-codes-team/iso-codes">Debian iso-codes</A>}>
+            {c.regions}
           </Credit>
-          <Credit label="Fonts · ITF Free Font License" title={<A href="https://www.fontshare.com/">Fontshare</A>}>
-            Satoshi and Cabinet Grotesk by Indian Type Foundry, served by Fontshare.
+          <Credit label={c.label.fonts} title={<A href="https://www.fontshare.com/">Fontshare</A>}>
+            {c.fonts}
           </Credit>
-          <Credit label="Font · OFL" title={<A href="https://vercel.com/font">Geist Mono</A>}>
-            Geist Mono by Vercel, under the SIL Open Font License.
+          <Credit label={c.label.mono} title={<A href="https://vercel.com/font">Geist Mono</A>}>
+            {c.mono}
           </Credit>
-          <Credit label="Flags · MIT" title={<A href="https://github.com/lipis/flag-icons">flag-icons</A>}>
-            Country flags from flag-icons by Panayiotis Lipiridis, under the MIT licence.
+          <Credit label={c.label.flags} title={<A href="https://github.com/lipis/flag-icons">flag-icons</A>}>
+            {c.flags}
           </Credit>
-          <Credit label="Icons · MIT" title={<A href="https://phosphoricons.com/">Phosphor</A>}>
-            Icons from Phosphor Icons, under the MIT licence.
+          <Credit label={c.label.phosphor} title={<A href="https://phosphoricons.com/">Phosphor</A>}>
+            {c.phosphor}
           </Credit>
-          <Credit label="Icons" title={<A href="https://icons8.com/">Icons8</A>}>
-            The site icon&rsquo;s origami bird: <A href="https://icons8.com/icon/JUYuJxA8MPVT/origami">Origami</A> (Fluent Systems Regular) by Icons8.
+          <Credit label={c.label.icons8} title={<A href="https://icons8.com/">Icons8</A>}>
+            {rich(c.icons8, { link: link('https://icons8.com/icon/JUYuJxA8MPVT/origami') })}
           </Credit>
-          <Credit label="Code · MIT" title={<A href={REPO_URL}>Everybird</A>}>
-            Everybird&apos;s code is open source under the <A href={`${REPO_URL}/blob/main/LICENSE`}>MIT licence</A>.
+          <Credit label={c.label.code} title={<A href={REPO_URL}>Everybird</A>}>
+            {rich(c.code, { link: link(`${REPO_URL}/blob/main/LICENSE`) })}
           </Credit>
         </ul>
       </section>

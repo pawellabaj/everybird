@@ -1,7 +1,11 @@
 'use client'
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { preconnect, preload } from 'react-dom'
+import { fmt, rich } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { STICKER_BASE } from '@/lib/sticker-url'
+import { TOTAL } from './how-it-works-data'
 import { demoStickerUrl, poster, POSTER_STICKERS, Scene } from './HowItWorksScene'
 import { LookContext, type Layout } from './stageshow/looks'
 
@@ -63,6 +67,7 @@ const reducedMotion = () => !!window.matchMedia?.('(prefers-reduced-motion: redu
  * poster is all there is.
  */
 export function HowItWorksDemo() {
+  const { t } = useI18n()
   preconnect(STICKER_BASE)
   for (const code of POSTER_STICKERS.slice(0, PRELOAD)) preload(demoStickerUrl(code), { as: 'image' })
   const slot = useRef<HTMLDivElement>(null)
@@ -113,18 +118,9 @@ export function HowItWorksDemo() {
         {!posterGone && <div className="eb-howto-poster" data-fading={fading || undefined}><HowItWorksPoster /></div>}
       </div>
       <p className="eb-howto-credit">
-        Stickers:{' '}
-        <a href="https://github.com/alchaincyf/huashu-bird-sticker" target="_blank" rel="noopener noreferrer">huashu-bird-sticker</a>,
-        CC BY 4.0
+        {rich(t.demo.credit, { link: (chunk) => <a href="https://github.com/alchaincyf/huashu-bird-sticker" target="_blank" rel="noopener noreferrer">{chunk}</a> })}
       </p>
-      <figcaption className="eb-sr">
-        An animation of Everybird at work: an eBird export file is dropped onto Settings, under Your list, and its rows
-        are read; MyEBirdData is connected and the collage has 112 species, all from eBird. Then the collage builds,
-        stickers arriving around the count as it rolls up to 112 species. Choosing the Herons order brings the six
-        herons into the middle; All birds, in the breadcrumb, brings everyone back. Share opens the share dialog: the
-        image, with the stickers around 112 species, the latest lifer and the footer line, in the Story, Post and
-        Square formats.
-      </figcaption>
+      <figcaption className="eb-sr">{fmt(t.demo.caption, { total: formatInt(TOTAL, t.num) })}</figcaption>
     </figure>
   )
 }

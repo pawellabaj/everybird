@@ -12,8 +12,8 @@ vi.mock('@/components/app/PageHead', () => ({ PageHead: ({ title }: { title: str
 afterEach(cleanup)
 
 describe('About: Buy me a coffee', () => {
-  it("is Buy Me a Coffee's static button, self-hosted, in the credits, opening their page in a new tab", () => {
-    render(<AboutPage />)
+  it("is Buy Me a Coffee's static button, self-hosted, in the credits, opening their page in a new tab", async () => {
+    render(await AboutPage({ params: Promise.resolve({ lang: 'en' }) }))
     const credits = document.getElementById('credits')!
     const link = within(credits).getByRole('link', { name: 'Buy me a coffee' })
     expect(link).toHaveAttribute('href', 'https://buymeacoffee.com/yusuftaleb')
