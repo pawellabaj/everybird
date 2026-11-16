@@ -291,7 +291,16 @@ export type SheetInfo = { pages: number; rows: number }
 
 const creditLine = (c: IucnCredit) => {
   const cited = c.sources.map(([src, k]) => `${src}: ${k}`).join('; ') || 'none'
-  return `- About's Red List credit ("${IUCN_SOURCE}"): ${c.ok ? `matches huashu's sources (${cited})` : `**does not match** huashu's sources (${cited}): update IUCN_SOURCE and About`}`
+  return `- About's Red List credit ("${IUCN_SOURCE}"): ${c.ok ? `matches huashu's sources (${cited})` : `**does not match** huashu's sources (${cited}): update AVILIST in src/lib/species/iucn.ts (IUCN_SOURCE and About read it). This alone opens a sync PR; merging it records the new upstream commit (species.v1.json's huashuCommit, the data-file hashes), so later runs won't repeat it`}`
+}
+
+/**
+ * Whether a run that got this far opens a PR: it ships stickers, changes rows, or finds About's Red List credit no
+ * longer matching huashu's cited sources (a new BirdLife or AviList release with no category moved would otherwise
+ * go quiet every week while the credit goes stale).
+ */
+export function shouldOpenPr(o: { ship: readonly unknown[]; rowChanges: readonly unknown[]; iucnCredit?: IucnCredit }): boolean {
+  return o.ship.length > 0 || o.rowChanges.length > 0 || o.iucnCredit?.ok === false
 }
 
 /**

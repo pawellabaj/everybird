@@ -3,7 +3,10 @@ export const IUCN_CATS = ['LC', 'NT', 'VU', 'EN', 'CR', 'EW', 'EX', 'DD'] as con
 export type IucnCat = (typeof IUCN_CATS)[number]
 
 export const THREATENED: readonly IucnCat[] = ['VU', 'EN', 'CR']
-export const IUCN_SOURCE = 'BirdLife v10 via AviList v2026'
+/** The release huashu's categories come from (AviList's yearly checklist, its BirdLife column). Update with each
+ * AviList release: About's note and credit and the sync's credit check all read these. */
+export const AVILIST = { version: 'v2026', year: 2026, birdlife: 'v10', doi: 'https://doi.org/10.2173/avilist.v2026' } as const
+export const IUCN_SOURCE = `BirdLife ${AVILIST.birdlife} via AviList ${AVILIST.version}`
 
 export const IUCN_NAMES: Record<IucnCat, string> = {
   LC: 'Least Concern', NT: 'Near Threatened', VU: 'Vulnerable', EN: 'Endangered',

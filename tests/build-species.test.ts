@@ -121,6 +121,7 @@ describe('conservation status', () => {
     expect(creditMatchesSources(['AviList v2026（BirdLife v100）'])).toBe(false)
     expect(creditMatchesSources(['AviList v2026（BirdLife v10.1）'])).toBe(false)
     expect(creditMatchesSources([])).toBe(false)
+    expect(creditMatchesSources(['AviList v2026. BirdLife v10.'])).toBe(true) // a trailing period is not a version part
     const ok = buildSpecies([src(today)], [tx('own1', 'Gus rec', 1)], {}).report
     expect(ok).toContain('IUCN status sources cited by huashu (records) (1)')
     expect(ok).toContain(`- ${today}: 1`)

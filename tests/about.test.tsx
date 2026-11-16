@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import AboutPage from '../app/(app)/about/page'
-import { IUCN_SOURCE } from '@/lib/species/iucn'
+import { AVILIST, IUCN_SOURCE } from '@/lib/species/iucn'
 
 vi.mock('@/components/about/HowItWorksDemo', () => ({ HowItWorksDemo: () => null }))
 vi.mock('@/components/app/IntentLink', () => ({ default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }))
@@ -37,8 +37,15 @@ describe('About: conservation status', () => {
     expect(screen.getByText('Red List categories · CC BY 4.0')).toBeInTheDocument()
     const credit = screen.getByText('Red List categories · CC BY 4.0').closest('li')!
     expect(credit.textContent).toContain(
-      "IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team, 2026), via huashu's species table.",
+      "IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team, 2026), via huashu's species table, licensed CC BY 4.0. Everybird matched them to eBird species.",
     )
+    expect(within(credit).getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
     expect(credit.previousElementSibling!.textContent).toContain('AVONET')
+  })
+
+  it('reads its version text and DOI from AVILIST, as IUCN_SOURCE does', () => {
+    expect(IUCN_SOURCE).toBe(`BirdLife ${AVILIST.birdlife} via AviList ${AVILIST.version}`)
+    expect(AVILIST.doi).toBe(`https://doi.org/10.2173/avilist.${AVILIST.version}`)
+    expect(AVILIST.version).toBe(`v${AVILIST.year}`)
   })
 })

@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import {
   ARTIFACT_URL, BODY_MAX, PR_URL, UpstreamInconsistency, baseMarker, codesFromMatches, diffRecords, diffRows,
   diffStickers, implausible, lockJson, makeLock, nextShipped, nextVersions, parseLsTree, recordDigest, recordDigests,
-  renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, summarise, type HuashuLock,
+  renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, shouldOpenPr, summarise, type HuashuLock,
   type StickerChange,
 } from '../scripts/sync/huashu-lib'
 import { applyStickerVersions, buildSpecies, matchHuashu, taxonomyFromPublic } from '../scripts/build-data/build-species'
@@ -313,10 +313,20 @@ describe('PR and issue bodies', () => {
     expect(ok).toContain(`- About's Red List credit ("BirdLife v10 via AviList v2026"): matches huashu's sources (AviList v2026（BirdLife v10）: 10100)`)
     const bad = renderPrBody({ ...summary, iucnCredit: { sources: [['AviList v2027（BirdLife v11）', 10], ['AviList v2026（BirdLife v10）', 2]], ok: false } })
     expect(bad).toContain('does not match')
-    expect(bad).toContain(`**does not match** huashu's sources (AviList v2027（BirdLife v11）: 10; AviList v2026（BirdLife v10）: 2): update IUCN_SOURCE and About`)
+    expect(bad).toContain(`**does not match** huashu's sources (AviList v2027（BirdLife v11）: 10; AviList v2026（BirdLife v10）: 2): update AVILIST in src/lib/species/iucn.ts`)
+    expect(bad).toContain('This alone opens a sync PR; merging it records the new upstream commit')
     const s2 = summarise({ from: 'a'.repeat(40), to: 'b'.repeat(40), stickers: [], rows: [], records: { changed: [], added: [], removed: [] },
       names: new Map(), website: new Set(), files: [], iucnCredit: { sources: [], ok: false } })
     expect(s2.iucnCredit).toEqual({ sources: [], ok: false })
+  })
+
+  it('opens a PR for shipped stickers, changed rows, or a Red List credit that no longer matches; else stays quiet', () => {
+    const ok = { sources: [['AviList v2026（BirdLife v10）', 1]] as [string, number][], ok: true }
+    expect(shouldOpenPr({ ship: [], rowChanges: [] })).toBe(false)
+    expect(shouldOpenPr({ ship: [], rowChanges: [], iucnCredit: ok })).toBe(false)
+    expect(shouldOpenPr({ ship: [], rowChanges: [], iucnCredit: { ...ok, ok: false } })).toBe(true)
+    expect(shouldOpenPr({ ship: [{}], rowChanges: [] })).toBe(true)
+    expect(shouldOpenPr({ ship: [], rowChanges: [{}], iucnCredit: ok })).toBe(true)
   })
 
   it('keeps the body under GitHub’s limit however long the table', () => {

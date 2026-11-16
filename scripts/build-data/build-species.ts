@@ -83,11 +83,11 @@ export function iucnSources(huashu: readonly HuashuRecord[]): [string, number][]
 
 /**
  * Whether every cited source names each version in the credit (`BirdLife v10`, `AviList v2026`), as a whole token:
- * `v10` matches neither `v100` nor `v10.1`. No cited source at all is not a match.
+ * `v10` matches neither `v100` nor `v10.1`, but a trailing period (`v10.`) is fine. No cited source at all is not a match.
  */
 export function creditMatchesSources(sources: readonly string[], credit: string = IUCN_SOURCE): boolean {
   const versions = (credit.match(/[A-Za-z]+ v\d+(?:\.\d+)*/g) ?? [])
-    .map((v) => new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\d.])`))
+    .map((v) => new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\.?\\d)`))
   return versions.length > 0 && sources.length > 0 && sources.every((s) => versions.every((v) => v.test(s)))
 }
 

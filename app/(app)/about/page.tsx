@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 import { HowItWorksDemo } from '@/components/about/HowItWorksDemo'
 import { PageHead } from '@/components/app/PageHead'
 import { ABOUT_DESCRIPTION, ABOUT_TITLE, COFFEE_URL, pageSeo } from '@/lib/site-meta'
-import { IUCN_SOURCE } from '@/lib/species/iucn'
+import { AVILIST, IUCN_SOURCE } from '@/lib/species/iucn'
 import '@/components/app/app.css'
 import './about.css'
 
@@ -129,9 +129,10 @@ export default function AboutPage() {
           <Credit label="Body masses · CC BY 4.0" title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
             Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu&apos;s species table.
           </Credit>
-          <Credit label="Red List categories · CC BY 4.0" title={<A href="https://doi.org/10.2173/avilist.v2026">AviList</A>}>
-            IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team,
-            2026), via huashu&apos;s species table.
+          <Credit label="Red List categories · CC BY 4.0" title={<A href={AVILIST.doi}>AviList</A>}>
+            IUCN Red List categories as given for BirdLife {AVILIST.birdlife} in AviList: The Global Avian Checklist,{' '}
+            {AVILIST.version} (AviList Core Team, {AVILIST.year}), via huashu&apos;s species table, licensed{' '}
+            <A href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</A>. Everybird matched them to eBird species.
           </Credit>
           <Credit label="API" title={<A href="https://api.inaturalist.org/v1/docs/">iNaturalist</A>}>
             Observations come from iNaturalist&apos;s public API, called straight from your browser, about once a second.

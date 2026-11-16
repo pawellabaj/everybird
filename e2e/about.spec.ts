@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { BIRDS, TOTAL } from "../src/components/about/how-it-works-data";
+import { BIRDS, THREATENED, TOTAL } from "../src/components/about/how-it-works-data";
 import { pageTitle } from "../src/lib/list/title";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
@@ -338,8 +338,11 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
     await expect(drops.last()).toHaveText("Status")
   }
   // The wide design's dock holds all three drops on its one row: nothing overflows the column
-  const over = await scene.locator(".ebd-dock").evaluate((d) => d.scrollWidth - d.clientWidth)
-  expect(over).toBeLessThanOrEqual(0)
+  const dock = await scene.locator(".ebd-dock").evaluate((d) => ({ client: d.clientWidth, scroll: d.scrollWidth }))
+  expect(dock.client).toBeGreaterThan(0)
+  expect(dock.scroll).toBeLessThanOrEqual(dock.client)
+  // The stats line counts the demo's threatened birds, as the product's does
+  await expect(scene.locator(".ebd-stats")).toContainText(`${THREATENED} threatened`)
   // The share dialog: its title, Story / Post / Square with their ratios, and each image's footer line
   await expect(scene.locator(".ebd-share-title")).toHaveText("Share your collage")
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)

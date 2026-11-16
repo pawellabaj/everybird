@@ -32,13 +32,14 @@ import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { HuashuRecord, Overrides, Regions, SpeciesFile, SpeciesRow, TaxonomyFile } from '../../src/lib/species/types'
 import { STICKER_BASE, SMALL, stickerPath } from '../../src/lib/sticker-url'
+import { IUCN_SOURCE } from '../../src/lib/species/iucn'
 import {
   applyStickerVersions, buildSpecies, creditMatchesSources, iucnSources, loadHuashu, matchHuashu, taxonomyFromPublic, STICKER_VERSIONS,
 } from '../build-data/build-species'
 import {
   ARTIFACT_URL, HUASHU_REPO, MAX_REBUILD, PR_URL, SPECIES_JSON, STICKERS_PREFIX, UpstreamInconsistency, codesFromMatches,
   diffRecords, diffRows, diffStickers, implausible, lockJson, makeLock, nextShipped, nextVersions, parseLsTree,
-  recordDigests, renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, sortKeys, summarise,
+  recordDigests, renderBlockedBody, renderIssueBody, renderPrBody, restrictToShipped, selectBatch, shouldOpenPr, sortKeys, summarise,
   type HuashuLock, type StickerChange,
 } from './huashu-lib'
 
@@ -243,7 +244,11 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   const versions = nextVersions(repo.versions, ship)
   applyStickerVersions(rows, versions)
   const rowChanges = diffRows(prevRows, rows)
-  if (!ship.length && !rowChanges.length) return quiet(`${nRecs} huashu records changed, none in a way Everybird's data shows`)
+  // About's Red List credit against the sources the new species.json cites (only when this run read it).
+  const cited = huashu ? iucnSources(huashu) : undefined
+  const iucnCredit = cited && { sources: cited, ok: creditMatchesSources(cited.map(([src]) => src)) }
+  if (!shouldOpenPr({ ship, rowChanges, iucnCredit })) return quiet(`${nRecs} huashu records changed, none in a way Everybird's data shows`)
+  if (iucnCredit && !iucnCredit.ok) console.warn(`IUCN_SOURCE "${IUCN_SOURCE}" no longer matches huashu's sources: the PR says so`)
   if (deferred.length) console.log(`cap: shipping ${ship.length - ship.filter((c) => c.kind === 'removed').length} rebuilt stickers, ${deferred.length} left for the next run`)
 
   // Stickers: only this batch's are checked out and rebuilt; every other mask and ar is merged as is.
@@ -292,9 +297,6 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
 
   const names = new Map(rows.map((r) => [r.code, r.com]))
   for (const r of prevRows) if (!names.has(r.code)) names.set(r.code, r.com)
-  // About's Red List credit against the sources the new species.json cites (only when this run read it).
-  const cited = huashu ? iucnSources(huashu) : undefined
-  const iucnCredit = cited && { sources: cited, ok: creditMatchesSources(cited.map(([src]) => src)) }
   const summary = summarise({
     from: lock.commit, to: commit, stickers: ship, rows: rowChanges, records: recs, names, website: repo.website,
     files: changedFiles.sort(), deferred: deferred.length, cap: a.maxRebuild,
