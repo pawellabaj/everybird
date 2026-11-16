@@ -14,6 +14,33 @@ const DICT = {
 export const SEARCH_CONNECTORS: Record<SearchLang, string[]> = {
   en: ['in', 'on', 'at', 'from', 'and'], es: ['en', 'de', 'desde', 'y'], pt: ['em', 'no', 'na', 'de', 'do', 'da', 'e'], nl: ['in', 'uit', 'van', 'en'],
 }
+/** Spellings Intl's long month names don't cover (abbreviations and variants that aren't prefixes of them). */
+const MONTH_ALIASES: Partial<Record<SearchLang, [string, number][]>> = { es: [['setiembre', 8]], nl: [['mrt', 2]] }
+const monthCache = new Map<SearchLang, Map<string, number>>()
+/** Month names for the UI language and English, keyed by searchKey, plus MONTH_ALIASES; the value is 0-based. */
+export function monthIndex(lang: SearchLang): Map<string, number> {
+  let index = monthCache.get(lang)
+  if (!index) {
+    index = new Map()
+    for (const locale of new Set<SearchLang>(['en', lang])) {
+      const fmt = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' })
+      for (let m = 0; m < 12; m++) index.set(searchKey(fmt.format(new Date(Date.UTC(2020, m, 1)))), m)
+    }
+    for (const [name, m] of MONTH_ALIASES[lang] ?? []) index.set(searchKey(name), m)
+    monthCache.set(lang, index)
+  }
+  return index
+}
+/**
+ * The month a word names: a unique prefix of a month name. Three letters count only where `short` allows (a year
+ * follows, or the word ends a range), so "mar" in "aves del mar" (the sea) is not March, and "mar 2020" is.
+ */
+export function monthOfWord(index: Map<string, number>, s: string, short: boolean): number | undefined {
+  if (s.length < 3 || (s.length === 3 && !short)) return undefined
+  const hits = new Set([...index].filter(([name]) => name.startsWith(s)).map(([, m]) => m))
+  return hits.size === 1 ? [...hits][0] : undefined
+}
+
 const month = (y: number, m: number) => {
   const at = new Date(Date.UTC(y, m, 1))
   return `${at.getUTCFullYear()}-${String(at.getUTCMonth() + 1).padStart(2, '0')}`
@@ -24,16 +51,7 @@ const year = (s?: string) => !!s && /^(19|20)\d{2}$/.test(s)
 export function dateParser(today: Date, lang: SearchLang) {
   const y = today.getFullYear(), mo = today.getMonth()
   const now = month(y, mo)
-  const months = new Map<string, number>()
-  for (const locale of new Set(['en', lang])) {
-    const fmt = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' })
-    for (let m = 0; m < 12; m++) months.set(searchKey(fmt.format(new Date(Date.UTC(2020, m, 1)))), m)
-  }
-  const monthOf = (s: string) => {
-    if (s.length < 3) return undefined
-    const hits = new Set([...months].filter(([name]) => name.startsWith(s)).map(([, m]) => m))
-    return hits.size === 1 ? [...hits][0] : undefined
-  }
+  const months = monthIndex(lang)
   type Point = { y: number; m: number; end: number; explicit: boolean; n: number }
   return (tokens: readonly SearchWord[], i: number): Period | undefined => {
     const keys = tokens.map((t) => t.quoted ? '' : t.key)
@@ -47,28 +65,31 @@ export function dateParser(today: Date, lang: SearchLang) {
       }
       return 0
     }
-    const point = (at: number): Point | undefined => {
+    // inRange: the point is an end of a range, where a three-letter month is allowed without a year.
+    const point = (at: number, inRange: boolean): Point | undefined => {
       const iso = /^(19\d{2}|20\d{2})-(0[1-9]|1[0-2])(?:-(\d{2}))?$/.exec(raw[at] ?? '')
       if (iso) {
         const yr = Number(iso[1]), m = Number(iso[2]) - 1
         if (iso[3] && (Number(iso[3]) < 1 || Number(iso[3]) > new Date(Date.UTC(yr, m + 1, 0)).getUTCDate())) return undefined
         return { y: yr, m, end: m, explicit: true, n: 1 }
       }
-      const m = monthOf(keys[at] ?? '')
+      const word = keys[at] ?? ''
+      const m = monthOfWord(months, word, true)
       if (m !== undefined) {
         // Spanish/Portuguese "octubre de 2026" as well as "oct 2026".
         const de = (lang === 'es' || lang === 'pt') && keys[at + 1] === 'de' ? 1 : 0
         const explicit = year(keys[at + 1 + de])
+        if (word.length === 3 && !explicit && !inRange) return undefined
         return { y: explicit ? Number(keys[at + 1 + de]) : y, m, end: m, explicit, n: explicit ? 2 + de : 1 }
       }
       if (year(keys[at])) return { y: Number(keys[at]), m: 0, end: 11, explicit: true, n: 1 }
     }
     const lead = is('from', i) || is('between', i)
-    const a = point(i + lead)
+    const a = point(i + lead, true)
     if (a) {
       const edge = i + lead + a.n
       const link = /^[-–—/]$/.test(raw[edge] ?? '') ? 1 : is('link', edge) || (is('between', i) ? is('and', edge) : 0)
-      const b = link ? point(edge + link) : undefined
+      const b = link ? point(edge + link, true) : undefined
       if (b) {
         // An explicit end year anchors an implicit start; an explicit start anchors an implicit end.
         if (!b.explicit) b.y = a.explicit ? a.y + (b.end < a.m ? 1 : 0) : y - (b.end > mo ? 1 : 0)
@@ -78,9 +99,17 @@ export function dateParser(today: Date, lang: SearchLang) {
         return { n: lead + a.n + link + b.n, invalid: true }
       }
     }
+    // An English "from X" with no end is "since X" (Spanish and Dutch "de"/"van" are not, they link words).
+    const since = keys[i] === 'from' ? point(i + 1, false) : undefined
+    if (since) {
+      if (!since.explicit && since.m > mo) since.y--
+      const from = month(since.y, since.m)
+      if (from > now) return undefined
+      return { from, to: now, n: 1 + since.n }
+    }
     for (const kind of ['since', 'after', 'before', 'until'] as const) {
       const n = is(kind, i)
-      const p = n ? point(i + n) : undefined
+      const p = n ? point(i + n, false) : undefined
       if (!p) continue
       if (!p.explicit && p.m > mo) p.y--
       if (kind === 'since' || kind === 'after') {
@@ -121,7 +150,7 @@ export function dateParser(today: Date, lang: SearchLang) {
       return { from: month(yr, first), to: month(yr, first + 2), n: year(keys[i + 1]) ? 2 : 1 }
     }
     // Reversed explicit spans remain text as a whole rather than turning into two unrelated dates.
-    const p = point(i)
+    const p = point(i, false)
     if (!p) return undefined
     if (!p.explicit && p.m > mo) p.y--
     return { from: month(p.y, p.m), to: month(p.y, p.end), n: p.n }

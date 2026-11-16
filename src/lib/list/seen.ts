@@ -8,7 +8,11 @@
 // Records without it (the eBird life list download, ticks by hand, rows fixed by hand from older saves, lists saved
 // before seen-here) count their lifer place as their only place.
 //
-// `seenMonths` is kept separately as "YYYY-MM,YYYY-MM|region[|county]": one sorted month set per place.
+// `seenMonths` is kept separately, one entry per place: "<months>|region[|county]", where <months> packs the place's
+// months as one five-character chunk per year: the year as three base-36 digits (0000-9999, zero-padded) and a 12-bit
+// month mask as two base-64 digits (0-9 A-Z a-z + /; bit 0 = January; a zero mask never appears), years ascending, no
+// separators. About 30 bytes per place, a county key with pipes included. The earlier "YYYY-MM,…|region" shape still
+// decodes; its dashes tell the two apart.
 // Missing means an older or life-list-only source; [] means a full source had no dated, located sightings.
 // The seen-here index below still indexes earliest dates only; part B will wire the month sets into filtering.
 //
@@ -65,13 +69,46 @@ export function decodeSeen(s: string): SeenPlace | undefined {
 }
 
 const MONTH = /^\d{4}-(?:0[1-9]|1[0-2])$/
-/** Decode one compact month set. Counties may contain pipes; the first pipe alone separates the months. */
+const DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/'
+const CHUNK = 5
+const YEAR_DIGITS = /^[0-9a-z]{3}$/
+const MASK_DIGITS = /^[0-9A-Za-z+/]{2}$/
+/** The packed months of one place: "<year base-36><mask base-64>" per year, years ascending. Empty when no months. */
+function encodeMonthMasks(years: ReadonlyMap<number, number>): string {
+  return [...years].filter(([, mask]) => mask)
+    .sort(([a], [b]) => a - b)
+    .map(([y, mask]) => y.toString(36).padStart(3, '0') + DIGITS[mask >> 6] + DIGITS[mask & 63])
+    .join('')
+}
+/** Strict inverse of encodeMonthMasks: undefined for anything else (zero masks, unsorted years, bad digits). */
+function decodeMonthMasks(s: string): string[] | undefined {
+  if (!s.length || s.length % CHUNK) return undefined
+  const out: string[] = []
+  let prev = -1
+  for (let at = 0; at < s.length; at += CHUNK) {
+    const yc = s.slice(at, at + 3), mc = s.slice(at + 3, at + CHUNK)
+    if (!YEAR_DIGITS.test(yc) || !MASK_DIGITS.test(mc)) return undefined
+    const y = parseInt(yc, 36), mask = DIGITS.indexOf(mc[0]) * 64 + DIGITS.indexOf(mc[1])
+    if (y > 9999 || y <= prev || mask === 0) return undefined
+    prev = y
+    for (let m = 1; m <= 12; m++) if (mask & (1 << (m - 1))) out.push(`${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}`)
+  }
+  return out
+}
+/** The earlier shape, "YYYY-MM,YYYY-MM": still decoded, so nothing saved in it is lost. */
+function decodeOldMonths(s: string): string[] | undefined {
+  const months = s.split(',')
+  return months.every((m) => MONTH.test(m)) ? months : undefined
+}
+/** Decode one month set. Counties may contain pipes; the first pipe alone separates the months from the place. */
 export function decodeSeenMonths(s: string): { place: SeenPlace; months: string[] } | undefined {
   const at = s.indexOf('|')
   if (at < 0) return undefined
-  const months = s.slice(0, at).split(',')
+  const head = s.slice(0, at)
+  // The earlier shape has dashes; the packed shape never does.
+  const months = head.includes('-') ? decodeOldMonths(head) : decodeMonthMasks(head)
   const place = decodeSeen(s.slice(at))
-  if (!place || !months.every((m) => MONTH.test(m))) return undefined
+  if (!months || !place) return undefined
   return { place, months }
 }
 
@@ -81,26 +118,31 @@ export function decodeSeenMonths(s: string): { place: SeenPlace; months: string[
  */
 export class SeenAgg {
   private by = new Map<string, Map<string, string>>()
-  private monthsBy = new Map<string, Map<string, Set<string>>>()
+  /** code -> place key -> year -> 12-bit month mask (bit 0 = January). */
+  private monthsBy = new Map<string, Map<string, Map<number, number>>>()
 
   /** Add all observed months at one place, including when an upstream aggregate kept only its earliest date. */
   addMonths(code: string, key: string, months: Iterable<string>): void {
     for (const month of months) {
       if (!MONTH.test(month)) continue
-      let places = this.monthsBy.get(code)
-      if (!places) this.monthsBy.set(code, (places = new Map()))
-      let set = places.get(key)
-      if (!set) places.set(key, (set = new Set()))
-      set.add(month)
+      this.addMask(code, key, Number(month.slice(0, 4)), 1 << (Number(month.slice(5, 7)) - 1))
     }
   }
 
-  /** Compact, deterministic per-place month sets; undefined means this source has no month information. */
+  private addMask(code: string, key: string, year: number, mask: number): void {
+    let places = this.monthsBy.get(code)
+    if (!places) this.monthsBy.set(code, (places = new Map()))
+    let years = places.get(key)
+    if (!years) places.set(key, (years = new Map()))
+    years.set(year, (years.get(year) ?? 0) | mask)
+  }
+
+  /** Compact, deterministic per-place month sets (see the file comment); undefined means no month information. */
   getMonths(code: string): string[] | undefined {
     const places = this.monthsBy.get(code)
     if (!places?.size) return undefined
     return [...places].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)
-      .map(([key, months]) => `${[...months].sort().join(',')}|${key}`)
+      .map(([key, years]) => `${encodeMonthMasks(years)}|${key}`)
   }
 
   /** One sighting of `code` at `place` on `date`. Places without a country or province are ignored. */
@@ -123,7 +165,7 @@ export class SeenAgg {
   merge(code: string, from: SeenAgg, fromCode: string): void {
     const m = from.by.get(fromCode)
     if (m) for (const [k, d] of m) this.addKey(code, k, d)
-    for (const [k, months] of from.monthsBy.get(fromCode) ?? []) this.addMonths(code, k, months)
+    for (const [k, years] of from.monthsBy.get(fromCode) ?? []) for (const [y, mask] of years) this.addMask(code, k, y, mask)
   }
 
   /** `code`'s places ("region" or "region|county") and their earliest dates, or undefined when it has none. */
