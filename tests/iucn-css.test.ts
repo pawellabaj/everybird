@@ -9,8 +9,6 @@ const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim()
 const rule = (selector: string) => rules.find(([s]) => s === selector)?.[1] ?? ''
 /** The pill's own rules: `.eb-iucn` itself, not the badge's or the name's. */
 const pillRules = rules.filter(([s]) => /\.eb-iucn(?![-\w])/.test(s))
-/** Every `.eb-iucn*` rule (the pill, the badge, the name). */
-const iucnRules = rules.filter(([s]) => /\.eb-iucn/.test(s))
 
 // Geist Mono, variable, wght 600 (what draws: layout.tsx loads the whole axis), read with fontTools: units per em 1000,
 // OS/2 typo = hhea ascender 1005, descender -295, cap height 710, advance 600. Ink bounds (xMin, xMax) at wght 600.
@@ -33,39 +31,17 @@ describe('the Red List pill CSS', () => {
       expect(body, s).not.toMatch(/var\(--ink\)|var\(--paper\)/)
     }
   })
-  it('the card badge is plain text: no press area, no toggletip rules left', () => {
-    expect(css).not.toMatch(/eb-iucn-tip|eb-iucn-wrap/)
-    // Scoped to the Red List rules: the card's close button and the list rows keep their own focus and press rules.
-    expect(iucnRules.length).toBeGreaterThanOrEqual(3)
-    for (const [sel] of iucnRules) expect(sel, sel).not.toMatch(/::after|:hover/)
-    expect(rule('.eb-iucn-name')).toMatch(/font:\s*500 12px\/18px var\(--font-mono\)/)
-    expect(rule('.eb-iucn-name')).toMatch(/color:\s*var\(--muted\)/)
+  it('the card pill is a toggletip button: a 44px press clear of the close button, a tip that shows on press, focus and hover', () => {
+    expect(rule('button.eb-iucn::after')).toMatch(/inset:\s*-13px -9px/)
+    expect(rule('.eb-iucn-tip')).toMatch(/pointer-events:\s*none/)
+    expect(rules.some(([sel]) => sel.includes('.eb-iucn-wrap[data-open] .eb-iucn-tip') && sel.includes('.eb-iucn:focus-visible + .eb-iucn-tip'))).toBe(true)
+    expect(rules.some(([sel]) => sel === '.eb-iucn:hover + .eb-iucn-tip')).toBe(true)
   })
-  it('the badge sits under the mass, right-aligned: one column (the pill variant is gone)', () => {
-    expect(rule('.eb-card-meta')).toMatch(/flex-direction:\s*column/)
-    expect(rule('.eb-card-meta')).toMatch(/align-items:\s*flex-end/)
-    expect(css).not.toMatch(/data-pill/)
-  })
-  it('the meta column leaves a 320px phone sheet room: the longest unit fits its 45% cap, so the name wraps, never overflows', () => {
-    // The column never shrinks below its narrowest unit, and above it gives back what its wrapped label frees (flex 0 1
-    // auto, at most 45%); the name takes the rest and breaks a long word (a proportional shrink with `min-width: 0`
-    // hung the badge over a long name).
-    expect(rule('.eb-card-meta')).toMatch(/flex:\s*0 1 auto/)
-    expect(rule('.eb-card-name')).toMatch(/overflow-wrap:\s*break-word/)
-    expect(rule('.eb-card-other')).toMatch(/overflow-wrap:\s*break-word/)
-    expect(rule('.eb-card-meta')).toMatch(/min-width:\s*min-content/)
-    expect(rule('.eb-card-meta')).not.toMatch(/min-width:\s*0/)
-    expect(rule('.eb-card-meta')).toMatch(/max-width:\s*45%/)
-    expect(rule('.eb-iucn-name')).toMatch(/min-width:\s*0/)
-    expect(rule('.eb-iucn-name')).toMatch(/overflow-wrap:\s*break-word/)
-    const head = 320 - 2 * 8 - 2 * 14 - 2 // sheet inset, card padding and border
-    const close = 44 - 3 - 10 // the close button net of its margins
-    const pill = 2 * (ADV / UPM * FS + LS) + 12
-    const word = 'Endangered'.length * 0.6 * 12
-    expect(pill + 6 + word).toBeLessThanOrEqual(0.45 * head)
-    expect(head - close - 24 - 0.45 * head).toBeGreaterThanOrEqual(95)
-    // Beside the narrowest column (its min-content floor) the name has more room still.
-    expect(head - close - 24 - (pill + 6 + word)).toBeGreaterThan(head - close - 24 - 0.45 * head)
+  it('the status line sits under the other name, left-aligned: no meta column, no 45% cap', () => {
+    expect(css).not.toMatch(/eb-card-meta|45%|min-content|data-pill/)
+    expect(rule('.eb-iucn-badge')).toMatch(/display:\s*flex/)
+    expect(css).not.toMatch(/eb-iucn-name/)
+    expect(rule('.eb-card-mass')).toMatch(/margin-left:\s*auto/)
   })
 })
 
