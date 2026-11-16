@@ -1,7 +1,7 @@
 'use client'
-// One Filters button in the controls bar and one panel behind it (item 10). The button ("Filters · 2": how many of Places,
-// Time and Conservation status are in use, not checked boxes) sits where the three dropdown buttons did. It opens one
-// panel holding the three sections, each keeping its own control: Time (Timeline.tsx) across the top, Places
+// One Filters button in the controls bar and one panel behind it (item 10). The button ("Filters · 2": how many of the bird group,
+// Places, Time and Conservation status are in use, not checked boxes) sits in the controls bar between Scientific and the
+// search. It opens one panel holding the Time, Places and Conservation status sections, each keeping its own control: Time (Timeline.tsx) across the top, Places
 // (PlacesList.tsx, the drill-down) about 2/3 and Conservation status (StatusList.tsx) 1/3 beside each other below it. From
 // 600px the panel is a popover under the chip row (or under the dock with none), inside `.eb-dockwrap`; everything
 // after the dock wrap dims and goes inert while it is open (CollageView's `.eb-view-below`), and a press there, Esc or a
