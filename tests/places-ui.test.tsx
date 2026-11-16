@@ -434,207 +434,84 @@ describe('Places drills down: country, then state or province, then county', () 
   })
 })
 
-describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
-  // Force a variant in jsdom the way the switch reads it, and never leak it into the next test.
-  const withVariant = (v: string) => history.replaceState(null, '', `/?v=places:${v}`)
-  afterEach(() => {
-    history.replaceState(null, '', '/')
-    sessionStorage.removeItem('everybird:variants')
-  })
-
-  /** Variant a reopened at a checked county's level: it is shown checked; then the breadcrumb back to the countries. */
+describe('Places drill: checked places stay reachable, the list is counted once', () => {
+  /** Reopened at a checked county's level: it is shown checked; then the breadcrumb back to the countries. */
   const backToCountries = (county: string) => {
     expect(screen.getByTestId(`place-${county}`)).toBeChecked()
     fireEvent.click(within(screen.getByTestId('places-path')).getByRole('button', { name: 'All countries' }))
   }
 
-  // The same steps in both designs (the test ids are shared): these check that each design reaches and writes the same
-  // filter, not which design is on screen; the variant b tests below tell the designs apart.
-  describe.each(['a', 'b'] as const)('variant %s', (v) => {
-    it.each([
-      ['k:US-WA|King', 'c:US', ['c:US', 's:US-WA'], 'United States of America, 0 species'],
-      ['k:CA-BC|Capital', 's:CA-BC', ['c:CA', 's:CA-BC'], 'British Columbia, 0 species'],
-    ])('a checked %s stays reachable when another filter empties its ancestor %s', (county, ancestor, path, spoken) => {
-      vi.stubGlobal('innerWidth', 1000)
-      withVariant(v)
-      render(<Harness />)
-      fireEvent.click(placesBtn())
-      for (const k of path) fireEvent.click(screen.getByTestId(`drill-${k}`))
-      fireEvent.click(screen.getByTestId(`place-${county}`))
-      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-      // The owl was only ever seen in Ontario.
-      fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
-      // Reopened, variant a starts at the county's level (its checkbox in view), and b with every ancestor of the county
-      // open. From the countries, the emptied ancestor is listed at 0 and still drills or opens.
-      fireEvent.click(placesBtn())
-      if (v === 'a') backToCountries(county)
-      for (const k of path) {
-        const btn = screen.getByTestId(`drill-${k}`)
-        if (k === ancestor) expect(screen.getByRole('checkbox', { name: spoken })).not.toBeChecked()
-        if (v === 'a') fireEvent.click(btn)
-        else expect(btn).toHaveAttribute('aria-expanded', 'true')
-      }
-      const box = screen.getByTestId(`place-${county}`)
-      expect(box).toBeChecked()
-      fireEvent.click(box)
-      expect(filterOf()).toEqual({ order: 'Strigiformes' })
-    })
-
-    it('a checked county stays reachable when another filter leaves its province listed with no counties', () => {
-      vi.stubGlobal('innerWidth', 1000)
-      withVariant(v)
-      render(<Harness />)
-      fireEvent.click(placesBtn())
-      fireEvent.click(screen.getByTestId('drill-c:CA'))
-      fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
-      fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
-      act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-      // The crow was seen in British Columbia, but in no county there.
-      fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
-      fireEvent.click(placesBtn())
-      if (v === 'a') backToCountries('k:CA-BC|Capital')
-      for (const k of ['c:CA', 's:CA-BC']) {
-        const btn = screen.getByTestId(`drill-${k}`)
-        if (k === 's:CA-BC') expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).not.toBeChecked()
-        if (v === 'a') fireEvent.click(btn)
-        else expect(btn).toHaveAttribute('aria-expanded', 'true')
-      }
-      const box = screen.getByRole('checkbox', { name: 'Capital, 0 species' })
-      expect(box).toBeChecked()
-      fireEvent.click(box)
-      expect(filterOf()).toEqual({ order: 'Passeriformes' })
-    })
-
-    it('selects a province, then a county, through the same filter', () => {
-      vi.stubGlobal('innerWidth', 1000)
-      withVariant(v)
-      render(<Harness />)
-      fireEvent.click(placesBtn())
-      fireEvent.click(screen.getByTestId('drill-c:CA'))
-      fireEvent.click(screen.getByTestId('place-s:CA-BC'))
-      expect(filterOf()).toEqual({ provinces: ['CA-BC'] })
-      fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
-      fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
-      expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
-      expect(placesBtn()).toHaveAccessibleName('Places: Capital, British Columbia')
-    })
-  })
-
-  it('variant b: rows open inline with aria-expanded; focus stays on the toggle; a checked county opens its ancestors on reopen', () => {
+  it.each([
+    ['k:US-WA|King', 'c:US', ['c:US', 's:US-WA'], 'United States of America, 0 species'],
+    ['k:CA-BC|Capital', 's:CA-BC', ['c:CA', 's:CA-BC'], 'British Columbia, 0 species'],
+  ])('a checked %s stays reachable when another filter empties its ancestor %s', (county, ancestor, path, spoken) => {
     vi.stubGlobal('innerWidth', 1000)
-    withVariant('b')
     render(<Harness />)
-    placesBtn().focus()
     fireEvent.click(placesBtn())
-    const canada = screen.getByTestId('drill-c:CA')
-    expect(canada).toHaveAttribute('aria-expanded', 'false')
-    expect(canada).toHaveAccessibleName('States and provinces in Canada')
-    expect(canada).not.toHaveAttribute('aria-controls')
-    expect(screen.queryByTestId('drill-c:EG')).toBeNull()
-    canada.focus()
-    fireEvent.click(canada)
-    expect(canada).toHaveAttribute('aria-expanded', 'true')
-    expect(canada).toHaveFocus()
-    const sub = screen.getByRole('list', { name: 'States and provinces in Canada' })
-    expect(canada).toHaveAttribute('aria-controls', sub.id)
-    expect(sub).toHaveClass('eb-places-sub')
-    expect(within(sub).getByRole('checkbox', { name: 'British Columbia, 2 species' })).toBeInTheDocument()
-    expect(within(sub).getByRole('checkbox', { name: 'Ontario, 1 species' })).toBeInTheDocument()
-    // One checklist: the other countries stay beside the open group; the head stays on countries.
-    expect(screen.getByTestId('country-EG')).toBeInTheDocument()
-    expect(screen.getByTestId('country-US')).toBeInTheDocument()
-    expect(screen.getByText(/Countries · 3/)).toBeInTheDocument()
-    expect(screen.queryByTestId('places-path')).toBeNull()
-    expect(screen.queryByTestId('place-all')).toBeNull()
-    // Flags on country rows only.
-    expect(sub.querySelector('img.eb-flag')).toBeNull()
-    const bc = screen.getByTestId('drill-s:CA-BC')
-    expect(bc).toHaveAccessibleName('Counties in British Columbia')
-    bc.focus()
-    fireEvent.click(bc)
-    expect(bc).toHaveFocus()
-    fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
-    expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
-    // The parent is its own "all": it isn't drawn checked by a checked descendant.
-    expect(screen.getByTestId('country-CA')).not.toBeChecked()
-    // Closing a group keeps focus on its toggle and computes nothing under it.
-    bc.focus()
-    fireEvent.click(bc)
-    expect(bc).toHaveAttribute('aria-expanded', 'false')
-    expect(bc).toHaveFocus()
-    expect(screen.queryByTestId('place-k:CA-BC|Capital')).toBeNull()
+    for (const k of path) fireEvent.click(screen.getByTestId(`drill-${k}`))
+    fireEvent.click(screen.getByTestId(`place-${county}`))
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    // The owl was only ever seen in Ontario.
+    fireEvent.click(screen.getByRole('button', { name: 'owls only' }))
+    // Reopened, the panel starts at the county's level (its checkbox in view). From the countries, the emptied ancestor is listed at 0 and still drills.
     fireEvent.click(placesBtn())
-    expect(screen.getByTestId('drill-c:CA')).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('drill-s:CA-BC')).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeChecked()
+    backToCountries(county)
+    for (const k of path) {
+      const btn = screen.getByTestId(`drill-${k}`)
+      if (k === ancestor) expect(screen.getByRole('checkbox', { name: spoken })).not.toBeChecked()
+      fireEvent.click(btn)
+    }
+    const box = screen.getByTestId(`place-${county}`)
+    expect(box).toBeChecked()
+    fireEvent.click(box)
+    expect(filterOf()).toEqual({ order: 'Strigiformes' })
   })
 
-  it('variant b: several groups may be open; Clear clears every level', () => {
+  it('a checked county stays reachable when another filter leaves its province listed with no counties', () => {
     vi.stubGlobal('innerWidth', 1000)
-    withVariant('b')
-    render(<Harness />)
-    fireEvent.click(placesBtn())
-    fireEvent.click(screen.getByTestId('drill-c:CA'))
-    fireEvent.click(screen.getByTestId('drill-c:US'))
-    expect(screen.getByRole('list', { name: 'States and provinces in Canada' })).toBeInTheDocument()
-    expect(screen.getByRole('list', { name: 'States and provinces in United States of America' })).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('country-EG'))
-    fireEvent.click(screen.getByTestId('place-s:US-WA'))
-    expect(filterOf()).toEqual({ countries: ['EG'], provinces: ['US-WA'] })
-    fireEvent.click(screen.getByTestId('places-clear'))
-    expect(filterOf()).toEqual({})
-  })
-
-  it('variant b: the search matches countries only; an open group under a matching country stays shown', () => {
-    vi.stubGlobal('innerWidth', 1000)
-    withVariant('b')
-    render(<Harness variant="many" />)
-    fireEvent.click(placesBtn())
-    expect(screen.getByText(/Countries · 10/)).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('drill-c:CA'))
-    const find = screen.getByTestId('places-find')
-    fireEvent.change(find, { target: { value: 'can' } })
-    expect(screen.getByTestId('country-CA')).toBeInTheDocument()
-    expect(screen.getByTestId('place-s:CA-BC')).toBeInTheDocument()
-    expect(screen.queryByTestId('country-EG')).toBeNull()
-    // A province's name doesn't match a country search.
-    fireEvent.change(find, { target: { value: 'british' } })
-    expect(screen.queryByTestId('place-s:CA-BC')).toBeNull()
-    expect(screen.getByText('No country matches.')).toBeInTheDocument()
-  })
-
-  it('variant b: a group whose places another filter empties folds away with its button, and comes back open', () => {
-    vi.stubGlobal('innerWidth', 1000)
-    withVariant('b')
     render(<Harness />)
     fireEvent.click(placesBtn())
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
-    // The crow was seen in British Columbia, but in no county there: a row's children come from the same filtered
-    // sightings as its group, so the group can't be open and empty (variant a's "No places here" has no b twin).
+    fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    // The crow was seen in British Columbia, but in no county there.
     fireEvent.click(screen.getByRole('button', { name: 'crows only' }))
-    expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).toBeInTheDocument()
-    expect(screen.queryByTestId('drill-s:CA-BC')).toBeNull()
-    expect(screen.queryByRole('list', { name: 'Counties in British Columbia' })).toBeNull()
-    expect(screen.queryByText('No places here under the other filters.')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
-    expect(screen.getByTestId('drill-s:CA-BC')).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByTestId('place-k:CA-BC|Capital')).toBeInTheDocument()
+    fireEvent.click(placesBtn())
+    backToCountries('k:CA-BC|Capital')
+    for (const k of ['c:CA', 's:CA-BC']) {
+      const btn = screen.getByTestId(`drill-${k}`)
+      if (k === 's:CA-BC') expect(screen.getByRole('checkbox', { name: 'British Columbia, 1 species' })).not.toBeChecked()
+      fireEvent.click(btn)
+    }
+    const box = screen.getByRole('checkbox', { name: 'Capital, 0 species' })
+    expect(box).toBeChecked()
+    fireEvent.click(box)
+    expect(filterOf()).toEqual({ order: 'Passeriformes' })
   })
 
-  describe.each(['a', 'b'] as const)('variant %s counts the list once per change of the other filters', (v) => {
-    it('not again for a checkbox, a drill or an open group; again for an order', () => {
+  it('selects a province, then a county, through the same filter', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />)
+    fireEvent.click(placesBtn())
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    fireEvent.click(screen.getByTestId('place-s:CA-BC'))
+    expect(filterOf()).toEqual({ provinces: ['CA-BC'] })
+    fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
+    fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
+    expect(filterOf()).toEqual({ counties: ['CA-BC|Capital'] })
+    expect(placesBtn()).toHaveAccessibleName('Places: Capital, British Columbia')
+  })
+
+  describe('counting', () => {
+    it('not again for a checkbox or a drill; again for an order', () => {
       vi.stubGlobal('innerWidth', 1000)
-      withVariant(v)
       render(<Harness />)
       counted.mockClear()
       fireEvent.click(placesBtn())
       expect(counted).toHaveBeenCalledTimes(1)
       fireEvent.click(screen.getByTestId('country-EG'))
       fireEvent.click(screen.getByTestId('drill-c:CA'))
-      if (v === 'b') fireEvent.click(screen.getByTestId('drill-c:US'))
       fireEvent.click(screen.getByTestId('place-s:CA-BC'))
       fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
       fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
@@ -645,7 +522,7 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     })
   })
 
-  it('without a ?v the panel is variant a', () => {
+  it('the panel drills in place: no disclosure buttons, a breadcrumb once drilled', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     fireEvent.click(placesBtn())
