@@ -453,3 +453,4 @@ Decisions made after the approval above. The approved body is unchanged; where i
 - **2026-11-15, Yusuf:** no pills on the collage's stickers (they overlapped neighbours); the List view keeps them.
 - **2026-11-15, Yusuf:** card and tooltip layout: the name on the left; on the right the mass with the Red List pill under it (the pill alone, right-aligned; its name "Red List: Least Concern" stays on hover, focus and tap in the card); then the Latin name, the date and the place. This replaces the pill on its own line under the Latin name.
 - **2026-11-15, Yusuf:** continents at the top of Places; 'Not evaluated' for species without a category.
+- **2026-11-15, Yusuf:** continents are the drill-down's top level (the chip row is gone).

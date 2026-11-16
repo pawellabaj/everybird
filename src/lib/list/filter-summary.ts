@@ -36,7 +36,7 @@ export function continentNames(continents: readonly ContinentId[] | undefined): 
  * order); undefined for none.
  */
 export function placesLabel(f: Filter, regions: Names): string | undefined {
-  return namesLabel([...continentNames(f.continents), ...filterPlaceKeys(f).map((k) => placeName(k, regions))])
+  return namesLabel(filterPlaceKeys(f).map((k) => placeName(k, regions)))
 }
 
 /**
@@ -45,7 +45,7 @@ export function placesLabel(f: Filter, regions: Names): string | undefined {
  * continents come first, as their own items: "Africa; Kenya, Egypt".
  */
 export function placesSpoken(f: Filter, regions: Names): string | undefined {
-  const keys = filterPlaceKeys(f)
+  const keys = filterPlaceKeys(f).filter((k) => !k.startsWith('n:'))
   const continents = continentNames(f.continents)
   if (!keys.length && !continents.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
@@ -117,7 +117,8 @@ export function placesNoteFor(saved: Pick<Saved, 'records'>, listLength: number,
 export type CountWords = { one: string; other: string }
 
 /** The count-first heads' words ("20 countries", "1 state or province", "5 categories"), one and other. */
-export const COUNT_WORDS: Record<'country' | 'province' | 'county' | 'status', CountWords> = {
+export const COUNT_WORDS: Record<'continent' | 'country' | 'province' | 'county' | 'status', CountWords> = {
+  continent: { one: 'continent', other: 'continents' },
   country: { one: 'country', other: 'countries' },
   province: { one: 'state or province', other: 'states and provinces' },
   county: { one: 'county', other: 'counties' },

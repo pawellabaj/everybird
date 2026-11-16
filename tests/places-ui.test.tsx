@@ -26,13 +26,13 @@ const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => 
 })
 const species = buildSpeciesIndex([row('duck1', 'Anseriformes', 'Anatidae', 1), row('crow1', 'Passeriformes', 'Corvidae', 3), row('owl1', 'Strigiformes', 'Strigidae', 5)])
 const MORE = { FR: 'France', DE: 'Germany', JP: 'Japan', KE: 'Kenya', PE: 'Peru', MX: 'Mexico', AU: 'Australia' }
-const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
+const regions: Regions = { v: 1, countries: { CA: 'Canada', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
 const name = (c: string) => regions.countries[c] ?? c
 
 type Variant = 'full' | 'lifer' | 'countries' | 'many'
 
 // full: duck1 lifer in Canada, also seen in the US (Capital, British Columbia and King, Washington); crow1 lifer in
-// Egypt, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
+// Mexico, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
 // species with lifer countries only and no seen-here.
 function seeded(variant: Variant = 'full') {
   const reduce = makeReducer({ species, countryName: name })
@@ -40,13 +40,13 @@ function seeded(variant: Variant = 'full') {
   saved.records.ebird = variant === 'full' || variant === 'many'
     ? [
         { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' }, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US-WA|King', ...(variant === 'many' ? Object.keys(MORE).map((c) => `2023-01-01|${c}`) : [])] },
-        { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'EG' }, seen: ['2019-01-01|EG', '2022-01-01|CA-BC'] },
+        { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'MX' }, seen: ['2019-01-01|MX', '2022-01-01|CA-BC'] },
         { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] },
       ]
     : variant === 'countries'
     ? [
         { code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA' } },
-        { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'EG' } },
+        { code: 'crow1', source: 'ebird', date: '2019-01-01', place: { country: 'MX' } },
         { code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'US' } },
       ]
     : [{ code: 'duck1', source: 'ebird', date: '2020-01-01', place: { country: 'CA', sub1: 'CA-BC' } }]
@@ -101,21 +101,21 @@ describe('Places and Time: sections of the Filters panel', () => {
     openFilters()
     const list = screen.getByRole('list', { name: 'Countries' })
     const boxes = within(list).getAllByRole('checkbox')
-    // Canada 3 (seen-here: the crow too), then Egypt 1 and the US 1 by name.
-    expect(boxes.map((b) => b.closest('label')!.textContent)).toEqual(['Canada3, 3 species', 'Egypt1, 1 species', 'United States of America1, 1 species'])
+    // Canada 3 (seen-here: the crow too), then Mexico 1 and the US 1 by name.
+    expect(boxes.map((b) => b.closest('label')!.textContent)).toEqual(['Canada3, 3 species', 'Mexico1, 1 species', 'United States of America1, 1 species'])
     expect(boxes.map((b) => b.closest('label')!.querySelector('img.eb-flag')?.getAttribute('alt'))).toEqual(['', '', ''])
     expect(boxes[0]).toHaveAccessibleName('Canada, 3 species')
     expect(boxes[0]).not.toBeChecked()
-    fireEvent.click(screen.getByTestId('country-EG'))
+    fireEvent.click(screen.getByTestId('country-MX'))
     fireEvent.click(screen.getByTestId('country-US'))
-    expect(filterOf()).toEqual({ countries: ['EG', 'US'] })
-    expect(screen.getByTestId('country-EG')).toBeChecked()
+    expect(filterOf()).toEqual({ countries: ['MX', 'US'] })
+    expect(screen.getByTestId('country-MX')).toBeChecked()
     // The button counts the group, its accessible name names the places, and each place is a chip.
     expect(filtersBtn()).toHaveTextContent('Filters · 1')
-    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: Egypt, United States of America')
-    expect(screen.getByTestId('chip-place-c:EG')).toBeInTheDocument()
+    expect(filtersBtn()).toHaveAccessibleName('Filters: Places: Mexico, United States of America')
+    expect(screen.getByTestId('chip-place-c:MX')).toBeInTheDocument()
     expect(screen.getByTestId('chip-place-c:US')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('country-EG'))
+    fireEvent.click(screen.getByTestId('country-MX'))
     expect(filterOf()).toEqual({ countries: ['US'] })
     fireEvent.click(screen.getByTestId('places-clear'))
     expect(filterOf()).toEqual({})
@@ -188,7 +188,7 @@ describe('Places drills down: country, then state or province, then county', () 
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     openFilters()
-    expect(screen.queryByTestId('drill-c:EG')).toBeNull()
+    expect(screen.queryByTestId('drill-c:MX')).toBeNull()
     expect(screen.queryByTestId('places-path')).toBeNull()
     expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Show states and provinces in Canada')
     fireEvent.click(screen.getByTestId('drill-c:CA'))
@@ -229,7 +229,7 @@ describe('Places drills down: country, then state or province, then county', () 
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     openFilters()
-    fireEvent.click(screen.getByTestId('country-EG'))
+    fireEvent.click(screen.getByTestId('country-MX'))
     fireEvent.click(screen.getByTestId('country-CA'))
     expect(screen.getByText(/^3 countries · 2 checked$/)).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('drill-c:CA'))
@@ -282,12 +282,12 @@ describe('Places drills down: country, then state or province, then county', () 
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     openFilters()
-    fireEvent.click(screen.getByTestId('country-EG'))
+    fireEvent.click(screen.getByTestId('country-MX'))
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     fireEvent.click(screen.getByTestId('place-s:CA-ON'))
     fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
     fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
-    expect(filterOf()).toEqual({ countries: ['EG'], provinces: ['CA-ON'], counties: ['CA-BC|Capital'] })
+    expect(filterOf()).toEqual({ countries: ['MX'], provinces: ['CA-ON'], counties: ['CA-BC|Capital'] })
     fireEvent.click(screen.getByTestId('places-clear'))
     expect(filterOf()).toEqual({})
     expect(screen.queryByTestId('places-clear')).toBeNull()
@@ -515,12 +515,12 @@ describe('Places drill: checked places stay reachable, the list is counted once'
       counted.mockClear()
       openFilters()
       expect(counted).toHaveBeenCalledTimes(1)
-      fireEvent.click(screen.getByTestId('country-EG'))
+      fireEvent.click(screen.getByTestId('country-MX'))
       fireEvent.click(screen.getByTestId('drill-c:CA'))
       fireEvent.click(screen.getByTestId('place-s:CA-BC'))
       fireEvent.click(screen.getByTestId('drill-s:CA-BC'))
       fireEvent.click(screen.getByTestId('place-k:CA-BC|Capital'))
-      expect(filterOf()).toEqual({ countries: ['EG'], counties: ['CA-BC|Capital'] })
+      expect(filterOf()).toEqual({ countries: ['MX'], counties: ['CA-BC|Capital'] })
       expect(counted).toHaveBeenCalledTimes(1)
       fireEvent.click(screen.getByRole('button', { name: 'ducks only' }))
       expect(counted).toHaveBeenCalledTimes(2)

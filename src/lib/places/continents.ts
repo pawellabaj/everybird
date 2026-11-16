@@ -1,6 +1,8 @@
-// The Places filter's continents: seven chips at the top of the Places section, each a filter value of its own
-// (Filter.continents). A static table from each country code in regions.v1.json to its continent, following the UN
-// geoscheme (M49) with the calls listed below. Pure; tests/continents.test.ts checks it against the regions file.
+// The Places filter's continents: the top level of the Places drill-down, each a place key `n:<ID>` (place-keys.ts;
+// Filter.continents holds the ids). A static table from each country code in regions.v1.json to its continent, following
+// the UN geoscheme (M49) with the calls listed below, plus EXTRA_CODES (codes an import can carry that regions.v1.json
+// lacks) and SUB1_CONTINENT (overseas regions that lie on another continent than their country). Pure;
+// tests/continents.test.ts checks it against the regions file.
 //
 // Judgment calls (the UN geoscheme would put these somewhere else, or they are unclear):
 // - Russia is Europe; Turkey, Cyprus, Georgia, Armenia and Azerbaijan are Asia (Western Asia), as the Caucasus is.
@@ -9,7 +11,7 @@
 // - Central America and the Caribbean are North America, with Greenland, Bermuda (M49 Northern America), Saint Pierre and
 //   Miquelon, and the Caribbean's territories (Anguilla, Aruba, the Cayman and Turks and Caicos Islands, Montserrat,
 //   Puerto Rico, the Virgin Islands, Sint Maarten and Saint Martin).
-// - Falkland Islands (FK) are South America (M49). French Guiana (GF) is not in regions.v1.json, so it has no entry.
+// - Falkland Islands (FK) are South America (M49). French Guiana (GF) is not in regions.v1.json: an EXTRA_CODES entry.
 // - Saint Helena (SH) is Africa (M49 Western Africa, with Ascension and Tristan da Cunha). The British Indian Ocean
 //   Territory (IO) is Africa (M49 Eastern Africa), not Asia; it is an Indian Ocean island, not a Pacific one.
 // - Kosovo (XK) is Europe (it is not in UN M49; the usual non-UN assignment).
@@ -17,9 +19,9 @@
 //   (M49 Micronesia and Polynesia), Norfolk Island, Pitcairn and Cook Islands.
 // - Antarctica takes the sub-Antarctic territories: Heard and McDonald Islands (HM), the French Southern Territories (TF)
 //   and South Georgia and the South Sandwich Islands (GS). Antarctica itself (AQ) and Bouvet Island (BV) are not in
-//   regions.v1.json, so they have no entry.
-// - American Samoa (AS) is Oceania: its code is also the id of the Asia chip, but the two never meet (a country key
-//   and a continent id live in different fields).
+//   regions.v1.json: EXTRA_CODES entries.
+// - American Samoa (AS) is Oceania: its code is also the id of Asia, but the two never meet (a country key is `c:AS`,
+//   a continent key `n:AS`).
 
 /** A continent's id (its two-letter code) and English name, in the Places section's display order. */
 export const CONTINENTS = [
@@ -75,4 +77,34 @@ export const CONTINENT_OF: Record<string, ContinentId> = {
   NU: 'OC', NZ: 'OC', PF: 'OC', PG: 'OC', PN: 'OC', PW: 'OC', SB: 'OC', TO: 'OC', TV: 'OC', VU: 'OC', WF: 'OC', WS: 'OC',
   // Antarctica (the sub-Antarctic territories in the file)
   GS: 'AN', HM: 'AN', TF: 'AN',
+  // Codes regions.v1.json lacks (EXTRA_CODES below)
+  AQ: 'AN', BV: 'AN', GF: 'SA', GP: 'NA', MQ: 'NA', BQ: 'NA', RE: 'AF', YT: 'AF', GI: 'EU', SJ: 'EU',
+  CX: 'OC', CC: 'OC', TK: 'OC', UM: 'OC', CP: 'NA',
+}
+
+/**
+ * The entries of CONTINENT_OF whose code is not in regions.v1.json (an eBird import can still carry them: an Antarctic
+ * cruise is AQ). When regions.v1.json gains one (feat/nf-8 adds AQ and BV) it stops being an extra and may stay here;
+ * the test only demands that every table entry be in the regions file or in this list.
+ */
+export const EXTRA_CODES: readonly string[] = ['AQ', 'BV', 'GF', 'GP', 'MQ', 'BQ', 'RE', 'YT', 'GI', 'SJ', 'CX', 'CC', 'TK', 'UM', 'CP']
+
+/**
+ * Overseas regions (regions.v1.json sub1 codes) on another continent than their country: iNaturalist gives French Guiana
+ * as {country: 'FR', sub1: 'FR-973'}. Checked before the country (continentOfPlace).
+ */
+export const SUB1_CONTINENT: Record<string, ContinentId> = {
+  // France
+  'FR-971': 'NA', 'FR-GP': 'NA', 'FR-972': 'NA', 'FR-MQ': 'NA', 'FR-973': 'SA', 'FR-GF': 'SA', 'FR-974': 'AF', 'FR-RE': 'AF',
+  'FR-976': 'AF', 'FR-YT': 'AF', 'FR-BL': 'NA', 'FR-MF': 'NA', 'FR-PM': 'NA', 'FR-NC': 'OC', 'FR-PF': 'OC', 'FR-WF': 'OC',
+  'FR-TF': 'AN', 'FR-CP': 'NA',
+  // Netherlands (the Caribbean)
+  'NL-AW': 'NA', 'NL-CW': 'NA', 'NL-SX': 'NA', 'NL-BQ1': 'NA', 'NL-BQ2': 'NA', 'NL-BQ3': 'NA',
+  // United States (the Pacific)
+  'US-AS': 'OC', 'US-GU': 'OC', 'US-MP': 'OC', 'US-UM': 'OC', 'US-HI': 'OC',
+}
+
+/** A place's continent: its sub1's override, else its country's; undefined when neither is known. */
+export function continentOfPlace(p: { country: string; sub1?: string }): ContinentId | undefined {
+  return (p.sub1 && Object.hasOwn(SUB1_CONTINENT, p.sub1) ? SUB1_CONTINENT[p.sub1] : undefined) ?? (Object.hasOwn(CONTINENT_OF, p.country) ? CONTINENT_OF[p.country] : undefined)
 }

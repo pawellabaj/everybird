@@ -77,7 +77,7 @@ export function filterLabel(
   ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
 ): string | undefined {
   // Places: "Africa + Canada", "Canada + Egypt", "Capital and 2 more" (continents first).
-  const place = ctx.regions ? placesLabel(f, ctx.regions) : namesLabel([...continentNames(f.continents), ...(f.countries ?? []).map(ctx.countryName)])
+  const place = ctx.regions ? placesLabel(f, ctx.regions) : namesLabel([...continentNames(f.continents), ...(f.countries ?? []).map((c) => ctx.countryName(c.slice(0, 2)))])
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
   else if (f.order) parts.push(orderLabel(f.order))

@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'
-import { clearPlaces, filterKey, filterPlaceKeys, placeCounts, placeRows, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
+import { clearPlaces, countryRows, filterKey, filterPlaceKeys, placeCounts, placeRows, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { SeenIndex } from '@/lib/list/seen'
 import { parentKey, parsePlaceKey, placeName, type PlaceLevel } from '@/lib/list/place-keys'
@@ -26,17 +26,27 @@ export const SEARCH_FROM = 8
 /** What a design of the panel gets. */
 export type PlacesBodyProps = { state: AppState; species: SpeciesIndex; regions: Regions; onFilter: (f: Filter) => void }
 
-/** The level of the places under `parent`: countries with none, a country's provinces, a province's counties. */
-export function levelUnder(parent: string | undefined): PlaceLevel {
-  if (parent === undefined) return 'country'
-  return parsePlaceKey(parent)?.level === 'country' ? 'province' : 'county'
+/**
+ * The level of the places under `parent`: continents with none (countries when `flat`: the one-continent list skips the
+ * continent level), a continent's countries, a country's provinces, a province's counties.
+ */
+export function levelUnder(parent: string | undefined, flat = false): PlaceLevel {
+  if (parent === undefined) return flat ? 'country' : 'continent'
+  const level = parsePlaceKey(parent)?.level
+  return level === 'continent' ? 'country' : level === 'country' ? 'province' : 'county'
+}
+
+/** `parentKey` as the panel walks it: with the continent level skipped, a country's parent is the top level. */
+export function upKey(key: string, flat: boolean): string | undefined {
+  const up = parentKey(key)
+  return flat && up?.startsWith('n:') ? undefined : up
 }
 
 /** A level's head word, also its checklist's accessible name. */
-export const LEVEL_HEAD: Record<PlaceLevel, string> = { country: 'Countries', province: 'States and provinces', county: 'Counties' }
-const FIND: Record<PlaceLevel, string> = { country: 'Find a country', province: 'Find a state or province', county: 'Find a county' }
+export const LEVEL_HEAD: Record<PlaceLevel, string> = { continent: 'Continents', country: 'Countries', province: 'States and provinces', county: 'Counties' }
+const FIND: Record<PlaceLevel, string> = { continent: 'Find a country', country: 'Find a country', province: 'Find a state or province', county: 'Find a county' }
 /** What a search that matches no row at the level says. */
-export const NO_MATCH: Record<PlaceLevel, string> = { country: 'No country matches.', province: 'No state or province matches.', county: 'No county matches.' }
+export const NO_MATCH: Record<PlaceLevel, string> = { continent: 'No country matches.', country: 'No country matches.', province: 'No state or province matches.', county: 'No county matches.' }
 
 export const fmt = (x: number) => x.toLocaleString('en-US')
 
@@ -70,22 +80,22 @@ export function emptyHere(f: Filter): string {
  * unchecked. A row that holds checked places counts them among its children (listed or not), so it drills.
  * A checkbox changes only the held rows: the counted rows stay as they were.
  */
-export function usePlaceRows(counts: PlaceCounts, filter: Filter, parent: string | undefined, regions: Regions): PlaceOption[] {
-  const opts = useMemo(() => placeRows(counts, parent, (k) => placeName(k, regions)), [counts, parent, regions])
+export function usePlaceRows(counts: PlaceCounts, filter: Filter, parent: string | undefined, regions: Regions, flat = false): PlaceOption[] {
+  const opts = useMemo(() => (flat && parent === undefined ? countryRows(counts, (k) => placeName(k, regions)) : placeRows(counts, parent, (k) => placeName(k, regions))), [counts, parent, regions, flat])
   // Each place at this level that is checked or holds a checked place -> the distinct ones one level under it.
   const held = useMemo(() => {
     const out = new Map<string, Set<string>>()
     for (const key of filterPlaceKeys(filter)) {
       let child: string | undefined
-      for (let k: string | undefined = key; k; child = k, k = parentKey(k)) {
-        if (parentKey(k) !== parent) continue
+      for (let k: string | undefined = key; k; child = k, k = upKey(k, flat)) {
+        if (upKey(k, flat) !== parent) continue
         const kids = out.get(k) ?? new Set<string>()
         if (child) kids.add(child)
         out.set(k, kids)
       }
     }
     return out
-  }, [filter, parent])
+  }, [filter, parent, flat])
   return useMemo(() => {
     if (!held.size) return opts
     const listed = opts.map((o) => (o.children === 0 && held.get(o.value)?.size ? { ...o, children: held.get(o.value)!.size } : o))
@@ -108,10 +118,11 @@ export function matchRows<T extends { label: string }>(rows: T[], q: string): T[
   })
 }
 
-/** A place's checkbox test id: `country-<ISO2>` for a country (as before levels), `place-<key>` below. */
+/** A place's checkbox test id: `continent-<ID>`, `country-<ISO2>` (`country-FR@SA` for an overseas part), `place-<key>` below. */
 export function placeTestId(key: string): string {
   const p = parsePlaceKey(key)
-  return p?.level === 'country' ? `country-${p.country}` : `place-${key}`
+  if (p?.level === 'continent') return `continent-${p.continent}`
+  return p?.level === 'country' ? `country-${key.slice(2)}` : `place-${key}`
 }
 
 type CheckProps = { option: PlaceOption; checked: boolean; onToggle: () => void; flag?: boolean; testId?: string }
@@ -122,7 +133,8 @@ export function PlaceCheck({ option, checked, onToggle, flag, testId }: CheckPro
   return (
     <label className="eb-check" data-checked={checked ? '' : undefined}>
       <input type="checkbox" checked={checked} onChange={onToggle} data-testid={testId ?? placeTestId(option.value)} />
-      {p && <Flag iso={p.country} />}
+      {p?.level === 'country' && <Flag iso={p.country} />}
+      {p?.level === 'continent' && <span className="eb-flag-slot" aria-hidden="true" />}
       <span className="eb-check-name">{option.label}</span>
       <span className="eb-count" aria-hidden="true">{fmt(option.count)}</span>
       <span className="eb-sr">, {fmt(option.count)} species</span>
