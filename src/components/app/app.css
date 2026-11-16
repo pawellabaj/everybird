@@ -225,8 +225,9 @@
 .eb-find .eb-dock-tab svg { width: 16px; height: 16px; }
 /* The search's field and drop are one wrapper; it adds no box of its own, so the field stays where the dock puts it. */
 .eb-find-wrap { display: contents; }
-/* The drop under the field: the "Understood as" chips, a note, then the name hits, on one paper panel (as the results were). */
-.eb-drop {
+/* The drop under the field: the "Understood as" chips, a note, then the name hits, on one paper panel (as the results were).
+   Its own class: `.eb-drop` is the Filters panel (filters.css), whose 380px width and 14px text would size this one too. */
+.eb-find-drop {
   position: absolute; z-index: 8; left: 0; right: 0; top: calc(100% + 6px); padding: 4px;
   background: var(--paper); border: 1px solid var(--hairline);
   border-radius: calc(16px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
@@ -489,7 +490,7 @@
 @media (prefers-reduced-motion: reduce) {
   .eb-btn, .eb-dock-tab, .eb-dock-dir svg, .eb-dock-tabs, .eb-dock-tools, .eb-nav-link, .eb-footer-gh { transition: none; }
   .eb-menu { animation: none; }
-  .eb-find, .eb-drop { animation: none; }
+  .eb-find, .eb-find-drop { animation: none; }
 }
 .eb-stagewrap { position: relative; }
 .eb-view .eb-stagewrap { margin-top: 8px; }
