@@ -15,7 +15,7 @@ import { CloseIcon, FilterLinesIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
 import { useI18n } from '@/i18n/I18nProvider'
 import { regionsIn } from '@/lib/i18n-places'
-import { filterChips, withoutFilterChip, withoutFilterChips } from '@/lib/list/chips'
+import { filterChips, withoutFilterChip } from '@/lib/list/chips'
 import { filtersCount, filtersSpoken, panelHead, showLabel } from '@/lib/list/filter-summary'
 import { emptyFilter, filterActive, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
@@ -274,7 +274,9 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const returnFocus = useCallback(() => opener.current, [])
   const onEmpty = useCallback(() => buttonRef.current?.focus(), [])
   // The chips' scope: group, places, time (and its basis) and statuses; the taxonomy path has its own breadcrumb.
-  const onClearAll = useCallback(() => dispatch({ type: 'filter', filter: withoutFilterChips(filter) }), [dispatch, filter])
+  // The same as the panel's Clear all: every filter, the taxonomy choice too.
+  const onClearAll = useCallback(() => dispatch({ type: 'filter', filter: emptyFilter() }), [dispatch])
+  const active = chips.length + (filter.order || filter.family ? 1 : 0)
   // Every removal changes the filter, so the chips change and ChipRow's remembered index is used up.
   const onRemove = useCallback(
     (c: (typeof chips)[number]) => dispatch({ type: 'filter', filter: withoutFilterChip(filter, c) }),
@@ -290,7 +292,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
     button: (inert) => <FiltersButton {...shared} inert={inert} buttonRef={buttonRef} panelId={panelId} />,
     below: (
       <>
-        <ChipRow chips={chips} label={t.filters.panel.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} onClearAll={onClearAll} />
+        <ChipRow chips={chips} label={t.filters.panel.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} onClearAll={onClearAll} active={active} />
         {live && (
           <FiltersPanel
             {...shared}

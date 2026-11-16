@@ -317,12 +317,12 @@ describe('spec 15: the content below the panel', () => {
     expect(filterOf()).toEqual({})
   })
 
-  it('the chip row\'s Clear all appears at two chips, clears the chips\' filters and focuses the Filters button', () => {
+  it('the chip row\'s Clear all clears every filter, as the panel\'s does, and focuses the Filters button', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
     fireEvent.click(screen.getByRole('button', { name: 'everything' }))
     fireEvent.click(screen.getByTestId('chips-clear-all'))
-    expect(filterOf()).toEqual({ order: 'Passeriformes', family: 'Corvidae' })
+    expect(filterOf()).toEqual({})
     expect(screen.queryByTestId('chips-clear-all')).toBeNull()
     expect(button()).toHaveFocus()
   })
