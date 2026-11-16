@@ -4,6 +4,7 @@ import { buildSpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
 import type { ListEntry } from '@/lib/list/model'
 import * as image from '@/lib/share/image'
+import { en } from '@/i18n/messages/en'
 import { installStubs, NOW } from './fixtures/share-image-harness'
 
 const mk = (code: string, over: Partial<SpeciesRow> = {}) =>
@@ -28,7 +29,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 
 async function draw(status: boolean | undefined) {
   image.clearStickerCache()
-  const canvas = await image.drawShareImage({ format: 'post', entries, species, pack, theme: 'light', latest: true, now: NOW, ...(status === undefined ? {} : { status }) } as never)
+  const canvas = await image.drawShareImage({ format: 'post', entries, species, pack, theme: 'light', latest: true, now: NOW, strings: en.ui, ...(status === undefined ? {} : { status }) } as never)
   return logs.get(canvas as unknown as object)!
 }
 /** The pill labels drawn, each with the fill colour of the rounded rect just before it. */
