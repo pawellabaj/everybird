@@ -40,7 +40,7 @@ const noStatus = buildSpeciesIndex([
   row('owl1', 'Strigiformes', 'Strigidae', 5),
 ])
 const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America' }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
-const reduce = makeReducer({ species, countryName: (c) => regions.countries[c] ?? c })
+const reduce = makeReducer({ species })
 
 // duck1 lifer in Canada, also seen in the US; crow1 lifer in Egypt, also seen in British Columbia; owl1 Ontario only.
 function seeded() {

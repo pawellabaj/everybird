@@ -6,6 +6,9 @@
 // committed: one re-pack, one travel. Layouts are cached by range. On phones the strip scrolls sideways; the handles are sliders for keyboards (arrows a
 // month, PageUp/PageDown a year, Home/End). Logic in src/lib/list/timeline.ts.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { applyFilter, type Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import { barHeight, boundaryAt, monthAxis, monthBins, monthName, monthShort, pickHandle, rangeFilter, rangeIndices, rangeLabel, sliderKey, timeless, type Month } from '@/lib/list/timeline'
@@ -32,10 +35,9 @@ type Props = {
   onPreview?: (r: { from?: Month; to?: Month } | null) => void
 }
 
-const n = (x: number) => x.toLocaleString('en-US')
-
 export const Timeline = memo(function Timeline({ entries, seen, filter, species, months, today, onFilter, onPreview }: Props) {
   const N = months.length
+  const { t } = useI18n()
   // Bars count the birds of the other filters (birds, places) over the whole span, so the handles never jump.
   const others = useMemo(() => applyFilter(entries, timeless(filter), species, seen), [entries, filter, species, seen])
   const bins = useMemo(() => monthBins(others, today, entries), [others, today, entries])
@@ -169,11 +171,11 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
       className: 'eb-time-handle',
       'data-end': which,
       'data-testid': `time-handle-${which}`,
-      'aria-label': which === 'lo' ? 'Start month' : 'End month',
+      'aria-label': which === 'lo' ? t.filters.timeline.start : t.filters.timeline.end,
       'aria-valuemin': min,
       'aria-valuemax': max,
       'aria-valuenow': v,
-      'aria-valuetext': monthName(months[v]),
+      'aria-valuetext': monthName(months[v], t),
       style: { left: pct(which === 'lo' ? lo : hi + 1) },
       onKeyDown: (e: React.KeyboardEvent) => {
         const next = sliderKey(e.key, v, min, max)
@@ -188,9 +190,10 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
   // Readout: the range and its species.
   const ranged = lo > 0 || hi < N - 1
   const inRange = bins.counts.slice(lo, hi + 1).reduce((a, b) => a + b, 0) + (ranged ? 0 : bins.undated)
-  const read = `${ranged ? rangeLabel(months[lo], months[hi]) : `${monthShort(months[0])} to ${monthShort(months[N - 1])}`} · ${n(inRange)} species`
+  const span = ranged ? rangeLabel(months[lo], months[hi], t) : N ? fmt(t.filters.timeline.range, { from: monthShort(months[0], t), to: monthShort(months[N - 1], t) }) : ''
+  const read = `${span} · ${plural(t.collage.stats.species, inRange, { n: formatInt(inRange, t.num) })}`
 
-  if (!N) return <p className="eb-note" data-testid="timeline-empty">This list has no dates, so there is no timeline.</p>
+  if (!N) return <p className="eb-note" data-testid="timeline-empty">{t.filters.timeline.empty}</p>
   const width = `max(100%, ${axis.units * MONTH_PX}px)`
   const unitPx = trackPx ? trackPx / axis.units : MONTH_PX
   // Year labels where they fit: at least 30px after the previous one and before the end.
@@ -212,7 +215,7 @@ export const Timeline = memo(function Timeline({ entries, seen, filter, species,
           {read.split(' · ').map((part, i) => <span key={i}>{i > 0 && ' · '}<span className="eb-nowrap">{part}</span></span>)}
         </p>
         {ranged && (
-          <button type="button" className="eb-textbtn" data-testid="time-clear" onClick={clear}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="time-clear" onClick={clear}>{t.filters.clear}</button>
         )}
       </div>
       <div ref={scroller} className="eb-time-scroll" onScroll={edges} data-more={more || undefined}>

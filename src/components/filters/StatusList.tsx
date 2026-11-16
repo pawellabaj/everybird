@@ -6,12 +6,14 @@
 // categories and NE, Not evaluated, last): no search.
 import { useMemo } from 'react'
 import { IucnPill } from '@/components/collage/IucnPill'
-import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
+import { countHead } from '@/lib/list/filter-summary'
 import { statusOptions, toggleStatus, withStatuses, type Filter } from '@/lib/list/filters'
 import type { AppState } from '@/lib/list/store'
-import { STATUS_FILTER_CATS, statusName, type StatusFilterCat } from '@/lib/species/status-filter'
+import { STATUS_FILTER_CATS, type StatusFilterCat } from '@/lib/species/status-filter'
 import type { SpeciesIndex } from '@/lib/species/load'
-import { fmt } from './places-shared'
+import { plural, fmt as fill } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 
 type Props = {
   state: AppState
@@ -23,6 +25,8 @@ type Props = {
 
 export function StatusList({ state, species, threatLine, onFilter }: Props) {
   const { list, filter, seen } = state
+  const { t } = useI18n()
+  const fmt = (x: number) => formatInt(x, t.num)
   const counted = useMemo(() => statusOptions(list, filter, species, seen), [list, filter, species, seen])
   const checked = useMemo(() => new Set<StatusFilterCat>(filter.statuses ?? []), [filter.statuses])
   // The counted rows, and any checked category they lack at 0, all in Red List order.
@@ -34,17 +38,17 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
   return (
     <div className="eb-places">
       <div className="eb-places-head">
-        <span className="eb-mono">{countHead(rows.length, COUNT_WORDS.status, checked.size)}</span>
+        <span className="eb-mono">{countHead(rows.length, 'status', checked.size, t)}</span>
         {checked.size > 0 && (
-          <button type="button" className="eb-textbtn" data-testid="status-clear" onClick={() => onFilter(withStatuses(filter, []))}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="status-clear" onClick={() => onFilter(withStatuses(filter, []))}>{t.filters.clear}</button>
         )}
       </div>
       {threatLine !== undefined && threatLine > 0 && (
         <p className="eb-note eb-places-note" data-testid="status-threatened">
-          {fmt(threatLine)} threatened: Vulnerable, Endangered or Critically Endangered.
+          {fill(t.status.threatenedNote, { n: fmt(threatLine) })}
         </p>
       )}
-      <ul className="eb-checklist" aria-label="Categories">
+      <ul className="eb-checklist" aria-label={t.status.list}>
         {rows.map(({ cat, count }) => {
           const on = checked.has(cat)
           return (
@@ -52,14 +56,14 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
               <label className="eb-check" data-checked={on ? '' : undefined}>
                 <input type="checkbox" checked={on} onChange={() => onFilter(toggleStatus(filter, cat))} data-testid={`status-${cat}`} />
                 <IucnPill cat={cat} />
-                <span className="eb-check-name">{statusName(cat)}</span>
+                <span className="eb-check-name">{t.iucn.names[cat]}</span>
                 <span className="eb-count" aria-hidden="true">{fmt(count)}</span>
-                <span className="eb-sr">, {fmt(count)} species</span>
+                <span className="eb-sr">, {plural(t.count.live, count, { n: fmt(count) })}</span>
               </label>
             </li>
           )
         })}
-        {rows.length === 0 && <li className="eb-note eb-check-none">No categories here under the other filters.</li>}
+        {rows.length === 0 && <li className="eb-note eb-check-none">{t.status.none}</li>}
       </ul>
     </div>
   )

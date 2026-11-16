@@ -8,13 +8,14 @@
 import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
 import { ALL, type Chip as ChipData } from '@/lib/list/chips'
-import { FILTERS_UI, fill } from '@/lib/list/filter-summary'
+import { fmt } from '@/i18n/core'
+import { useI18n } from '@/i18n/I18nProvider'
 import { Chip } from './Chip'
 import './filters.css'
 
 type Props<C extends ChipData> = {
   chips: readonly C[]
-  /** The row's group name (FILTERS_UI.chips for the filter row; item 9 passes its own). */
+  /** The row's group name (`t.filters.panel.chips` for the filter row; item 9 passes its own). */
   label: string
   onRemove: (chip: C) => void
   /** Given: a collapsed chip (token ALL) is a label button that calls it, and a ×. Not given: every chip is a single remove button. */
@@ -25,6 +26,7 @@ type Props<C extends ChipData> = {
 }
 
 export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, onEmpty, testId }: Props<C>): ReactNode | null {
+  const { t } = useI18n()
   const rowRef = useRef<HTMLDivElement>(null)
   // The index of the chip a press just removed; read once by the effect below.
   const removed = useRef<number | null>(null)
@@ -59,7 +61,7 @@ export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, on
                 type="button"
                 className="eb-chip-open"
                 aria-haspopup="dialog"
-                aria-label={fill(FILTERS_UI.openChip, { label: chip.label })}
+                aria-label={fmt(t.filters.panel.openChip, { label: chip.label })}
                 data-testid={`chip-${chip.kind}-open`}
                 onClick={(e) => onOpen(chip, e.currentTarget)}
               >
@@ -68,7 +70,7 @@ export function ChipRow<C extends ChipData>({ chips, label, onRemove, onOpen, on
               <button
                 type="button"
                 className="eb-chip-x"
-                aria-label={fill(FILTERS_UI.clearChip, { label: chip.label })}
+                aria-label={fmt(t.filters.panel.clearChip, { label: chip.label })}
                 data-testid={`chip-${chip.kind}-clear`}
                 onClick={() => remove(chip, i)}
               >

@@ -1,14 +1,9 @@
-// POST /e  body: {"n":"collage_made","p":"inat"}  (n = event name, p = one property value)
-// Only these events and values are accepted; anything else is dropped. Country comes from Cloudflare's
-// request metadata (coarse, no IP is stored). Device class is derived from the User-Agent and only the
-// class is kept ("mobile" | "desktop").
-const ALLOWED: Record<string, Set<string>> = {
-  visit: new Set(['landing', 'collage', 'settings', 'about', 'shared']),
-  collage_made: new Set(['ebird', 'ebird-list', 'inat', 'manual', 'sample', 'restore', 'mixed']),
-  image_downloaded: new Set(['story', 'post', 'square']),
-  shared: new Set(['story', 'post', 'square', 'link']),
-  link_copied: new Set(['full', 'compact', 'minimal', 'species']),
-}
+// POST /e  body: {"n":"collage_made","p":"inat"}  (n = event name, p = one property value; a visit may add
+// l = the browser language's primary subtag, e.g. "es"). Only the events and values in ALLOWED (event.ts) are
+// accepted; anything else is dropped. Country comes from Cloudflare's request metadata (coarse, no IP is stored).
+// Device class is derived from the User-Agent and only the class is kept.
+import { eventRow } from './event'
+
 const ORIGINS = new Set(['https://everybird.yusuftaleb.com', 'http://localhost:3000', 'http://localhost:3001'])
 
 interface Env { DB: D1Database; SALT_SECRET: string }
@@ -55,11 +50,10 @@ export default {
     const url = new URL(req.url)
     if (req.method !== 'POST' || url.pathname !== '/e') return new Response('not found', { status: 404, headers: h })
     if (origin && !ORIGINS.has(origin)) return new Response(null, { status: 204, headers: h })
-    let body: { n?: unknown; p?: unknown; d?: unknown }
+    let body: { n?: unknown; p?: unknown; d?: unknown; l?: unknown }
     try { body = JSON.parse((await req.text()).slice(0, 512)) } catch { return new Response(null, { status: 204, headers: h }) }
-    const n = typeof body.n === 'string' ? body.n : ''
-    const p = typeof body.p === 'string' ? body.p : ''
-    if (!ALLOWED[n] || !ALLOWED[n].has(p)) return new Response(null, { status: 204, headers: h })
+    // Check the allow-list before hashing anything; the real row is built below with the context.
+    if (!eventRow(body, { day: '', country: '', device: '', vid: '' })) return new Response(null, { status: 204, headers: h })
     const country = (req as Request & { cf?: { country?: string } }).cf?.country ?? 'XX'
     let device = deviceClass(req.headers.get('user-agent') ?? '')
     if (device === 'mac' && body.d === 'touch') device = 'ipad' // iPadOS 13+ sends a Mac UA
@@ -67,8 +61,9 @@ export default {
     const vid = await dailyVisitorId(env.SALT_SECRET ?? '', day, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('user-agent') ?? '')
     const seen = await env.DB.prepare('SELECT COUNT(*) AS c FROM events WHERE day = ? AND vid = ?').bind(day, vid).first<{ c: number }>()
     if ((seen?.c ?? 0) >= DAILY_CAP) return new Response(null, { status: 204, headers: h })
-    await env.DB.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(day, n, p, country, device, vid).run()
+    const row = eventRow(body, { day, country, device, vid })!
+    await env.DB.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(row.day, row.name, row.value, row.country, row.device, row.vid, row.lang).run()
     return new Response(null, { status: 204, headers: h })
   },
 }

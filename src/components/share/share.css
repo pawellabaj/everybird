@@ -13,6 +13,15 @@
 @media (max-width: 719.98px) {
   .eb-share-scrim { align-items: start; }
   .eb-share-preview { max-height: var(--cap); }
+  /* The controls under the preview, from the 409px measured for the first ones (a title field, the switch and the
+     first action row, 16px apart) and the CSS since: the options group's gaps are 8px, so 409 + 8 - 16 (the gap it
+     replaces) = 401, plus the "Dark image" switch under "Show latest lifer": a 44px row and an 8px gap = 453.
+     Print mode adds the size control at the group's top: 54 (the control) + 6 + 42 (the size line, two 21px lines on
+     a phone: "A1 · 59.4 × 84.1 cm · 7016 × 9933 px at 150 dpi" is about 340px at 14px) + 8 (the group's gap) = 110
+     more, so 563. Each keeps the primary action on the first screen, 26px above the dialog's bottom edge, with the
+     top of the quiet row showing under it. */
+  .eb-share .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 453px, 600px)); }
+  .eb-share[data-mode="print"] .eb-share-body { --cap: max(240px, min(62dvh, 100dvh - 563px, 600px)); }
 }
 .eb-share {
   width: min(820px, 100%); max-height: calc(100dvh - 32px); overflow: auto; overscroll-behavior: contain;
@@ -37,12 +46,16 @@
    above the preview's area, the controls under it, so neither moves when the preview changes shape), a grid from 720px
    (the preview on the left down both rows, the format control over the rest of the controls on the right). */
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
-.eb-share-formats { min-width: 0; container-type: inline-size; }
+/* At least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px), so print
+   mode's shorter "Share images" button in its place moves nothing below it. */
+.eb-share-formats { min-width: 0; min-height: 54px; container-type: inline-size; }
 
 /* The image's shape, from the format it shows. */
 .eb-share-preview { --ar: calc(9 / 16); }
 .eb-share-preview[data-format="post"] { --ar: calc(4 / 5); }
 .eb-share-preview[data-format="square"] { --ar: 1; }
+/* The poster's preview: an A size (1:√2, wider than 9:16), so it sits inside the story's area as a post does. */
+.eb-share-preview[data-format="print"] { --ar: calc(1240 / 1754); }
 .eb-share-preview {
   position: relative; justify-self: center; align-self: center; box-sizing: border-box; overflow: hidden;
   background: var(--surface); border: 1px solid var(--hairline);
@@ -90,7 +103,8 @@
   .eb-share-preview { grid-column: 1; grid-row: 1 / span 2; }
   .eb-share-formats, .eb-share-controls { grid-column: 2; }
   .eb-share-formats { grid-row: 1; }
-  .eb-share-controls { grid-row: 2; align-self: start; }
+  /* The controls fill the column's height, so the coffee button can sit at its bottom right. */
+  .eb-share-controls { grid-row: 2; align-self: stretch; }
   .eb-share-preview {
     --pv-h: max(240px, min(var(--tall), var(--room) / var(--ar)));
     height: var(--pv-h); width: calc(var(--pv-h) * var(--ar)); aspect-ratio: auto;
@@ -134,10 +148,45 @@
   .eb-share .eb-share-switch[aria-checked=false]:hover .eb-track { box-shadow: inset 0 0 0 1px var(--muted); }
   .eb-share .eb-share-switch[aria-checked=true]:hover .eb-track { opacity: .88; }
 }
-/* Buy me a coffee: a plain text link in the note's muted colour, last in the column; never on the images. It stands
-   alone, so its press is grown to 44px by padding that the negative margin takes back (nothing moves). */
-.eb-share-coffee a { display: inline-block; padding-block: 12px; margin-block: -12px; color: inherit; text-underline-offset: 3px; }
-.eb-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* The image options (the size in print mode, the title, the two switches), 8px apart, with no heading. */
+.eb-share-options { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* Buy Me a Coffee's static button (self-hosted, as on About), 32px tall, in the column's bottom right corner: beside
+   the preview the column fills the body's height and the button sits at its foot (margin-top: auto); stacked it ends
+   the dialog. Its press is grown to 44px by padding that the negative margin takes back; the global focus ring. */
+.eb-share-coffee { display: inline-flex; align-self: flex-end; padding: 6px; margin: auto -6px -6px; }
+.eb-share-coffee img { display: block; width: 114px; height: 32px; }
+@media (hover: hover) and (pointer: fine) { .eb-share-coffee:hover img { opacity: .88; } }
+/* The poster's size choice spans the column, the sizes sharing it evenly. */
+.eb-share-sizes { display: flex; }
+.eb-share-sizes .eb-seg-btn { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+/* While a poster is made: a thin bar (Hairline track, Accent fill) with the mono percentage and Cancel, on its own row
+   of the actions. */
+.eb-share-progress { display: flex; flex: 1 1 auto; align-items: center; gap: 12px; min-width: 0; }
+.eb-share-bar { flex: 1 1 auto; height: 4px; min-width: 0; overflow: hidden; background: var(--hairline); border-radius: 2px; }
+.eb-share-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .15s var(--ease-ui); }
+.eb-share-pct { flex: none; min-width: 4ch; text-align: end; font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* The four actions (print mode's in the same places), 8px apart. A label wraps to a second line only where it must,
+   at 1.2 with 3px padding so two lines still make 44px, centred; a word longer than its cell breaks rather than spill
+   (only at page zoom's narrowest widths, which the container queries below mostly spare it). The 15px font size is the
+   buttons' own, so the ch in the narrow grids below is their label's. */
+.eb-share-actions { display: grid; gap: 8px; min-width: 0; font-size: 15px; }
+.eb-share-actions .eb-btn {
+  min-width: 0; white-space: normal; text-align: center; line-height: 1.2; padding-block: 3px; overflow-wrap: break-word;
+}
+/* Share image across the column, then one row of equal quiet buttons (however many print mode has). */
+.eb-share-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
+.eb-share-row .eb-btn { padding-inline: 12px; }
+/* The controls' column is a container: where the row runs short (a 300px column beside the preview, phones), the
+   icons go from the row; narrower still (a 320px phone gives 246px) the padding tightens and the row becomes a grid
+   of cells at least 10ch wide (a little over "Download"), so a cell that can't fit moves to a new row instead of
+   squeezing its label (Safari's page zoom takes the column to about 186px). */
+@container (max-width: 379px) {
+  .eb-share-row .eb-btn svg { display: none; }
+}
+@container (max-width: 299px) {
+  .eb-share-row .eb-btn { padding-inline: 4px; }
+  .eb-share-row { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10ch), 1fr)); }
+}
 .eb-share button:focus-visible, .eb-share input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -145,6 +194,7 @@
   .eb-share-preview, .eb-share-preview[data-resizing], .eb-share-preview img { transition: none; }
   .eb-share-spin { animation: none; border-color: var(--accent); opacity: .5; }
   .eb-share .eb-share-switch, .eb-share-switch .eb-track, .eb-share-switch .eb-knob { transition: none; }
+  .eb-share-bar-fill { transition: none; }
 }
 
 /* The Story / Post / Square choice: a small segmented control in the dock's style. */

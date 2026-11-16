@@ -30,7 +30,7 @@ const allowedNow = () => !optedOut(navigator, (window as Window & { doNotTrack?:
   && !automatedRun(navigator, location.search, safeSession(window))
 
 /**
- * Cloudflare Web Analytics: cookieless page-view counts. Rendered only from app/(app)/layout.tsx in production
+ * Cloudflare Web Analytics: cookieless page-view counts. Rendered only from app/[lang]/(app)/layout.tsx in production
  * (VERCEL_ENV=production), so it never loads on a shared view: /s/<token> is outside that group, and the beacon, which
  * reports location.href with no way to redact it, must never see a share token. The shared view also makes every link
  * into the app a full page load (FullNavigation.tsx), so a document that has shown /s/<token> never gets the beacon,

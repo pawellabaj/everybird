@@ -1,3 +1,4 @@
+import { en } from '@/i18n/messages/en'
 import { describe, expect, it } from 'vitest'
 import { emptyHere } from '@/components/filters/places-shared'
 import { applyFilter, filterKey, filterToShow, placeCounts, placeRows, statusOptions, threatenedCount, toggleStatus, withStatuses } from '@/lib/list/filters'
@@ -63,8 +64,8 @@ describe('the Status filter', () => {
     expect(rows({ statuses: ['LC'] })).toEqual([['c:CA', 1]])
   })
   it('an empty drilled Places level names a status filter among the other filters', () => {
-    expect(emptyHere({ statuses: ['VU'] })).toBe('No places here under the other filters.')
-    expect(emptyHere({})).toBe('No places here on your list now.')
+    expect(emptyHere({ statuses: ['VU'] }, en.ui)).toBe('No places here under the other filters.')
+    expect(emptyHere({}, en.ui)).toBe('No places here on your list now.')
   })
   it('threatened: VU + EN + CR only', () => {
     expect(threatenedCount(list, species)).toBe(2)

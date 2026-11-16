@@ -37,6 +37,9 @@ export type ContinentId = (typeof CONTINENTS)[number]['id']
 const IDS: readonly string[] = CONTINENTS.map((c) => c.id)
 export const isContinentId = (v: unknown): v is ContinentId => typeof v === 'string' && IDS.includes(v)
 
+/** Every continent's English name by id (the default of the label tables; the UI language's are `ui.places.continents`). */
+export const CONTINENT_NAMES = Object.fromEntries(CONTINENTS.map((c) => [c.id, c.name])) as Record<ContinentId, string>
+
 /** A continent's English name, or its id when unknown. */
 export function continentName(id: string): string {
   return CONTINENTS.find((c) => c.id === id)?.name ?? id

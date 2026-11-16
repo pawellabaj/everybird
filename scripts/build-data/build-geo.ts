@@ -64,9 +64,28 @@ export function renameRegions(r: Regions): Regions {
   return r
 }
 
+/**
+ * Full country names where Natural Earth's short NAME abbreviates ("Falkland Is.", "Dem. Rep. Congo", "St-Martin"),
+ * as eBird names them; NAME_LONG is still odd for these few.
+ */
+export const COUNTRY_NAMES: Record<string, string> = {
+  FK: 'Falkland Islands',
+  FO: 'Faroe Islands',
+  GS: 'South Georgia and the South Sandwich Islands',
+  HM: 'Heard Island and McDonald Islands',
+}
+
+/** A country's name: NE's short NAME ("Russia", "South Korea") unless it abbreviates, then NAME_LONG, then COUNTRY_NAMES. */
+export function countryName(iso: string, p: Feature['properties']): string {
+  if (COUNTRY_NAMES[iso]) return COUNTRY_NAMES[iso]
+  const short = String(p.NAME ?? '').trim()
+  const abbreviated = /\./.test(short) || /^St-/.test(short)
+  return abbreviated && p.NAME_LONG ? String(p.NAME_LONG).trim() : short
+}
+
 export function buildRegions(admin0: { features: Feature[] }, admin1: { features: Feature[] }, iso: IsoSub[] = []): Regions {
   const countries: Record<string, string> = {}
-  for (const f of admin0.features) { const i = iso2(f.properties); if (i && i !== 'AQ') countries[i] ??= String(f.properties.NAME) }
+  for (const f of admin0.features) { const i = iso2(f.properties); if (i && i !== 'AQ') countries[i] ??= countryName(i, f.properties) }
   const sub1: Record<string, string> = {}
   for (const f of admin1.features) {
     const code = String(f.properties.iso_3166_2 ?? '')

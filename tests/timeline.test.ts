@@ -4,6 +4,7 @@ import {
   addMonths, barHeight, boundaryAt, monthAxis, monthBins, pickHandle, monthName, monthOf, rangeFilter, rangeIndices, rangeLabel, sliderKey,
   todayMonth,
 } from '@/lib/list/timeline'
+import { en } from '@/i18n/messages/en'
 
 const e = (code: string, date?: string, country = 'CA'): ListEntry => ({ code, date, place: { country }, heard: false, dead: false, media: false, sources: [] })
 
@@ -19,7 +20,7 @@ describe('months', () => {
   it('addMonths crosses years both ways; names and today', () => {
     expect(addMonths('2020-11', 3)).toBe('2021-02')
     expect(addMonths('2020-01', -1)).toBe('2019-12')
-    expect(monthName('2020-03')).toBe('March 2020')
+    expect(monthName('2020-03', en.ui)).toBe('March 2020')
     expect(todayMonth(new Date(Date.UTC(2026, 10, 5)))).toBe('2026-11')
   })
 })
@@ -125,12 +126,12 @@ describe('range filter', () => {
     expect(rangeFilter({}, 2, 1, months)).toEqual({ from: '2020-02', to: '2020-03' }) // swapped ends
   })
   it('rangeLabel says the range in words', () => {
-    expect(rangeLabel('2020-01', '2020-12')).toBe('2020')
-    expect(rangeLabel('2020-09', '2020-09')).toBe('Sep 2020')
-    expect(rangeLabel('2020-03', '2021-06')).toBe('Mar 2020 to Jun 2021')
-    expect(rangeLabel('2020-03', undefined)).toBe('From Mar 2020')
-    expect(rangeLabel(undefined, '2021-06')).toBe('Up to Jun 2021')
-    expect(rangeLabel(undefined, undefined)).toBeUndefined()
+    expect(rangeLabel('2020-01', '2020-12', en.ui)).toBe('2020')
+    expect(rangeLabel('2020-09', '2020-09', en.ui)).toBe('Sep 2020')
+    expect(rangeLabel('2020-03', '2021-06', en.ui)).toBe('Mar 2020 to Jun 2021')
+    expect(rangeLabel('2020-03', undefined, en.ui)).toBe('From Mar 2020')
+    expect(rangeLabel(undefined, '2021-06', en.ui)).toBe('Up to Jun 2021')
+    expect(rangeLabel(undefined, undefined, en.ui)).toBeUndefined()
   })
 })
 

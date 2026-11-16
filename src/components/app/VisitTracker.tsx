@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { useAppPath } from '@/i18n/path'
 import { useEffect, useRef } from 'react'
 import { track, type VisitPage } from '@/lib/analytics'
 import { useEverybirdContext } from './EverybirdProvider'
@@ -13,9 +13,9 @@ export function visitPageFor(path: string, mineSoon: boolean | null): VisitPage 
   return null
 }
 
-/** One `visit` per page view of Collage, Settings and About (app/(app)/layout.tsx). Sends the page's name only. */
+/** One `visit` per page view of Collage, Settings and About (app/[lang]/(app)/layout.tsx). Sends the page's name only. */
 export function VisitTracker() {
-  const path = usePathname()
+  const path = useAppPath()
   const { mineSoon } = useEverybirdContext()
   const sent = useRef<string | null>(null)
   const page = visitPageFor(path, mineSoon)

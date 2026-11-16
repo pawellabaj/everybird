@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { EN_UI } from '@/i18n/messages/en-ui'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { ListEntry } from '@/lib/list/model'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import { nameTier, searchCollage, searchKey } from '@/lib/species/name-search'
+import { setEnglishNames, setNames } from '@/lib/species/names'
 import type { SpeciesRow } from '@/lib/species/types'
 
 const sp = (code: string, com: string, sci: string, ord: string, to: number): SpeciesRow =>
@@ -48,7 +50,7 @@ describe('searchCollage (the dock search: orders, families and species among the
   ]
   const sp2 = buildSpeciesIndex(rows2)
   const all = rows2.map((r) => entry(r.code))
-  const hits = (q: string, es = all, limit?: number) => searchCollage(es, q, sp2, { limit }).map((h) => `${h.kind}:${h.com}:${h.count}`)
+  const hits = (q: string, es = all, limit?: number) => searchCollage(es, q, sp2, { limit, t: EN_UI }).map((h) => `${h.kind}:${h.com}:${h.count}`)
 
   it('finds species, families and orders by common or scientific word prefixes, sorted by common name', () => {
     expect(hits('thrush')).toEqual(['family:Thrushes:2', 'species:Wood Thrush:1'])
@@ -59,7 +61,7 @@ describe('searchCollage (the dock search: orders, families and species among the
   })
 
   it('reads "Common name (scientific)": each hit carries both names and what picking it sets', () => {
-    expect(searchCollage(all, 'toucan', sp2)).toEqual([
+    expect(searchCollage(all, 'toucan', sp2, { t: EN_UI })).toEqual([
       { kind: 'species', value: 'emptou1', com: 'Emerald Toucanet', sci: 'Aulacorhynchus prasinus', count: 1, order: 'Piciformes', inFilter: true },
       { kind: 'family', value: 'Ramphastidae', com: 'Toucans', sci: 'Ramphastidae', count: 1, order: 'Piciformes', inFilter: true },
     ])
@@ -67,15 +69,15 @@ describe('searchCollage (the dock search: orders, families and species among the
 
   it('covers the whole list: matches in the current filter first, then the rest, each sorted by name', () => {
     const picids = new Set(['norfli', 'gilfli'])
-    const r = searchCollage(all, 'wood', sp2, { shown: picids })
+    const r = searchCollage(all, 'wood', sp2, { shown: picids, t: EN_UI })
     expect(r.map((h) => `${h.kind}:${h.com}:${h.count}:${h.inFilter}`)).toEqual([
       'order:Woodpeckers:2:true', // counted in the filter
       'family:Woodpeckers:2:true',
       'species:Wood Thrush:1:false', // outside the filter, after it
     ])
-    expect(searchCollage(all, 'thrush', sp2, { shown: picids }).every((h) => !h.inFilter)).toBe(true)
+    expect(searchCollage(all, 'thrush', sp2, { shown: picids, t: EN_UI }).every((h) => !h.inFilter)).toBe(true)
     // An order only partly in the filter is in it; its count is the filter's.
-    expect(searchCollage(all, 'piciformes', sp2, { shown: new Set(['norfli']) })).toMatchObject([{ kind: 'order', count: 1, inFilter: true }])
+    expect(searchCollage(all, 'piciformes', sp2, { shown: new Set(['norfli']), t: EN_UI })).toMatchObject([{ kind: 'order', count: 1, inFilter: true }])
   })
 
   it("drops a family that is its order's only family under the same name", () => {
@@ -85,5 +87,43 @@ describe('searchCollage (the dock search: orders, families and species among the
   it('an empty query finds nothing; a capped search keeps the best matches, still sorted by name', () => {
     expect(hits('   ')).toEqual([])
     expect(hits('t', all, 2)).toEqual(['family:Thrushes:2', 'family:Toucans:1'])
+  })
+})
+
+describe('local names in search', () => {
+  const set = { v: 1 as const, locale: 'es' as const, taxonomy: 't', names: { amerob: 'Zorzal americano', comeid: 'Eider común', norfli: 'Espátula' }, fam: {} }
+  afterEach(() => { setNames(null); setEnglishNames(false) })
+
+  it('finds a bird by its Spanish or its English name', () => {
+    setNames(set)
+    const find = (q: string) => species.search(q, 10).map((r) => r.code)
+    expect(find('zorzal')).toContain('amerob')
+    expect(find('robin')).toContain('amerob')
+    expect(find('americano')).toContain('amerob')
+    expect(find('american')).toContain('amerob')
+  })
+  it('folds accents: "espatula" finds "Espátula"', () => {
+    setNames(set)
+    expect(species.search('espatula', 5).map((r) => r.code)).toEqual(['norfli'])
+    expect(species.search('comun', 5).map((r) => r.code)).toEqual(['comeid'])
+  })
+  it('a stale cache is rebuilt when the names change', () => {
+    expect(species.search('zorzal', 5)).toEqual([]) // computed (and cached) with no names
+    setNames(set)
+    expect(species.search('zorzal', 5).map((r) => r.code)).toEqual(['amerob'])
+    setNames(null)
+    expect(species.search('zorzal', 5)).toEqual([])
+  })
+  it('an exact local name outranks a prefix match; hits carry the display name', () => {
+    setNames({ ...set, names: { ...set.names, rufhum: 'Zorzal' } })
+    expect(species.search('zorzal', 5).map((r) => r.code)).toEqual(['rufhum', 'amerob'])
+    const hits = searchCollage(rows.map((r) => entry(r.code)), 'zorzal', species, { lang: 'es', t: EN_UI })
+    expect(hits.map((h) => h.com)).toEqual(['Zorzal', 'Zorzal americano'])
+  })
+  it('the English switch drops local names from display and search (English still matches)', () => {
+    setEnglishNames(true) // no localStorage in node: kept in memory
+    setNames(set)
+    expect(searchCollage([entry('amerob')], 'robin', species, { lang: 'es', t: EN_UI })[0].com).toBe('American Robin')
+    expect(species.search('zorzal', 5)).toEqual([])
   })
 })

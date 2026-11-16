@@ -1,3 +1,4 @@
+import { EN_UI } from '@/i18n/messages/en-ui'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -45,7 +46,7 @@ describe('the About demo', () => {
     for (const f of ['story', 'post', 'square'] as const) expect(Object.keys(SHARE[f].tiles)).toHaveLength(TOTAL)
     expect(new Set(BIRDS.map((c) => byCode.get(c)!.fam)).size).toBe(FAMILIES)
     // Each chip's count is the birds of that order drawn
-    for (const [label, k] of ORDERS) expect(BIRDS.filter((c) => orderLabel(byCode.get(c)!.ord) === label), label).toHaveLength(k)
+    for (const [label, k] of ORDERS) expect(BIRDS.filter((c) => orderLabel(byCode.get(c)!.ord, EN_UI) === label), label).toHaveLength(k)
   })
 
   it('counts the threatened birds (VU, EN, CR) the stats line shows from species.v1.json', () => {
@@ -55,7 +56,7 @@ describe('the About demo', () => {
 
   it('has chips whose counts add up to its total, each order a real one with a bird in the demo, Herons six', () => {
     expect(ORDERS.reduce((a, [, k]) => a + k, 0)).toBe(TOTAL)
-    const shown = new Set(BIRDS.map((c) => orderLabel(byCode.get(c)!.ord)))
+    const shown = new Set(BIRDS.map((c) => orderLabel(byCode.get(c)!.ord, EN_UI)))
     expect(new Set(ORDERS.map(([l]) => l))).toEqual(shown)
     expect(ORDERS.find(([l]) => l === 'Herons')![1]).toBe(HERONS.length)
     for (const c of HERONS) expect(byCode.get(c)!.famCom).toBe('Herons, Egrets, and Bitterns')

@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import AboutPage from '../app/(app)/about/page'
+import AboutPage from '../app/[lang]/(app)/about/page'
 import { AVILIST, IUCN_SOURCE } from '@/lib/species/iucn'
 
 vi.mock('@/components/about/HowItWorksDemo', () => ({ HowItWorksDemo: () => null }))
@@ -13,13 +13,13 @@ vi.mock('@/components/app/PageHead', () => ({ PageHead: ({ title }: { title: str
 afterEach(cleanup)
 
 describe('About: conservation status', () => {
-  it('names conservation status among the filters', () => {
-    render(<AboutPage />)
+  it('names conservation status among the filters', async () => {
+    render(await AboutPage({ params: Promise.resolve({ lang: 'en' }) }))
     expect(screen.getByText(/Filter it by group, place, year or conservation status/)).toBeInTheDocument()
   })
 
-  it('has a Conservation status note after True size: source, version, global not regional', () => {
-    render(<AboutPage />)
+  it('has a Conservation status note after True size: source, version, global not regional', async () => {
+    render(await AboutPage({ params: Promise.resolve({ lang: 'en' }) }))
     const h = screen.getByRole('heading', { level: 2, name: 'Conservation status' })
     const section = h.closest('section')!
     expect(section).toHaveAttribute('aria-labelledby', 'eb-status-h')
@@ -31,8 +31,8 @@ describe('About: conservation status', () => {
     expect(screen.getByText(/global, not regional/)).toBeInTheDocument()
   })
 
-  it('credits AviList for the Red List categories after AVONET', () => {
-    render(<AboutPage />)
+  it('credits AviList for the Red List categories after AVONET', async () => {
+    render(await AboutPage({ params: Promise.resolve({ lang: 'en' }) }))
     expect(screen.getByRole('link', { name: 'AviList' })).toHaveAttribute('href', 'https://doi.org/10.2173/avilist.v2026')
     expect(screen.getByText('Red List categories · CC BY 4.0')).toBeInTheDocument()
     const credit = screen.getByText('Red List categories · CC BY 4.0').closest('li')!

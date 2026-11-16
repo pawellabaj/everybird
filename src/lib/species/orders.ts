@@ -1,4 +1,7 @@
-/** Plain-English labels for bird orders (scientific name -> label). Covers every order in species.v1.json. */
+import type { Ui } from '@/i18n/messages/en-ui'
+
+/** Plain-English labels for bird orders (scientific name -> label). Covers every order in species.v1.json. The UI's
+ *  labels are `ui.orders` in each strings file (English's is a copy of this, tests/i18n.test.ts). */
 export const ORDERS: Record<string, string> = {
   Struthioniformes: 'Ostriches',
   Casuariiformes: 'Cassowaries and emu',
@@ -47,7 +50,8 @@ export const ORDERS: Record<string, string> = {
   Passeriformes: 'Perching birds',
 }
 
-/** Label for an order; unknown orders fall back to the scientific name. */
-export function orderLabel(ord: string): string {
-  return ORDERS[ord] ?? ord
+/** Label for an order in the UI language (`t.orders`), else the English label, else the scientific name. Tests and
+ *  scripts pass English's `EN_UI`. */
+export function orderLabel(ord: string, t: Pick<Ui, 'orders'>): string {
+  return (t.orders as Record<string, string>)[ord] ?? ORDERS[ord] ?? ord
 }

@@ -2,9 +2,10 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { BIRDS, THREATENED, TOTAL } from "../src/components/about/how-it-works-data";
 import { pageTitle } from "../src/lib/list/title";
+import { en } from "../src/i18n/messages/en";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
-import { asOfDate, withStamp } from "../src/lib/share/stamp";
+import { stampDate, withStamp } from "../src/lib/share/stamp";
 
 // share/image.ts's FOOTER_LINE (that module can't load here: it starts a worker with import.meta); the test checks its
 // definition is still this.
@@ -321,13 +322,13 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   // Before the import: "Not added", then the reading line in its place (the product's .eb-status wording)
   await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-a")).toHaveText("Not added")
   await expect(scene.locator(".ebd-src-full .ebd-src-meta > .ebd-swap > .ebd-swap-a .ebd-swap-b")).toHaveText(/^Reading your file… [\d,]+ rows$/)
-  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
-  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts)!
+  expect(status).toMatch(new RegExp(`^${countParts({ species: TOTAL, only: 0 } as RowCount, en.ui).join(" · ")} · 3 skipped why\\? · Imported \\d{1,2} [A-Z][a-z]{2}$`))
+  const sum = summaryLine({ total: TOTAL, parts: [{ group: "ebird", n: TOTAL }] } as unknown as SourceCounts, en.ui)!
   await expect(scene.locator(".ebd-sum .ebd-swap-b")).toHaveText(`${sum} See my collage`)
   await expect(scene.locator(".ebd-sum .ebd-swap-a")).toHaveText("Combine any of these into one list.")
   expect(src("src/components/import/ImportPanel.tsx")).toContain("Combine any of these into one list.")
   // The collage page: the title as the product shows an untitled collage, and the taxonomy labels
-  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined))
+  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined, en.ui))
   await expect(scene.locator(".ebd-chips-label")).toHaveText("Orders")
   await expect(scene.locator(".ebd-path-link").first()).toHaveText("All birds")
   await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText("Choose an order")
@@ -360,10 +361,10 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   })
   expect(fit).toBeGreaterThanOrEqual(0)
   // The footer line ends with the demo's fixed date stamp (its "Imported 6 Nov"), as the product's ends with the day's
-  const LINE = withStamp(FOOTER_LINE, asOfDate(new Date(2026, 10, 6)))
-  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · As of 6 Nov 2026")
+  const LINE = withStamp(FOOTER_LINE, stampDate(new Date(2026, 10, 6)))
+  expect(LINE).toBe("everybird.yusuftaleb.com · stickers by huashu · 6 Nov 2026")
   expect(await scene.locator(".ebd-img-line").allTextContents()).toEqual([LINE, LINE, LINE])
-  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, asOfDate(")
+  expect(src("src/lib/share/image.ts")).toContain("withStamp(FOOTER_LINE, stampDate(")
   expect(src("src/lib/share/image.ts")).toContain("export const FOOTER_LINE = `${SITE_LABEL} · stickers by huashu`")
   expect(src("src/lib/share/image.ts")).toContain("export const SITE_LABEL = new URL(SHARE_ORIGIN).host")
   expect(FOOTER_LINE).toBe("everybird.yusuftaleb.com · stickers by huashu")

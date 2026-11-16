@@ -1,9 +1,8 @@
+'use client'
 import { GithubLogo } from '@phosphor-icons/react/dist/ssr'
 import Link from '@/components/app/IntentLink'
-import { COFFEE_URL } from '@/lib/site-meta'
-
-/** The repository, linked from the footer's right edge. */
-export const REPO_URL = 'https://github.com/yusuftaleb/everybird'
+import { useI18n } from '@/i18n/I18nProvider'
+import { COFFEE_URL, REPO_URL } from '@/lib/site-meta'
 
 /**
  * On every page: the way to every credit (About#credits, which carries huashu-bird-sticker's CC BY 4.0 attribution for
@@ -11,19 +10,21 @@ export const REPO_URL = 'https://github.com/yusuftaleb/everybird'
  * Share images and link previews carry the sticker credit themselves: they travel without it.
  */
 export function SiteFooter() {
+  const { t } = useI18n()
+  const f = t.shell.footer
   return (
     <footer className="eb-footer">
       <div className="eb-footer-in">
         <p className="eb-mono">
-          <Link href="/about#credits">All credits</Link>
+          <Link href="/about#credits">{f.credits}</Link>
         </p>
         <p className="eb-mono">
-          <a href="https://www.yusuftaleb.com" target="_blank" rel="noopener noreferrer">Made by Yusuf Taleb</a>
+          <a href="https://www.yusuftaleb.com" target="_blank" rel="noopener noreferrer">{f.madeBy}</a>
         </p>
         <p className="eb-mono">
-          <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
+          <a href={COFFEE_URL} target="_blank" rel="noopener noreferrer">{f.coffee}</a>
         </p>
-        <a className="eb-footer-gh" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="Everybird on GitHub">
+        <a className="eb-footer-gh" href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label={f.github}>
           <GithubLogo aria-hidden="true" focusable="false" />
         </a>
       </div>

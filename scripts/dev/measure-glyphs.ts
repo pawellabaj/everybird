@@ -1,0 +1,91 @@
+// Measures the served fonts' advance widths, for the unit tests that model text widths without a browser
+// (tests/topbar-fit.test.ts). It downloads the woff2 files the site loads (Fontshare's CSS for Satoshi 500/700 and
+// Cabinet Grotesk 700, Google Fonts' CSS for Geist Mono 500, the latin subset) into a temp dir, reads them with fontkit
+// and writes each printable Latin-1 character's advance in em (no kerning), plus `kernWidenEm`, the most kerning widens
+// any of the top bar's words past the sum of its advances (about 0.01 em: kerning here nearly always tightens), to
+// tests/fixtures/glyph-advances.json.
+//
+//   npx -p fontkit -p tsx tsx scripts/dev/measure-glyphs.ts [--out tests/fixtures/glyph-advances.json]
+//
+// fontkit isn't a dependency: `npx -p fontkit` installs it into npx's cache and puts that cache's node_modules/.bin on
+// PATH, so the script resolves it from there (an ESM import from this file would look in the repo's node_modules).
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { tmpdir } from 'node:os'
+import { dirname, join, resolve } from 'node:path'
+
+type Glyph = { advanceWidth: number }
+type Font = {
+  unitsPerEm: number
+  familyName: string
+  glyphForCodePoint(cp: number): Glyph & { id: number }
+  hasGlyphForCodePoint(cp: number): boolean
+  layout(s: string): { advanceWidth: number }
+}
+
+function loadFontkit(): { create(buf: Buffer): Font } {
+  for (const dir of (process.env.PATH ?? '').split(':')) {
+    if (!dir.endsWith(join('node_modules', '.bin'))) continue
+    try {
+      return createRequire(join(dirname(dir), 'noop.js'))('fontkit')
+    } catch {
+      // Not this one.
+    }
+  }
+  throw new Error('fontkit not found: run with `npx -p fontkit -p tsx tsx scripts/dev/measure-glyphs.ts`')
+}
+
+/** The site's own font CSS (app/[lang]/layout.tsx; Geist Mono through next/font/google, the same Google files). */
+const SOURCES = [
+  { key: 'satoshi-500', css: 'https://api.fontshare.com/v2/css?f[]=satoshi@500&display=swap' },
+  { key: 'satoshi-700', css: 'https://api.fontshare.com/v2/css?f[]=satoshi@700&display=swap' },
+  { key: 'cabinet-grotesk-700', css: 'https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@700&display=swap' },
+  { key: 'geist-mono-500', css: 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@500&display=swap' },
+] as const
+
+/** Google serves woff2 only to a browser's User-Agent; a generic one. */
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+
+/** The woff2 URL of the face that covers Latin-1 (Google splits a family by unicode-range; Fontshare sends one face). */
+function woff2Url(css: string): string {
+  for (const face of css.split('@font-face').slice(1)) {
+    const range = /unicode-range:\s*([^;]+);/.exec(face)?.[1]
+    if (range && !/U\+0000-00FF/i.test(range)) continue
+    const url = /url\(['"]?([^'")]+\.woff2)['"]?\)\s*format\(['"]woff2['"]\)/.exec(face)?.[1]
+    if (url) return url.startsWith('//') ? `https:${url}` : url
+  }
+  throw new Error('no woff2 face for Latin-1 in the CSS')
+}
+
+async function main() {
+  const at = process.argv.indexOf('--out')
+  const out = resolve(at > 0 ? process.argv[at + 1] : 'tests/fixtures/glyph-advances.json')
+  const fontkit = loadFontkit()
+  const dir = mkdtempSync(join(tmpdir(), 'everybird-glyphs-'))
+  const fonts: Record<string, { family: string; url: string; kernWidenEm: number; advances: Record<string, number> }> = {}
+  for (const s of SOURCES) {
+    const css = await (await fetch(s.css, { headers: { 'User-Agent': UA } })).text()
+    const url = woff2Url(css)
+    const buf = Buffer.from(await (await fetch(url)).arrayBuffer())
+    writeFileSync(join(dir, `${s.key}.woff2`), buf)
+    const font = fontkit.create(buf)
+    const advances: Record<string, number> = {}
+    for (let cp = 0x20; cp <= 0xff; cp++) {
+      if (cp >= 0x7f && cp < 0xa0) continue
+      if (!font.hasGlyphForCodePoint(cp)) continue
+      advances[String.fromCodePoint(cp)] = Math.round((font.glyphForCodePoint(cp).advanceWidth / font.unitsPerEm) * 1e5) / 1e5
+    }
+    // How far kerning moves the top bar's words from the sum of their advances (the fit test's margin covers it).
+    const words = ['Everybird', 'Collage', 'Colagem', 'Settings', 'Ajustes', 'Instellingen', 'About', 'Acerca de', 'Sobre', 'Over']
+    const worst = Math.max(...words.map((w) => (font.layout(w).advanceWidth - [...w].reduce((n, c) => n + font.glyphForCodePoint(c.codePointAt(0)!).advanceWidth, 0)) / font.unitsPerEm))
+    fonts[s.key] = { family: font.familyName, url, kernWidenEm: Math.max(0, Math.round(worst * 1e4) / 1e4), advances }
+    console.log(`${s.key}: ${Object.keys(advances).length} glyphs from ${url}; kerning widens a nav word by at most ${worst.toFixed(4)} em (negative: it only tightens)`)
+  }
+  writeFileSync(out, `${JSON.stringify({ note: 'Generated by scripts/dev/measure-glyphs.ts: advance widths in em, no kerning.', fonts }, null, 1)}\n`)
+  console.log(`wrote ${out}`)
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

@@ -1,6 +1,7 @@
 // Continents as a Places value (Filter.continents): matching (OR with the place levels), the per-continent counts,
 // the setters, the key, chips, validation and the labels. Synthetic fixtures only.
 import { describe, expect, it } from 'vitest'
+import { en } from '@/i18n/messages/en'
 import { ALL, filterChips, withoutFilterChip } from '@/lib/list/chips'
 import { filterLabel } from '@/lib/share/image'
 import { filtersCount, filtersSpoken, placesLabel, placesSpoken } from '@/lib/list/filter-summary'
@@ -131,7 +132,7 @@ describe('validation', () => {
 describe('chips and labels', () => {
   it('a continent is its own chip, first, named by the continent, removed by its own token', () => {
     const f: Filter = { continents: ['AF'], countries: ['CA'] }
-    const chips = filterChips(f, regions)
+    const chips = filterChips(f, regions, en.ui)
     expect(chips.map((c) => [c.label, c.token])).toEqual([['Africa', 'continent:AF'], ['Canada', 'c:CA']])
     expect(withoutFilterChip(f, chips[0])).toEqual({ countries: ['CA'] })
     expect(withoutFilterChip(f, chips[1])).toEqual({ continents: ['AF'] })
@@ -139,24 +140,24 @@ describe('chips and labels', () => {
 
   it('continents count toward the three-chip rule as places', () => {
     const f: Filter = { continents: ['AF', 'OC'], countries: ['CA', 'EG'] }
-    const [collapsed] = filterChips(f, regions)
-    expect(collapsed).toEqual({ kind: 'place', label: '4 places', token: ALL, spoken: placesSpoken(f, regions) })
+    const [collapsed] = filterChips(f, regions, en.ui)
+    expect(collapsed).toEqual({ kind: 'place', label: '4 places', token: ALL, spoken: placesSpoken(f, regions, en.ui) })
     expect(withoutFilterChip(f, collapsed)).toEqual({})
-    expect(filterChips({ continents: ['AF'], countries: ['CA', 'EG'] }, regions)).toHaveLength(3)
+    expect(filterChips({ continents: ['AF'], countries: ['CA', 'EG'] }, regions, en.ui)).toHaveLength(3)
   })
 
   it('the Places label names continents first: "Africa + Canada"; the spoken name lists them by name', () => {
-    expect(placesLabel({ continents: ['AF'], countries: ['CA'] }, regions)).toBe('Africa + Canada')
-    expect(placesLabel({ continents: ['AF', 'EU', 'OC'], countries: ['CA'] }, regions)).toBe('Africa and 3 more')
-    expect(placesSpoken({ continents: ['AF'], countries: ['EG', 'KE'] }, regions)).toBe('Africa; Egypt, Kenya')
-    expect(placesSpoken({ continents: ['AF'] }, regions)).toBe('Africa')
-    expect(filtersSpoken({ continents: ['AF'] }, regions)).toBe('Places: Africa')
+    expect(placesLabel({ continents: ['AF'], countries: ['CA'] }, regions, en.ui)).toBe('Africa + Canada')
+    expect(placesLabel({ continents: ['AF', 'EU', 'OC'], countries: ['CA'] }, regions, en.ui)).toBe('Africa and 3 more')
+    expect(placesSpoken({ continents: ['AF'], countries: ['EG', 'KE'] }, regions, en.ui)).toBe('Africa; Egypt, Kenya')
+    expect(placesSpoken({ continents: ['AF'] }, regions, en.ui)).toBe('Africa')
+    expect(filtersSpoken({ continents: ['AF'] }, regions, en.ui)).toBe('Places: Africa')
   })
 
   it('the share image label reads continents first, with or without the regions', () => {
     const ctx = { species, countryName: (c: string) => regions.countries[c] ?? c }
-    expect(filterLabel({ continents: ['AF'], countries: ['CA'] }, { ...ctx, regions })).toBe('Africa + Canada')
-    expect(filterLabel({ continents: ['AF'], countries: ['CA'] }, ctx)).toBe('Africa + Canada')
-    expect(filterLabel({ continents: ['OC'] }, ctx)).toBe('Oceania')
+    expect(filterLabel({ continents: ['AF'], countries: ['CA'] }, { ...ctx, regions }, en.ui)).toBe('Africa + Canada')
+    expect(filterLabel({ continents: ['AF'], countries: ['CA'] }, ctx, en.ui)).toBe('Africa + Canada')
+    expect(filterLabel({ continents: ['OC'] }, ctx, en.ui)).toBe('Oceania')
   })
 })

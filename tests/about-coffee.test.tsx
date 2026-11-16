@@ -3,7 +3,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import AboutPage from '../app/(app)/about/page'
+import AboutPage from '../app/[lang]/(app)/about/page'
 
 vi.mock('@/components/about/HowItWorksDemo', () => ({ HowItWorksDemo: () => null }))
 vi.mock('@/components/app/IntentLink', () => ({ default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }))
@@ -12,8 +12,8 @@ vi.mock('@/components/app/PageHead', () => ({ PageHead: ({ title }: { title: str
 afterEach(cleanup)
 
 describe('About: Buy me a coffee', () => {
-  it("is Buy Me a Coffee's static button, self-hosted, in the credits, opening their page in a new tab", () => {
-    render(<AboutPage />)
+  it("is Buy Me a Coffee's static button, self-hosted, in the credits, opening their page in a new tab", async () => {
+    render(await AboutPage({ params: Promise.resolve({ lang: 'en' }) }))
     const credits = document.getElementById('credits')!
     const link = within(credits).getByRole('link', { name: 'Buy me a coffee' })
     expect(link).toHaveAttribute('href', 'https://buymeacoffee.com/yusuftaleb')

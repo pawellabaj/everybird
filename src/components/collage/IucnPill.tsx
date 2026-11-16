@@ -5,7 +5,9 @@
 // hover tooltip, so it is hidden from assistive tech. The card's pill (IucnBadge, `tip`) is a button: a toggletip whose
 // label (the full name) shows on a press, on keyboard focus and on a fine pointer's hover; the button's name says it.
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
+import { useI18n } from '@/i18n/I18nProvider'
+import { fmt } from '@/i18n/core'
+import type { IucnCat } from '@/lib/species/iucn'
 import { statusColor, type StatusFilterCat } from '@/lib/species/status-filter'
 import './card-list.css'
 
@@ -34,6 +36,7 @@ export function IucnBadge({ cat, tip = false }: { cat: IucnCat; tip?: boolean })
 }
 
 function IucnToggletip({ cat }: { cat: IucnCat }) {
+  const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const tipId = useId()
   const ref = useRef<HTMLSpanElement>(null)
@@ -46,7 +49,7 @@ function IucnToggletip({ cat }: { cat: IucnCat }) {
     document.addEventListener('pointerdown', down)
     return () => document.removeEventListener('pointerdown', down)
   }, [open])
-  const name = `Red List: ${IUCN_NAMES[cat]}`
+  const name = fmt(t.iucn.pillName, { name: t.iucn.names[cat] })
   return (
     <span ref={ref} className="eb-iucn-wrap" data-open={open || undefined} data-testid="iucn-wrap">
       <button
@@ -64,7 +67,7 @@ function IucnToggletip({ cat }: { cat: IucnCat }) {
       >
         {cat}
       </button>
-      <span id={tipId} className="eb-iucn-tip" aria-hidden="true">{IUCN_NAMES[cat]}</span>
+      <span id={tipId} className="eb-iucn-tip" aria-hidden="true">{t.iucn.names[cat]}</span>
     </span>
   )
 }

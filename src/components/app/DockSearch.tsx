@@ -9,7 +9,12 @@
 // leaving the search, closes it.
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { CloseIcon, SearchIcon } from '@/components/collage/icons'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { useNames } from '@/lib/species/use-names'
 import { searchCollage, type CollageHit } from '@/lib/species/name-search'
 import { orderLabel } from '@/lib/species/orders'
 
@@ -24,8 +29,6 @@ export type DockSearchProps = {
   whose?: 'your' | 'this'
 }
 
-const RANK: Record<CollageHit['kind'], string> = { order: 'Order', family: 'Family', species: 'Species' }
-
 type Props = DockSearchProps & {
   open: boolean
   onOpen: () => void
@@ -37,28 +40,34 @@ type Props = DockSearchProps & {
 
 /** The magnifier button (in the dock's tools). */
 export function SearchButton({ onOpen, open, buttonRef }: { onOpen: () => void; open: boolean; buttonRef: React.RefObject<HTMLButtonElement | null> }) {
+  const { t } = useI18n()
   return (
-    <button ref={buttonRef} type="button" className="eb-dock-tab eb-dock-find" aria-label="Find a bird" aria-expanded={open} onClick={onOpen}>
+    <button ref={buttonRef} type="button" className="eb-dock-tab eb-dock-find" aria-label={t.collage.search.find} aria-expanded={open} onClick={onOpen}>
       <SearchIcon />
     </button>
   )
 }
 
 /** Where a hit lives, in the results' right-hand column: its kind and count, and its order when outside the filter. */
-function rankText(h: CollageHit, filtered: boolean): string {
-  const what = h.kind === 'species' ? RANK.species : `${RANK[h.kind]} · ${h.count.toLocaleString('en-US')}`
-  return filtered && !h.inFilter && h.kind !== 'order' ? `${orderLabel(h.order)} · ${what}` : what
+function rankText(h: CollageHit, filtered: boolean, t: Ui): string {
+  const rank = t.collage.search[h.kind]
+  const what = h.kind === 'species' ? rank : `${rank} · ${formatInt(h.count, t.num)}`
+  return filtered && !h.inFilter && h.kind !== 'order' ? `${orderLabel(h.order, t)} · ${what}` : what
 }
 
 /** The field over the dock and the results under it, while the search is open. */
 export function DockSearchField({ entries, shown, species, onPick, whose = 'this', open, onClose, within }: Omit<Props, 'onOpen'>) {
+  const { lang, t } = useI18n()
+  const s = t.collage.search
   const id = useId()
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLUListElement>(null)
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(-1)
+  const names = useNames()
   const typed = query.trim().length > 0
-  const hits = useMemo(() => (typed ? searchCollage(entries, query, species, { shown }) : []), [entries, query, species, typed, shown])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  const hits = useMemo(() => (typed ? searchCollage(entries, query, species, { shown, t, lang }) : []), [entries, query, species, typed, shown, t, lang, names])
   const firstOutside = shown ? hits.findIndex((h) => !h.inFilter) : -1
   const at = cursor < hits.length ? cursor : -1
 
@@ -104,7 +113,7 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
         onBlur={(e) => { if (!within.current?.contains(e.relatedTarget as Node)) onClose(false) }}
       >
         <SearchIcon className="eb-find-icon" />
-        <label className="eb-sr" htmlFor={`${id}-q`}>Find a bird</label>
+        <label className="eb-sr" htmlFor={`${id}-q`}>{s.find}</label>
         <input
           ref={input}
           id={`${id}-q`}
@@ -120,20 +129,20 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
           autoCorrect="off"
           spellCheck={false}
           enterKeyHint="search"
-          placeholder="Find a bird"
+          placeholder={s.find}
           value={query}
           onChange={(e) => { setQuery(e.target.value); setCursor(-1) }}
           onKeyDown={onKey}
         />
-        <button type="button" className="eb-dock-tab eb-dock-find" aria-label="Close search" onClick={() => onClose(true)}>
+        <button type="button" className="eb-dock-tab eb-dock-find" aria-label={s.close} onClick={() => onClose(true)}>
           <CloseIcon />
         </button>
       </div>
       {typed && (
-        <ul ref={list} id={`${id}-results`} role="listbox" aria-label="Matching birds and groups" className="eb-results">
+        <ul ref={list} id={`${id}-results`} role="listbox" aria-label={s.results} className="eb-results">
           {hits.map((h, i) => [
             i === firstOutside && (
-              <li key="elsewhere" role="presentation" className="eb-mono eb-results-sep">Elsewhere on the list</li>
+              <li key="elsewhere" role="presentation" className="eb-mono eb-results-sep">{s.elsewhere}</li>
             ),
             <li
               key={`${h.kind}:${h.value}`}
@@ -149,13 +158,13 @@ export function DockSearchField({ entries, shown, species, onPick, whose = 'this
                 {h.com}{' '}
                 <span className="eb-result-sci">(<span lang="la" className={h.kind === 'species' ? 'eb-result-it' : undefined}>{h.sci}</span>)</span>
               </span>
-              <span className="eb-mono eb-result-rank">{rankText(h, !!shown)}</span>
+              <span className="eb-mono eb-result-rank">{rankText(h, !!shown, t)}</span>
             </li>,
           ])}
-          {!hits.length && <li className="eb-results-empty" role="presentation">No bird on {whose} list matches “{query.trim()}”.</li>}
+          {!hits.length && <li className="eb-results-empty" role="presentation">{fmt(whose === 'your' ? s.noneYour : s.noneThis, { q: query.trim() })}</li>}
         </ul>
       )}
-      <span className="eb-sr" role="status" aria-live="polite">{typed ? `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}` : ''}</span>
+      <span className="eb-sr" role="status" aria-live="polite">{typed ? plural(s.matches, hits.length, { n: formatInt(hits.length, t.num) }) : ''}</span>
     </>
   )
 }

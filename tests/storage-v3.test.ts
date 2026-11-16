@@ -34,7 +34,7 @@ const v1 = () => ({
 const AT = '2026-11-06T10:00:00.000Z'
 const withSources = (): Saved => ({
   ...emptySaved(),
-  records: { ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [rec('c', 'inat')], manual: [] },
+  records: { obsorg: [], 'obsorg-list': [], ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [rec('c', 'inat')], manual: [] },
   sources: {
     ebird: { kind: 'full-export', file: 'MyEBirdData.csv', rows: 4212, at: AT },
     'ebird-list': { kind: 'life-list', file: 'ebird_world_life_list.csv', rows: 812, at: AT },
@@ -121,7 +121,6 @@ describe('replace, refresh and remove one source', () => {
   it('the store: import carries details, remove drops a source and the list rebuilds', () => {
     const ctx: StoreContext = {
       species: { rows: [], byCode: new Map(), search: () => [] } as never,
-      countryName: (c) => c,
     }
     const reduce = makeReducer(ctx)
     let st = reduce(initialState(), { type: 'import', source: 'ebird', result: result([rec('a')]), details: { kind: 'full-export', file: 'f.csv', rows: 1, at: AT } })

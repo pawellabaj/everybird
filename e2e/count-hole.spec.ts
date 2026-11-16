@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 // The count in the middle of the collage (Tally: the number over "SPECIES") sits in the hole the packer keeps empty,
-// sized from the shown count's own text (src/lib/layout/count-box.ts). A 1,089-species synthetic list, at a desktop and
+// sized from the count's en-US text and an 8-character label (src/lib/layout/count-box.ts), in every language. A 1,089-species synthetic list, at a desktop and
 // a phone width: no sticker's silhouette (its mask, scaled to the rendered tile) may paint inside the number's or the
 // label's rendered box. COUNT_HOLE_SHOTS=<dir> saves a screenshot of the middle and the story share image there.
 type Row = { code: string };
@@ -65,36 +65,49 @@ async function clashes(page: Page) {
   });
 }
 
-for (const width of [1280, 390]) {
-  test(`${N.toLocaleString("en-US")} species at ${width}px: no sticker paints over the count`, async ({ page }) => {
-    test.setTimeout(120_000);
-    await page.setViewportSize({ width, height: 900 });
-    await seed(page, N);
-    await page.goto("/");
-    const stage = page.getByTestId("collage-stage");
-    await expect(stage).toHaveAttribute("aria-label", new RegExp(`^Collage of ${N.toLocaleString("en-US")} species`), { timeout: 60_000 });
-    await expect.poll(() => page.evaluate(() => {
-      const L = document.querySelector<HTMLElement>(".eb-layer");
-      return !!L && !L.style.opacity && L.getAnimations().length === 0 && document.querySelectorAll(".eb-tile").length > 0
-        && [...document.querySelectorAll(".eb-tile")].every((t) => t.getAnimations().length === 0);
-    }), { timeout: 60_000 }).toBe(true);
-    await page.locator(".eb-num").scrollIntoViewIfNeeded();
-    await page.evaluate(() => { const r = document.querySelector(".eb-num")!.getBoundingClientRect(); window.scrollBy(0, r.top - window.innerHeight / 2); });
-    await expect(page.locator(".eb-num")).toHaveText(N.toLocaleString("en-US"), { timeout: 10_000 });
-    await page.waitForTimeout(600);
-    const res = await clashes(page);
-    console.log(`[count-hole] ${width}px: number ${res.num.join("x")}, label ${res.label.join("x")}, ${res.checked} birds near, ${res.px} px over the text (${res.hit.join(", ")})`);
-    if (OUT) {
-      mkdirSync(OUT, { recursive: true });
-      const box = (await page.locator(".eb-num").boundingBox())!;
-      const w = Math.min(width, 640), h = 420;
-      await page.screenshot({ path: join(OUT, `collage-${width}.png`), clip: { x: Math.max(0, box.x + box.width / 2 - w / 2), y: Math.max(0, box.y + box.height / 2 - h / 2), width: w, height: h } });
-    }
-    expect(res.checked).toBeGreaterThan(5);
-    expect(res.text).toBe(N.toLocaleString("en-US"));
-    expect(res.px, `stickers over the count: ${res.hit.join(", ")}`).toBe(0);
-  });
-}
+// Every language draws its own number and label ("1.089", "ESPÉCIES") in the one hole sized for the en-US text and an
+// 8-character label (count-box.ts): the same check in each.
+const LOCALES = [
+  { locale: "en-US", num: "1,089", label: "species" },
+  { locale: "es-ES", num: "1.089", label: "especies" },
+  { locale: "pt-BR", num: "1.089", label: "espécies" },
+  { locale: "nl-NL", num: "1.089", label: "soorten" },
+] as const;
+
+for (const { locale, num: shown, label } of LOCALES) test.describe(`${locale}`, () => {
+  test.use({ locale });
+  for (const width of [1280, 390]) {
+    test(`${N.toLocaleString("en-US")} species at ${width}px (${locale}): no sticker paints over the count`, async ({ page }) => {
+      test.setTimeout(120_000);
+      await page.setViewportSize({ width, height: 900 });
+      await seed(page, N);
+      await page.goto("/");
+      const stage = page.getByTestId("collage-stage");
+      await expect(stage).toHaveAttribute("aria-label", /1[.,]089/, { timeout: 60_000 });
+      await expect.poll(() => page.evaluate(() => {
+        const L = document.querySelector<HTMLElement>(".eb-layer");
+        return !!L && !L.style.opacity && L.getAnimations().length === 0 && document.querySelectorAll(".eb-tile").length > 0
+          && [...document.querySelectorAll(".eb-tile")].every((t) => t.getAnimations().length === 0);
+      }), { timeout: 60_000 }).toBe(true);
+      await page.locator(".eb-num").scrollIntoViewIfNeeded();
+      await page.evaluate(() => { const r = document.querySelector(".eb-num")!.getBoundingClientRect(); window.scrollBy(0, r.top - window.innerHeight / 2); });
+      await expect(page.locator(".eb-num")).toHaveText(shown, { timeout: 10_000 });
+      await expect(page.locator(".eb-mid .eb-mono")).toHaveText(label);
+      await page.waitForTimeout(600);
+      const res = await clashes(page);
+      console.log(`[count-hole] ${locale} ${width}px: number ${res.num.join("x")}, label ${res.label.join("x")}, ${res.checked} birds near, ${res.px} px over the text (${res.hit.join(", ")})`);
+      if (OUT) {
+        mkdirSync(OUT, { recursive: true });
+        const box = (await page.locator(".eb-num").boundingBox())!;
+        const w = Math.min(width, 640), h = 420;
+        await page.screenshot({ path: join(OUT, `collage-${locale}-${width}.png`), clip: { x: Math.max(0, box.x + box.width / 2 - w / 2), y: Math.max(0, box.y + box.height / 2 - h / 2), width: w, height: h } });
+      }
+      expect(res.checked).toBeGreaterThan(5);
+      expect(res.text).toBe(shown);
+      expect(res.px, `stickers over the count: ${res.hit.join(", ")}`).toBe(0);
+    });
+  }
+});
 
 test(`${N.toLocaleString("en-US")} species: the story share image`, async ({ page }) => {
   test.skip(!OUT, "COUNT_HOLE_SHOTS saves the story image for a look");

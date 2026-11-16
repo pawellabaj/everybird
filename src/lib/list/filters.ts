@@ -1,9 +1,8 @@
 import type { SpeciesIndex } from '@/lib/species/load'
-import { THREATENED } from '@/lib/species/iucn'
-import { isStatusFilterCat, STATUS_FILTER_CATS, statusName, type StatusFilterCat } from '@/lib/species/status-filter'
 import type { SpeciesRow } from '@/lib/species/types'
-import { orderLabel } from '@/lib/species/orders'
-import { CONTINENT_OF, CONTINENTS, isContinentId, type ContinentId } from '@/lib/places/continents'
+import { THREATENED } from '@/lib/species/iucn'
+import { isStatusFilterCat, STATUS_FILTER_CATS, STATUS_NAMES, type StatusFilterCat } from '@/lib/species/status-filter'
+import { CONTINENT_NAMES, CONTINENT_OF, CONTINENTS, isContinentId, type ContinentId } from '@/lib/places/continents'
 import type { ListEntry } from './model'
 import { isWithin, parentKey, parsePlaceKey } from './place-keys'
 import { keysOf, seenOf, type SeenIndex } from './seen'
@@ -145,6 +144,8 @@ export function options(
   species: SpeciesIndex,
   name: (code: string) => string = (code) => code,
   seen?: SeenIndex,
+  /** A family's label (the names files' family names); default the English family name. */
+  famName: (row: SpeciesRow) => string = (row) => row.famCom,
 ): ChipOption[] {
   if (level === 'family' && !f.order) return []
   const m = matcher(f, species, new Set(SKIP[level]), seen)
@@ -161,7 +162,7 @@ export function options(
       const key = level === 'order' ? row.ord : row.fam
       bump(key)
       if (!firstTo.has(key) || row.to < firstTo.get(key)!) firstTo.set(key, row.to)
-      if (level === 'family') famLabel.set(key, row.famCom)
+      if (level === 'family') famLabel.set(key, famName(row))
     } else if (level === 'country') {
       const here = new Set<string>()
       for (const p of seenOf(seen, e)) here.add(p.country)
@@ -173,7 +174,7 @@ export function options(
   }
 
   const label = (v: string) =>
-    level === 'order' ? orderLabel(v) : level === 'family' ? famLabel.get(v) || v : level === 'country' ? name(v) : v
+    level === 'family' ? famLabel.get(v) || v : level === 'country' ? name(v) : v
   const out = [...counts].map(([value, count]) => ({ value, label: label(value), count }))
   if (level === 'order' || level === 'family') out.sort((a, b) => firstTo.get(a.value)! - firstTo.get(b.value)!)
   else if (level === 'country') out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
@@ -352,8 +353,9 @@ export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex,
   return { countries, counties, continents }
 }
 
-/** The rows of the level under `parent` from counts already made (placeOptions without the pass over the list). */
-export function placeRows(counts: PlaceCounts, parent: string | undefined, label: (key: string) => string): PlaceOption[] {
+/** The rows of the level under `parent` from counts already made (placeOptions without the pass over the list).
+ *  Ties in count sort by name in `locale` (the UI language's BCP 47 tag). */
+export function placeRows(counts: PlaceCounts, parent: string | undefined, label: (key: string) => string, locale?: string): PlaceOption[] {
   const out: PlaceOption[] = []
   const at = parent === undefined ? undefined : parsePlaceKey(parent)
   // A place whose key doesn't parse (an odd code) is listed but never drills: nothing can be found under it.
@@ -368,7 +370,7 @@ export function placeRows(counts: PlaceCounts, parent: string | undefined, label
       out.push({ value, label: label(value), count: k.n, children: 0 })
     }
   }
-  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, locale))
   return out
 }
 
@@ -393,11 +395,11 @@ export function placeOptions(
  * The Places panel's continent chips: each continent with species under the counted filter (`counts` is placeCounts
  * over it), plus any checked one at 0 so it can be unchecked; in CONTINENTS order, with the count.
  */
-export function continentRows(counts: PlaceCounts, f: Filter): { value: ContinentId; label: string; count: number; checked: boolean }[] {
+export function continentRows(counts: PlaceCounts, f: Filter, names: Record<ContinentId, string> = CONTINENT_NAMES): { value: ContinentId; label: string; count: number; checked: boolean }[] {
   const checked = new Set(f.continents ?? [])
   return CONTINENTS.filter((c) => (counts.continents.get(c.id)?.n ?? 0) > 0 || checked.has(c.id)).map((c) => ({
     value: c.id,
-    label: c.name,
+    label: names[c.id],
     count: counts.continents.get(c.id)?.n ?? 0,
     checked: checked.has(c.id),
   }))
@@ -443,7 +445,7 @@ export function toggleStatus(f: Filter, cat: StatusFilterCat): Filter {
  * checked; only categories with species, in `STATUS_FILTER_CATS` order, labelled by full name. `seen`: the seen-here
  * index (else lifer places).
  */
-export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex): (ChipOption & { value: StatusFilterCat })[] {
+export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesIndex, seen?: SeenIndex, names: Record<StatusFilterCat, string> = STATUS_NAMES): (ChipOption & { value: StatusFilterCat })[] {
   const m = matcher(f, species, new Set<Dim>(['status']), seen)
   const counts = new Map<StatusFilterCat, number>()
   for (const e of list) {
@@ -451,7 +453,7 @@ export function statusOptions(list: ListEntry[], f: Filter, species: SpeciesInde
     const cat = statusCatOf(species.byCode.get(e.code))
     if (cat) counts.set(cat, (counts.get(cat) ?? 0) + 1)
   }
-  return STATUS_FILTER_CATS.filter((c) => counts.has(c)).map((value) => ({ value, label: statusName(value), count: counts.get(value)! }))
+  return STATUS_FILTER_CATS.filter((c) => counts.has(c)).map((value) => ({ value, label: names[value], count: counts.get(value)! }))
 }
 
 /** How many of the entries are globally threatened (Vulnerable, Endangered or Critically Endangered). */

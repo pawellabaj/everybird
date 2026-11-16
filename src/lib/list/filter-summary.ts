@@ -1,8 +1,11 @@
-// What the Places, Time and Status buttons in the controls bar say about the active filter, and the places and
+// What the Filters button in the controls bar and its chips say about the active filter, and the places and
 // status labels the share image uses. Pure, so the bar, the share image and the tests agree.
-import { continentName, type ContinentId } from '@/lib/places/continents'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
+import type { ContinentId } from '@/lib/places/continents'
 import { THREATENED } from '@/lib/species/iucn'
-import { statusName, type StatusFilterCat } from '@/lib/species/status-filter'
+import type { StatusFilterCat } from '@/lib/species/status-filter'
 import type { Regions } from '@/lib/species/types'
 import { filterPlaceKeys, hasPlaces, type Filter } from './filters'
 import { placeName, placeNameLong } from './place-keys'
@@ -11,23 +14,23 @@ import { monthName, monthShort, rangeLabel } from './timeline'
 
 type Names = Pick<Regions, 'countries' | 'sub1'>
 
-/** Names worded as a short list: "Canada", "Canada + Egypt", "Canada and 2 more"; undefined for none. */
-export function namesLabel(names: readonly string[]): string | undefined {
+/** Names worded as a short list: "Canada", "Canada + Egypt", "Canada and 2 more" (`t.places.andMore`); undefined for none. */
+export function namesLabel(names: readonly string[], t: Pick<Ui, 'places'>): string | undefined {
   if (!names.length) return undefined
   const [first, second] = names
   if (names.length === 1) return first
   if (names.length === 2) return `${first} + ${second}`
-  return `${first} and ${names.length - 1} more`
+  return fmt(t.places.andMore, { first, n: names.length - 1 })
 }
 
 /** "Canada", "Canada + Egypt", "Canada and 2 more" (sorted as the filter keeps them); undefined for none. */
-export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string): string | undefined {
-  return countries?.length ? namesLabel(countries.map(name)) : undefined
+export function countriesLabel(countries: readonly string[] | undefined, name: (iso2: string) => string, t: Pick<Ui, 'places'>): string | undefined {
+  return countries?.length ? namesLabel(countries.map(name), t) : undefined
 }
 
-/** The names of a filter's continents, in CONTINENTS order (the filter keeps them so). */
-export function continentNames(continents: readonly ContinentId[] | undefined): string[] {
-  return (continents ?? []).map(continentName)
+/** The names of a filter's continents in `t`'s language, in CONTINENTS order (the filter keeps them so). */
+export function continentNames(continents: readonly ContinentId[] | undefined, t: Pick<Ui, 'places'>): string[] {
+  return (continents ?? []).map((id) => t.places.continents[id])
 }
 
 /**
@@ -35,36 +38,37 @@ export function continentNames(continents: readonly ContinentId[] | undefined): 
  * "Africa + Canada", "British Columbia", "Kenya + British Columbia", "Capital and 2 more" (keys in `filterPlaceKeys`
  * order); undefined for none.
  */
-export function placesLabel(f: Filter, regions: Names): string | undefined {
-  return namesLabel([...continentNames(f.continents), ...filterPlaceKeys(f).map((k) => placeName(k, regions))])
+export function placesLabel(f: Filter, regions: Names, t: Pick<Ui, 'places'>): string | undefined {
+  return namesLabel([...continentNames(f.continents, t), ...filterPlaceKeys(f).map((k) => placeName(k, regions))], t)
 }
 
 /**
  * The Places button's accessible description of the filter, each place with its parent: "Canada, Egypt" for
  * countries only; "Kenya; British Columbia, Canada" once a province or county is in (the names hold commas). The
- * continents come first, as their own items: "Africa; Kenya, Egypt".
+ * continents come first, as their own items: "Africa; Kenya, Egypt". The names are `regions`' (pass the language's
+ * country names, src/lib/i18n-places.ts regionsIn) and `t`'s continents.
  */
-export function placesSpoken(f: Filter, regions: Names): string | undefined {
+export function placesSpoken(f: Filter, regions: Names, t: Pick<Ui, 'places'>): string | undefined {
   const keys = filterPlaceKeys(f)
-  const continents = continentNames(f.continents)
+  const continents = continentNames(f.continents, t)
   if (!keys.length && !continents.length) return undefined
   const sep = f.provinces?.length || f.counties?.length ? '; ' : ', '
   const items = keys.length ? [keys.map((k) => placeNameLong(k, regions)).join(sep)] : []
   return [...(continents.length ? [continents.join(', ')] : []), ...items].join('; ')
 }
 
-/** The Status button's accessible description: the full names in filter order ("Vulnerable, Endangered", "Not evaluated"). */
-export function statusSpoken(f: Filter): string | undefined {
-  return f.statuses?.length ? f.statuses.map(statusName).join(', ') : undefined
+/** The Filters button's accessible description of the status filter: the full names in `STATUS_FILTER_CATS` order ("Vulnerable, Endangered", "Not evaluated"), in `t`'s language. */
+export function statusSpoken(f: Filter, t: Pick<Ui, 'iucn'>): string | undefined {
+  return f.statuses?.length ? f.statuses.map((c) => t.iucn.names[c]).join(', ') : undefined
 }
 
 /**
  * The share image's status label: exactly Vulnerable, Endangered and Critically Endangered read "Threatened"; else
  * worded as `countriesLabel`: "Endangered", "Vulnerable + Endangered", "Near Threatened and 3 more"; undefined for none.
  */
-export function statusLabel(statuses: readonly StatusFilterCat[] | undefined): string | undefined {
-  if (statuses?.length === THREATENED.length && THREATENED.every((c) => statuses.includes(c))) return 'Threatened'
-  return countriesLabel(statuses, (c) => statusName(c as StatusFilterCat))
+export function statusLabel(statuses: readonly StatusFilterCat[] | undefined, t: Pick<Ui, 'iucn' | 'places'>): string | undefined {
+  if (statuses?.length === THREATENED.length && THREATENED.every((c) => statuses.includes(c))) return t.iucn.threatened
+  return countriesLabel(statuses, (c) => t.iucn.names[c as StatusFilterCat], t)
 }
 
 const year = (m: string) => m.slice(0, 4)
@@ -73,43 +77,39 @@ const year = (m: string) => m.slice(0, 4)
  * The Time button's short summary: a range by years ("2022–2024", "2022" within one
  * year, "Sep 2021" for one month, "from 2022", "to 2024"); undefined with no time chosen.
  */
-export function timeSummary(f: Filter): string | undefined {
+export function timeSummary(f: Filter, t: Ui): string | undefined {
   const { from, to } = f
+  const tl = t.filters.timeline
   if (from && to) {
-    if (from === to) return monthShort(from)
+    if (from === to) return monthShort(from, t)
     return year(from) === year(to) ? year(from) : `${year(from)}–${year(to)}`
   }
-  if (from) return `from ${year(from)}`
-  if (to) return `to ${year(to)}`
+  if (from) return fmt(tl.sumFrom, { year: year(from) })
+  if (to) return fmt(tl.sumTo, { year: year(to) })
   return undefined
 }
 
 /** The Time button's accessible description: "March 2020 to June 2021", "September 2021". */
-export function timeSpoken(f: Filter): string | undefined {
+export function timeSpoken(f: Filter, t: Ui): string | undefined {
   const { from, to } = f
-  if (from && to) return from === to ? monthName(from) : `${monthName(from)} to ${monthName(to)}`
-  if (from) return `from ${monthName(from)}`
-  if (to) return `up to ${monthName(to)}`
-  return rangeLabel(from, to)
+  const tl = t.filters.timeline
+  if (from && to) return from === to ? monthName(from, t) : fmt(tl.range, { from: monthName(from, t), to: monthName(to, t) })
+  if (from) return fmt(tl.spokenFrom, { month: monthName(from, t) })
+  if (to) return fmt(tl.spokenUpTo, { month: monthName(to, t) })
+  return rangeLabel(from, to, t)
 }
 
 /**
- * What the lifer-only notes say about the file that knows every place each bird was seen: its Add link's and its
- * import-again link's words, how far down its places go, and Settings' anchor that opens its Add panel (EbirdDrop
- * reads it). One source today (MyEBirdData); another plugs in as another of these.
+ * The file that knows every place each bird was recorded: Settings' anchor that opens its Add panel (EbirdDrop reads
+ * it; the Places panel's note links to it). One source today (MyEBirdData); another plugs in as another of these. The
+ * notes' words are the strings files': `ui.places.note` (the Places panel, and Settings' import-again line) and
+ * `ui.import.ebird.liferNote` (Settings' lifer-only note); never "seen", since heard-only birds count too.
  */
-export type FullPlacesSource = { add: string; again: string; reach: string; anchor: string }
-export const MYEBIRDDATA_PLACES: FullPlacesSource = {
-  add: 'Add MyEBirdData',
-  again: 'Import MyEBirdData again',
-  reach: 'down to the county',
-  anchor: 'add-mydata',
-}
+export type FullPlacesSource = { anchor: string }
+export const MYEBIRDDATA_PLACES: FullPlacesSource = { anchor: 'add-mydata' }
 
-/** The lifer-only notes' shared words (never "seen": heard-only birds count too, DESIGN.md "Voice and copy"). */
-export const PLACES_FIRST_ONLY = 'Places only knows where you first recorded each bird.'
-/** What the file that knows every place lets Places filter by: "to filter by every place you recorded each bird". */
-export const PLACES_EVERY = 'every place you recorded each bird'
+/** Settings' anchor that opens observation.org's observations Add panel (the Places panel's unplaced line links to it; the words are `t.places.unplaced`). */
+export const OBSORG_PLACES = { anchor: 'add-obsorg' } as const
 
 /**
  * Whether the Places dropdown says its places are only lifer places, and what to do: undefined for an empty list or
@@ -119,39 +119,41 @@ export const PLACES_EVERY = 'every place you recorded each bird'
  */
 export function placesNoteFor(saved: Pick<Saved, 'records'>, listLength: number, seenFull: boolean): 'add' | 'reimport' | undefined {
   if (!listLength || seenFull) return undefined
-  const full = saved.records.ebird ?? []
+  const { records } = saved
+  const eBirdOrInat = !!(records.ebird?.length || records['ebird-list']?.length || records.inat?.length)
+  const obsorg = !!(records.obsorg?.length || records['obsorg-list']?.length)
+  if (!eBirdOrInat && obsorg) return undefined // the MyEBirdData pitch is only for eBird birders
+  const full = records.ebird ?? []
   return full.length && !full.some((r) => Array.isArray(r.seen)) ? 'reimport' : 'add'
 }
 
-export type CountWords = { one: string; other: string }
+/** The Places panel's unplaced line: 'add' with its link to the observations' Add panel, 'plain' its first sentence
+ *  only (the observations are on the list already, so adding them is no advice). */
+export type PlacesUnplaced = 'add' | 'plain'
 
-/** The count-first heads' words ("20 countries", "1 state or province", "5 categories"), one and other. */
-export const COUNT_WORDS: Record<'country' | 'province' | 'county' | 'status', CountWords> = {
-  country: { one: 'country', other: 'countries' },
-  province: { one: 'state or province', other: 'states and provinces' },
-  county: { one: 'county', other: 'counties' },
-  status: { one: 'category', other: 'categories' },
+/**
+ * Whether some bird on the observation.org life list ('obsorg-list', no places) has no record in any slot carrying a
+ * place or seen-here: those birds drop out of any place filter, and the Places panel says so. An observations import
+ * (or MyEBirdData, iNaturalist) that places the same birds turns it off for them. Birds the birder removed are off the
+ * list and don't count; only records do (a hand tick in `edits.added` places nothing). With the observations on the
+ * list (`records.obsorg`), the line has no link ('plain'); else 'add'. Undefined: no line.
+ */
+export function placesUnplacedFor(saved: Pick<Saved, 'records'> & { edits?: Pick<Saved['edits'], 'removed'> }): PlacesUnplaced | undefined {
+  const removed = new Set(saved.edits?.removed ?? [])
+  const listed = (saved.records['obsorg-list'] ?? []).filter((r) => !removed.has(r.code))
+  if (!listed.length) return undefined
+  const placed = new Set<string>()
+  for (const recs of Object.values(saved.records)) {
+    for (const r of recs ?? []) if (r.place || r.seen?.length) placed.add(r.code)
+  }
+  if (!listed.some((r) => !placed.has(r.code))) return undefined
+  return saved.records.obsorg?.length ? 'plain' : 'add'
 }
 
 /** A panel section's head: the count first, then " · N checked" only when some are ("20 countries · 7 checked"). */
-export function countHead(n: number, words: CountWords, checked: number): string {
-  const head = `${n.toLocaleString('en-US')} ${n === 1 ? words.one : words.other}`
-  return checked > 0 ? `${head} · ${checked.toLocaleString('en-US')} checked` : head
-}
-
-/** The Filters button, panel and chips' words, as `{n}` / `{label}` / `{species}` templates (see `fill`). */
-export const FILTERS_UI = {
-  button: 'Filters', dialog: 'Filters', chips: 'Active filters', close: 'Close',
-  sections: { places: 'Places', time: 'Time', status: 'Conservation status' },
-  statusNote: 'IUCN Red List categories (global)',
-  species: '{n} species', head: 'Filters · {n} · {species}', headNone: 'Filters · {species}', show: 'Show {species}',
-  manyPlaces: '{n} places', manyStatuses: '{n} statuses',
-  openChip: 'Show {label} in Filters', clearChip: 'Remove all {label}',
-} as const
-
-/** Fills `{key}` in a template; an unknown key is left as it is. */
-export function fill(t: string, vars: Record<string, string | number>): string {
-  return t.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m))
+export function countHead(n: number, kind: 'country' | 'province' | 'county' | 'status', checked: number, t: Ui): string {
+  const head = plural(t.filters.countHead[kind], n, { n: formatInt(n, t.num) })
+  return checked > 0 ? `${head} · ${fmt(t.filters.countHead.checked, { n: formatInt(checked, t.num) })}` : head
 }
 
 /** The N in "Filters · N": the filter groups in use (Places, Time, Conservation status), 0 to 3, not checked boxes. */
@@ -160,25 +162,25 @@ export function filtersCount(f: Filter): number {
 }
 
 /** The Filters button's accessible description: each section in use, "Places: Kenya. Time: March 2020 to June 2021"; undefined for none. */
-export function filtersSpoken(f: Filter, regions: Names): string | undefined {
+export function filtersSpoken(f: Filter, regions: Names, t: Ui): string | undefined {
   const parts: string[] = []
-  const places = placesSpoken(f, regions)
-  if (places) parts.push(`${FILTERS_UI.sections.places}: ${places}`)
-  const time = timeSpoken(f)
-  if (f.from || f.to) parts.push(`${FILTERS_UI.sections.time}: ${time}`)
-  const status = statusSpoken(f)
-  if (status) parts.push(`${FILTERS_UI.sections.status}: ${status}`)
+  const places = placesSpoken(f, regions, t)
+  if (places) parts.push(`${t.filters.places}: ${places}`)
+  if (f.from || f.to) parts.push(`${t.filters.time}: ${timeSpoken(f, t)}`)
+  const status = statusSpoken(f, t)
+  if (status) parts.push(`${t.filters.status}: ${status}`)
   return parts.length ? parts.join('. ') : undefined
 }
 
-const speciesOf = (shown: number) => fill(FILTERS_UI.species, { n: shown.toLocaleString('en-US') })
+const speciesOf = (shown: number, t: Ui) => plural(t.collage.stats.species, shown, { n: formatInt(shown, t.num) })
 
 /** The panel's head: "Filters · 3 · 118 species", or "Filters · 118 species" with no filter in use. */
-export function panelHead(n: number, shown: number): string {
-  return n > 0 ? fill(FILTERS_UI.head, { n, species: speciesOf(shown) }) : fill(FILTERS_UI.headNone, { species: speciesOf(shown) })
+export function panelHead(n: number, shown: number, t: Ui): string {
+  const species = speciesOf(shown, t)
+  return n > 0 ? fmt(t.filters.panel.head, { n: formatInt(n, t.num), species }) : fmt(t.filters.panel.headNone, { species })
 }
 
 /** The sheet's bottom button: "Show 118 species". */
-export function showLabel(shown: number): string {
-  return fill(FILTERS_UI.show, { species: speciesOf(shown) })
+export function showLabel(shown: number, t: Ui): string {
+  return fmt(t.filters.panel.show, { species: speciesOf(shown, t) })
 }

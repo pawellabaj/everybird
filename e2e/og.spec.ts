@@ -89,3 +89,32 @@ test("a broken token's head is generic", async ({ page }) => {
   await expect(page).toHaveTitle("Everybird");
   expect(await page.locator('meta[property="og:image"]').count()).toBeGreaterThan(0);
 });
+
+// Link previews are language-keyed by URL: the rewritten /s/<token> renders the page prerendered for the visitor's
+// language, so its og:image is /<lang>/s/<token>/opengraph-image… and the CDN caches each language's card on its own URL.
+for (const [locale, lang, title, description, ogLocale] of [
+  ["pt-BR", "pt", "Lista de vida de Test Birder · Everybird", "O Everybird transforma a lista de vida de um observador de aves em uma colagem de adesivos.", "pt_BR"],
+  ["es-ES", "es", "Lista de vida de Test Birder · Everybird", "Everybird convierte la lista de vida de un observador de aves en un collage de stickers.", "es_ES"],
+] as const) {
+  test.describe(`the preview in ${locale}`, () => {
+    test.use({ extraHTTPHeaders: { "Accept-Language": locale }, locale });
+
+    test(`og:image under /${lang}/s/, localized title and description, og:locale ${ogLocale}; the image is complete`, async ({ page, request }) => {
+      await page.goto(`/s/${token}`);
+      const meta = (sel: string) => page.locator(sel).first().getAttribute("content");
+      const image = (await meta('meta[property="og:image"]'))!;
+      expect(image).toContain(`/${lang}/s/${token}/opengraph-image`);
+      expect(image).not.toContain(`/${lang === "pt" ? "es" : "pt"}/s/`); // the other language's card is another URL
+      await expect(page).toHaveTitle(title);
+      expect(await meta('meta[property="og:title"]')).toBe(title);
+      expect(await meta('meta[name="description"]')).toBe(description);
+      expect(await meta('meta[property="og:description"]')).toBe(description);
+      expect(await meta('meta[property="og:locale"]')).toBe(ogLocale);
+      const url = new URL(image);
+      const res = await request.get(url.pathname + url.search, { timeout: 60_000 });
+      expect(res.status()).toBe(200);
+      expect(pngSize(await res.body())).toEqual([1200, 630]);
+      if (!remote) expect(res.headers()["cache-control"]).toBe(OG_CACHE_COMPLETE);
+    });
+  });
+}

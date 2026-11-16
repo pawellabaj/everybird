@@ -1,14 +1,19 @@
 'use client'
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { trapTab, useEscapeCapture, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
-import { formatDate, formatMass } from '@/lib/format'
+import { formatMass, formatMonth } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
+import { regionsIn } from '@/lib/i18n-places'
 import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { CloseIcon } from './icons'
 import { IucnBadge } from './IucnPill'
-import { Marks, marksOf } from './Marks'
+import { markLabel, Marks, marksOf } from './Marks'
 import './card-list.css'
 
 export type CardAnchor = Element | DOMRect | null
@@ -39,15 +44,18 @@ function rectOf(a: CardAnchor): DOMRect | null {
 }
 
 /** The mass label (a tooltip and screen-reader text: the card shows only the value, as on LifeList). */
-export function massLabel(row: SpeciesRow): string {
-  if (row.gSrc === 'family') return 'Average body mass, estimated from its family'
-  if (row.gSrc === 'order') return 'Average body mass, estimated from its order'
-  return 'Average body mass'
+export function massLabel(row: SpeciesRow, t: Ui): string {
+  if (row.gSrc === 'family') return t.card.massFamily
+  if (row.gSrc === 'order') return t.card.massOrder
+  return t.card.mass
 }
-const massValue = (row: SpeciesRow) => `${row.gSrc === 'family' || row.gSrc === 'order' ? '~' : ''}${formatMass(row.g)}`
+/** The mass as the card and the list show it: "~4.3 g" for an estimate ("~4,3 g" in es). */
+export const massValue = (row: SpeciesRow, t: Ui) => `${row.gSrc === 'family' || row.gSrc === 'order' ? '~' : ''}${formatMass(row.g, t.num)}`
 
 export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow }: Props) {
   const row = species.byCode.get(entry.code)
+  const { t } = useI18n()
+  useNames() // the card's name follows the names file and the English switch
   const sheet = useIsSheet()
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -146,7 +154,7 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
   if (!row) return null
   // Small print: iNaturalist's lumped name was placed by region (or by default).
   const notes = [
-    entry.assigned === 'region' ? 'Assigned by region' : entry.assigned === 'default' ? 'Assigned by default' : '',
+    entry.assigned === 'region' ? t.card.assignedRegion : entry.assigned === 'default' ? t.card.assignedDefault : '',
   ].filter((n): n is string => !!n)
 
   // LifeList's card (layout C), with a close button and the edit actions under it.
@@ -156,17 +164,17 @@ export function BirdCard({ entry, species, regions, anchor = null, onClose, acti
       className="eb-card"
       role="dialog"
       aria-modal={sheet ? true : undefined}
-      aria-label={row.com}
+      aria-label={displayName(row)}
       data-variant={sheet ? 'sheet' : 'popover'}
       tabIndex={-1}
       onKeyDown={trap}
     >
       <BirdFacts entry={entry} row={row} regions={regions} sci={sci} statusTip>
-        <button type="button" className="eb-card-close" aria-label="Close" onClick={onClose}>
+        <button type="button" className="eb-card-close" aria-label={t.card.close} onClick={onClose}>
           <CloseIcon />
         </button>
       </BirdFacts>
-      {!row.st && <p className="eb-card-note" data-testid="no-drawing">No drawing yet for this species.</p>}
+      {!row.st && <p className="eb-card-note" data-testid="no-drawing">{t.card.noDrawing}</p>}
       {notes.length > 0 && <p className="eb-card-note">{notes.join(' · ')}</p>}
       {actions && <div className="eb-card-actions">{actions}</div>}
     </div>
@@ -190,9 +198,12 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
   statusTip?: boolean
   children?: ReactNode
 }) {
-  const place = formatPlace(entry.place, regions)
-  const date = formatDate(entry.date)
-  const marks = marksOf(entry).map((m) => m.label)
+  const { lang, t } = useI18n()
+  useNames()
+  const com = displayName(row)
+  const place = formatPlace(entry.place, regionsIn(regions, lang))
+  const date = formatMonth(entry.date, t.date.months)
+  const marks = marksOf(entry).map((m) => markLabel(m.k, t))
   const when = [date, ...marks].filter(Boolean)
   const Name = heading ? 'h2' : 'p'
   const badge = row.iu ? <IucnBadge cat={row.iu} tip={statusTip} /> : null
@@ -200,11 +211,11 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
     <>
       <div className="eb-card-head">
         <div className="eb-card-names">
-          <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}<Marks entry={entry} /></Name>
-          <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</p>
+          <Name className="eb-card-name" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}<Marks entry={entry} /></Name>
+          <p className="eb-card-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</p>
         </div>
         <div className="eb-card-side">
-          <span className="eb-card-mass" title={massLabel(row)}><span className="eb-sr">{massLabel(row)} </span>{massValue(row)}</span>
+          <span className="eb-card-mass" title={massLabel(row, t)}><span className="eb-sr">{massLabel(row, t)} </span>{massValue(row, t)}</span>
           {badge}
         </div>
         {children}

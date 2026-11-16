@@ -26,7 +26,7 @@ const species = buildSpeciesIndex([
   row('robin1', 'Passeriformes', 'Turdidae', 7),
 ])
 const regions: Regions = { v: 1, countries: { CA: 'Canada' }, sub1: {} }
-const reduce = makeReducer({ species, countryName: (c) => regions.countries[c] ?? c })
+const reduce = makeReducer({ species })
 
 function seeded(codes: string[]): AppState {
   const saved = emptySaved()

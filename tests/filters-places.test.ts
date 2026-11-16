@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { en } from '@/i18n/messages/en'
 import { buildList } from '@/lib/list/build-list'
 import { applyFilter, filterKey, filterPlaceKeys, filterToShow, options, placeCounts, placeOptions, placeRows, toggleCountry, togglePlace, withCountries, withPlaces } from '@/lib/list/filters'
 import { applyFilterValidity } from '@/lib/list/filters-validate'
@@ -202,13 +203,13 @@ describe('the share image names the countries', async () => {
   const { filterLabel } = await import('@/lib/share/image')
   const ctx = { species, countryName: (c: string) => ({ CA: 'Canada', EG: 'Egypt', MX: 'Mexico' })[c] ?? c }
   it('one, two, three or more', () => {
-    expect(filterLabel({ countries: ['CA'] }, ctx)).toBe('Canada')
-    expect(filterLabel({ countries: ['CA', 'EG'], order: 'Strigiformes' }, ctx)).toBe('Owls · Canada + Egypt')
-    expect(filterLabel({ countries: ['CA', 'EG', 'MX'] }, ctx)).toBe('Canada and 2 more')
+    expect(filterLabel({ countries: ['CA'] }, ctx, en.ui)).toBe('Canada')
+    expect(filterLabel({ countries: ['CA', 'EG'], order: 'Strigiformes' }, ctx, en.ui)).toBe('Owls · Canada + Egypt')
+    expect(filterLabel({ countries: ['CA', 'EG', 'MX'] }, ctx, en.ui)).toBe('Canada and 2 more')
   })
   it('provinces and counties by their own names when the regions are given', () => {
     const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
-    expect(filterLabel({ order: 'Strigiformes', provinces: ['CA-BC'] }, { species, countryName: (c) => c, regions })).toBe('Owls · British Columbia')
-    expect(filterLabel({ countries: ['KE'], counties: ['CA-BC|Capital'] }, { species, countryName: (c) => c, regions })).toBe('Kenya + Capital')
+    expect(filterLabel({ order: 'Strigiformes', provinces: ['CA-BC'] }, { species, countryName: (c) => c, regions }, en.ui)).toBe('Owls · British Columbia')
+    expect(filterLabel({ countries: ['KE'], counties: ['CA-BC|Capital'] }, { species, countryName: (c) => c, regions }, en.ui)).toBe('Kenya + Capital')
   })
 })

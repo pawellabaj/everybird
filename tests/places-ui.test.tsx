@@ -4,6 +4,10 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useReducer } from 'react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { fmt } from '@/i18n/core'
+import { es } from '@/i18n/messages/es'
+import { withI18n } from './i18n-render'
+import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
 vi.mock('@/lib/list/filters', async (importOriginal) => {
@@ -27,7 +31,6 @@ const row = (code: string, ord: string, fam: string, to: number): SpeciesRow => 
 const species = buildSpeciesIndex([row('duck1', 'Anseriformes', 'Anatidae', 1), row('crow1', 'Passeriformes', 'Corvidae', 3), row('owl1', 'Strigiformes', 'Strigidae', 5)])
 const MORE = { FR: 'France', DE: 'Germany', JP: 'Japan', KE: 'Kenya', PE: 'Peru', MX: 'Mexico', AU: 'Australia' }
 const regions: Regions = { v: 1, countries: { CA: 'Canada', EG: 'Egypt', US: 'United States of America', ...MORE }, sub1: { 'CA-BC': 'British Columbia', 'CA-ON': 'Ontario', 'US-WA': 'Washington' } }
-const name = (c: string) => regions.countries[c] ?? c
 
 type Variant = 'full' | 'lifer' | 'countries' | 'many'
 
@@ -35,7 +38,7 @@ type Variant = 'full' | 'lifer' | 'countries' | 'many'
 // Egypt, also seen in British Columbia; owl1 Ontario only. lifer: the duck's lifer place alone. countries: the three
 // species with lifer countries only and no seen-here.
 function seeded(variant: Variant = 'full') {
-  const reduce = makeReducer({ species, countryName: name })
+  const reduce = makeReducer({ species })
   const saved = emptySaved()
   saved.records.ebird = variant === 'full' || variant === 'many'
     ? [
@@ -57,16 +60,16 @@ function seeded(variant: Variant = 'full') {
 function seededOwl() {
   const saved = emptySaved()
   saved.records.ebird = [{ code: 'owl1', source: 'ebird', date: '2021-01-01', place: { country: 'CA', sub1: 'CA-ON' }, seen: ['2021-01-01|CA-ON'] }]
-  return makeReducer({ species, countryName: name })(initialState(), { type: 'restore', saved })
+  return makeReducer({ species })(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
-  const reduce = makeReducer({ species, countryName: name })
+function Harness({ variant = 'full', note, unplaced }: { variant?: Variant; note?: PlacesNote; unplaced?: PlacesUnplaced }) {
+  const reduce = makeReducer({ species })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const time = { entries: state.list, months: monthBins(state.list, '2022-06').months, today: '2022-06' }
   return (
     <>
-      <FiltersDock state={state} dispatch={dispatch} species={species} regions={regions} placesNote={note} time={time} />
+      <FiltersDock state={state} dispatch={dispatch} species={species} regions={regions} placesNote={note} placesUnplaced={unplaced} time={time} />
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Strigiformes' } })}>owls only</button>
@@ -180,6 +183,39 @@ describe('Places and Time: sections of the Filters panel', () => {
     openFilters()
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
+  })
+
+  it('observation.org life list birds with no places: a line above the lifer-only note, linking to the observations Add panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const { unmount } = render(<Harness variant="lifer" note="add" unplaced="add" />)
+    fireEvent.click(filtersBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveClass('eb-note', 'eb-places-note')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\. Add the observations export to place them by country and province\.$/)
+    expect(within(line).getByRole('link', { name: 'Add the observations export' })).toHaveAttribute('href', '/settings#add-obsorg')
+    const lifer = screen.getByTestId('places-lifer-only')
+    expect(line.compareDocumentPosition(lifer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    unmount()
+    render(<Harness variant="lifer" unplaced="add" />)
+    fireEvent.click(filtersBtn())
+    expect(screen.getByTestId('places-unplaced')).toBeInTheDocument()
+    expect(screen.queryByTestId('places-lifer-only')).toBeNull()
+  })
+
+  it('with the observations on the list: the first sentence only, no link', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" unplaced="plain" />)
+    fireEvent.click(filtersBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\.$/)
+    expect(within(line).queryByRole('link')).toBeNull()
+  })
+
+  it('no unplaced line without the prop', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" note="add" />)
+    fireEvent.click(filtersBtn())
+    expect(screen.queryByTestId('places-unplaced')).toBeNull()
   })
 })
 
@@ -534,5 +570,44 @@ describe('Places drill: checked places stay reachable, the list is counted once'
     expect(screen.getByTestId('drill-c:CA')).not.toHaveAttribute('aria-expanded')
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     expect(screen.getByTestId('places-path')).toBeInTheDocument()
+  })
+})
+
+describe('in Spanish', () => {
+  it('countries by DisplayNames (Canadá), the levels, "Todo en Canadá" (es.ui.places.allOf) and the drill labels from es.ui', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />, { wrapper: withI18n('es') })
+    expect(filtersBtn()).toHaveAccessibleName('Filtros')
+    fireEvent.click(filtersBtn())
+    const list = screen.getByRole('list', { name: 'Países' })
+    expect(within(list).getByRole('checkbox', { name: 'Canadá, 3 especies' })).toBeInTheDocument()
+    expect(within(list).getByRole('checkbox', { name: 'Egipto, 1 especie' })).toBeInTheDocument()
+    expect(screen.getByText('3 países')).toBeInTheDocument()
+    expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Ver estados y provincias de Canadá')
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    expect(screen.getByTestId('places-path')).toHaveTextContent('Todos los países/Canadá')
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName(`${fmt(es.ui.places.allOf, { place: 'Canadá' })}, 3 especies`)
+    expect(screen.getByRole('list', { name: 'Estados y provincias' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('place-all'))
+    expect(filtersBtn()).toHaveAccessibleName('Filtros: Lugares: Canadá')
+    expect(filtersBtn()).toHaveTextContent('Filtros · 1')
+    expect(screen.getByTestId('chip-place-c:CA')).toHaveTextContent('Canadá')
+  })
+  it('the lifer-only note, in Spanish, keeps its link', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness note="add" />, { wrapper: withI18n('es') })
+    fireEvent.click(filtersBtn())
+    const note = screen.getByTestId('places-lifer-only')
+    expect(note).toHaveTextContent('Lugares solo sabe dónde registraste cada ave por primera vez. Añade MyEBirdData para filtrar por todos los lugares donde registraste cada ave, hasta el condado.')
+    expect(within(note).getByRole('link', { name: 'Añade MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
+  })
+  it('the Time panel and button in Spanish', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />, { wrapper: withI18n('es') })
+    fireEvent.click(filtersBtn())
+    expect(screen.getByRole('group', { name: 'Fechas' })).toBeInTheDocument()
+    expect(screen.getByTestId('time-handle-lo')).toHaveAccessibleName('Mes inicial')
+    expect(screen.getByTestId('time-handle-lo')).toHaveAttribute('aria-valuetext', 'enero de 2019')
+    expect(screen.getByTestId('timeline-read')).toHaveTextContent('ene 2019 a jun 2022 · 3 especies')
   })
 })

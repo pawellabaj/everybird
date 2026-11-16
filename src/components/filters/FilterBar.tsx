@@ -8,9 +8,13 @@
 // Filters panel (Filters.tsx). The same on every page: the landing's sample, the birder's collage, a shared one.
 import { memo, useMemo } from 'react'
 import { useIsSheet } from '@/components/dialog-utils'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
 import { options, type ChipOption, type Filter, type FilterLevel } from '@/lib/list/filters'
 import type { Action, AppState } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { familyName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import { orderLabel } from '@/lib/species/orders'
 import { LevelRow } from './LevelRow'
 import './filters.css'
@@ -23,8 +27,10 @@ type Props = {
 }
 
 type Level = 'order' | 'family'
-type Group = { label: string; nav: string; all: string; levels: [Level, Level?] }
-const BIRDS: Group = { label: 'Birds', nav: 'Filter by group', all: 'All birds', levels: ['order', 'family'] }
+type Group = { nav: string; all: string; levels: [Level, Level?] }
+/** The one taxonomy group: orders, then families; its words from `t.filters`. */
+const LEVELS: [Level, Level?] = ['order', 'family']
+const birds = (t: Ui): Group => ({ nav: t.filters.nav, all: t.filters.all, levels: LEVELS })
 /** Levels named by a scientific name (shown in Latin when Scientific names are on). */
 const LATIN = new Set<Level>(['order', 'family'])
 
@@ -40,27 +46,32 @@ type Crumb = { label: string; latin: boolean; to?: Filter }
 
 export const FilterBar = memo(function FilterBar({ state, dispatch, species }: Props) {
   const sheet = useIsSheet()
+  const { t } = useI18n()
+  const names = useNames() // family names follow the names file and the English switch
   const { list, filter, sci, seen } = state
+  const BIRDS = birds(t)
 
   // Only the levels on show are counted: orders always, families once an order is chosen.
   const opts = useMemo(() => {
     const out: Partial<Record<Level, ChipOption[]>> = {}
-    const [top, child] = BIRDS.levels
-    out[top] = options(list, filter, top, species, undefined, seen)
-    if (child && filter[top]) out[child] = options(list, filter, child, species, undefined, seen)
+    const [top, child] = LEVELS
+    out[top] = options(list, filter, top, species, undefined, seen, familyName)
+    if (child && filter[top]) out[child] = options(list, filter, child, species, undefined, seen, familyName)
     return out
-  }, [list, filter, species, seen])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  }, [list, filter, species, seen, names])
 
   const set = (level: Level, value: string | undefined) => dispatch({ type: 'filter', filter: withLevel(filter, level, value) })
   const toggle = (level: Level, value: string) => set(level, filter[level] === value ? undefined : value)
 
-  /** The label of a level's value: plain English, or the scientific name for orders and families in Latin mode. */
+  /** The label of a level's value: plain words (orders in the UI language), or the scientific name for orders and
+   *  families in Latin mode. */
   const nameOf = (level: Level, v: string): string => {
     if (sci && LATIN.has(level)) return v
-    if (level === 'order') return orderLabel(v)
-    return opts.family?.find((o) => o.value === v)?.label ?? species.rows.find((r) => r.fam === v)?.famCom ?? v
+    if (level === 'order') return orderLabel(v, t)
+    return opts.family?.find((o) => o.value === v)?.label ?? (() => { const r = species.rows.find((x) => x.fam === v); return r ? familyName(r) : v })()
   }
-  const chipText = (level: Level, o: ChipOption) => (sci && LATIN.has(level) ? o.value : o.label)
+  const chipText = (level: Level, o: ChipOption) => (sci && LATIN.has(level) ? o.value : level === 'order' ? orderLabel(o.value, t) : o.label)
   const chipLabel = (level: FilterLevel, o: ChipOption) => chipText(level as Level, o)
 
   /** A group's breadcrumb and its level on show (chips, or the phone's sheet button). */
@@ -123,7 +134,7 @@ export const FilterBar = memo(function FilterBar({ state, dispatch, species }: P
   }
 
   return (
-    <section className="eb-filters" aria-label="Filters" data-testid="filter-bar">
+    <section className="eb-filters" aria-label={t.filters.label} data-testid="filter-bar">
       {levels(BIRDS)}
     </section>
   )

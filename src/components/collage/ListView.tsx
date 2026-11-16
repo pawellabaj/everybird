@@ -1,12 +1,17 @@
 'use client'
 import { memo, useMemo } from 'react'
-import { formatDate, formatMass } from '@/lib/format'
+import { formatMonth } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
+import { regionsIn } from '@/lib/i18n-places'
 import { formatPlace } from '@/lib/import/places'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { massValue } from './BirdCard'
 import { markShown } from '@/lib/species/status-mark'
-import { IUCN_NAMES } from '@/lib/species/iucn'
 import { Marks } from './Marks'
 import { StatusMark } from './StatusMark'
 import { Sticker } from './Sticker'
@@ -29,11 +34,13 @@ type Props = {
 const THUMB_W = 56
 const THUMB_H = 40
 
-type RowProps = { entry: ListEntry; row: SpeciesRow; place: string; sci: boolean; onPick: Props['onPick'] }
+type RowProps = { entry: ListEntry; row: SpeciesRow; place: string; sci: boolean; onPick: Props['onPick']; t: Ui }
 
 /** LifeList's row: thumb | name | mass, then place and date at the far right (date rightmost). */
-const Row = memo(function Row({ entry, row, place, sci, onPick }: RowProps) {
-  const date = formatDate(entry.date)
+const Row = memo(function Row({ entry, row, place, sci, onPick, t }: RowProps) {
+  useNames()
+  const com = displayName(row)
+  const date = formatMonth(entry.date, t.date.months)
   const fit = Math.min(THUMB_W / Math.max(row.ar, 0.01), THUMB_H) // sticker fitted in 56 x 40 without stretching
   return (
     <li className="eb-lrow">
@@ -42,11 +49,11 @@ const Row = memo(function Row({ entry, row, place, sci, onPick }: RowProps) {
           <span style={{ width: Math.round(fit * row.ar), height: Math.round(fit) }}><Sticker code={entry.code} st={row.st} ar={row.ar} sv={row.sv} w={fit * row.ar} h={fit} /></span>
         </span>
         <span className="eb-row-name">
-          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : row.com}</span><Marks entry={entry} />{markShown(row.iu) && (<><span className="eb-sr">, {IUCN_NAMES[row.iu]}</span><StatusMark cat={row.iu} /></>)}</span>
-          <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? row.com : row.sci}</span>
+          <span><span className="eb-row-primary" lang={sci ? 'la' : undefined}>{sci ? row.sci : com}</span><Marks entry={entry} />{markShown(row.iu) && (<><span className="eb-sr">, {t.iucn.names[row.iu]}</span><StatusMark cat={row.iu} /></>)}</span>
+          <span className="eb-row-other" lang={sci ? undefined : 'la'}>{sci ? com : row.sci}</span>
         </span>
         <span className="eb-row-meta">
-          <span className="eb-mono eb-row-mass" title="Average body mass"><span className="eb-sr">Average body mass </span>{row.gSrc === 'family' || row.gSrc === 'order' ? '~' : ''}{formatMass(row.g)}</span>
+          <span className="eb-mono eb-row-mass" title={t.card.mass}><span className="eb-sr">{t.card.mass} </span>{massValue(row, t)}</span>
           <span className="eb-mono eb-row-date">{date && <time dateTime={entry.date}>{date}</time>}</span>
         </span>
         <span className="eb-row-place">{place}</span>
@@ -57,20 +64,22 @@ const Row = memo(function Row({ entry, row, place, sci, onPick }: RowProps) {
 
 /** One row per bird, by body mass. Rows use content-visibility: auto, so 5,000 of them stay cheap. */
 export function ListView({ entries, species, regions, order, sci = false, onPick }: Props) {
+  const { lang, t } = useI18n()
   const rows = useMemo(() => {
+    const named = regionsIn(regions, lang)
     const out: { entry: ListEntry; row: SpeciesRow; place: string }[] = []
     for (const entry of entries) {
       const row = species.byCode.get(entry.code)
-      if (row) out.push({ entry, row, place: formatPlace(entry.place, regions) })
+      if (row) out.push({ entry, row, place: formatPlace(entry.place, named) })
     }
     const dir = order === 'heaviest' ? -1 : 1
     out.sort((a, b) => dir * (a.row.g - b.row.g) || a.row.to - b.row.to)
     return out
-  }, [entries, species, regions, order])
+  }, [entries, species, regions, order, lang])
 
   return (
-    <ul className="eb-list" aria-label="Life list">
-      {rows.map((r) => <Row key={r.entry.code} entry={r.entry} row={r.row} place={r.place} sci={sci} onPick={onPick} />)}
+    <ul className="eb-list" aria-label={t.card.list}>
+      {rows.map((r) => <Row key={r.entry.code} entry={r.entry} row={r.row} place={r.place} sci={sci} onPick={onPick} t={t} />)}
     </ul>
   )
 }

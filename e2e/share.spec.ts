@@ -2,6 +2,8 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { SAMPLE_COUNT } from "./sample";
+import { en, type Ui } from "../src/i18n/messages/en";
+import { es } from "../src/i18n/messages/es";
 
 // The landing demo's sample list (the made-up demo birder) restored as the birder's own list (from Settings), so their collage
 // and its Share button appear. SHARE_PNG_DIR (optional) saves the downloaded images there for a look.
@@ -16,15 +18,16 @@ const backup = JSON.stringify({
 });
 const OUT = process.env.SHARE_PNG_DIR;
 
-async function openShare(page: Page) {
+/** Opens the share dialog on the restored sample; `t` is the UI language the page is in (English by default). */
+async function openShare(page: Page, t: Ui = en.ui) {
   await page.goto("/settings");
   await expect(page.getByTestId("ebird-drop")).toBeVisible();
   // Restore from backup on Settings opens the collage (/).
   await page.locator('input[type="file"][accept*="json"]').first().setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("region", { name: "Your collage" })).toBeVisible();
-  await page.getByRole("button", { name: "Share", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Share your collage" });
+  await expect(page.getByRole("region", { name: t.collage.regionYours })).toBeVisible();
+  await page.getByRole("button", { name: t.collage.share, exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: t.share.title });
   await expect(dialog).toBeVisible();
   return dialog;
 }
@@ -143,13 +146,13 @@ test.describe("date stamp", () => {
     });
   }
 
-  test("every format's footer line ends with the device's local date: As of 15 Nov 2026", async ({ page }) => {
+  test("every format's footer line ends with the device's local date: 15 Nov 2026", async ({ page }) => {
     test.setTimeout(90_000);
     await stampClock(page);
     const dialog = await openShare(page);
     const preview = dialog.getByTestId("share-preview");
     const texts = () => page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
-    const line = "everybird.yusuftaleb.com · stickers by huashu · As of 15 Nov 2026";
+    const line = "everybird.yusuftaleb.com · stickers by huashu · 15 Nov 2026";
     for (const format of ["Story", "Post", "Square"]) {
       // The story is drawn as the dialog opens; the others on their click, after the previous format's texts are gone.
       if (format !== "Story") {
@@ -162,6 +165,30 @@ test.describe("date stamp", () => {
       expect(drawn, `${format}: the footer line`).toContain(line);
       expect(drawn.join("\n"), `${format}: never the UTC day`).not.toContain("14 Nov 2026");
     }
+  });
+
+  // The same dialog in Spanish (the browser's language picks /es/): its words, the image's, an English download name,
+  // and the credit line unchanged with the Spanish date after it, no lead ("Al").
+  test.describe("in Spanish", () => {
+    test.use({ locale: "es-ES" });
+    test("the labels, the drawn words and the stamp; the file is still everybird-story.png", async ({ page }) => {
+      test.setTimeout(90_000);
+      await stampClock(page);
+      const dialog = await openShare(page, es.ui);
+      const preview = dialog.getByTestId("share-preview");
+      for (const label of ["Historia", "Post", "Cuadrado"]) await expect(dialog.getByRole("button", { name: new RegExp(`^${label}`) })).toBeVisible();
+      await expect(dialog.getByRole("switch", { name: "Última especie nueva" })).toHaveAttribute("aria-checked", "true");
+      await expect(dialog.getByRole("button", { name: "Copiar enlace" })).toBeVisible();
+      await expect(preview.getByRole("img", { name: es.ui.share.preview.story })).toBeVisible({ timeout: 30_000 });
+      await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
+      const drawn = await page.evaluate(() => (window as unknown as { __fillTexts: string[] }).__fillTexts);
+      expect(drawn).toContain("everybird.yusuftaleb.com · stickers by huashu · 15 nov 2026");
+      expect(drawn.some((t) => t.startsWith("ÚLTIMA ESPECIE NUEVA"))).toBe(true);
+      expect(drawn).toContain("ESPECIES");
+      const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Descargar imagen" }).click()]);
+      expect(download.suggestedFilename()).toBe("everybird-story.png");
+      await expect(dialog.getByTestId("share-note")).toHaveText("Se guardó everybird-story.png.");
+    });
   });
 });
 
@@ -184,7 +211,7 @@ test("Show latest lifer: on by default; off draws no latest lifer row, on draws 
   const clear = () => page.evaluate(() => { (window as unknown as { __fillTexts: string[] }).__fillTexts = []; });
   const sw = dialog.getByRole("switch", { name: "Show latest lifer" });
   await expect(sw).toHaveAttribute("aria-checked", "true");
-  // The dialog's last line: a plain Buy me a coffee link (never on the image).
+  // Bottom right of the controls: Buy Me a Coffee's static button image, its alt the link's name (never on the image).
   await expect(dialog.getByRole("link", { name: "Buy me a coffee" })).toHaveAttribute("href", "https://buymeacoffee.com/yusuftaleb");
   await expect(preview.getByRole("img", { name: "Preview of the story image" })).toBeVisible({ timeout: 30_000 });
   await expect(preview).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
@@ -281,8 +308,9 @@ test("visits, downloads and copy link each send one anonymous event: {n, p} only
   await expect(dialog.getByTestId("share-note")).toHaveText(/^Link copied/);
   // The level in the Worker's words (regions/countries/dates/species → full/compact/minimal/species).
   expect(await stats()).toEqual([
-    { n: "visit", p: "settings" },
-    { n: "visit", p: "collage" },
+    // A visit also carries the browser language's primary subtag (l: "en" under Playwright's en-US).
+    { n: "visit", p: "settings", l: expect.stringMatching(/^[a-z]{2,3}$/) },
+    { n: "visit", p: "collage", l: expect.stringMatching(/^[a-z]{2,3}$/) },
     { n: "image_downloaded", p: "story" },
     { n: "image_downloaded", p: "square" },
     { n: "link_copied", p: expect.stringMatching(/^(full|compact|minimal|species)$/) },
@@ -353,7 +381,7 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
           midY: b.y + b.height / 2, midX: b.x + b.width / 2, boxR: b.right,
           share: [share.x, share.y, share.width, share.height].map(Math.round).join(","),
           sw: d.scrollWidth, cw: d.clientWidth, over: seg.right - formats.right, col: col.width, segX: seg.x, segY: seg.y,
-          swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
+          swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
           bw: box.clientWidth, bh: box.clientHeight, iw: img.getBoundingClientRect().width, ih: img.getBoundingClientRect().height,
           icons: getComputedStyle(icon).display !== "none",
         };
@@ -382,13 +410,14 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       }
       seen.push({ format, col: m.col, icons: m.icons, segX: m.segX, segY: m.segY, midY: m.midY, midX: m.midX, boxR: m.boxR, share: m.share });
       if (shots) {
+        const dark = dialog.getByRole("switch", { name: "Dark image" });
         for (const theme of ["light", "dark"]) {
-          await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
+          if ((await dark.getAttribute("aria-checked")) !== String(theme === "dark")) await dark.click();
           await page.waitForTimeout(300); // the image re-renders in the theme
           await expect(dialog.getByTestId("share-preview")).toHaveAttribute("aria-busy", "false", { timeout: 30_000 });
           await dialog.screenshot({ path: `${shots}/after-share-${width}-${format.toLowerCase()}-${theme}-${info.project.name}.png` });
         }
-        await page.evaluate(() => document.documentElement.setAttribute("data-theme", "light"));
+        if ((await dark.getAttribute("aria-checked")) === "true") await dark.click();
       }
     }
     for (const s of seen.slice(1)) {
@@ -419,7 +448,7 @@ test("the dialog never scrolls sideways at 320 to 1440px, with a long name, in e
       const words = [...d.querySelectorAll(".eb-seg-label")].map((l) => l.getBoundingClientRect());
       const btns = [...d.querySelectorAll(".eb-seg-btn")].map((l) => l.getBoundingClientRect());
       return {
-        sw: d.scrollWidth, cw: d.clientWidth, swOver: d.querySelector('[role="switch"]')!.getBoundingClientRect().right - col.right,
+        sw: d.scrollWidth, cw: d.clientWidth, swOver: Math.max(...[...d.querySelectorAll('[role="switch"]')].map((x) => x.getBoundingClientRect().right - col.right)),
         wordOver: Math.max(...words.map((w, i) => Math.max(btns[i].left - w.left, w.right - btns[i].right))),
       };
     });

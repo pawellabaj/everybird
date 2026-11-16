@@ -7,11 +7,13 @@ import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BirdCard, BirdFacts } from '@/components/collage/BirdCard'
 import { ListView } from '@/components/collage/ListView'
-import { formatDate, formatMass } from '@/lib/format'
 import type { ListEntry } from '@/lib/list/model'
 import { IUCN_COLORS } from '@/lib/species/iucn'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { ControlsBar } from '@/components/app/ControlsBar'
+import { es } from '@/i18n/messages/es'
+import { withI18n } from './i18n-render'
 
 const row = (code: string, com: string, to: number, g: number, gSrc: SpeciesRow['gSrc'] = 'avonet', st = true): SpeciesRow => ({
   code, com, sci: `Avis ${code}`, ord: 'Passeriformes', fam: 'Corvidae', famCom: 'Crows', to, g, gSrc, st, ar: 1, q: true,
@@ -33,22 +35,6 @@ afterEach(() => {
 function setWidth(w: number) {
   vi.stubGlobal('innerWidth', w)
 }
-
-describe('format', () => {
-  it('formatMass', () => {
-    expect(formatMass(33)).toBe('33 g')
-    expect(formatMass(4.27)).toBe('4.3 g')
-    expect(formatMass(1130)).toBe('1.1 kg')
-    expect(formatMass(999.6)).toBe('1000 g')
-  })
-  it('formatDate', () => {
-    expect(formatDate('2026-09-30')).toBe('Sep 2026')
-    expect(formatDate('2026-09')).toBe('Sep 2026')
-    expect(formatDate('2022')).toBe('2022')
-    expect(formatDate(undefined)).toBe('')
-    expect(formatDate('junk')).toBe('')
-  })
-})
 
 describe('BirdCard', () => {
   const full = entry('crowa', { date: '2026-09-30', place: { country: 'CA', sub1: 'CA-BC', sub2: 'Okanagan' }, heard: true, dead: true, media: true })
@@ -364,5 +350,40 @@ describe('list estimated mass', () => {
     const items = screen.getAllByRole('listitem')
     expect(items[1]).toHaveTextContent('~4.3 g')
     expect(items[0]).not.toHaveTextContent('~')
+  })
+})
+
+describe('in Spanish', () => {
+  const heavy = buildSpeciesIndex([row('pelica', 'Big Pelican', 1, 2400), row('tinyc', 'Gamma Tiny', 3, 4.27, 'family')])
+  it('the card reads the month, the mass and the place in Spanish (DisplayNames for the country)', () => {
+    setWidth(1000)
+    render(<BirdCard entry={entry('pelica', { date: '2026-09-30', place: { country: 'CA', sub1: 'CA-BC' }, heard: true })} species={heavy} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    const dlg = screen.getByRole('dialog', { name: 'Big Pelican' })
+    expect(dlg.querySelector('.eb-card-date')).toHaveTextContent('sept 2026 · Solo oída')
+    expect(dlg.querySelector('.eb-card-mass')).toHaveTextContent('Masa corporal media 2,4 kg')
+    expect(dlg.querySelector('.eb-card-place')).toHaveTextContent('British Columbia, Canadá')
+    expect(within(dlg).getByRole('button', { name: 'Cerrar' })).toBeInTheDocument()
+  })
+  it('an estimated mass and its label', () => {
+    setWidth(1000)
+    render(<BirdCard entry={entry('tinyc')} species={heavy} regions={regions} onClose={() => {}} />, { wrapper: withI18n('es') })
+    const mass = screen.getByRole('dialog').querySelector('.eb-card-mass')!
+    expect(mass).toHaveTextContent('~4,3 g')
+    expect(mass).toHaveAttribute('title', 'Masa corporal media, estimada a partir de su familia')
+  })
+  it("the list view's rows and the direction switch: es.ui's heaviest first", () => {
+    render(
+      <>
+        <ControlsBar view="list" onView={() => {}} trueSize={false} onTrueSize={() => {}} lightFirst={false} onDirection={() => {}} sci={false} onSci={() => {}} />
+        <ListView entries={[entry('pelica', { date: '2026-09-02' })]} species={heavy} regions={regions} order="heaviest" onPick={() => {}} />
+      </>,
+      { wrapper: withI18n('es') },
+    )
+    const c = es.ui.collage.controls
+    const dir = screen.getByRole('button', { name: c.sortedHeaviest })
+    expect(dir).toHaveTextContent(c.heaviestFirst)
+    const list = screen.getByRole('list', { name: 'Lista de vida' })
+    expect(list).toHaveTextContent('2,4 kg')
+    expect(list).toHaveTextContent('sept 2026')
   })
 })

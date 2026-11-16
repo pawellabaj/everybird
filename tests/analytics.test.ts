@@ -25,9 +25,13 @@ const blobText = (b: unknown) => (b as Blob).text()
 /** Every key and value a payload may hold: nothing from the list (names, species, places, counts, URLs). */
 function assertClean(body: string) {
   const o = JSON.parse(body) as Record<string, unknown>
-  expect(Object.keys(o).every((k) => ['n', 'p', 'd'].includes(k))).toBe(true)
+  expect(Object.keys(o).every((k) => ['n', 'p', 'd', 'l'].includes(k))).toBe(true)
   expect(ALLOWED[o.n as keyof typeof ALLOWED]).toContain(o.p)
   if ('d' in o) expect(o.d).toBe('touch')
+  if ('l' in o) {
+    expect(o.n).toBe('visit')
+    expect(o.l).toMatch(/^[a-z]{2,3}$/)
+  }
 }
 
 afterEach(() => {
@@ -37,6 +41,7 @@ afterEach(() => {
 describe('payloadFor', () => {
   it('is {n, p} with the one allowed value, and d: touch only for a touch Mac', () => {
     expect(payloadFor('collage_made', { source: 'inat' })).toEqual({ n: 'collage_made', p: 'inat' })
+    expect(payloadFor('collage_made', { source: 'obsorg' })).toEqual({ n: 'collage_made', p: 'obsorg' })
     expect(payloadFor('visit', { page: 'shared' })).toEqual({ n: 'visit', p: 'shared' })
     expect(payloadFor('shared', { via: 'link' })).toEqual({ n: 'shared', p: 'link' })
     expect(payloadFor('image_downloaded', { format: 'post' }, true)).toEqual({ n: 'image_downloaded', p: 'post', d: 'touch' })
@@ -53,6 +58,47 @@ describe('payloadFor', () => {
     expect(payloadFor('collage_made', { source: 'Ada Birder' as 'ebird' })).toBeNull()
     expect(payloadFor('image_downloaded', { format: 'story', name: 'Ada' } as unknown as { format: 'story' })).toBeNull()
     expect(payloadFor('link_copied', { level: 'full' as ShareLevel })).toBeNull() // only the app's own names map
+  })
+})
+
+describe('the browser language', () => {
+  it('a visit carries the primary subtag of the browser language', async () => {
+    const body = async (language: string | undefined) => {
+      const { e, beacon } = env({ nav: { language } })
+      expect(sendEvent('visit', { page: 'landing' }, e)).toBe(true)
+      return JSON.parse(await blobText(beacon.mock.calls[0][1])) as Record<string, unknown>
+    }
+    expect(await body('pt-BR')).toEqual({ n: 'visit', p: 'landing', l: 'pt' })
+    expect(await body('zh-Hant-TW')).toEqual({ n: 'visit', p: 'landing', l: 'zh' })
+    expect(await body('es')).toEqual({ n: 'visit', p: 'landing', l: 'es' })
+    for (const bad of ['x', '', 'english', '12-US', undefined]) expect(await body(bad), String(bad)).toEqual({ n: 'visit', p: 'landing' })
+    const ipad = env({ nav: { userAgent: MAC, maxTouchPoints: 5, language: 'nl-NL' } })
+    sendEvent('visit', { page: 'about' }, ipad.e)
+    expect(await blobText(ipad.beacon.mock.calls[0][1])).toBe('{"n":"visit","p":"about","d":"touch","l":"nl"}')
+  })
+  it('other events never carry l', async () => {
+    const { e, beacon } = env({ nav: { language: 'es-MX' } })
+    sendEvent('collage_made', { source: 'ebird' }, e)
+    sendEvent('image_downloaded', { format: 'story' }, e)
+    sendEvent('shared', { via: 'post' }, e)
+    sendEvent('link_copied', { level: 'regions' }, e)
+    expect(beacon).toHaveBeenCalledTimes(4)
+    for (const c of beacon.mock.calls) {
+      const text = await blobText(c[1])
+      expect(JSON.parse(text)).not.toHaveProperty('l')
+      assertClean(text)
+    }
+    expect(payloadFor('collage_made', { source: 'inat' }, false, 'es')).toEqual({ n: 'collage_made', p: 'inat' })
+  })
+  it('DNT, GPC and automated runs still send nothing', () => {
+    for (const nav of [{ doNotTrack: '1', language: 'es' }, { globalPrivacyControl: true, language: 'es' }]) {
+      const { e, beacon } = env({ nav })
+      expect(sendEvent('visit', { page: 'about' }, e)).toBe(false)
+      expect(beacon).not.toHaveBeenCalled()
+    }
+    const { e, beacon } = env({ nav: { language: 'es' }, automated: true })
+    expect(sendEvent('visit', { page: 'about' }, e)).toBe(false)
+    expect(beacon).not.toHaveBeenCalled()
   })
 })
 
@@ -140,9 +186,11 @@ describe('track', () => {
   it('reports to window.__everybirdStats when a test sets it', () => {
     const seen: string[] = []
     ;(window as StatsHookWindow).__everybirdStats = (b) => { seen.push(b) }
+    Object.defineProperty(navigator, 'language', { value: 'es-AR', configurable: true })
     track('visit', { page: 'collage' })
     track('link_copied', { level: 'species' })
-    expect(seen).toEqual(['{"n":"visit","p":"collage"}', '{"n":"link_copied","p":"species"}'])
+    delete (navigator as { language?: unknown }).language
+    expect(seen).toEqual(['{"n":"visit","p":"collage","l":"es"}', '{"n":"link_copied","p":"species"}'])
     for (const b of seen) assertClean(b)
   })
 })

@@ -1,3 +1,5 @@
+import type { Ui } from '@/i18n/messages/en'
+
 // The collage's title (Settings > "Name your collage", `Saved.name`): written by the birder and used verbatim, on the
 // collage page, in the share dialog, on share images and in share links. Empty: "My collage" on the page and no title
 // on shares. Before v4 the field asked for a person's name and the app added "'s birds"; migrateSaved (storage.ts)
@@ -40,7 +42,7 @@ export function titleFromOldName(name: string): string {
   return `${Array.from(n).slice(0, room).join('').trimEnd()}${SUFFIX}`
 }
 
-/** The collage page's title: the saved title, or "My collage". */
-export function pageTitle(name: string | undefined): string {
-  return name?.trim() || 'My collage'
+/** The collage page's title: the saved title, or the language's "My collage" (`t.collage.untitled`). */
+export function pageTitle(name: string | undefined, t: Ui): string {
+  return name?.trim() || t.collage.untitled
 }

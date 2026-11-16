@@ -5,6 +5,7 @@ import path from 'node:path'
 import sharp from 'sharp'
 import type { MaskLoader, MaskTable } from '@/lib/layout/layout.worker'
 import { stickerUrl } from '@/lib/sticker-url'
+import { baseOfLang } from '@/lib/species/name-locales'
 import type { SpeciesFile, SpeciesRow } from '@/lib/species/types'
 
 const dataFile = (...p: string[]) => path.join(process.cwd(), 'public', 'data', ...p)
@@ -17,6 +18,24 @@ export function serverSpecies(): Promise<Map<string, SpeciesRow>> {
     speciesP.catch(() => { speciesP = null })
   }
   return speciesP
+}
+
+const namesByBase = new Map<string, Promise<Record<string, string>>>()
+/**
+ * The card's local bird names for a URL's language: the base set (es, pt_BR, nl; never a regional one, since the card
+ * is cached a year per URL), read from disk like the species file. English gives none (`{}`); a failed read gives `null`, which the card treats as
+ * incomplete (cached a minute, not a year, with English names).
+ */
+export function serverNames(lang: string): Promise<Record<string, string> | null> {
+  const base = baseOfLang(lang)
+  if (!base) return Promise.resolve({})
+  let p = namesByBase.get(base)
+  if (!p) {
+    p = readFile(dataFile(`names.${base}.v1.json`), 'utf8').then((t) => (JSON.parse(t) as { names: Record<string, string> }).names)
+    namesByBase.set(base, p)
+    p.catch(() => { namesByBase.delete(base) })
+  }
+  return p.catch(() => null)
 }
 
 const maskTables = new Map<string, Promise<MaskTable>>()
@@ -44,22 +63,58 @@ async function get(url: string, ms: number, init?: RequestInit): Promise<Respons
   return res
 }
 
-/** The @font-face blocks of a CSS file as family, weight and the first TTF/WOFF/OTF url (never WOFF2: satori can't read it). */
-export function parseFontFaces(css: string): { family: string; weight: number; url: string }[] {
-  const out: { family: string; weight: number; url: string }[] = []
+export type FontFace = { family: string; weight: number; url: string; range?: string }
+
+/**
+ * The @font-face blocks of a CSS file as family, weight, the first TTF/WOFF/OTF url (never WOFF2: satori can't read it)
+ * and the `unicode-range` when the block has one (Google splits a family into subsets by it).
+ */
+export function parseFontFaces(css: string): FontFace[] {
+  const out: FontFace[] = []
   for (const block of css.match(/@font-face\s*{[^}]*}/g) ?? []) {
     const family = /font-family:\s*['"]?([^;'"]+)['"]?/.exec(block)?.[1]?.trim()
     const weight = Number(/font-weight:\s*(\d+)/.exec(block)?.[1])
     const urls = [...block.matchAll(/url\(\s*['"]?([^)'"]+)['"]?\s*\)\s*format\(\s*['"]?(truetype|opentype|woff)['"]?\s*\)/g)]
     const pick = urls.find((u) => u[2] !== 'woff') ?? urls[0]
-    if (family && weight && pick) out.push({ family, weight, url: pick[1].startsWith('//') ? `https:${pick[1]}` : pick[1] })
+    const range = /unicode-range:\s*([^;}]+)/.exec(block)?.[1]?.trim()
+    if (family && weight && pick) out.push({ family, weight, url: pick[1].startsWith('//') ? `https:${pick[1]}` : pick[1], ...(range ? { range } : {}) })
   }
   return out
 }
 
+/** Latin-1's letters, U+00C0 to U+00FF: every accented letter Spanish, Portuguese and Dutch write (á, ã, ç, é, ë, ñ, ú …). */
+const LATIN1 = [0xc0, 0xff] as const
+
+/** Whether a `unicode-range` value ("U+0000-00FF, U+0131") covers all of U+00C0–U+00FF; no range covers everything. */
+export function coversLatin1(range: string | undefined): boolean {
+  if (!range) return true
+  const spans = range.split(',').flatMap((part) => {
+    const m = /U\+([0-9a-f?]+)(?:-([0-9a-f]+))?/i.exec(part.trim())
+    if (!m) return []
+    if (m[1].includes('?')) return [[parseInt(m[1].replace(/\?/g, '0'), 16), parseInt(m[1].replace(/\?/g, 'f'), 16)]]
+    const a = parseInt(m[1], 16)
+    return [[a, m[2] ? parseInt(m[2], 16) : a]]
+  })
+  // Each code point of the span must sit in some range (spans may be split, e.g. U+00C0-00DF, U+00E0-00FF).
+  for (let c = LATIN1[0]; c <= LATIN1[1]; c++) if (!spans.some(([a, b]) => c >= a && c <= b)) return false
+  return true
+}
+
+/**
+ * The faces to load for `want`: per family and weight, the faces whose range covers Latin-1 (so the card's "Última
+ * especie nueva" and "Lista de vida de Ada" draw in the real font, not the fallback), or all of them when none does.
+ */
+export function pickFaces(faces: readonly FontFace[], want: readonly { family: string; weight: number }[]): FontFace[] {
+  return want.flatMap((w) => {
+    const all = faces.filter((f) => f.family === w.family && f.weight === w.weight)
+    const latin = all.filter((f) => coversLatin1(f.range))
+    return latin.length ? latin : all
+  })
+}
+
 async function loadFamily(cssUrl: string, want: { family: string; weight: number }[]): Promise<OgFont[]> {
   const css = await (await get(cssUrl, FONT_TIMEOUT_MS, { headers: { 'user-agent': UA } })).text()
-  const faces = parseFontFaces(css).filter((f) => want.some((w) => w.family === f.family && w.weight === f.weight))
+  const faces = pickFaces(parseFontFaces(css), want)
   return Promise.all(faces.map(async (f) => ({
     name: f.family, weight: f.weight as OgFont['weight'], style: 'normal' as const,
     data: await (await get(f.url, FONT_TIMEOUT_MS)).arrayBuffer(),

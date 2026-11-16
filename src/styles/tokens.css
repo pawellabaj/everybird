@@ -1,5 +1,5 @@
 /* Everybird design tokens. Light is the default, whatever the system says; dark only when <html> carries
-   data-theme=dark (the visitor's choice, applied before paint by app/layout.tsx; src/lib/theme.ts). */
+   data-theme=dark (the visitor's choice, applied before paint by app/[lang]/layout.tsx; src/lib/theme.ts). */
 :root {
   color-scheme: light;
   --ink: #1e1e24;
@@ -28,7 +28,12 @@
   --z-welcome: 955; /* the first-visit welcome */
 }
 @media (min-width: 720px) { :root { --topbar-h: 65px; } }
-@media (max-width: 299px) { :root { --topbar-h: 93px; } } /* the bar's nav on a second row (app.css) */
+/* The bar's nav on a second row (app.css, the same media queries and selectors; preview variant lang via
+   <html data-topbar>, none reads as a): 4 + 44 + 40 + 4px and the hairline. */
+@media (max-width: 429px) { :root:not([data-topbar="b"], [data-topbar="c"]) { --topbar-h: 93px; } }
+@media (max-width: 383px) { :root[data-topbar="b"]:is(:lang(es), :lang(nl)) { --topbar-h: 93px; } }
+@media (max-width: 365px) { :root[data-topbar="b"] { --topbar-h: 93px; } }
+@media (max-width: 309px) { :root[data-topbar="c"] { --topbar-h: 93px; } }
 
 :root[data-theme=light] {
   color-scheme: light;

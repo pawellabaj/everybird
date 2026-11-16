@@ -7,14 +7,16 @@
 // after the dock wrap dims and goes inert while it is open (CollageView's `.eb-view-below`), and a press there, Esc or a
 // second press of the button closes it. On phones it is the modal bottom sheet, its head the count of species and its
 // bottom button "Show N species". Filters apply live. The active filters show as chips under the dock (ChipRow.tsx).
-// The head strings live in filter-summary.ts (FILTERS_UI), so the i18n branch can lift them in one move.
+// Every word is the language's (`t.filters`, `t.filters.panel`), place names `regionsIn(regions, lang)`.
 import { CalendarBlank, CaretDown, GlobeHemisphereWest } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { CloseIcon, FilterLinesIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
+import { useI18n } from '@/i18n/I18nProvider'
+import { regionsIn } from '@/lib/i18n-places'
 import { filterChips, withoutFilterChip } from '@/lib/list/chips'
-import { FILTERS_UI, filtersCount, filtersSpoken, panelHead, showLabel } from '@/lib/list/filter-summary'
+import { filtersCount, filtersSpoken, panelHead, showLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
@@ -25,6 +27,7 @@ import { ChipRow } from './ChipRow'
 import { PlacesList } from './PlacesList'
 import { STATUS_ICON } from './status-icon'
 import type { PlacesNote } from './places-shared'
+import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 import { StatusList } from './StatusList'
 import { Timeline } from './Timeline'
 import './filters.css'
@@ -58,9 +61,10 @@ type Shared = {
 
 /** In the dock's `filters` slot. Renders null when `sections` is empty. */
 export function FiltersButton({ state, regions, sections, open, onOpen, inert, buttonRef, panelId }: Shared & { inert?: boolean; buttonRef: RefObject<HTMLButtonElement | null>; panelId: string }): ReactNode {
+  const { lang, t } = useI18n()
   if (!sections.length) return null
   const n = filtersCount(state.filter)
-  const said = filtersSpoken(state.filter, regions)
+  const said = filtersSpoken(state.filter, regionsIn(regions, lang), t)
   return (
     <div className="eb-dock-filters" inert={inert}>
       <button
@@ -70,14 +74,14 @@ export function FiltersButton({ state, regions, sections, open, onOpen, inert, b
         aria-expanded={!!open}
         aria-controls={open ? panelId : undefined}
         aria-haspopup="dialog"
-        aria-label={said ? `${FILTERS_UI.button}: ${said}` : FILTERS_UI.button}
+        aria-label={said ? `${t.filters.label}: ${said}` : t.filters.label}
         data-active={n > 0 ? '' : undefined}
         data-testid="filters-button"
         onClick={() => onOpen(open ? null : {})}
       >
         <FilterLinesIcon />
         <span className="eb-drop-label">
-          {FILTERS_UI.button}
+          {t.filters.label}
           {n > 0 && <span className="eb-drop-sum"> · {n}</span>}
         </span>
         <CaretDown aria-hidden="true" focusable="false" className="eb-drop-caret" />
@@ -97,6 +101,8 @@ type PanelProps = Shared & {
   /** Where focus goes on close, if still connected (the chip that opened it); else the Filters button. */
   returnFocus?: () => HTMLElement | null
   placesNote?: PlacesNote
+  /** The Places section's line about observation.org birds with no places. */
+  placesUnplaced?: PlacesUnplaced
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   threatLine?: number
   /** Species under the whole filter (CollageView's shownList.length): the head and the sheet's button. */
@@ -104,7 +110,8 @@ type PanelProps = Shared & {
 }
 
 /** In ControlsBar's `below` slot, after the chip row (the popover anchors under it), or portalled as the sheet. */
-export function FiltersPanel({ state, dispatch, species, regions, sections, open, onOpen, id, buttonRef, returnFocus, placesNote, time, threatLine, shown }: PanelProps): ReactNode {
+export function FiltersPanel({ state, dispatch, species, regions, sections, open, onOpen, id, buttonRef, returnFocus, placesNote, placesUnplaced, time, threatLine, shown }: PanelProps): ReactNode {
+  const { t } = useI18n()
   const sheet = useIsSheet()
   const ref = useRef<HTMLDivElement>(null)
   const titles = useId()
@@ -139,18 +146,18 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
   }, [sheet, onClose])
 
   const n = filtersCount(filter)
-  const head = panelHead(n, shown)
+  const head = panelHead(n, shown, t)
   const section = (s: FilterSection) => {
     const Icon = ICONS[s]
     return (
       <div key={s} className="eb-fsec" role="group" aria-labelledby={`${titles}-${s}`} tabIndex={-1} data-sec={s} data-testid={`filter-panel-${s}`}>
         <h3 id={`${titles}-${s}`} className="eb-mono eb-fsec-title">
           <Icon aria-hidden="true" focusable="false" />
-          {FILTERS_UI.sections[s]}
+          {t.filters[s]}
         </h3>
-        {s === 'status' && <p className="eb-fsec-note" data-testid="status-note">{FILTERS_UI.statusNote}</p>}
+        {s === 'status' && <p className="eb-fsec-note" data-testid="status-note">{t.filters.panel.statusNote}</p>}
         {s === 'places' ? (
-          <PlacesSection state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
+          <PlacesSection state={state} species={species} regions={regions} note={placesNote} unplaced={placesUnplaced} onFilter={onFilter} />
         ) : s === 'status' ? (
           <StatusSection state={state} species={species} threatLine={threatLine} onFilter={onFilter} />
         ) : (
@@ -178,7 +185,7 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
       className={sheet ? 'eb-sheet eb-drop-sheet' : 'eb-drop'}
       role="dialog"
       aria-modal={sheet ? true : undefined}
-      aria-label={FILTERS_UI.dialog}
+      aria-label={t.filters.label}
       tabIndex={-1}
       data-kind="filters"
       data-testid="filters-panel"
@@ -187,7 +194,7 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
       {sheet && (
         <div className="eb-sheet-head">
           <span className="eb-mono" role="status" data-testid="filters-head">{head}</span>
-          <button type="button" className="eb-sheet-close" aria-label={FILTERS_UI.close} onClick={onClose}>
+          <button type="button" className="eb-sheet-close" aria-label={t.collage.close} onClick={onClose}>
             <CloseIcon />
           </button>
         </div>
@@ -199,7 +206,7 @@ export function FiltersPanel({ state, dispatch, species, regions, sections, open
       </div>
       {sheet && (
         <div className="eb-fpanel-foot">
-          <button type="button" className="eb-btn" data-testid="filters-show" onClick={onClose}>{showLabel(shown)}</button>
+          <button type="button" className="eb-btn" data-testid="filters-show" onClick={onClose}>{showLabel(shown, t)}</button>
         </div>
       )}
     </div>
@@ -217,6 +224,7 @@ type UiArgs = {
   regions: Regions
   hide?: readonly FilterSection[]
   placesNote?: PlacesNote
+  placesUnplaced?: PlacesUnplaced
   time: PanelProps['time']
   threatLine?: number
   shown: number
@@ -226,7 +234,7 @@ type UiArgs = {
  * The button, the chip row and the panel, wired together as CollageView uses them: `button(inert)` for the dock's
  * `filters` slot, `below` for ControlsBar's, `dimmed` for the content after the dock wrap.
  */
-export function useFiltersUi({ state, dispatch, species, regions, hide, placesNote, time, threatLine, shown }: UiArgs): {
+export function useFiltersUi({ state, dispatch, species, regions, hide, placesNote, placesUnplaced, time, threatLine, shown }: UiArgs): {
   button: (inert: boolean) => ReactNode
   below: ReactNode
   dimmed: boolean
@@ -234,13 +242,14 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   close: () => void
 } {
   const base = useId()
+  const { lang, t } = useI18n()
   const sheet = useIsSheet()
   const [open, setOpen] = useState<FiltersOpen | null>(null)
   const opener = useRef<HTMLElement | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const sections = useFilterSections(state, species, hide)
   const { filter } = state
-  const chips = useMemo(() => filterChips(filter, regions), [filter, regions])
+  const chips = useMemo(() => filterChips(filter, regionsIn(regions, lang), t), [filter, regions, lang, t])
   const panelId = `${base}-filters`
   const onOpen = useCallback((o: FiltersOpen | null) => {
     if (o) opener.current = null // closing keeps it: focus goes back to the chip that opened the panel
@@ -264,7 +273,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
     button: (inert) => <FiltersButton {...shared} inert={inert} buttonRef={buttonRef} panelId={panelId} />,
     below: (
       <>
-        <ChipRow chips={chips} label={FILTERS_UI.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} />
+        <ChipRow chips={chips} label={t.filters.panel.chips} testId="filter-chips" onRemove={onRemove} onOpen={onChip} onEmpty={onEmpty} />
         {live && (
           <FiltersPanel
             {...shared}
@@ -274,6 +283,7 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
             buttonRef={buttonRef}
             returnFocus={returnFocus}
             placesNote={placesNote}
+            placesUnplaced={placesUnplaced}
             time={time}
             threatLine={threatLine}
             shown={shown}

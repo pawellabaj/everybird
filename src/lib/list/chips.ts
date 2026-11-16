@@ -1,10 +1,12 @@
 // The chip model: what an active filter (or, for item 9's smart search, an understood phrase) shows as a removable chip.
 // Pure. `filterChips` reads a Filter into chips (places, time, statuses); `withoutFilterChip` removes one.
-import { statusName } from '@/lib/species/status-filter'
-import { continentName, isContinentId } from '@/lib/places/continents'
+import { fmt } from '@/i18n/core'
+import type { Ui } from '@/i18n/messages/en'
+import { formatInt } from '@/i18n/format'
+import { isContinentId } from '@/lib/places/continents'
 import type { Regions } from '@/lib/species/types'
 import { clearPlaces, filterPlaceKeys, withContinents, withPlaces, withStatuses, type Filter } from './filters'
-import { FILTERS_UI, fill, placesSpoken, timeSpoken, timeSummary } from './filter-summary'
+import { placesSpoken, timeSpoken, timeSummary } from './filter-summary'
 import { placeName, placeNameLong } from './place-keys'
 import { timeless } from './timeline'
 
@@ -30,26 +32,27 @@ export const continentToken = (id: string) => `continent:${id}`
 
 /**
  * The filter's chips: places (continents first, then the place keys in `filterPlaceKeys` order; a continent counts as
- * one place), then time, then statuses (in Red List order).
+ * one place), then time, then statuses (in Red List order, NE last). Place names come from `regions` (pass the
+ * language's, src/lib/i18n-places.ts regionsIn); the rest from `t`.
  */
-export function filterChips(f: Filter, regions: Names): Chip[] {
+export function filterChips(f: Filter, regions: Names, t: Ui): Chip[] {
   const out: Chip[] = []
   const keys = filterPlaceKeys(f)
   const continents = (f.continents ?? []).filter(isContinentId)
   const count = keys.length + continents.length
   if (count > MAX_CHIPS) {
-    out.push({ kind: 'place', label: fill(FILTERS_UI.manyPlaces, { n: count }), token: ALL, spoken: placesSpoken(f, regions) })
+    out.push({ kind: 'place', label: fmt(t.filters.panel.manyPlaces, { n: formatInt(count, t.num) }), token: ALL, spoken: placesSpoken(f, regions, t) })
   } else {
-    for (const id of continents) out.push({ kind: 'place', label: continentName(id), token: continentToken(id) })
+    for (const id of continents) out.push({ kind: 'place', label: t.places.continents[id], token: continentToken(id) })
     for (const k of keys) out.push({ kind: 'place', label: placeName(k, regions), token: k, spoken: placeNameLong(k, regions) })
   }
-  const time = timeSummary(f)
-  if (time) out.push({ kind: 'date', label: time, token: `${f.from ?? ''}..${f.to ?? ''}`, spoken: timeSpoken(f) })
+  const time = timeSummary(f, t)
+  if (time) out.push({ kind: 'date', label: time, token: `${f.from ?? ''}..${f.to ?? ''}`, spoken: timeSpoken(f, t) })
   const cats = f.statuses ?? []
   if (cats.length > MAX_CHIPS) {
-    out.push({ kind: 'status', label: fill(FILTERS_UI.manyStatuses, { n: cats.length }), token: ALL })
+    out.push({ kind: 'status', label: fmt(t.filters.panel.manyStatuses, { n: formatInt(cats.length, t.num) }), token: ALL })
   } else {
-    for (const c of cats) out.push({ kind: 'status', label: statusName(c), token: c })
+    for (const c of cats) out.push({ kind: 'status', label: t.iucn.names[c], token: c })
   }
   return out
 }

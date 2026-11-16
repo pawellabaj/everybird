@@ -9,12 +9,19 @@ import { Check } from '@phosphor-icons/react'
 import { useCallback, useDeferredValue, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { removedText, UndoToast, type Removal } from '@/components/app/UndoToast'
 import { Sticker } from '@/components/collage/Sticker'
+import { fmt, plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { HTML_LANG } from '@/i18n/langs'
+import { useI18n } from '@/i18n/I18nProvider'
+import { regionsIn } from '@/lib/i18n-places'
 import { track } from '@/lib/analytics'
 import { stripBracket } from '@/lib/import/places'
 import type { Edits, Place } from '@/lib/list/model'
 import type { Action } from '@/lib/list/store'
 import { addTicked, filterTickRows, removeTicked, undoRemove } from '@/lib/list/tick'
 import type { SpeciesIndex } from '@/lib/species/load'
+import { displayName, familyName, nameOfCode } from '@/lib/species/names'
+import { useNames } from '@/lib/species/use-names'
 import { orderLabel } from '@/lib/species/orders'
 import type { Regions } from '@/lib/species/types'
 import { parseManualDate } from './manual-date'
@@ -36,6 +43,10 @@ const OVER = 6 // rows drawn above and below the view
 
 export function TickList({ species, regions, edits, dispatch, onList, listEmpty }: Props) {
   const ids = useId()
+  const { lang, t } = useI18n()
+  const tt = t.tick
+  const names = useNames() // the names file arrived or the English switch flipped
+  const num = (x: number) => formatInt(x, t.num)
   const [q, setQ] = useState('')
   const [order, setOrder] = useState('')
   const [family, setFamily] = useState('')
@@ -60,19 +71,22 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
   const families = useMemo(() => {
     if (!order) return []
     const seen = new Map<string, { com: string; to: number }>()
-    for (const r of species.rows) if (r.ord === order && (!seen.has(r.fam) || r.to < seen.get(r.fam)!.to)) seen.set(r.fam, { com: r.famCom || r.fam, to: r.to })
+    for (const r of species.rows) if (r.ord === order && (!seen.has(r.fam) || r.to < seen.get(r.fam)!.to)) seen.set(r.fam, { com: familyName(r), to: r.to })
     return [...seen].sort((a, b) => a[1].to - b[1].to)
-  }, [species, order])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  }, [species, order, names])
   // The list follows the search a beat behind the keys, so typing never waits on a pass over 11,000 names.
   const dq = useDeferredValue(q)
-  const rows = useMemo(() => filterTickRows(species.rows, { q: dq, order, family }), [species, dq, order, family])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `names` is read through the module, not a prop
+  const rows = useMemo(() => filterTickRows(species.rows, { q: dq, order, family }), [species, dq, order, family, names])
+  // Country names in the UI language (Intl.DisplayNames, src/lib/i18n-places.ts), sorted in its order.
   const countries = useMemo(
-    () => Object.entries(regions.countries).map(([iso, name]) => [iso, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1])),
-    [regions],
+    () => Object.entries(regionsIn(regions, lang).countries).map(([iso, name]) => [iso, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], HTML_LANG[lang])),
+    [regions, lang],
   )
   const subs = useMemo(
-    () => (country ? Object.entries(regions.sub1).filter(([c]) => c.startsWith(`${country}-`)).map(([c, name]) => [c, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1])) : []),
-    [regions, country],
+    () => (country ? Object.entries(regions.sub1).filter(([c]) => c.startsWith(`${country}-`)).map(([c, name]) => [c, stripBracket(name)] as const).sort((a, b) => a[1].localeCompare(b[1], HTML_LANG[lang])) : []),
+    [regions, country, lang],
   )
 
   // A new search or group starts at the top.
@@ -112,7 +126,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
     dispatch({ type: 'edit', edits: addTicked(edits, codes, { date: d || undefined, place }) })
     // Only a batch into an empty list starts a hand-made collage; later ones are edits.
     if (listEmpty) track('collage_made', { source: 'manual' })
-    setDone(`Added ${codes.length.toLocaleString('en-US')} ${codes.length === 1 ? 'bird' : 'birds'} to your list.`)
+    setDone(plural(tt.added, codes.length, { n: num(codes.length) }))
     setPicked(new Set())
   }
   const drop = [...dropped].filter((c) => onList.has(c))
@@ -120,7 +134,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
     if (!drop.length) return
     dispatch({ type: 'edit', edits: removeTicked(edits, drop) })
     setDone('')
-    setRemoved({ codes: drop, text: removedText(drop.map((c) => species.byCode.get(c)?.com ?? c)), before: edits })
+    setRemoved({ codes: drop, text: removedText(drop.map((c) => nameOfCode(species.byCode, c)), t), before: edits })
     setDropped(new Set())
   }
   // Undo: exactly what the removal changed comes back (the removed list, hand records as they were), later edits kept.
@@ -135,47 +149,47 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
   const n = picked.size
   return (
     <section className="eb-tick" aria-labelledby={`${ids}-h`}>
-      <h3 id={`${ids}-h`} className="eb-sr">Tick birds off a list</h3>
+      <h3 id={`${ids}-h`} className="eb-sr">{tt.label}</h3>
       <div className="eb-tick-tools">
-        <label className="eb-sr" htmlFor={`${ids}-q`}>Search birds</label>
+        <label className="eb-sr" htmlFor={`${ids}-q`}>{tt.search}</label>
         <input
           id={`${ids}-q`}
           className="eb-input eb-tick-q"
           type="search"
           autoComplete="off"
           spellCheck={false}
-          placeholder="Common or scientific name"
+          placeholder={t.import.search.placeholder}
           value={q}
           onChange={(e) => { setQ(e.target.value); fromTop() }}
           onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); box.current?.focus() } }}
         />
-        <label className="eb-sr" htmlFor={`${ids}-o`}>Order</label>
+        <label className="eb-sr" htmlFor={`${ids}-o`}>{tt.order}</label>
         <span className="eb-select">
           <select id={`${ids}-o`} className="eb-input" value={order} onChange={(e) => { setOrder(e.target.value); setFamily(''); fromTop() }}>
-            <option value="">All orders</option>
-            {orders.map((o) => <option key={o} value={o}>{orderLabel(o)}</option>)}
+            <option value="">{tt.allOrders}</option>
+            {orders.map((o) => <option key={o} value={o}>{orderLabel(o, t)}</option>)}
           </select>
         </span>
         {families.length > 1 && (
           <>
-            <label className="eb-sr" htmlFor={`${ids}-f`}>Family</label>
+            <label className="eb-sr" htmlFor={`${ids}-f`}>{tt.family}</label>
             <span className="eb-select">
               <select id={`${ids}-f`} className="eb-input" value={family} onChange={(e) => { setFamily(e.target.value); fromTop() }}>
-                <option value="">All families</option>
+                <option value="">{tt.allFamilies}</option>
                 {families.map(([f, v]) => <option key={f} value={f}>{v.com}</option>)}
               </select>
             </span>
           </>
         )}
       </div>
-      <p className="eb-mono eb-tick-count" aria-live="polite">{rows.length.toLocaleString('en-US')} species</p>
+      <p className="eb-mono eb-tick-count" aria-live="polite">{plural(t.import.species, rows.length, { n: num(rows.length) })}</p>
 
       <div
         ref={box}
         className="eb-ticklist"
         role="listbox"
         aria-multiselectable="true"
-        aria-label="Species to tick"
+        aria-label={tt.list}
         aria-activedescendant={rows[at] ? `${ids}-r-${rows[at].code}` : undefined}
         tabIndex={0}
         style={{ height: Math.min(VIEW, Math.max(rows.length, 1)) * ROW }}
@@ -195,7 +209,7 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
                 id={`${ids}-r-${r.code}`}
                 role="option"
                 aria-selected={sel}
-                aria-label={`${r.com}, ${r.sci}${on ? ', already on your list' : ''}`}
+                aria-label={on ? fmt(tt.onListLabel, { name: `${displayName(r)}, ${r.sci}` }) : `${displayName(r)}, ${r.sci}`}
                 data-on={on || undefined}
                 className="eb-tickrow"
                 data-active={i === at || undefined}
@@ -206,59 +220,59 @@ export function TickList({ species, regions, edits, dispatch, onList, listEmpty 
                 <span className="eb-tickbox" aria-hidden="true">{sel && <Check weight="bold" />}</span>
                 <span className="eb-tickthumb" aria-hidden="true"><span style={{ width: Math.round(fit * r.ar), height: Math.round(fit) }}><Sticker code={r.code} st={r.st} ar={r.ar} sv={r.sv} w={fit * r.ar} h={fit} /></span></span>
                 <span className="eb-tickname">
-                  <span>{r.com}</span>
+                  <span>{displayName(r)}</span>
                   <i lang="la">{r.sci}</i>
                 </span>
-                {on && <span className="eb-mono eb-tickon">{sel ? 'On your list' : 'To remove'}</span>}
+                {on && <span className="eb-mono eb-tickon">{sel ? tt.onList : tt.toRemove}</span>}
               </div>
             )
           })}
         </div>
       </div>
-      {!rows.length && <p className="eb-note">No bird by that name in eBird&apos;s taxonomy.</p>}
+      {!rows.length && <p className="eb-note">{t.import.search.none}</p>}
 
-      <div className="eb-tickbar" role="group" aria-label="Add or remove the ticked birds">
+      <div className="eb-tickbar" role="group" aria-label={tt.bar}>
         <p className="eb-tickbar-n" aria-live="polite">
-          {n.toLocaleString('en-US')} selected
-          {drop.length > 0 && <span className="eb-tickbar-drop"> · {drop.length.toLocaleString('en-US')} to remove</span>}
+          {plural(tt.selected, n, { n: num(n) })}
+          {drop.length > 0 && <span className="eb-tickbar-drop"> · {plural(tt.toRemoveN, drop.length, { n: num(drop.length) })}</span>}
         </p>
         <div className="eb-tickbar-fields">
-          <label className="eb-sr" htmlFor={`${ids}-d`}>Date (optional)</label>
+          <label className="eb-sr" htmlFor={`${ids}-d`}>{tt.date}</label>
           <input
             id={`${ids}-d`}
             className="eb-input"
             inputMode="numeric"
-            placeholder="Date: YYYY-MM-DD, YYYY-MM or YYYY"
+            placeholder={tt.datePlaceholder}
             value={date}
             aria-invalid={dateError || undefined}
             aria-describedby={dateError ? `${ids}-de` : undefined}
             onChange={(e) => { setDate(e.target.value); setDateError(false) }}
           />
-          <label className="eb-sr" htmlFor={`${ids}-c`}>Country (optional)</label>
+          <label className="eb-sr" htmlFor={`${ids}-c`}>{tt.country}</label>
           <span className="eb-select">
             <select id={`${ids}-c`} className="eb-input" value={country} onChange={(e) => { setCountry(e.target.value); setSub1('') }}>
-              <option value="">No country</option>
+              <option value="">{tt.noCountry}</option>
               {countries.map(([iso, name]) => <option key={iso} value={iso}>{name}</option>)}
             </select>
           </span>
           {subs.length > 0 && (
             <>
-              <label className="eb-sr" htmlFor={`${ids}-s`}>Region (optional)</label>
+              <label className="eb-sr" htmlFor={`${ids}-s`}>{tt.region}</label>
               <span className="eb-select">
                 <select id={`${ids}-s`} className="eb-input" value={sub1} onChange={(e) => setSub1(e.target.value)}>
-                  <option value="">Whole country</option>
+                  <option value="">{tt.wholeCountry}</option>
                   {subs.map(([c, name]) => <option key={c} value={c}>{name}</option>)}
                 </select>
               </span>
             </>
           )}
-          <button type="button" className="eb-btn" disabled={!n} onClick={add}>Add {n.toLocaleString('en-US')} to my list</button>
+          <button type="button" className="eb-btn" disabled={!n} onClick={add}>{plural(tt.addN, n, { n: num(n) })}</button>
         </div>
-        {dateError && <p id={`${ids}-de`} className="eb-error">Use YYYY-MM-DD, YYYY-MM or YYYY.</p>}
+        {dateError && <p id={`${ids}-de`} className="eb-error">{tt.dateError}</p>}
         {drop.length > 0 && (
           <div className="eb-row">
-            <button type="button" className="eb-btn eb-btn-quiet eb-btn-danger" onClick={remove}>Remove {drop.length.toLocaleString('en-US')} from my list</button>
-            <button type="button" className="eb-textbtn" onClick={() => setDropped(new Set())}>Keep them</button>
+            <button type="button" className="eb-btn eb-btn-quiet eb-btn-danger" onClick={remove}>{plural(tt.removeN, drop.length, { n: num(drop.length) })}</button>
+            <button type="button" className="eb-textbtn" onClick={() => setDropped(new Set())}>{tt.keepThem}</button>
           </div>
         )}
         <p className="eb-status" role="status">{done}</p>

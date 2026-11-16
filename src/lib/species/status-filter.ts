@@ -20,6 +20,9 @@ export function isStatusFilterCat(x: unknown): x is StatusFilterCat {
   return x === 'NE' || isIucnCat(x)
 }
 
+/** Every filter category's English full name (the default of the label tables; the UI language's are `ui.iucn.names` plus `ui.iucn.notEvaluated`). */
+export const STATUS_NAMES: Record<StatusFilterCat, string> = { ...IUCN_NAMES, NE: NE_NAME }
+
 /** The full name: the Red List category's, or "Not evaluated". */
 export function statusName(cat: StatusFilterCat): string {
   return cat === 'NE' ? NE_NAME : IUCN_NAMES[cat]

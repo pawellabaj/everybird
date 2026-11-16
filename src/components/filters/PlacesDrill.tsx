@@ -7,13 +7,16 @@
 // level (DropPanel). The search field and its query are per level.
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
+import { fmt } from '@/i18n/core'
+import { useI18n } from '@/i18n/I18nProvider'
 import { clearPlaces, filterPlaceKeys, hasPlaces, placeRows, togglePlace } from '@/lib/list/filters'
 import { parentKey, placeName } from '@/lib/list/place-keys'
-import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
-import { emptyHere, LEVEL_HEAD, levelUnder, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
+import { countHead } from '@/lib/list/filter-summary'
+import { emptyHere, levelUnder, matchRows, PlaceCheck, placeCountsFor, PlacesFind, placeTestId, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyProps) {
   const { filter } = state
+  const { t } = useI18n()
   // Opens at the selection's level: every checked place under one parent starts drilled there (the breadcrumb built),
   // so a checked province or county is in view; else (none, countries, or several parents) the countries.
   const [at, setAt] = useState<string | undefined>(() => startLevel(filterPlaceKeys(filter)))
@@ -71,14 +74,14 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
   // At the counties the room is kept too, so the counts stay in the column they had a level up.
   const drills = level !== 'county' && rows.some((r) => r.children > 0)
   const gap = drills || level === 'county' ? <span className="eb-drill-space" aria-hidden="true" /> : null
-  const drillLabel = (name: string) => (level === 'country' ? `Show states and provinces in ${name}` : `Show counties in ${name}`)
+  const drillLabel = (place: string) => fmt(level === 'country' ? t.places.drill.country : t.places.drill.province, { place })
 
   return (
     <>
       <div className="eb-places-head" ref={headRef}>
-        <span className="eb-mono">{countHead(rows.length, COUNT_WORDS[level], rows.filter((r) => checked.has(r.value)).length)}</span>
+        <span className="eb-mono">{countHead(rows.length, level, rows.filter((r) => checked.has(r.value)).length, t)}</span>
         {hasPlaces(filter) && (
-          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(clearPlaces(filter))}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(clearPlaces(filter))}>{t.filters.clear}</button>
         )}
       </div>
       {at && (
@@ -89,7 +92,7 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
               {k === at ? (
                 <span aria-current="location">{placeName(k, regions)}</span>
               ) : (
-                <button type="button" onClick={() => stepTo(k)}>{k ? placeName(k, regions) : 'All countries'}</button>
+                <button type="button" onClick={() => stepTo(k)}>{k ? placeName(k, regions) : t.places.allCountries}</button>
               )}
             </span>
           ))}
@@ -97,13 +100,13 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
       )}
       {rows.length > SEARCH_FROM && <PlacesFind level={level} q={q} onQ={setQ} />}
       {rows.length === 0 && !at ? (
-        <p className="eb-note">No places on this list.</p>
+        <p className="eb-note">{t.places.none}</p>
       ) : (
-        <ul key={at ?? ''} className="eb-checklist eb-places-level" aria-label={LEVEL_HEAD[level]}>
+        <ul key={at ?? ''} className="eb-checklist eb-places-level" aria-label={t.places.head[level]}>
           {at && (
             <li className="eb-places-row">
               <PlaceCheck
-                option={{ value: at, label: `All of ${placeName(at, regions)}`, count: allCount, children: 0 }}
+                option={{ value: at, label: fmt(t.places.allOf, { place: placeName(at, regions) }), count: allCount, children: 0 }}
                 checked={checked.has(at)}
                 onToggle={() => onFilter(togglePlace(filter, at))}
                 testId="place-all"
@@ -122,8 +125,8 @@ export function PlacesDrill({ state, species, regions, onFilter }: PlacesBodyPro
             </li>
           ))}
           {rows.length === 0 ? (
-            <li className="eb-note eb-check-none" data-testid="places-empty">{emptyHere(filter)}</li>
-          ) : visible.length === 0 && <li className="eb-note eb-check-none">{NO_MATCH[level]}</li>}
+            <li className="eb-note eb-check-none" data-testid="places-empty">{emptyHere(filter, t)}</li>
+          ) : visible.length === 0 && <li className="eb-note eb-check-none">{t.places.noMatch[level]}</li>}
         </ul>
       )}
     </>

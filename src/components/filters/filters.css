@@ -124,7 +124,8 @@
 .eb-check input:checked { background: var(--accent); border-color: var(--accent); }
 .eb-check input:checked::after { transform: rotate(-45deg) scale(1); }
 .eb-check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.eb-check-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Long names ("South Georgia and the South Sandwich Islands") wrap onto a second line rather than being cut off. */
+.eb-check-name { flex: 1; min-width: 0; padding-block: 6px; overflow-wrap: break-word; }
 .eb-check[data-checked] .eb-check-name { font-weight: 600; }
 .eb-check-none { padding: 8px; }
 /* Drilling down (PlacesDrill.tsx): a level's list rises in as the taxonomy's levels do; a row with places under it
