@@ -283,7 +283,8 @@
 .eb-confirm p { margin: 0; }
 
 
-/* The top bar (the site's phone top bar): wordmark home, Collage / Settings / About, the theme switch. One row.
+/* The top bar (the site's phone top bar): wordmark home, Collage / Settings / About, the language button and the theme
+   switch; one row, or two on narrow phones (the splits below).
    Sticky, with headroom (src/lib/headroom.ts): data-hidden slides it up out of view while the page scrolls down; any
    upward scroll brings it back. Transform only: it keeps its place in the flow, so the page never moves. */
 .eb-topbar {
@@ -314,8 +315,9 @@
   border-radius: calc(12px * var(--one-if-corner-shape-supported, .566)); corner-shape: superellipse(2);
   transition: opacity .25s cubic-bezier(.25, .1, .25, 1), background-color .15s cubic-bezier(.16, 1, .3, 1);
 }
-/* The pill is 40px (36–40 on phones); the hit area is 44px, so a thumb that lands just above or below still counts. */
-.eb-nav-link::after { content: ''; position: absolute; inset: -2px 0; }
+/* The pill is 40px tall; the hit area is 44px, so a thumb that lands just above or below still counts, and at least
+   44px across (a short label, "Over", is a narrower pill). */
+.eb-nav-link::after { content: ''; position: absolute; inset: -2px min(0px, calc((100% - 44px) / 2)); } /* and 44px across */
 .eb-nav-link[aria-current="page"] { opacity: 1; color: var(--accent); background: var(--surface); border-color: var(--hairline); font-weight: 600; }
 .eb-theme {
   position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0;
@@ -324,8 +326,8 @@
 }
 .eb-theme svg { width: 22px; height: 22px; }
 .eb-theme::after { content: ''; position: absolute; inset: min(0px, calc((100% - 44px) / 2)); } /* 44px even when drawn at 40 or 36 */
-/* The language button (LanguageMenu, preview variant lang:a) sits with the theme switch at the row's end, the two always
-   together in row one. It is .eb-theme too (44px, 40 from 480px, 36 wide from 359px; Surface on hover), showing the
+/* The language button (LanguageMenu, preview variants lang:a and c) sits with the theme switch at the row's end, the two always
+   together in row one. It is .eb-theme too (44px, 40 under 500px, 36 wide under 360px; Surface on hover), showing the
    language's code in Ink mono. Its menu is the ⋯ menu's popover, right-aligned under it (LanguageMenu shifts it right
    if it would leave the window). */
 .eb-topbar-end { display: flex; align-items: center; gap: 4px; flex: none; }
@@ -358,7 +360,9 @@
   .eb-nav-link:hover { opacity: 1; }
   .eb-theme:hover { background: var(--surface); }
 }
-@media (max-width: 480px) {
+/* The bar's sizes step down under 500px and again under 360px. tests/topbar-fit.test.ts models every number in these
+   blocks and the row splits below (with the fonts' measured advances): change them together. */
+@media (max-width: 499px) {
   .eb-topbar-in { gap: 4px; }
   .eb-wordmark { font-size: 19px; }
   .eb-nav ul { gap: 2px; }
@@ -375,15 +379,52 @@
   .eb-topbar-end { gap: 2px; }
 }
 
-/* Under 300px of page (a 390px phone at Safari's aA 150% or more, page zoom): the nav can't share a row with the
-   wordmark, so it takes its own full-width row under it; --topbar-h (tokens.css) follows. */
+/* Where row one can't hold the nav (preview variant lang, `data-topbar` on <html>, set by TopBar; none on the server
+   reads as a): the nav takes its own full-width row under the wordmark, the language button and the theme switch
+   staying in row one. Only the padding's block sides change, so the gutter stays 16px (12px under 360, 8px under 240).
+   Each split has its twin in tokens.css (--topbar-h 93px), the same media query and selector, so a one-row bar never
+   gets a two-row offset; tests/topbar-fit.test.ts checks the pairs and that every row fits.
+   a (default): the language button in row one; the nav on row two under 430px, in every language.
+   b (no top-bar button): under 384px in Spanish and Dutch, under 366px in English and Portuguese.
+   c (the language button; Collage hidden under 480px, the wordmark goes home): under 310px. */
+@media (max-width: 429px) {
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-topbar-end { order: 1; margin-left: auto; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root:not([data-topbar="b"], [data-topbar="c"]) .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 383px) {
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="b"]:is(:lang(es), :lang(nl)) .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 365px) {
+  :root[data-topbar="b"] .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="b"] .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="b"] .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="b"] .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 309px) {
+  :root[data-topbar="c"] .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding-block: 4px; min-height: 0; }
+  :root[data-topbar="c"] .eb-topbar-end { order: 1; margin-left: auto; }
+  :root[data-topbar="c"] .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
+  :root[data-topbar="c"] .eb-nav ul { justify-content: space-between; }
+}
+@media (max-width: 479px) {
+  :root[data-topbar="c"] .eb-nav [data-nav="collage"] { display: none; }
+}
+/* Under 240px (a 390px phone at aA 200%): row two holds "Collage Ajustes Acerca de" and "Instellingen" at 13px with a
+   8px gutter and 3px inside each pill; the press stays 44px across (.eb-nav-link::after). */
+@media (max-width: 239px) {
+  .eb-topbar-in { padding-inline: 8px; }
+  .eb-nav-link { padding: 0 3px; }
+}
+
+/* Under 300px of page (a 390px phone at Safari's aA 150% or more, page zoom; the top bar has split above): the stats
+   line and button labels wrap, and Places and Time drop their glyphs (the labels say it) so the two still share the
+   controls bar's second row. */
 @media (max-width: 299px) {
-  .eb-topbar-in { flex-wrap: wrap; row-gap: 0; padding: 4px 12px; min-height: 0; }
-  .eb-topbar-end { order: 1; margin-left: auto; } /* the language button and the theme switch, still in row one */
-  .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
-  .eb-nav ul { justify-content: space-between; }
-  /* The rest of the page at that width: the stats line and button labels wrap, and Places and Time drop their
-     glyphs (the labels say it) so the two still share the bar's second row. */
   .eb-stat { white-space: normal; }
   .eb-btn { white-space: normal; text-align: center; }
   .eb-dock-filters { min-width: 0; }

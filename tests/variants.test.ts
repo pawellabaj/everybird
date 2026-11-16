@@ -97,8 +97,9 @@ describe('readVariant from the address', () => {
 })
 
 describe('the language picker’s variants (lang)', () => {
-  it('reads lang:b, and an unknown letter gives a', () => {
+  it('reads lang:b and lang:c, and an unknown letter gives a', () => {
     expect(readVariant('lang', LANG_VARIANTS, '?v=lang:b')).toBe('b')
+    expect(readVariant('lang', LANG_VARIANTS, '?v=lang:c')).toBe('c')
     expect(readVariant('lang', LANG_VARIANTS, '?v=lang:q')).toBe('a')
     expect(readVariant('lang', LANG_VARIANTS, '')).toBe('a')
   })

@@ -36,8 +36,9 @@ export function refreshLangCookie(doc: CookieDoc = document): void {
 }
 
 /** The language picker's preview variants (`useVariant('lang', LANG_VARIANTS)`): a, the top bar's LanguageMenu beside
- *  the theme toggle plus the Settings field (default); b, the Settings field only. */
-export const LANG_VARIANTS = ['a', 'b'] as const
+ *  the theme toggle plus the Settings field (default; the nav on a second row under 430px); b, the Settings field only;
+ *  c, as a, but under 480px the Collage link is hidden (the wordmark goes home) so the nav keeps row one down to 310px. */
+export const LANG_VARIANTS = ['a', 'b', 'c'] as const
 
 /** A new choice: the cookie, then a full reload, because the router cache and the page's HTML belong to the old
  *  language. The callers skip the current language (it only closes the menu). */

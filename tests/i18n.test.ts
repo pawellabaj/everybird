@@ -78,7 +78,7 @@ describe('langs', () => {
   it('lists the languages with their html lang and own names', () => {
     expect(LANGS).toEqual(['en', 'es', 'pt', 'nl'])
     expect(LANGS.map((l) => HTML_LANG[l])).toEqual(['en', 'es', 'pt-BR', 'nl'])
-    expect(LANGS.map((l) => LANG_NAMES[l])).toEqual(['English', 'Español', 'Português (Brasil)', 'Nederlands'])
+    expect(LANGS.map((l) => LANG_NAMES[l])).toEqual(['English', 'Español', 'Português', 'Nederlands'])
     expect(isLang('es')).toBe(true)
     expect(isLang('de')).toBe(false)
     expect(isLang('ES')).toBe(false)

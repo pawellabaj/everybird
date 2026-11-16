@@ -1,5 +1,5 @@
 'use client'
-// The top bar's language button (preview variant lang:a, the default): ThemeToggle's size and look, showing the
+// The top bar's language button (preview variants lang:a, the default, and c): ThemeToggle's size and look, showing the
 // current language's code ("EN", "ES", "PT", "NL"), named in full for screen readers ("Idioma: Español"). It opens a
 // small menu of the four languages, each in its own language, the current one checked. Its keyboard copies SourceMenu
 // (src/components/import/SourceMenu.tsx). A new choice sets the cookie and reloads (chooseLang); the current one only

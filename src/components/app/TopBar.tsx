@@ -1,12 +1,14 @@
 'use client'
 // The top bar on every page, after the site's phone top bar (framer-site code-components/SiteNav.tsx): the Everybird
 // wordmark home on the left, then Collage, Settings and About (the current page carries aria-current="page" and the
-// site's active style: Surface fill, Hairline border, Accent), then on the right the language button (preview variant
-// lang:a, the default; LanguageMenu) and the sun/moon theme switch, together in row one at every width. One row down
-// to 300px; under it the nav takes its own second row. Sticky with headroom (src/lib/headroom.ts): it slides out of view while the page scrolls down and back
-// on any upward scroll, at the top, while a dialog holds it and while focus is inside it.
+// site's active style: Surface fill, Hairline border, Accent), then on the right the language button (LanguageMenu,
+// preview variants lang:a and c) and the sun/moon theme switch, together in row one at every width. Where row one
+// can't hold the nav it takes its own second row (app.css; a under 430px, b under 384/366px by language, c under
+// 310px with Collage hidden under 480px). The variant is mirrored on <html data-topbar> so the CSS and --topbar-h
+// (tokens.css) switch together. Sticky with headroom (src/lib/headroom.ts): it slides out of view while the page
+// scrolls down and back on any upward scroll, at the top, while a dialog holds it and while focus is inside it.
 import Link from '@/components/app/IntentLink'
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { LANG_VARIANTS } from '@/i18n/choose'
 import { useI18n } from '@/i18n/I18nProvider'
 import { useAppPath } from '@/i18n/path'
@@ -29,8 +31,16 @@ export function TopBar() {
   useEffect(() => (ref.current ? attachHeadroom(ref.current) : undefined), [])
   // Preview variants: a `?v=` on any page load is remembered for the tab (src/lib/variants.ts).
   useEffect(rememberVariants, [])
-  // a: the language button beside the theme switch (the prerendered bar); b: Settings only.
+  // a: the language button beside the theme switch (the prerendered bar); b: Settings only; c: the button, and
+  // Collage hidden on phones.
   const langVariant = useVariant('lang', LANG_VARIANTS)
+  // On <html>, in the commit that renders the variant's markup, so the bar's CSS and --topbar-h never disagree with it.
+  // None on the server and while hydrating: the default selectors are a's.
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    root.dataset.topbar = langVariant
+    return () => { delete root.dataset.topbar }
+  }, [langVariant])
   return (
     <header ref={ref} className="eb-topbar" data-testid="topbar">
       <div className="eb-topbar-in">
@@ -38,14 +48,14 @@ export function TopBar() {
         <nav aria-label={t.shell.nav.label} className="eb-nav">
           <ul>
             {PAGES.map((p) => (
-              <li key={p.href}>
+              <li key={p.href} data-nav={p.key}>
                 <Link href={p.href} className="eb-nav-link" aria-current={path === p.href ? 'page' : undefined}>{t.shell.nav[p.key]}</Link>
               </li>
             ))}
           </ul>
         </nav>
         <div className="eb-topbar-end">
-          {langVariant === 'a' && <LanguageMenu />}
+          {langVariant !== 'b' && <LanguageMenu />}
           <ThemeToggle />
         </div>
       </div>

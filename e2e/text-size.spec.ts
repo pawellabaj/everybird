@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { checkTopbar, useLang } from "./topbar";
 
 // The collage's geometry is CSS px of its container only: the reader's text size (iOS Dynamic Type, Safari's aA
 // "bigger text", a browser's default font size, all of which scale the root font size or text-size-adjust) never
@@ -194,7 +195,7 @@ for (const c of CASES) {
 }
 
 // Safari's aA bigger text is page zoom: a 390px phone at 150% / 200% lays the page out at 260 / 195 CSS px. No page
-// scrolls sideways there (the top bar puts its nav on a second row under 300px; Places and Time drop their glyphs).
+// scrolls sideways there (the top bar puts its nav on a second row; Places and Time drop their glyphs).
 for (const width of [195, 260] as const) {
   test(`at ${width} CSS px (a 390px phone at aA ${width === 195 ? 200 : 150}%), no page scrolls sideways`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
@@ -212,42 +213,28 @@ for (const width of [195, 260] as const) {
   });
 }
 
-// The language button (preview variant lang:a) stays in row one beside the theme switch at every width: under 300px
-// the nav takes the second row, from 300px all of it shares one row. English and Spanish (the longer nav labels).
-for (const lang of ["en", "es"] as const) {
-  for (const width of [195, 260, 300, 320, 360] as const) {
-    test(`at ${width} CSS px in ${lang}, the language button sits in row one beside the theme switch`, async ({ page, context, baseURL }) => {
-      if (lang !== "en") await context.addCookies([{ name: "everybird-lang", value: lang, url: baseURL! }]);
-      await page.setViewportSize({ width, height: 800 });
-      for (const path of ["/", "/settings", "/about"]) {
-        await page.goto(path);
-        const bar = page.getByTestId("topbar");
-        const btn = bar.getByRole("button", { name: lang === "en" ? "Language: English" : "Idioma: Español" });
-        const theme = bar.getByRole("switch");
-        await expect(btn).toBeVisible();
-        const [b, t, w] = await Promise.all([btn.boundingBox(), theme.boundingBox(), bar.locator(".eb-wordmark").boundingBox()]);
-        expect(Math.abs(b!.y - t!.y), `${path}: the two share a row`).toBeLessThan(1);
-        expect(b!.x + b!.width, `${path}: the language button comes first`).toBeLessThanOrEqual(t!.x + 0.5);
-        expect(t!.x + t!.width, `${path}: the theme switch on screen`).toBeLessThanOrEqual(width + 0.5);
-        expect(b!.y, `${path}: in row one, beside the wordmark`).toBeLessThan(w!.y + w!.height);
-        const sw = await page.evaluate(() => document.documentElement.scrollWidth);
-        expect(sw, `${path} at ${width}px`).toBeLessThanOrEqual(width);
-        const names = lang === "en" ? ["Collage", "Settings", "About"] : ["Collage", "Ajustes", "Acerca de"];
-        for (const name of names) {
-          const link = await bar.getByRole("link", { name, exact: true }).boundingBox();
-          expect(link!.x + link!.width, `${path}: ${name} on screen`).toBeLessThanOrEqual(width + 0.5);
-          // From 300px the nav shares row one; under it, it has the second row to itself.
-          if (width >= 300) expect(link!.y, `${path}: ${name} in row one`).toBeLessThan(w!.y + w!.height);
-          else expect(link!.y, `${path}: ${name} on row two`).toBeGreaterThanOrEqual(t!.y + t!.height - 1);
+// The top bar per preview variant (lang:a|b|c) and language at large text (e2e/topbar.ts): row one keeps the wordmark,
+// the language button (a, c) and the theme switch inside the gutter; the nav shares it or has row two to itself (a
+// under 430px, b under 384/366px, c under 310px; c hides Collage under 480px), and row two fits in every language at
+// 195 and 260 ("Acerca de", "Instellingen"); --topbar-h matches the bar. 320 and up: responsive.spec.ts.
+for (const variant of ["a", "b", "c"] as const) {
+  for (const lang of ["en", "es", "pt", "nl"] as const) {
+    for (const width of [195, 260, 300] as const) {
+      test(`at ${width} CSS px in ${lang}, lang:${variant}: the top bar's rows fit`, async ({ page, context, baseURL }) => {
+        await useLang(context, baseURL!, lang);
+        await page.setViewportSize({ width, height: 800 });
+        for (const path of ["/", "/settings", "/about"]) {
+          await checkTopbar(page, path, variant, lang, width);
+          if (variant === "b") continue;
+          // The menu opens inside the window.
+          await page.getByTestId("topbar").getByRole("button", { name: /^(Language|Idioma|Taal):/ }).click();
+          const menu = await page.getByRole("menu").boundingBox();
+          expect(menu!.x, `${path}: the menu's left edge`).toBeGreaterThanOrEqual(0);
+          expect(menu!.x + menu!.width, `${path}: the menu's right edge`).toBeLessThanOrEqual(width + 0.5);
+          await page.keyboard.press("Escape");
         }
-        // The menu opens inside the window.
-        await btn.click();
-        const menu = await page.getByRole("menu").boundingBox();
-        expect(menu!.x, `${path}: the menu's left edge`).toBeGreaterThanOrEqual(0);
-        expect(menu!.x + menu!.width, `${path}: the menu's right edge`).toBeLessThanOrEqual(width + 0.5);
-        await page.keyboard.press("Escape");
-      }
-    });
+      });
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { SAMPLE_ORDERS } from "./sample";
+import { checkTopbar, useLang } from "./topbar";
 
 // Phones, as /lifelist's phone view: the controls bar in two rows (the view icons, True and Sci. or the list's
 // "Heaviest", and the magnifier; then Places and Time), and the taxonomy as one "Choose an order" button, the landing
@@ -161,5 +162,22 @@ for (const width of [768, 1280, 1440] as const) {
       expect(f.rows).toBeGreaterThan(1);
       expect((await chips(page)).sideways).toEqual([]);
     });
+  });
+}
+
+// The top bar on phones and the first tablet widths, per preview variant (lang:a|b|c) and language (e2e/topbar.ts):
+// a puts the nav on row two under 430px, b under 384px in Spanish and Dutch and 366px in English and Portuguese, c
+// keeps one row down to 310px by hiding Collage under 480px. 195–300 CSS px: text-size.spec.ts.
+for (const width of [320, 360, 375, 390, 414, 430, 440, 480, 500, 600] as const) {
+  test.describe(`${width}px: the top bar`, () => {
+    test.use({ viewport: { width, height: 844 }, hasTouch: true });
+    for (const variant of ["a", "b", "c"] as const) {
+      for (const lang of ["en", "es", "pt", "nl"] as const) {
+        test(`lang:${variant} in ${lang}: row one inside the gutter, the nav in its row, --topbar-h the bar's height`, async ({ page, context, baseURL }) => {
+          await useLang(context, baseURL!, lang);
+          for (const path of ["/", "/settings", "/about"]) await checkTopbar(page, path, variant, lang, width);
+        });
+      }
+    }
   });
 }
