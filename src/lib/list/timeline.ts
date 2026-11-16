@@ -4,13 +4,14 @@
 // The filter's time model (see filters.ts): a date range `from`/`to` (YYYY-MM, both inclusive, either end open)
 // replaces the year chips. A year is the range Jan..Dec of that year (`year` still filters, and the store turns it into
 // that range).
-import { formatDate } from '../format'
+import { fmt } from '@/i18n/core'
+import { formatMonth } from '@/i18n/format'
+import type { Ui } from '@/i18n/messages/en'
 import type { Filter } from './filters'
 import type { ListEntry } from './model'
 
 export type Month = string // 'YYYY-MM'
 
-const FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 
 /** 'YYYY-MM-DD' | 'YYYY-MM' -> 'YYYY-MM'; 'YYYY' -> 'YYYY-01' (a year-only date counts as its January); else undefined. */
@@ -26,10 +27,11 @@ const toIndex = (m: Month) => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7))
 const fromIndex = (i: number): Month => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
 
 export const addMonths = (m: Month, k: number): Month => fromIndex(toIndex(m) + k)
-/** "March 2020" (the sliders' aria-valuetext). */
-export const monthName = (m: Month): string => `${FULL[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
-/** "Mar 2020". */
-export const monthShort = (m: Month): string => formatDate(m)
+/** "March 2020" (the sliders' aria-valuetext), in `t`'s language ("marzo de 2020"). */
+export const monthName = (m: Month, t: Ui): string =>
+  fmt(t.filters.timeline.month, { month: t.filters.timeline.months[Number(m.slice(5, 7)) - 1], year: m.slice(0, 4) })
+/** "Mar 2020" ("sept 2020"). */
+export const monthShort = (m: Month, t: Ui): string => formatMonth(m, t.date.months)
 /** The current month (UTC). */
 export const todayMonth = (now = new Date()): Month => `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 
@@ -169,14 +171,15 @@ export function rangeFilter(f: Filter, lo: number, hi: number, months: readonly 
   return clean(next)
 }
 
-/** The range in words: "2020", "Sep 2020", "Mar 2020 to Jun 2021", "From Mar 2020", "Up to Jun 2021". */
-export function rangeLabel(from: Month | undefined, to: Month | undefined): string | undefined {
+/** The range in words, in `t`'s language: "2020", "Sep 2020", "Mar 2020 to Jun 2021", "From Mar 2020", "Up to Jun 2021". */
+export function rangeLabel(from: Month | undefined, to: Month | undefined, t: Ui): string | undefined {
+  const tl = t.filters.timeline
   if (from && to) {
-    if (from === to) return monthShort(from)
+    if (from === to) return monthShort(from, t)
     if (from.slice(0, 4) === to.slice(0, 4) && from.endsWith('-01') && to.endsWith('-12')) return from.slice(0, 4)
-    return `${monthShort(from)} to ${monthShort(to)}`
+    return fmt(tl.range, { from: monthShort(from, t), to: monthShort(to, t) })
   }
-  if (from) return `From ${monthShort(from)}`
-  if (to) return `Up to ${monthShort(to)}`
+  if (from) return fmt(tl.from, { month: monthShort(from, t) })
+  if (to) return fmt(tl.upTo, { month: monthShort(to, t) })
   return undefined
 }

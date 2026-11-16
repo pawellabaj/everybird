@@ -1,17 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { countriesLabel, placesLabel, placesNoteFor, placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { en } from '@/i18n/messages/en'
+import { es } from '@/i18n/messages/es'
+import { nl } from '@/i18n/messages/nl'
+import { pt } from '@/i18n/messages/pt'
+
+const t = en.ui
 
 const name = (c: string) => ({ CA: 'Canada', EG: 'Egypt', US: 'United States', ZA: 'South Africa' })[c] ?? c
 const regions = { countries: { CA: 'Canada', EG: 'Egypt', KE: 'Kenya' }, sub1: { 'CA-BC': 'British Columbia' } }
 
 describe('countriesLabel (share image)', () => {
   it('one, two joined by +, three or more as "and N more"', () => {
-    expect(countriesLabel(undefined, name)).toBeUndefined()
-    expect(countriesLabel([], name)).toBeUndefined()
-    expect(countriesLabel(['CA'], name)).toBe('Canada')
-    expect(countriesLabel(['CA', 'EG'], name)).toBe('Canada + Egypt')
-    expect(countriesLabel(['CA', 'EG', 'US'], name)).toBe('Canada and 2 more')
-    expect(countriesLabel(['CA', 'EG', 'US', 'ZA'], name)).toBe('Canada and 3 more')
+    expect(countriesLabel(undefined, name, t)).toBeUndefined()
+    expect(countriesLabel([], name, t)).toBeUndefined()
+    expect(countriesLabel(['CA'], name, t)).toBe('Canada')
+    expect(countriesLabel(['CA', 'EG'], name, t)).toBe('Canada + Egypt')
+    expect(countriesLabel(['CA', 'EG', 'US'], name, t)).toBe('Canada and 2 more')
+    expect(countriesLabel(['CA', 'EG', 'US', 'ZA'], name, t)).toBe('Canada and 3 more')
   })
 })
 
@@ -29,22 +35,39 @@ describe('the bar buttons', () => {
     expect(placesSpoken({ counties: ['CA-BC|Capital'] }, regions)).toBe('Capital, British Columbia')
   })
   it('Places on the share image: short names, in the filter\'s order', () => {
-    expect(placesLabel({}, regions)).toBeUndefined()
-    expect(placesLabel({ provinces: ['CA-BC'] }, regions)).toBe('British Columbia')
-    expect(placesLabel({ provinces: ['CA-BC'], countries: ['KE'] }, regions)).toBe('Kenya + British Columbia')
-    expect(placesLabel({ counties: ['CA-BC|Capital', 'CA-BC|Okanagan', 'CA-BC|Sooke'] }, regions)).toBe('Capital and 2 more')
+    expect(placesLabel({}, regions, t)).toBeUndefined()
+    expect(placesLabel({ provinces: ['CA-BC'] }, regions, t)).toBe('British Columbia')
+    expect(placesLabel({ provinces: ['CA-BC'], countries: ['KE'] }, regions, t)).toBe('Kenya + British Columbia')
+    expect(placesLabel({ counties: ['CA-BC|Capital', 'CA-BC|Okanagan', 'CA-BC|Sooke'] }, regions, t)).toBe('Capital and 2 more')
   })
   it('Time: years for a range, a month for one month; spoken in full', () => {
-    expect(timeSummary({})).toBeUndefined()
-    expect(timeSummary({ from: '2022-04', to: '2024-09' })).toBe('2022–2024')
-    expect(timeSummary({ from: '2022-01', to: '2022-12' })).toBe('2022')
-    expect(timeSummary({ from: '2021-09', to: '2021-09' })).toBe('Sep 2021')
-    expect(timeSummary({ from: '2022-04' })).toBe('from 2022')
-    expect(timeSummary({ to: '2024-09' })).toBe('to 2024')
-    expect(timeSpoken({ from: '2022-04', to: '2024-09' })).toBe('April 2022 to September 2024')
-    expect(timeSpoken({ from: '2021-09', to: '2021-09' })).toBe('September 2021')
-    expect(timeSpoken({ to: '2024-09' })).toBe('up to September 2024')
-    expect(timeSpoken({})).toBeUndefined()
+    expect(timeSummary({}, t)).toBeUndefined()
+    expect(timeSummary({ from: '2022-04', to: '2024-09' }, t)).toBe('2022–2024')
+    expect(timeSummary({ from: '2022-01', to: '2022-12' }, t)).toBe('2022')
+    expect(timeSummary({ from: '2021-09', to: '2021-09' }, t)).toBe('Sep 2021')
+    expect(timeSummary({ from: '2022-04' }, t)).toBe('from 2022')
+    expect(timeSummary({ to: '2024-09' }, t)).toBe('to 2024')
+    expect(timeSpoken({ from: '2022-04', to: '2024-09' }, t)).toBe('April 2022 to September 2024')
+    expect(timeSpoken({ from: '2021-09', to: '2021-09' }, t)).toBe('September 2021')
+    expect(timeSpoken({ to: '2024-09' }, t)).toBe('up to September 2024')
+    expect(timeSpoken({}, t)).toBeUndefined()
+  })
+})
+
+describe('in Spanish, Portuguese and Dutch', () => {
+  it('"and N more", the Time summary and its spoken form use the language\'s words and months', () => {
+    expect(countriesLabel(['CA', 'EG', 'US'], name, es.ui)).toBe('Canada y 2 más')
+    expect(countriesLabel(['CA', 'EG'], name, es.ui)).toBe('Canada + Egypt')
+    expect(placesLabel({ counties: ['CA-BC|Capital', 'CA-BC|Okanagan', 'CA-BC|Sooke'] }, regions, pt.ui)).toBe('Capital e mais 2')
+    expect(timeSummary({ from: '2021-09', to: '2021-09' }, es.ui)).toBe('sept 2021')
+    expect(timeSummary({ from: '2022-04', to: '2024-09' }, es.ui)).toBe('2022–2024')
+    expect(timeSummary({ from: '2022-04' }, es.ui)).toBe('desde 2022')
+    expect(timeSummary({ to: '2024-09' }, nl.ui)).toBe('tot en met 2024')
+    expect(timeSpoken({ from: '2022-04', to: '2024-09' }, es.ui)).toBe('abril de 2022 a septiembre de 2024')
+    expect(timeSpoken({ from: '2021-09', to: '2021-09' }, pt.ui)).toBe('setembro de 2021')
+    expect(timeSpoken({ to: '2024-09' }, es.ui)).toBe('hasta septiembre de 2024')
+    expect(timeSpoken({ from: '2020-03', to: '2021-06' }, nl.ui)).toBe('maart 2020 tot en met juni 2021')
+    expect(timeSpoken({}, es.ui)).toBeUndefined()
   })
 })
 

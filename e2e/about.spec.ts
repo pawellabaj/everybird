@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { BIRDS, TOTAL } from "../src/components/about/how-it-works-data";
+import { en } from "../src/i18n/messages/en";
 import { pageTitle } from "../src/lib/list/title";
 import { countParts, summaryLine, type RowCount, type SourceCounts } from "../src/lib/list/source-counts";
 import { SHARE_ORIGIN } from "../src/lib/share/origin";
@@ -321,10 +322,10 @@ test("How it works: the scene's labels are the product's (Settings rows, summary
   await expect(scene.locator(".ebd-sum .ebd-swap-a")).toHaveText("Combine any of these into one list.")
   expect(src("src/components/import/ImportPanel.tsx")).toContain("Combine any of these into one list.")
   // The collage page: the title as the product shows an untitled collage, and the taxonomy labels
-  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined))
-  await expect(scene.locator(".ebd-chips-label")).toHaveText("Orders")
-  await expect(scene.locator(".ebd-path-link").first()).toHaveText("All birds")
-  await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText("Choose an order")
+  await expect(scene.locator(".ebd-head-title")).toHaveText(pageTitle(undefined, en.ui))
+  await expect(scene.locator(".ebd-chips-label")).toHaveText(en.ui.filters.rank.order)
+  await expect(scene.locator(".ebd-path-link").first()).toHaveText(en.ui.filters.all)
+  await expect(page.locator('[data-poster="compact"] .ebd-pick-label')).toHaveText(en.ui.filters.choose.order)
   // The share dialog: its title, Story / Post / Square with their ratios, and each image's footer line
   await expect(scene.locator(".ebd-share-title")).toHaveText("Share your collage")
   const formats = [...src("src/components/share/ShareDialog.tsx").matchAll(/\{ id: '\w+', label: '(\w+)', hint: '([\d:]+)'/g)].map((x) => `${x[1]}${x[2]}`)

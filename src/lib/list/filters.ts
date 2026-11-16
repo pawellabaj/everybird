@@ -287,8 +287,9 @@ export function placeCounts(list: ListEntry[], f: Filter, species: SpeciesIndex,
   return { countries, counties }
 }
 
-/** The rows of the level under `parent` from counts already made (placeOptions without the pass over the list). */
-export function placeRows(counts: PlaceCounts, parent: string | undefined, label: (key: string) => string): PlaceOption[] {
+/** The rows of the level under `parent` from counts already made (placeOptions without the pass over the list).
+ *  Ties in count sort by name in `locale` (the UI language's BCP 47 tag). */
+export function placeRows(counts: PlaceCounts, parent: string | undefined, label: (key: string) => string, locale?: string): PlaceOption[] {
   const out: PlaceOption[] = []
   const at = parent === undefined ? undefined : parsePlaceKey(parent)
   // A place whose key doesn't parse (an odd code) is listed but never drills: nothing can be found under it.
@@ -303,7 +304,7 @@ export function placeRows(counts: PlaceCounts, parent: string | undefined, label
       out.push({ value, label: label(value), count: k.n, children: 0 })
     }
   }
-  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+  out.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, locale))
   return out
 }
 

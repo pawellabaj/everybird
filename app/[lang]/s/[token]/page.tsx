@@ -7,12 +7,15 @@ import { FullNavigation } from '@/components/app/FullNavigation'
 import { SiteFooter } from '@/components/app/SiteFooter'
 import { TopBar } from '@/components/app/TopBar'
 import { TrackVisit } from '@/components/app/VisitTracker'
-import { OG_DESCRIPTION, ogName, ogTitle, tryDecodeShare } from '@/lib/share/og'
+import { getMessages, langParam } from '@/i18n/server'
+import type { Ui } from '@/i18n/messages/en'
+import { OG_DESCRIPTION, ogTitle, shareTitle, tryDecodeShare } from '@/lib/share/og'
 import '@/components/app/app.css'
 
-type Props = { params: Promise<{ token: string }> }
+type Props = { params: Promise<{ lang: string; token: string }> }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+// Its metadata reads only the token (Task 7 gives it the language).
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
   const p = tryDecodeShare((await params).token)
   const title = ogTitle(p)
   // og:image comes from ./opengraph-image (and twitter:image from ./twitter-image); the card type is set here.
@@ -29,10 +32,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /** "Make yours", as on the landing page: the same words, the same place to start. */
-function MakeYours({ big }: { big?: boolean }) {
+function MakeYours({ big, t }: { big?: boolean; t: Ui }) {
   return (
     <Link className={big ? 'eb-btn eb-btn-big eb-hero-cta' : 'eb-btn'} href="/settings">
-      Make yours
+      {t.landing.makeYours}
       <ArrowRight aria-hidden="true" focusable="false" weight="bold" />
     </Link>
   )
@@ -45,6 +48,8 @@ function MakeYours({ big }: { big?: boolean }) {
  * (FullNavigation), so the beacon never runs in a document that has shown a token. The visit is counted as 'shared' only.
  */
 export default async function SharedPage({ params }: Props) {
+  // The page's own words in its language; the link's title (shareTitle) and the metadata above are og.ts's (Task 7).
+  const t = getMessages(await langParam(params)).ui
   const payload = tryDecodeShare((await params).token)
   if (!payload) {
     return (
@@ -53,10 +58,10 @@ export default async function SharedPage({ params }: Props) {
         <main className="eb-page eb-page-collage">
           <div className="eb-hero">
             <div className="eb-hero-text">
-              <h1 className="eb-hero-title">This link didn&apos;t open</h1>
-              <p className="eb-hero-lede" role="alert">It may be cut off, or made by a newer Everybird. Everybird turns a birder&apos;s life list into a sticker collage.</p>
+              <h1 className="eb-hero-title">{t.shared.brokenTitle}</h1>
+              <p className="eb-hero-lede" role="alert">{t.shared.brokenLede}</p>
             </div>
-            <MakeYours big />
+            <MakeYours big t={t} />
           </div>
           <SampleDemo />
         </main>
@@ -72,15 +77,15 @@ export default async function SharedPage({ params }: Props) {
       <main className="eb-page eb-page-collage">
         <div className="eb-hero">
           <div className="eb-hero-text">
-            <h1 className="eb-hero-title">{ogName(payload)}</h1>
-            <p className="eb-hero-lede">{OG_DESCRIPTION}</p>
+            <h1 className="eb-hero-title">{shareTitle(payload) ?? t.shared.untitled}</h1>
+            <p className="eb-hero-lede">{t.shared.lede}</p>
           </div>
-          <MakeYours big />
+          <MakeYours big t={t} />
         </div>
         <SharedView payload={payload} />
         <div className="eb-endcta">
-          <p className="eb-lede-sm">Your list, from eBird, iNaturalist or by hand, as a collage like this.</p>
-          <MakeYours />
+          <p className="eb-lede-sm">{t.shared.endCta}</p>
+          <MakeYours t={t} />
         </div>
       </main>
       <SiteFooter />

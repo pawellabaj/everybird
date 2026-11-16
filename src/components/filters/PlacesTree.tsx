@@ -8,9 +8,12 @@
 // search ("Find a country") matches country rows only; an open group under a matching country stays shown.
 import { useId, useMemo, useState } from 'react'
 import { ChevronDownIcon } from '@/components/collage/icons'
+import { fmt } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { filterPlaceKeys, hasPlaces, togglePlace, withPlaces, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import { parentKey, parsePlaceKey } from '@/lib/list/place-keys'
-import { emptyHere, fmt, LEVEL_HEAD, matchRows, NO_MATCH, PlaceCheck, placeCountsFor, PlacesFind, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
+import { emptyHere, matchRows, PlaceCheck, placeCountsFor, PlacesFind, SEARCH_FROM, usePlaceRows, type PlacesBodyProps } from './places-shared'
 
 // `spacer`: some country can open, so every row without a button keeps its room and all counts line up, at every depth.
 // `counts`: every level counted once (placeCountsFor), read by every open group.
@@ -19,6 +22,7 @@ type TreeProps = PlacesBodyProps & { counts: PlaceCounts; checked: Set<string>; 
 export function PlacesTree(props: PlacesBodyProps) {
   const { state, species, regions, onFilter } = props
   const { filter } = state
+  const { t } = useI18n()
   const [q, setQ] = useState('')
   // Every ancestor of a checked place, open from the start (the panel mounts afresh each time it opens).
   const [open, setOpen] = useState<Set<string>>(() => {
@@ -41,18 +45,18 @@ export function PlacesTree(props: PlacesBodyProps) {
   return (
     <>
       <div className="eb-places-head">
-        <span className="eb-mono">{LEVEL_HEAD.country} · {fmt(rows.length)}</span>
+        <span className="eb-mono">{t.places.head.country} · {formatInt(rows.length, t.num)}</span>
         {hasPlaces(filter) && (
-          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(withPlaces(filter, []))}>Clear</button>
+          <button type="button" className="eb-textbtn" data-testid="places-clear" onClick={() => onFilter(withPlaces(filter, []))}>{t.filters.clear}</button>
         )}
       </div>
       {rows.length > SEARCH_FROM && <PlacesFind level="country" q={q} onQ={setQ} />}
       {rows.length === 0 ? (
-        <p className="eb-note">No places on this list.</p>
+        <p className="eb-note">{t.places.none}</p>
       ) : (
-        <ul className="eb-checklist eb-places-tree" aria-label={LEVEL_HEAD.country}>
+        <ul className="eb-checklist eb-places-tree" aria-label={t.places.head.country}>
           <TreeRows {...tree} rows={visible} />
-          {visible.length === 0 && <li className="eb-note eb-check-none">{NO_MATCH.country}</li>}
+          {visible.length === 0 && <li className="eb-note eb-check-none">{t.places.noMatch.country}</li>}
         </ul>
       )}
     </>
@@ -68,13 +72,14 @@ function TreeRows({ rows, ...tree }: TreeProps & { rows: PlaceOption[] }) {
 function TreeRow({ option, flag, ...tree }: TreeProps & { option: PlaceOption; flag: boolean }) {
   const { checked, open, onOpen, onFilter, spacer } = tree
   const { filter } = tree.state
+  const { t } = useI18n()
   const id = useId()
   const key = option.value
   const own = parsePlaceKey(key)?.level
   // A country's provinces and a province's counties can open; counties have nothing under them.
   const canOpen = option.children > 0 && own !== 'county'
   const isOpen = canOpen && open.has(key)
-  const label = own === 'country' ? `States and provinces in ${option.label}` : `Counties in ${option.label}`
+  const label = fmt(own === 'country' ? t.places.group.country : t.places.group.province, { place: option.label })
   return (
     <li>
       <div className="eb-places-row">
@@ -100,10 +105,11 @@ function TreeRow({ option, flag, ...tree }: TreeProps & { option: PlaceOption; f
 
 /** An open row's children, as a nested list; only open groups read their rows (from the shared counts). */
 function TreeGroup({ parent, id, label, ...tree }: TreeProps & { parent: string; id: string; label: string }) {
+  const { t } = useI18n()
   const rows = usePlaceRows(tree.counts, tree.state.filter, parent, tree.regions)
   return (
     <ul id={id} className="eb-places-sub" aria-label={label}>
-      {rows.length === 0 ? <li className="eb-note eb-check-none">{emptyHere(tree.state.filter)}</li> : <TreeRows {...tree} rows={rows} />}
+      {rows.length === 0 ? <li className="eb-note eb-check-none">{emptyHere(tree.state.filter, t)}</li> : <TreeRows {...tree} rows={rows} />}
     </ul>
   )
 }

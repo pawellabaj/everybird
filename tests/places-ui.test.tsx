@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { useReducer, useState } from 'react'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
+import { withI18n } from './i18n-render'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
 vi.mock('@/lib/list/filters', async (importOriginal) => {
@@ -652,5 +653,43 @@ describe('Preview variants of the Places panel (?v=places:<letter>)', () => {
     expect(screen.getByTestId('drill-c:CA')).not.toHaveAttribute('aria-expanded')
     fireEvent.click(screen.getByTestId('drill-c:CA'))
     expect(screen.getByTestId('places-path')).toBeInTheDocument()
+  })
+})
+
+describe('in Spanish', () => {
+  it('countries by DisplayNames (Canadá), the levels, "Todo Canadá" and the drill labels from es.ui', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />, { wrapper: withI18n('es') })
+    expect(placesBtn()).toHaveAccessibleName('Lugares')
+    fireEvent.click(placesBtn())
+    const list = screen.getByRole('list', { name: 'Países' })
+    expect(within(list).getByRole('checkbox', { name: 'Canadá, 3 especies' })).toBeInTheDocument()
+    expect(within(list).getByRole('checkbox', { name: 'Egipto, 1 especie' })).toBeInTheDocument()
+    expect(screen.getByText(/Países · 3/)).toBeInTheDocument()
+    expect(screen.getByTestId('drill-c:CA')).toHaveAccessibleName('Ver estados y provincias de Canadá')
+    fireEvent.click(screen.getByTestId('drill-c:CA'))
+    expect(screen.getByTestId('places-path')).toHaveTextContent('Todos los países/Canadá')
+    expect(screen.getByTestId('place-all')).toHaveAccessibleName('Todo Canadá, 3 especies')
+    expect(screen.getByRole('list', { name: 'Estados y provincias' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('place-all'))
+    expect(placesBtn()).toHaveAccessibleName('Lugares: Canadá')
+    expect(placesBtn()).toHaveTextContent('Lugares · 1')
+  })
+  it('the lifer-only note, in Spanish, keeps its link', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness note="add" />, { wrapper: withI18n('es') })
+    fireEvent.click(placesBtn())
+    const note = screen.getByTestId('places-lifer-only')
+    expect(note).toHaveTextContent('Lugares solo sabe dónde registraste cada ave por primera vez. Añade MyEBirdData para filtrar por todos los lugares donde registraste cada ave, hasta el condado.')
+    expect(within(note).getByRole('link', { name: 'Añade MyEBirdData' })).toHaveAttribute('href', '/settings#add-mydata')
+  })
+  it('the Time panel and button in Spanish', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />, { wrapper: withI18n('es') })
+    fireEvent.click(timeBtn())
+    expect(screen.getByRole('dialog', { name: 'Fechas' })).toBeInTheDocument()
+    expect(screen.getByTestId('time-handle-lo')).toHaveAccessibleName('Mes inicial')
+    expect(screen.getByTestId('time-handle-lo')).toHaveAttribute('aria-valuetext', 'enero de 2019')
+    expect(screen.getByTestId('timeline-read')).toHaveTextContent('ene 2019 a jun 2022 · 3 especies')
   })
 })

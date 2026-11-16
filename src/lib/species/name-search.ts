@@ -1,5 +1,7 @@
 // Name matching shared by species.search (the whole taxonomy) and the collage search (the birds on show):
 // word prefixes of the common or scientific name, accent- and case-insensitive.
+import { HTML_LANG, type Lang } from '@/i18n/langs'
+import { EN_UI, type Ui } from '@/i18n/messages/en'
 import { orderLabel } from './orders'
 import { foldName } from './resolve'
 import type { SpeciesRow } from './types'
@@ -74,15 +76,16 @@ type Group = { count: number; shown: number; to: number }
  * the rest, each part sorted by common name. A group counts its birds in the filter, or on the whole list when none
  * are shown. A family that is its order's only family under the same name is left out (picking either shows the same
  * birds). Over `limit` hits, the best matches are kept (in the filter first, then tier, then orders before families
- * before species, then taxonomic order) before sorting.
+ * before species, then taxonomic order) before sorting. Order labels come from `opts.t` (default English), and names
+ * sort in `opts.lang`.
  */
 export function searchCollage(
   entries: readonly { code: string }[],
   q: string,
   species: { byCode: Map<string, SpeciesRow> },
-  opts: { shown?: ReadonlySet<string>; limit?: number } = {},
+  opts: { shown?: ReadonlySet<string>; limit?: number; t?: Ui; lang?: Lang } = {},
 ): CollageHit[] {
-  const { shown, limit = 50 } = opts
+  const { shown, limit = 50, t = EN_UI, lang = 'en' } = opts
   const key = searchKey(q)
   if (!key) return []
   const orders = new Map<string, Group & { fams: Set<string> }>()
@@ -107,13 +110,15 @@ export function searchCollage(
     if (tier >= 0) found.push({ hit: { kind: 'species', value: r.code, com: r.com, sci: r.sci, count: 1, order: r.ord, inFilter: on }, tier, to: r.to })
   }
   for (const [ord, o] of orders) {
-    const com = orderLabel(ord)
+    const com = orderLabel(ord, t)
     const tier = nameTier(key, { com, sci: ord })
     if (tier >= 0) found.push({ hit: { kind: 'order', value: ord, com, sci: ord, count: o.shown || o.count, inFilter: o.shown > 0 }, tier, to: o.to })
   }
   for (const [fam, f] of fams) {
     const o = orders.get(f.order)!
-    if (o.fams.size === 1 && searchKey(f.com) === searchKey(orderLabel(f.order))) continue
+    // Family names are English (until the names files), so the English order label counts too.
+    const famKey = searchKey(f.com)
+    if (o.fams.size === 1 && (famKey === searchKey(orderLabel(f.order, t)) || famKey === searchKey(orderLabel(f.order)))) continue
     const tier = nameTier(key, { com: f.com, sci: fam })
     if (tier >= 0) found.push({ hit: { kind: 'family', value: fam, com: f.com, sci: fam, count: f.shown || f.count, order: f.order, inFilter: f.shown > 0 }, tier, to: f.to })
   }
@@ -122,6 +127,6 @@ export function searchCollage(
     ? [...found].sort((a, b) => out(a) - out(b) || a.tier - b.tier || KIND_RANK[a.hit.kind] - KIND_RANK[b.hit.kind] || a.to - b.to).slice(0, limit)
     : found
   return best
-    .sort((a, b) => out(a) - out(b) || a.hit.com.localeCompare(b.hit.com, 'en') || KIND_RANK[a.hit.kind] - KIND_RANK[b.hit.kind] || a.to - b.to)
+    .sort((a, b) => out(a) - out(b) || a.hit.com.localeCompare(b.hit.com, HTML_LANG[lang]) || KIND_RANK[a.hit.kind] - KIND_RANK[b.hit.kind] || a.to - b.to)
     .map((x) => x.hit)
 }

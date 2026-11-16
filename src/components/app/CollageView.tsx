@@ -10,7 +10,10 @@ import { reduced } from '@/components/collage/collage-motion'
 import { ListView } from '@/components/collage/ListView'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { FilterDropdowns, type Panel, type PlacesNote } from '@/components/filters/FilterDropdowns'
-import { formatDate } from '@/lib/format'
+import { fmt, plural, rich } from '@/i18n/core'
+import { formatInt, formatMonth } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
 import { latestLifer } from '@/lib/list/build-list'
 import { applyFilter, drillTo, filterKey, filterToShow } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
@@ -52,8 +55,6 @@ type Props = {
   seed?: readonly StateLayout[]
 }
 
-const n = (x: number) => x.toLocaleString('en-US')
-const plural = (x: number, one: string, many: string) => `${n(x)} ${x === 1 ? one : many}`
 const pad = (d: string) => (d.length === 4 ? `${d}-00-00` : d.length === 7 ? `${d}-00` : d)
 /** How long a bird picked from the search wears its Accent ring. */
 const RING_MS = 1600
@@ -62,23 +63,38 @@ const GLIDE_MS = 760
 /** How long an out-of-view pick waits for its layout before it lapses. */
 const PENDING_MS = 4000
 
-/** "197 species · 20 orders · 50 families · since Jan 2020", or "12 of 197 species · 3 families" when filtered. */
-export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex): string {
+/** "197 species · 20 orders · 50 families · since Jan 2020", or "12 of 197 species · 3 families" when filtered, in `t`'s
+ *  language. */
+export function statsLine(all: ListEntry[], shown: ListEntry[], species: SpeciesIndex, t: Ui): string {
   const ords = new Set<string>(), fams = new Set<string>()
   for (const e of shown) {
     const r = species.byCode.get(e.code)
     if (r) { ords.add(r.ord); fams.add(r.fam) }
   }
-  if (shown.length < all.length) return `${n(shown.length)} of ${plural(all.length, 'species', 'species')} · ${plural(fams.size, 'family', 'families')}`
+  const s = t.collage.stats
+  const count = (p: typeof s.species, x: number) => plural(p, x, { n: formatInt(x, t.num) })
+  if (shown.length < all.length) {
+    const of = plural(s.of, all.length, { n: formatInt(shown.length, t.num), total: formatInt(all.length, t.num) })
+    return `${of} · ${count(s.families, fams.size)}`
+  }
   let first: string | undefined
   for (const e of all) if (e.date && (!first || pad(e.date) < pad(first))) first = e.date
-  const parts = [plural(all.length, 'species', 'species'), plural(ords.size, 'order', 'orders'), plural(fams.size, 'family', 'families')]
-  if (first && formatDate(first)) parts.push(`since ${formatDate(first)}`)
+  const parts = [count(s.species, all.length), count(s.orders, ords.size), count(s.families, fams.size)]
+  const since = formatMonth(first, t.date.months)
+  if (since) parts.push(fmt(s.since, { date: since }))
   return parts.join(' · ')
+}
+
+/** The legend's "Latest: Snow Goose, Sep 2026" (the date a <time> element). */
+function latestLine(name: string, date: string | undefined, t: Ui): ReactNode {
+  const shown = formatMonth(date, t.date.months)
+  if (!shown) return fmt(t.collage.legend.latest, { name })
+  return rich(fmt(t.collage.legend.latestOn, { name, date: shown }), { time: (chunk) => <time dateTime={date}>{chunk}</time> })
 }
 
 export function CollageView({ state, dispatch, species, regions, label, cardActions, hidePanels, placesNote, statsPrefix, notice, filterNote, seed, whose = 'this' }: Props) {
   const { list, filter, mode, view, massOrder, sci, seen } = state
+  const { t } = useI18n()
   const box = useRef<HTMLElement>(null)
   const wrap = useRef<HTMLDivElement>(null)
   const [pick, setPick] = useState<{ code: string; anchor: HTMLElement | null } | null>(null)
@@ -102,7 +118,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
   const time = useMemo(() => ({ entries, months, today, onPreview }), [entries, months, today, onPreview])
   const fk = filterKey(filter)
   const shownList = useMemo(() => (fk ? applyFilter(entries, filter, species, seen) : entries), [entries, filter, fk, species, seen])
-  const stats = useMemo(() => statsLine(entries, shownList, species), [entries, shownList, species])
+  const stats = useMemo(() => statsLine(entries, shownList, species, t), [entries, shownList, species, t])
   const shownCodes = useMemo(() => new Set(shownList.map((e) => e.code)), [shownList])
   const latest = useMemo(() => latestLifer(entries, (c) => species.byCode.get(c)?.to ?? 0), [entries, species])
 
@@ -172,7 +188,7 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
 
   const picked = pick ? list.find((e) => e.code === pick.code) : undefined
   const tipEntry = tip && !pick && view === 'collage' ? entries.find((e) => e.code === tip) : undefined
-  const sizes = mode === 'true' ? 'Sizes follow body mass at true scale' : 'Sizes follow body mass, evened out so small birds stay visible'
+  const sizes = mode === 'true' ? t.collage.legend.sizesTrue : t.collage.legend.sizesEven
   const latestRow = latest ? species.byCode.get(latest.code) : undefined
 
   return (
@@ -210,8 +226,8 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
           </div>
         ) : (
           <div className="eb-stage-wait" aria-hidden="true">
-            <span className="eb-num">{n(shownList.length)}</span>
-            <span className="eb-mono">{entries.length ? 'arranging the stickers' : 'species'}</span>
+            <span className="eb-num">{formatInt(shownList.length, t.num)}</span>
+            <span className="eb-mono">{entries.length ? t.collage.arranging : t.count.label}</span>
           </div>
         )
       ) : (
@@ -220,10 +236,10 @@ export function CollageView({ state, dispatch, species, regions, label, cardActi
 
       <div className="eb-mono eb-legend">
         <p>
-          {latest && latestRow ? <>Latest: {latestRow.com}{latest.date ? <>, <time dateTime={latest.date}>{formatDate(latest.date)}</time></> : null} · </> : null}
+          {latest && latestRow ? <>{latestLine(latestRow.com, latest.date, t)} · </> : null}
           {sizes}
         </p>
-        <p>* heard only · † found dead</p>
+        <p>{t.collage.legend.marks}</p>
       </div>
 
       {picked && pick && (

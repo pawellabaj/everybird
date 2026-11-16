@@ -9,6 +9,8 @@ import { emptySaved } from '@/lib/list/storage'
 import type { SourceRecord } from '@/lib/list/model'
 import { buildSpeciesIndex } from '@/lib/species/load'
 import type { SpeciesRow } from '@/lib/species/types'
+import { es } from '@/i18n/messages/es'
+import { withI18n } from './i18n-render'
 
 const row = (code: string, ord: string, fam: string, famCom: string, to: number): SpeciesRow => ({
   code, com: code, sci: `Avis ${code}`, ord, fam, famCom, to, g: 100, gSrc: 'avonet', st: true, ar: 1, q: true,
@@ -120,5 +122,25 @@ describe('FilterBar', () => {
     })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(fam).toHaveFocus()
+  })
+})
+
+describe('in Spanish', () => {
+  it('the orders row, its chips and the breadcrumb come from es.ui (Todas las aves / Paseriformes)', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness />, { wrapper: withI18n('es') })
+    const orders = screen.getByRole('group', { name: 'Órdenes' })
+    const chip = within(orders).getByRole('button', { name: /^Paseriformes/ })
+    expect(chip).toHaveAccessibleName('Paseriformes, 2 especies')
+    expect(within(orders).getByRole('button', { name: new RegExp(`^${es.ui.orders.Anseriformes}`) })).toBeInTheDocument()
+    fireEvent.click(chip)
+    const crumbs = screen.getByRole('navigation', { name: 'Filtrar por grupo' }).querySelector('.eb-path')!
+    expect(crumbs).toHaveTextContent(`Todas las aves/${es.ui.orders.Passeriformes}`)
+    expect(screen.getByRole('group', { name: 'Familias' })).toBeInTheDocument()
+  })
+  it('under 600px the picker says Elige un orden', () => {
+    vi.stubGlobal('innerWidth', 390)
+    render(<Harness />, { wrapper: withI18n('es') })
+    expect(screen.getByTestId('picker-order')).toHaveTextContent('Elige un orden 3')
   })
 })

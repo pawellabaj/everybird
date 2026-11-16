@@ -5,6 +5,11 @@
 import { useMemo } from 'react'
 import { SearchIcon } from '@/components/collage/icons'
 import { Flag } from '@/components/Flag'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
+import { HTML_LANG } from '@/i18n/langs'
+import type { Ui } from '@/i18n/messages/en'
 import { filterKey, filterPlaceKeys, placeCounts, placeRows, withPlaces, type Filter, type PlaceCounts, type PlaceOption } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { SeenIndex } from '@/lib/list/seen'
@@ -32,13 +37,8 @@ export function levelUnder(parent: string | undefined): PlaceLevel {
   return parsePlaceKey(parent)?.level === 'country' ? 'province' : 'county'
 }
 
-/** A level's head word, also its checklist's accessible name. */
-export const LEVEL_HEAD: Record<PlaceLevel, string> = { country: 'Countries', province: 'States and provinces', county: 'Counties' }
-const FIND: Record<PlaceLevel, string> = { country: 'Find a country', province: 'Find a state or province', county: 'Find a county' }
-/** What a search that matches no row at the level says. */
-export const NO_MATCH: Record<PlaceLevel, string> = { country: 'No country matches.', province: 'No state or province matches.', county: 'No county matches.' }
-
-export const fmt = (x: number) => x.toLocaleString('en-US')
+// A level's head word (also its checklist's accessible name), its search field and what a search matching no row
+// says: `t.places.head`, `.find`, `.noMatch`.
 
 // The last counts per list (list and seen keep their identities across filter changes, store.ts): every design and
 // every open group reads the same pass, made again only when the other filters, the list or seen-here change.
@@ -60,8 +60,8 @@ export function placeCountsFor(state: AppState, species: SpeciesIndex): PlaceCou
  * What a drilled level with no places says: the other filters (taxonomy, time) left it none, or, with none set, the
  * list no longer has a bird seen there (a source was removed or replaced since the panel drilled in).
  */
-export function emptyHere(f: Filter): string {
-  return f.order || f.family || f.year || f.from || f.to ? 'No places here under the other filters.' : 'No places here on your list now.'
+export function emptyHere(f: Filter, t: Ui): string {
+  return f.order || f.family || f.year || f.from || f.to ? t.places.emptyFiltered : t.places.emptyNow
 }
 
 /**
@@ -71,7 +71,8 @@ export function emptyHere(f: Filter): string {
  * A checkbox changes only the held rows: the counted rows stay as they were.
  */
 export function usePlaceRows(counts: PlaceCounts, filter: Filter, parent: string | undefined, regions: Regions): PlaceOption[] {
-  const opts = useMemo(() => placeRows(counts, parent, (k) => placeName(k, regions)), [counts, parent, regions])
+  const { lang } = useI18n()
+  const opts = useMemo(() => placeRows(counts, parent, (k) => placeName(k, regions), HTML_LANG[lang]), [counts, parent, regions, lang])
   // Each place at this level that is checked or holds a checked place -> the distinct ones one level under it.
   const held = useMemo(() => {
     const out = new Map<string, Set<string>>()
@@ -118,28 +119,31 @@ type CheckProps = { option: PlaceOption; checked: boolean; onToggle: () => void;
 
 /** One checklist row: the whole row is the label (box, flag on countries, name, Muted count, the spoken count). */
 export function PlaceCheck({ option, checked, onToggle, flag, testId }: CheckProps) {
+  const { t } = useI18n()
   const p = flag ? parsePlaceKey(option.value) : undefined
+  const n = formatInt(option.count, t.num)
   return (
     <label className="eb-check" data-checked={checked ? '' : undefined}>
       <input type="checkbox" checked={checked} onChange={onToggle} data-testid={testId ?? placeTestId(option.value)} />
       {p && <Flag iso={p.country} />}
       <span className="eb-check-name">{option.label}</span>
-      <span className="eb-count" aria-hidden="true">{fmt(option.count)}</span>
-      <span className="eb-sr">, {fmt(option.count)} species</span>
+      <span className="eb-count" aria-hidden="true">{n}</span>
+      <span className="eb-sr">, {plural(t.collage.stats.species, option.count, { n })}</span>
     </label>
   )
 }
 
 /** The search field for a level with many rows: the app's one field style (globals.css .eb-input), the site's lens. */
 export function PlacesFind({ level, q, onQ }: { level: PlaceLevel; q: string; onQ: (q: string) => void }) {
+  const { t } = useI18n()
   return (
     <div className="eb-input-wrap">
       <SearchIcon className="eb-input-icon" />
       <input
         type="search"
         className="eb-input eb-input-search"
-        placeholder={FIND[level]}
-        aria-label={FIND[level]}
+        placeholder={t.places.find[level]}
+        aria-label={t.places.find[level]}
         autoComplete="off"
         spellCheck={false}
         enterKeyHint="search"

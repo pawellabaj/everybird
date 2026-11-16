@@ -8,10 +8,16 @@ import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
+import { ORDERS } from '@/lib/species/orders'
 import { withI18n } from './i18n-render'
 
 /** Values that may read the same as English: names, formats, and words the languages share. */
-const ALLOW_SAME = ['eBird', 'iNaturalist', 'CSV', 'JSON', 'Everybird', 'GitHub', 'Collage']
+const ALLOW_SAME = [
+  'eBird', 'iNaturalist', 'CSV', 'JSON', 'Everybird', 'GitHub', 'Collage',
+  // Words the languages share: nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
+  // Flamingos, pt Seriemas, nl Hoatzin, nl Trogons); nl's full month needs no "de" ("maart 2020").
+  'Filters', 'Families', '{n} families', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
+]
 
 const OTHERS = { es, pt, nl } as const
 
@@ -57,6 +63,11 @@ describe('the dictionaries', () => {
         if (v === e) expect(ALLOW_SAME, `${lang} ${k} is still English: "${v}"`).toContain(v)
       }
     }
+  })
+
+  it('en.ui.orders is ORDERS (the English table), and every language labels every order', () => {
+    expect(en.ui.orders).toEqual(ORDERS)
+    for (const m of Object.values(OTHERS)) expect(Object.keys(m.ui.orders)).toEqual(Object.keys(ORDERS))
   })
 
   it('the count label fits the hole in every language', () => {

@@ -14,6 +14,9 @@ import { createPortal } from 'react-dom'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
 import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet } from '@/components/dialog-utils'
+import { useI18n } from '@/i18n/I18nProvider'
+import type { Ui } from '@/i18n/messages/en'
+import { regionsIn } from '@/lib/i18n-places'
 import { placesSpoken, placesSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
@@ -47,27 +50,29 @@ type Props = {
   inert?: boolean
 }
 
-const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] = [
-  { id: 'places', label: 'Places', Icon: GlobeHemisphereWest },
-  { id: 'time', label: 'Time', Icon: CalendarBlank },
+/** The two panels, Places first; their names from `t.filters`. */
+const panels = (t: Ui): { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] => [
+  { id: 'places', label: t.filters.places, Icon: GlobeHemisphereWest },
+  { id: 'time', label: t.filters.time, Icon: CalendarBlank },
 ]
 
 export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert }: Props) {
   const base = useId()
   const sheet = useIsSheet()
+  const { lang, t } = useI18n()
   const { filter } = state
   const buttons = useRef<Partial<Record<Panel, HTMLButtonElement | null>>>({})
-  const shown = PANELS.filter((p) => !hide?.includes(p.id))
+  const shown = panels(t).filter((p) => !hide?.includes(p.id))
   const current = shown.find((p) => p.id === open)
   if (!shown.length) return null
   const onFilter = (f: Filter) => dispatch({ type: 'filter', filter: f })
 
-  const summary = (p: Panel) => (p === 'places' ? placesSummary(filter) : timeSummary(filter))
-  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, regions) : timeSpoken(filter))
+  const summary = (p: Panel) => (p === 'places' ? placesSummary(filter) : timeSummary(filter, t))
+  const spoken = (p: Panel) => (p === 'places' ? placesSpoken(filter, regionsIn(regions, lang)) : timeSpoken(filter, t))
 
   return (
     <>
-      <div className="eb-dock-filters" role="group" aria-label="Places and time" inert={inert}>
+      <div className="eb-dock-filters" role="group" aria-label={t.filters.dock} inert={inert}>
         {shown.map(({ id, label, Icon }) => {
           const s = summary(id)
           const said = spoken(id)
@@ -130,6 +135,7 @@ type PanelProps = { id: string; kind: Panel; title: string; sheet: boolean; butt
 /** A popover under the bar (non-modal: a press outside closes it) or, on phones, a modal bottom sheet. */
 function DropPanel({ id, kind, title, sheet, button, onClose, children }: PanelProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const { t } = useI18n()
   useEscapeCapture(onClose)
   useFocusInAndBack(ref, button)
   // Shown, the top bar must not cover the popover or its controls bar (a sheet sits above it anyway).
@@ -162,7 +168,7 @@ function DropPanel({ id, kind, title, sheet, button, onClose, children }: PanelP
       {sheet && (
         <div className="eb-sheet-head">
           <span className="eb-mono">{title}</span>
-          <button type="button" className="eb-sheet-close" aria-label="Close" onClick={onClose}>
+          <button type="button" className="eb-sheet-close" aria-label={t.collage.close} onClick={onClose}>
             <CloseIcon />
           </button>
         </div>

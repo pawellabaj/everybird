@@ -16,6 +16,12 @@ Read this before you translate a string or add a language. English (`messages/en
 | Make yours | Haz el tuyo | Faça a sua (a colagem) | Maak de jouwe |
 | Settings (top bar) | Ajustes | Ajustes | Instellingen |
 | About (top bar) | Acerca de | Sobre | Over |
+| My collage (untitled) | Mi collage | Minha colagem | Mijn collage |
+| Places (filter) | Lugares | Lugares | Plaatsen |
+| Time (filter) | Fechas | Datas | Tijd |
+| county | condado | condado | graafschap |
+| Heard only / Found dead | Solo oída / Encontrada muerta | Só ouvida / Encontrada morta | Alleen gehoord / Dood gevonden |
+| birder | observador de aves | observador de aves | vogelaar |
 
 ## Register
 

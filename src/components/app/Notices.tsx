@@ -1,22 +1,25 @@
 'use client'
+import { useI18n } from '@/i18n/I18nProvider'
 import type { Everybird } from './EverybirdProvider'
 
 export function MemoryNotice() {
+  const { t } = useI18n()
   return (
     <p className="eb-notice" role="status">
-      This list won&apos;t be saved on this device. Your browser is blocking storage (private browsing does this), so download a backup before you leave.
+      {t.collage.notices.memory}
     </p>
   )
 }
 
 /** Load failures and a failed forget, shown on every page of the app. */
 export function AppNotices({ eb, memory = true, failure = true }: { eb: Everybird; memory?: boolean; failure?: boolean }) {
+  const { t } = useI18n()
   return (
     <>
       {eb.meta.forgetOutcome === 'failed' && (
-        <p className="eb-error eb-notice" role="alert">Couldn&apos;t clear this device&apos;s copy. Clear this site&apos;s data in your browser settings to remove it.</p>
+        <p className="eb-error eb-notice" role="alert">{t.collage.notices.forgetFailed}</p>
       )}
-      {failure && eb.failed && <p className="eb-error eb-notice" role="alert">Couldn&apos;t load the bird data. Check your connection and reload the page.</p>}
+      {failure && eb.failed && <p className="eb-error eb-notice" role="alert">{t.collage.notices.loadFailed}</p>}
       {memory && eb.state.persistence === 'memory-only' && <MemoryNotice />}
     </>
   )

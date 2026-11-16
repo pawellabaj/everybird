@@ -32,6 +32,7 @@ import { latestLifer } from '@/lib/list/build-list'
 import { countriesLabel, placesLabel } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import { rangeLabel } from '@/lib/list/timeline'
+import { EN_UI } from '@/i18n/messages/en'
 import type { ListEntry } from '@/lib/list/model'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
@@ -77,12 +78,13 @@ export function filterLabel(
   ctx: { species: SpeciesIndex; countryName: (iso2: string) => string; regions?: Pick<Regions, 'countries' | 'sub1'> },
 ): string | undefined {
   // Places: "Canada", "Canada + Egypt", "Capital and 2 more".
-  const place = ctx.regions ? placesLabel(f, ctx.regions) : countriesLabel(f.countries, ctx.countryName)
+  // English for now: Task 7 draws the share images in the UI language.
+  const place = ctx.regions ? placesLabel(f, ctx.regions, EN_UI) : countriesLabel(f.countries, ctx.countryName, EN_UI)
   const parts: string[] = []
   if (f.family) parts.push(ctx.species.rows.find((r) => r.fam === f.family)?.famCom || f.family)
-  else if (f.order) parts.push(orderLabel(f.order))
+  else if (f.order) parts.push(orderLabel(f.order, EN_UI))
   if (place) parts.push(place)
-  const range = rangeLabel(f.from, f.to)
+  const range = rangeLabel(f.from, f.to, EN_UI)
   if (range) parts.push(range)
   else if (f.year) parts.push(f.year)
   return parts.length ? parts.join(' · ') : undefined

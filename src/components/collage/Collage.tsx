@@ -9,6 +9,9 @@
 //  - className: extra class on the outer wrapper.
 //  - still:     only visibility changes over the shown layout (a range drag's preview; see the prop).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { plural } from '@/i18n/core'
+import { formatInt } from '@/i18n/format'
+import { useI18n } from '@/i18n/I18nProvider'
 import { LAYOUTS } from '@/lib/layout/constants'
 import { labelBounds } from '@/lib/layout/count-box'
 import type { StateLayout } from '@/lib/layout/layout-client'
@@ -92,6 +95,7 @@ function makeInit(code: string, layout: StateLayout, visible: Set<string>, m: Mo
 }
 
 export function Collage({ entries, species, layout, visible, mode, onPick, onHover, className, still }: CollageProps) {
+  const { t } = useI18n()
   const stage = useRef<HTMLDivElement>(null)
   const layer = useRef<HTMLDivElement>(null)
   const els = useRef(new Map<string, HTMLButtonElement>())
@@ -555,7 +559,7 @@ export function Collage({ entries, species, layout, visible, mode, onPick, onHov
         ref={stage}
         className="eb-stage"
         role="group"
-        aria-label={`Collage of ${shown.toLocaleString('en-US')} species, sized by body mass${mode === 'true' ? ' at true scale' : ''}. Use the arrow keys to move between birds.`}
+        aria-label={plural(mode === 'true' ? t.collage.stage.trueScale : t.collage.stage.even, shown, { n: formatInt(shown, t.num) })}
         data-testid="collage-stage"
         data-mode={mode}
         data-many={many || undefined}

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useReducer, useState } from 'react'
+import { useI18n } from '@/i18n/I18nProvider'
 import { stripBracket } from '@/lib/import/places'
 import { loadSamplePack, type SamplePack } from '@/lib/list/sample-pack'
 import { initialState, makeReducer } from '@/lib/list/store'
@@ -13,18 +14,20 @@ import { CollageView } from './CollageView'
 export function SampleDemo() {
   const [pack, setPack] = useState<SamplePack | null>(null)
   const [failed, setFailed] = useState(false)
+  const { t } = useI18n()
   useEffect(() => {
     let live = true
     loadSamplePack().then((p) => { if (live) setPack(p) }, () => { if (live) setFailed(true) })
     return () => { live = false }
   }, [])
-  if (failed) return <p className="eb-error eb-notice" role="alert">Couldn&apos;t load the sample collage. Check your connection and reload the page.</p>
+  if (failed) return <p className="eb-error eb-notice" role="alert">{t.landing.sampleFailed}</p>
   if (!pack) return <div className="eb-stage-wait eb-sample-wait" aria-hidden="true" />
   return <Loaded pack={pack} />
 }
 
 function Loaded({ pack }: { pack: SamplePack }) {
   const { species, regions } = pack
+  const { t } = useI18n()
   const reducer = useMemo(
     () => makeReducer({ species, countryName: (iso) => (regions.countries[iso] ? stripBracket(regions.countries[iso]) : iso) }),
     [species, regions],
@@ -36,8 +39,8 @@ function Loaded({ pack }: { pack: SamplePack }) {
       dispatch={dispatch}
       species={species}
       regions={regions}
-      label="Sample collage"
-      statsPrefix="Sample: a demo birder's life list"
+      label={t.collage.regionSample}
+      statsPrefix={t.landing.samplePrefix}
       seed={pack.seed}
     />
   )

@@ -10,6 +10,7 @@
 // one is the icons, the two switches (or "Heaviest") and the magnifier; row two Places and Time.
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, CollageIcon, ListIcon } from '@/components/collage/icons'
+import { useI18n } from '@/i18n/I18nProvider'
 import { DockSearchField, SearchButton, type DockSearchProps } from './DockSearch'
 
 type Props = {
@@ -29,6 +30,8 @@ type Props = {
 
 export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters }: Props) {
   const [finding, setFinding] = useState(false)
+  const { t } = useI18n()
+  const c = t.collage.controls
   const wrap = useRef<HTMLDivElement>(null)
   const findBtn = useRef<HTMLButtonElement>(null)
   const close = useCallback((restore: boolean) => {
@@ -42,11 +45,11 @@ export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, on
   return (
     <div ref={wrap} className="eb-dockwrap">
       <div className="eb-dock" data-finding={finding || undefined}>
-        <div className="eb-dock-tabs" role="group" aria-label="View" inert={finding}>
+        <div className="eb-dock-tabs" role="group" aria-label={c.view} inert={finding}>
           {(['collage', 'list'] as const).map((v) => (
-            <button key={v} type="button" className="eb-dock-tab" aria-pressed={view === v} aria-label={v === 'collage' ? 'Collage' : 'List'} onClick={() => onView(v)}>
+            <button key={v} type="button" className="eb-dock-tab" aria-pressed={view === v} aria-label={v === 'collage' ? c.collage : c.list} onClick={() => onView(v)}>
               {v === 'collage' ? <CollageIcon /> : <ListIcon />}
-              <span>{v === 'collage' ? 'Collage' : 'List'}</span>
+              <span>{v === 'collage' ? c.collage : c.list}</span>
             </button>
           ))}
         </div>
@@ -55,12 +58,12 @@ export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, on
             <button
               type="button"
               className="eb-dock-tab eb-dock-sw eb-dock-dir"
-              aria-label={`Sorted by body mass, ${lightFirst ? 'lightest' : 'heaviest'} first. Reverse order`}
+              aria-label={lightFirst ? c.sortedLightest : c.sortedHeaviest}
               onClick={onDirection}
             >
               <span>
-                <span className="eb-long">{lightFirst ? 'Lightest first' : 'Heaviest first'}</span>
-                <span className="eb-short">{lightFirst ? 'Lightest' : 'Heaviest'}</span>
+                <span className="eb-long">{lightFirst ? c.lightestFirst : c.heaviestFirst}</span>
+                <span className="eb-short">{lightFirst ? c.lightest : c.heaviest}</span>
               </span>
               <ArrowDownIcon up={lightFirst} />
             </button>
@@ -70,15 +73,15 @@ export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, on
               role="switch"
               aria-checked={trueSize}
               className="eb-dock-tab eb-dock-sw"
-              title="Size by body mass at true scale (big birds dwarf small ones)"
+              title={c.trueTitle}
               onClick={() => onTrueSize(!trueSize)}
             >
-              <span><span className="eb-long">True size</span><span className="eb-short">True</span><span className="eb-sr"> sticker sizes</span></span>
+              <span><span className="eb-long">{c.trueSize}</span><span className="eb-short">{c.trueShort}</span><span className="eb-sr">{` ${c.trueSr}`}</span></span>
               <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
             </button>
           )}
           <button type="button" role="switch" aria-checked={sci} className="eb-dock-tab eb-dock-sw eb-dock-sci" onClick={() => onSci(!sci)}>
-            <span><span className="eb-long">Scientific</span><span className="eb-short">Sci.</span><span className="eb-sr"> names</span></span>
+            <span><span className="eb-long">{c.sci}</span><span className="eb-short">{c.sciShort}</span><span className="eb-sr">{` ${c.sciSr}`}</span></span>
             <span className="eb-track" aria-hidden="true"><span className="eb-knob" /></span>
           </button>
         </div>
