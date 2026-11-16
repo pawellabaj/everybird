@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import linkIndex from "../data/link-index.json";
 
-// The global IUCN Red List status (item 3): the stats line's threatened count, the Conservation status dropdown, the card's pill (with its name in plain text), the shared view, and the pill's Line ring in the dark theme. A synthetic list of eleven species picked
+// The global IUCN Red List status (item 3): the stats line's threatened count, the Red List dropdown, the card's pill (with its name in plain text), the shared view, and the pill's Line ring in the dark theme. A synthetic list of eleven species picked
 // from the published data by their status: one LC, NT, VU, EN, EW, EX and DD, two CR, and two without a status, all
 // with their own sticker and in the link index (so a copied link carries every one). Threatened: VU + EN + 2 CR = 4.
 // Written in Round 4 and not run yet: whoever runs e2e next, check it first.
@@ -73,7 +73,7 @@ async function openCard(page: Page, r: Row) {
   return card;
 }
 
-/** Checks VU, EN and CR in the Conservation status panel by their rows' names (the whole row is the label). */
+/** Checks VU, EN and CR in the Red List panel by their rows' names (the whole row is the label). */
 async function threatened(page: Page) {
   await page.getByTestId("filter-tab-status").click();
   const panel = page.getByTestId("filter-panel-status");
@@ -84,10 +84,10 @@ async function threatened(page: Page) {
 
 for (const width of [1280, 390]) {
   const phone = width < 600;
-  test.describe(`conservation status at ${width}px`, () => {
+  test.describe(`Red List at ${width}px`, () => {
     test.use({ viewport: { width, height: phone ? 844 : 900 }, hasTouch: phone });
 
-    test("the threatened count; Conservation status lists eight categories, filters to the threatened birds, and Clear restores them", async ({ page }) => {
+    test("the threatened count; Red List lists eight categories, filters to the threatened birds, and Clear restores them", async ({ page }) => {
       await seed(page);
       await expect(stats(page)).toHaveText(new RegExp(`^${TOTAL} species · .* · 4 threatened${SR.replace(/[()]/g, "\\$&")} · since `));
       const panel = await threatened(page);
@@ -95,9 +95,9 @@ for (const width of [1280, 390]) {
       await expect(panel.getByTestId("status-CR")).toBeChecked();
       await expect(stats(page)).toContainText(`4 of ${TOTAL} species`);
       await expect(page.getByTestId("filter-tab-status")).toContainText("· 3");
-      // The visible label is "Conservation status" on the wide bar and "Status" on a phone; the accessible name is whole.
-      await expect(page.getByTestId("filter-tab-status")).toContainText(phone ? "Status · 3" : "Conservation status");
-      await expect(page.getByTestId("filter-tab-status")).toHaveAttribute("aria-label", "Conservation status: Vulnerable, Endangered, Critically Endangered");
+      // The visible label is "Red List" at every width; the accessible name adds the checked categories.
+      await expect(page.getByTestId("filter-tab-status")).toContainText("Red List · 3");
+      await expect(page.getByTestId("filter-tab-status")).toHaveAttribute("aria-label", "Red List: Vulnerable, Endangered, Critically Endangered");
       await expect(shownBirds(page)).toHaveCount(4);
       await panel.getByTestId("status-clear").click();
       await expect(shownBirds(page)).toHaveCount(TOTAL);
@@ -151,7 +151,7 @@ for (const width of [1280, 390]) {
       expect(badge!.width).toBeGreaterThanOrEqual(26);
     });
 
-    test("the shared view: Conservation status filters the copied link's birds and the card has the pill", async ({ page, baseURL }) => {
+    test("the shared view: Red List filters the copied link's birds and the card has the pill", async ({ page, baseURL }) => {
       test.setTimeout(90_000);
       // A stand-in clipboard in every engine records what Copy link writes (flows.spec.ts covers the real one).
       await page.addInitScript(() => {

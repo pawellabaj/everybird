@@ -60,14 +60,14 @@ describe('Status: a dropdown in the controls bar', () => {
   it('a Status button after Time; its panel lists the categories on the list, in Red List order, with counts', () => {
     vi.stubGlobal('innerWidth', 1000)
     render(<Harness />)
-    const group = screen.getByRole('group', { name: 'Places, time and conservation status' })
+    const group = screen.getByRole('group', { name: 'Places, time and Red List' })
     expect(group).toHaveClass('eb-dock-filters')
     expect(within(group).getAllByRole('button').map((b) => b.dataset.testid)).toEqual(['filter-tab-places', 'filter-tab-time', 'filter-tab-status'])
     // app.css's three-drop rules key on a third drop in the group (.eb-dock-drop:nth-child(3)): Status is it.
     expect(group.querySelector('.eb-dock-drop:nth-child(3)')).toBe(statusBtn())
-    expect(statusBtn()).toHaveAccessibleName('Conservation status')
+    expect(statusBtn()).toHaveAccessibleName('Red List')
     fireEvent.click(statusBtn())
-    const panel = screen.getByRole('dialog', { name: 'Conservation status' })
+    const panel = screen.getByRole('dialog', { name: 'Red List' })
     expect(statusBtn()).toHaveAttribute('aria-controls', panel.id)
     expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
@@ -91,12 +91,12 @@ describe('Status: a dropdown in the controls bar', () => {
     fireEvent.click(screen.getByTestId('status-EN'))
     expect(filterOf()).toEqual({ statuses: ['VU', 'EN'] })
     expect(screen.getByTestId('status-VU')).toBeChecked()
-    // The visible label is the long form with the short "Status" beside it (app.css shows one by container query).
-    expect(statusBtn().querySelector('.eb-long')).toHaveTextContent('Conservation status')
-    expect(statusBtn().querySelector('.eb-short')).toHaveTextContent('Status')
-    expect(statusBtn().querySelector('.eb-short')).toHaveAttribute('aria-hidden', 'true')
+    // One label at every width: "Red List", no short form beside it.
+    expect(statusBtn().querySelector('.eb-drop-label')).toHaveTextContent('Red List · 2')
+    expect(statusBtn().querySelector('.eb-long')).toBeNull()
+    expect(statusBtn().querySelector('.eb-short')).toBeNull()
     expect(statusBtn().querySelector('.eb-drop-sum')).toHaveTextContent('· 2')
-    expect(statusBtn()).toHaveAccessibleName('Conservation status: Vulnerable, Endangered')
+    expect(statusBtn()).toHaveAccessibleName('Red List: Vulnerable, Endangered')
     // The counts are under the other filters: checking a category changes none of them.
     expect(screen.getByRole('checkbox', { name: 'Least Concern, 1 species' })).not.toBeChecked()
     fireEvent.click(screen.getByTestId('status-clear'))
@@ -150,7 +150,7 @@ describe('Status: a dropdown in the controls bar', () => {
     const { unmount } = render(<Harness />)
     statusBtn().focus()
     fireEvent.click(statusBtn())
-    expect(screen.getByRole('dialog', { name: 'Conservation status' })).toContainElement(document.activeElement as HTMLElement)
+    expect(screen.getByRole('dialog', { name: 'Red List' })).toContainElement(document.activeElement as HTMLElement)
     act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(statusBtn()).toHaveFocus()
@@ -159,7 +159,7 @@ describe('Status: a dropdown in the controls bar', () => {
     vi.stubGlobal('innerWidth', 390)
     render(<Harness />)
     fireEvent.click(statusBtn())
-    const sheet = screen.getByRole('dialog', { name: 'Conservation status' })
+    const sheet = screen.getByRole('dialog', { name: 'Red List' })
     expect(sheet).toHaveAttribute('aria-modal', 'true')
     expect(within(sheet).getByTestId('status-LC')).toBeInTheDocument()
     fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
@@ -199,7 +199,7 @@ describe('IucnPill', () => {
   })
 })
 
-describe('The Conservation status button’s glyph', () => {
+describe('The Red List button’s glyph', () => {
   it('is Phosphor Leaf, one constant shared with the How it works scene; Places and Time keep their own', () => {
     const { container } = render(<STATUS_ICON />)
     const leaf = container.querySelector('svg')!.innerHTML

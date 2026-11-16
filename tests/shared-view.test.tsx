@@ -97,10 +97,10 @@ describe('shared view', () => {
     await waitFor(() => expect(screen.getByTestId('collage-stats').textContent).toMatch(/^5 species/))
     expect(screen.getByTestId('collage-stats').textContent).toContain('3 threatened')
     fireEvent.click(screen.getByTestId('filter-tab-status'))
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Conservation status' })).getByTestId('status-VU'))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Red List' })).getByTestId('status-VU'))
     await waitFor(() => expect(screen.getByTestId('collage-stats').textContent).toBe('2 of 5 species · 1 family'))
     expect(screen.getByTestId('filter-tab-status').querySelector('.eb-drop-sum')!.textContent).toContain('· 1')
-    expect(screen.getByTestId('filter-tab-status').getAttribute('aria-label')).toMatch(/^Conservation status: /)
+    expect(screen.getByTestId('filter-tab-status').getAttribute('aria-label')).toMatch(/^Red List: /)
   })
 
   it('no Status button on a link whose birds have no status', async () => {

@@ -99,7 +99,7 @@
 .eb-dock-filters, .eb-dock-end { margin-left: 8px; } /* + the dock's 4px gap = 12px between groups */
 .eb-dock[data-finding] .eb-dock-tabs, .eb-dock[data-finding] .eb-dock-tools,
 .eb-dock[data-finding] .eb-dock-filters, .eb-dock[data-finding] .eb-dock-end { opacity: 0; pointer-events: none; }
-/* Places, Time and Status: a Phosphor glyph, the label (and what it filters, " · 2"), a caret. Open: the pressed tab's Surface;
+/* Places, Time and Red List: a Phosphor glyph, the label (and what it filters, " · 2"), a caret. Open: the pressed tab's Surface;
    filtering: Accent text, full opacity, 600 (selection, as a pressed tab). */
 /* At every width a drop can give way: the group may shrink, each drop may shrink (flex's default, said here so the rule
    reads whole), and the label shrinks inside it with an ellipsis, so a long summary ("Time · 2022–2024") cuts its own
@@ -116,7 +116,7 @@
 .eb-drop-sum { font-variant-numeric: tabular-nums; }
 /* Under 820px of bar (a tablet's or a phone's) the dropdowns take a second row under a Hairline, rather than squeeze
    the first; the search keeps row one. Under 600px the two buttons split the row evenly and drop their carets. With a
-   third drop (Conservation status) the second row starts under 1080px (below). */
+   third drop (Red List) the second row starts under 1000px (below). */
 @container (max-width: 819px) {
   .eb-dock { flex-wrap: wrap; row-gap: 4px; }
   .eb-dock-filters {
@@ -133,7 +133,7 @@
   .eb-dock-filters .eb-dock-drop::after { content: ''; position: absolute; inset: -4px 0; }
   .eb-dock-filters .eb-drop-caret { display: none; } /* the row reads as two buttons; aria-expanded says the rest */
 }
-/* Three drops (Places, Time and Conservation status: the list has Red List statuses). Every rule below is for a dock
+/* Three drops (Places, Time and Red List: the list has Red List statuses). Every rule below is for a dock
    holding a third drop only, under :where() so it weighs no more than the two-drop rule it follows: without the third
    the bar is exactly as before. Widths from this file, the bar's 14px Satoshi taken as 7.5px a character (half
    an em at 15px, a deliberate over-estimate for this break; the phone row below is measured):
@@ -142,23 +142,23 @@
    a switch 14 + text + 10 + 34 + 12: True size 137.5, Scientific 145, + 4 = 286.5 (list view: Heaviest first
    14 + 105 + 6 + 16 + 12 = 153, so +15.5);
    a drop 14 + 18 + 8 + text + 8 + 14 + 16 (.eb-dock-tab's padding, later in this file, wins over .eb-dock-drop's
-   12 / 10 here; under 600px the row's 10 / 10 does): Places 123, Time 108, Conservation status 78 + 19 * 7.5 = 220.5
-   (the third drop's label was "Status", 123, until Yusuf's rename of 2026-11-15);
+   12 / 10 here; under 600px the row's 10 / 10 does): Places 123, Time 108, Red List 78 + 8 * 7.5 = 138
+   ("Red List", Yusuf 2026-11-15; it was "Conservation status", 220.5, with a short "Status", 123, under 540px of bar
+   and on phones: the short form is gone, one label at every width);
    the magnifier 44.
-   Two drops: 10 + 202.5 + 286.5 + 235 + 44 + 28 = 806, under today's 820 break. Three: + 4 + 220.5 = 1030.5 (list
-   view 1046) by that generous estimate, + 40 for summaries = 1070.5, rounded up to 20: one row from 1080px of bar (it
-   was 980 with "Status"). Measured from Satoshi's advance widths (hmtx, no kerning; weight 600 draws as Bold 700, only
-   400, 500 and 700 load), the resting row is about 967.5px in collage view and 970.3px in list view, so a bar of 1080
-   has about 112 to spare and the widest bar (1088px) about 120. An active drop swaps its resting
+   Two drops: 10 + 202.5 + 286.5 + 235 + 44 + 28 = 806, under today's 820 break. Three: + 4 + 138 = 948 (list
+   view 963.5) by that generous estimate, + 40 for summaries = 988, rounded up to 20: one row from 1000px of bar (it
+   was 1080 with "Conservation status", 980 with "Status"). Measured from Satoshi's advance widths (hmtx, no kerning;
+   weight 600 draws as Bold 700, only 400, 500 and 700 load), the resting row is about 893.0px in collage view and
+   895.8px in list view, so a bar of 1000 has about 104 to spare. An active drop swaps its resting
    label for a Bold summary: "Places · 12" 72.8 (resting "Places" 40.8, +32), "Time · 2022–2024" 131.7 (resting
-   "Time" 30.7, +101), "Conservation status · 3" 150.6 (resting 124.7, +25.9). Any one fits (Time alone
-   1068.5), and so do Places with Conservation status (1025.4). Accepted: at the widest bar (1088px), two or three
-   long summaries outgrow it (Places · 12 plus a Time range is 1100.5, all three 1126.4) and the Time or Conservation status label
-   ellipses (the drop labels shrink, min-width 0, rather than push the magnifier); between 1080 and 1088px less
-   is needed. Item 10 replaces the three drops with one Filters button.
-   Under 540px of bar, and on phones, the third drop's
-   visible label is "Status" (.eb-short, below), so none of the phone-row widths further down change. */
-@container (max-width: 1079px) {
+   "Time" 30.7, +101), "Red List · 3" 73.4 (resting "Red List" 50.2, +23.2). Any one fits (Time alone 994.0 in
+   collage view, 996.8 in list view), and so do Places with Red List (948.2). Accepted: between 1000 and about
+   1050px of bar two or three long summaries outgrow the row (Places · 12 plus a Time range is 1026.0, all three
+   1049.2) and the Time label ellipses (the drop labels shrink, min-width 0, rather than push the magnifier); from
+   1050px of bar every mix fits whole. Item 10 replaces the three drops with one Filters button.
+   The label is the same at every width, so none of the phone-row widths further down used "Status" any longer. */
+@container (max-width: 999px) {
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) { flex-wrap: wrap; row-gap: 4px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters {
     order: 1; flex: 1 0 100%; margin: 0 -4px -4px; padding: 4px; gap: 4px; border-top: 1px solid var(--hairline);
@@ -172,29 +172,28 @@
    Medium (500), active ones in Bold (the 600 they ask for draws as 700: only 400, 500 and 700 load). No caret (the
    599px row). Here the drops pad 8 a side, and an active one 6 a side with its glyph hidden (its Accent text and
    summary say it):
-     resting, glyph 18 + gap 8: Places 8 + 26 + 40.8 + 8 = 82.8, Time 72.7, Status 80.7;
+     resting, glyph 18 + gap 8: Places 8 + 26 + 40.8 + 8 = 82.8, Time 72.7, Red List 8 + 26 + 50.2 + 8 = 92.2;
      active: "Places · 12" 72.8 + 12 = 84.8, "Time · 2022–2024" (the longest summary: "from 2022" 115.9, "Sep 2021"
-     109.6, "to 2024" 98) 131.7 + 12 = 143.7, "Status · 3" (at most 8 categories, one digit) 61.6 + 12 = 73.6.
-   The row is the bar less 18. The widest mixes: Places · 12 and Time active, Status resting, 84.8 + 143.7 + 80.7 =
-   309.2 (bar 328); Time alone active 143.7 + 82.8 + 80.7 = 307.2 (bar 326); all three active 302.1 (bar 321). So
-   every label reads whole down to 328px of bar (a 360px phone, its bar 328, just holds the widest mix; at 375 and 390
-   there is 15 and 30 to spare). Each grows into what's left, so the row fills. Places and Status never shrink (their
-   number is never cut); only Time may, down to a 44px press, and only it ellipses where the row is too short (under
-   328px of bar with the widest mix; under 320 the glyphs go and every drop pads 6, below). The grid under 300px of
+     109.6, "to 2024" 98) 131.7 + 12 = 143.7, "Red List · 3" (at most 8 categories, one digit) 73.4 + 12 = 85.4.
+   The row is the bar less 18. The widest mixes: Places · 12 and Time active, Red List resting, 84.8 + 143.7 + 92.2 =
+   320.7 (bar 338.7); Time alone active 143.7 + 82.8 + 92.2 = 318.7 (bar 336.7); all three active 313.9 (bar 331.9). So
+   every label reads whole down to 339px of bar (at 375 and 390 there is 4 and 19 to spare; a 360px phone, its bar 328,
+   gives the widest mix 310 against 320.7, so there Time ellipses by about 11px, as only it may). Each grows into
+   what's left, so the row fills. Places and Red List never shrink (their number is never cut); only Time may, down to a
+   44px press, and only it ellipses where the row is too short (under 339px of bar with the widest mix; under 320 the
+   glyphs go and every drop pads 6, below). The grid under 300px of
    page resets these to its own content-sized `flex: 0 1 auto` and 4px padding (later, same weight).
-   This block also covers bars of 541-599px on a viewport over 600px (a narrow window, a tablet): there the long label
-   shows ("Conservation status", not "Status"): the row is about 395px at worst (Places and Time active, Conservation
-   status resting with its glyph 166.7; 391 with all three active) against the 523px row of a 541px bar, so every
-   label reads whole there. */
+   This block also covers bars of 541-599px on a viewport over 600px (a narrow window, a tablet): the row is the
+   same and has 523px or more against at most 321, so every label reads whole there. */
 @container (max-width: 599px) {
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 1 0 auto; min-width: 44px; padding: 0 8px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters [data-active] { padding: 0 6px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters [data-drop="time"] { flex-shrink: 1; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop[data-active] svg { display: none; }
 }
-/* Resting with their glyphs the three need 82.8 + 72.7 + 80.7 = 236.2, so the glyphs must go under 236.2 + 18 = 255px
+/* Resting with their glyphs the three need 82.8 + 72.7 + 92.2 = 247.7, so the glyphs must go under 247.7 + 18 = 266px
    of bar; with room for active labels they go under 320 (a 320px phone's 288px bar: 270 of row against bare labels at
-   6px padding, Places 52.8, Time 44 (its press), Status 50.7; all three active 302.1 there, so Time ellipses). */
+   6px padding, Places 52.8, Time 44 (its press), Red List 62.2; all three active 313.9 there, so Time ellipses). */
 @container (max-width: 319px) {
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop svg { display: none; }
@@ -217,7 +216,7 @@
 .eb-dock-find { padding: 0; width: 44px; }
 .eb-short { display: none; }
 /* Phones (LifeList's 600px): the bar's short form whatever the phone's width, so row one is always the view icons,
-   True and Sci. (or the list's "Heaviest") and the magnifier; Places, Time (and Status) are row two. */
+   True and Sci. (or the list's "Heaviest") and the magnifier; Places, Time (and Red List) are row two. */
 @media (max-width: 600px) {
   .eb-dock .eb-long { display: none; }
   .eb-dock .eb-short { display: inline; }
@@ -231,7 +230,7 @@
   .eb-dock-end { margin-left: 2px; }
 }
 /* The bar's own width from here (any screen: a phone, a tablet, a narrow window). Row one must hold the tabs, the tools
-   and the magnifier: the 820px rule (1080px with the third drop) lets the bar wrap (for Places, Time and Conservation status), so anything
+   and the magnifier: the 820px rule (1000px with the third drop) lets the bar wrap (for Places, Time and Red List), so anything
    too wide would push the magnifier onto a line of its own (e2e dock-sweep.spec sweeps 280–1200px). */
 @container (max-width: 460px) {
   .eb-dock-tabs .eb-dock-tab span { display: none; }
@@ -419,7 +418,7 @@
   .eb-theme { order: 1; margin-left: auto; }
   .eb-nav { order: 2; flex: 1 0 100%; margin-left: 0; }
   .eb-nav ul { justify-content: space-between; }
-  /* The rest of the page at that width: the stats line and button labels wrap, and Places, Time and Status drop
+  /* The rest of the page at that width: the stats line and button labels wrap, and Places, Time and Red List drop
      their glyphs (the labels say it) so they still share the bar's second row. */
   .eb-stat { white-space: normal; }
   .eb-btn { white-space: normal; text-align: center; }
@@ -427,7 +426,7 @@
   .eb-dock-filters .eb-dock-drop { gap: 0; padding: 0 6px; }
   .eb-dock-filters .eb-dock-drop svg { display: none; }
   /* Row one can't hold the magnifier too, so the bar is a grid here: the view tabs and the switches, then Places, Time
-     (and Status) and the magnifier on the second row under one Hairline (never a magnifier alone on a row). */
+     (and Red List) and the magnifier on the second row under one Hairline (never a magnifier alone on a row). */
   .eb-dock { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 0; row-gap: 4px; }
   .eb-dock-tabs { grid-area: 1 / 1; }
   .eb-dock-tools { grid-area: 1 / 2 / 2 / 4; justify-self: end; margin-left: 0; }
@@ -435,9 +434,9 @@
   .eb-dock-end { grid-area: 2 / 3; margin: 0 -4px -4px 0; padding: 4px; border-top: 1px solid var(--hairline); align-self: stretch; display: flex; align-items: center; }
   /* Three drops beside the magnifier: no room to grow, so each takes its label's width, spread across the cell. At 260
      the dock is 228, its content 218, the magnifier's column 36 (the 310px container rule) + 8 − 4 = 40, so the
-     drops' cell is 218 − 40 + 4 − 8 = 174 inside, less two gaps 166: Places 45 + 8, Time 44 (held at 44 here, as in
-     the content-sized phone row above: its label's own width would be 38, under a 44px press), Status 45 + 8 = 150. Never a wrap: a label that
-     can't fit ellipses (above). */
+     drops' cell is 218 − 40 + 4 − 8 = 174 inside, less two gaps 166: Places 40.8 + 8, Time 44 (held at 44 here, as in
+     the content-sized phone row above: its label's own width would be 38, under a 44px press), Red List 50.2 + 8 =
+     151. Never a wrap: a label that can't fit ellipses (above). */
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters { justify-content: space-between; }
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; min-width: 44px; padding: 0 4px; }
 }
@@ -450,8 +449,8 @@
   .eb-dock-tools { grid-area: 2 / 1 / 3 / 3; justify-self: stretch; justify-content: space-between; }
   .eb-dock-filters { grid-area: 3 / 1 / 4 / 3; margin: 0 -4px -4px; }
   /* Three drops on their own row: at 195 the dock is 163, the row 163 − 10 + 8 − 8 = 153 inside, less two gaps 145.
-     At 14px (7px a character; the labels inherit .eb-view's 14px) Places 42 + 8, Time 44 (min-width), Status 42 + 8
-     = 144: they fit, or ellipsis by a few px. */
+     At 14px (the labels inherit .eb-view's 14px) Places 40.8 + 8, Time 44 (min-width), Red List 50.2 + 8
+     = 151 against 145: they fit, or the Red List label ellipses by a few px (the accessible name stays whole). */
   :where(.eb-dock:has(.eb-dock-drop:nth-child(3))) .eb-dock-filters .eb-dock-drop { flex: 0 1 auto; min-width: 44px; }
 }
 
