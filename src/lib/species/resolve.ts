@@ -39,7 +39,16 @@ function fromRow(row: TaxonRow, via: 'sci' | 'com' | 'taxonOrder'): Resolution {
   return { code: null, reason: 'not-species' }
 }
 
-export function resolveName(t: TaxonomyIndex, q: { sci?: string; com?: string; taxonOrder?: number }): Resolution {
+/**
+ * Resolve one name. On a miss the nearest species is suggested (a scan of the whole taxonomy), unless `suggest` is
+ * false: callers resolving many names first and suggesting for a few later (observation.org) pass false and call
+ * `suggestName` themselves.
+ */
+export function resolveName(
+  t: TaxonomyIndex,
+  q: { sci?: string; com?: string; taxonOrder?: number },
+  opts: { suggest?: boolean } = {},
+): Resolution {
   if (q.sci) {
     // Exact name first so domestic/hybrid rows keep their own identity; then the normalized key.
     const row = t.exactSci.get(exactSci(q.sci)) ?? t.bySci.get(normalizeSci(q.sci))
@@ -54,7 +63,8 @@ export function resolveName(t: TaxonomyIndex, q: { sci?: string; com?: string; t
     const row = t.byOrder.get(q.taxonOrder)
     if (row) return fromRow(row, 'taxonOrder')
   }
-  const suggestion = suggest(t, q)
+  if (opts.suggest === false) return { code: null, reason: 'no-match' }
+  const suggestion = suggestName(t, q)
   return suggestion ? { code: null, reason: 'no-match', suggestion } : { code: null, reason: 'no-match' }
 }
 
@@ -63,7 +73,7 @@ type Candidates = { code: string; sci: string; com: string }
 const candCache = new WeakMap<TaxonomyIndex, Candidates[]>()
 
 /** Nearest species code by Levenshtein on sci name (<=3), else on common name. Computed only on no-match. */
-function suggest(t: TaxonomyIndex, q: { sci?: string; com?: string }): string | undefined {
+export function suggestName(t: TaxonomyIndex, q: { sci?: string; com?: string }): string | undefined {
   let cands = candCache.get(t)
   if (!cands) {
     cands = t.rows

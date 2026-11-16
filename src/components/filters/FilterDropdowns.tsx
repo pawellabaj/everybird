@@ -21,7 +21,7 @@ import { trapTab, useEscapeCapture, useFocusInAndBack, useHoldTopBar, useIsSheet
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
 import { regionsIn } from '@/lib/i18n-places'
-import { placesSpoken, placesSummary, statusSpoken, statusSummary, timeSpoken, timeSummary } from '@/lib/list/filter-summary'
+import { placesSpoken, placesSummary, statusSpoken, statusSummary, timeSpoken, timeSummary, type PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { Filter } from '@/lib/list/filters'
 import type { ListEntry } from '@/lib/list/model'
 import type { Action, AppState } from '@/lib/list/store'
@@ -50,6 +50,8 @@ type Props = {
   /** Buttons to leave out (a shared link that carries no places or dates). Status also hides itself on a list with no statuses. */
   hide?: readonly Panel[]
   placesNote?: PlacesNote
+  /** Some birds on the observation.org life list have no places: the Places panel says so (the birder's own collage). */
+  placesUnplaced?: PlacesUnplaced
   /** The Time panel's timeline: the known entries, the whole list's months, today. */
   time: { entries: ListEntry[]; months: Month[]; today: Month; onPreview?: (r: { from?: Month; to?: Month } | null) => void }
   /** The search covers the bar: the buttons are inert. */
@@ -65,7 +67,7 @@ const panels = (t: Ui): { id: Panel; label: string; /** The bar's short form (un
   { id: 'status', label: t.filters.status, short: t.filters.statusShort, Icon: STATUS_ICON },
 ]
 
-export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert, threatLine }: Props) {
+export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, placesUnplaced, time, inert, threatLine }: Props) {
   const base = useId()
   const sheet = useIsSheet()
   const { lang, t } = useI18n()
@@ -129,7 +131,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
           onClose={() => onOpen(null)}
         >
           {current.id === 'places' ? (
-            <PlacesList state={state} species={species} regions={regions} note={placesNote} onFilter={onFilter} />
+            <PlacesList state={state} species={species} regions={regions} note={placesNote} unplaced={placesUnplaced} onFilter={onFilter} />
           ) : current.id === 'status' ? (
             <StatusList state={state} species={species} threatLine={threatLine} onFilter={onFilter} />
           ) : (

@@ -5,7 +5,8 @@ import { fmt, plural } from '@/i18n/core'
 import { formatInt, shortDay } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import type { Ui } from '@/i18n/messages/en'
-import type { EbirdDetails, InatDetails } from '@/lib/list/storage'
+import type { EbirdDetails, InatDetails, ObsOrgDetails } from '@/lib/list/storage'
+import { obsorgNotCounted } from './obsorg-copy'
 import { SourceMenu, type MenuItem, type SourceMenuHandle } from './SourceMenu'
 
 /** A file's name when it wasn't kept ("eBird full export"). */
@@ -20,6 +21,14 @@ export function ebirdLine(kind: EbirdDetails['kind'], d: EbirdDetails | undefine
   if (!d) return { name: fallback(kind, t), parts: [t.import.detailsUnknown] }
   const date = d.at ? shortDay(d.at, t.date.months, now) : ''
   return { name: d.file || fallback(kind, t), parts: date ? [fmt(t.import.imported, { date })] : [] }
+}
+
+/** One observation.org file (the Observed species life list, or the observations): its name, then "Imported 6 Nov". */
+export function obsorgLine(kind: ObsOrgDetails['kind'], d: ObsOrgDetails | undefined, t: Ui, now?: Date): SourceState {
+  const fallbackName = t.import.obsorg.fallback[kind]
+  if (!d) return { name: fallbackName, parts: [t.import.detailsUnknown] }
+  const date = d.at ? shortDay(d.at, t.date.months, now) : ''
+  return { name: d.file || fallbackName, parts: date ? [fmt(t.import.imported, { date })] : [] }
 }
 
 /** The iNaturalist account: the username, then "Updated 6 Nov". */
@@ -38,8 +47,9 @@ type Props = {
   /** Connected: what the source brings, leading the line ("185 species", "12 only here"; source-counts.ts). */
   counts?: string[]
   /** Entries of this source that weren't counted: "· 10 skipped" after the counts (or the first part), with "why?"
-   *  opening `body`. */
-  skipped?: { n: number; body: ReactNode }
+   *  opening `body`. With no skipped entries but `excluded` observations (observation.org's escapes and uncertain
+   *  records), "· 12 observations not counted" carries the "why?" instead. */
+  skipped?: { n: number; excluded?: number; body: ReactNode }
   /** The row's one button on the right (Add, Replace, Refresh, Tick birds). */
   primary: ReactNode
   /** Connected: the ⋯ menu's items before Remove. */
@@ -69,6 +79,14 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
   const items: MenuItem[] = [...(menu ?? []), ...(what ? [{ label: t.import.remove, danger: true, keepFocus: true, onSelect: () => setAsking(true) }] : [])]
   const skippedN = { n: formatInt(skipped?.n ?? 0, t.num) }
   const lead = counts ?? parts.slice(0, 1)
+  // The part "why?" follows: the skipped entries, else (nothing skipped) the observations left out.
+  const why0 = !skipped
+    ? null
+    : skipped.n > 0
+      ? { label: plural(t.import.skipped, skipped.n, skippedN), ask: plural(t.import.whyLabel, skipped.n, skippedN) }
+      : skipped.excluded
+        ? obsorgNotCounted(skipped.excluded, t)
+        : null
   const rest = counts ? parts : parts.slice(1)
   return (
     <div className="eb-src" data-testid={testId}>
@@ -80,12 +98,12 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
           </h3>
           <p className="eb-src-meta">
             {lead.map((p, i) => <span key={p}>{i > 0 && ' · '}<span className="eb-nowrap">{p}</span></span>)}
-            {skipped && skipped.n > 0 && (
+            {why0 && (
               <>
                 {' · '}
                 <span className="eb-nowrap">
-                  {plural(t.import.skipped, skipped.n, skippedN)}{' '}
-                  <button type="button" className="eb-whybtn" aria-expanded={why} aria-controls={`${id}-why`} aria-label={plural(t.import.whyLabel, skipped.n, skippedN)} onClick={() => setWhy((w) => !w)}>
+                  {why0.label}{' '}
+                  <button type="button" className="eb-whybtn" aria-expanded={why} aria-controls={`${id}-why`} aria-label={why0.ask} onClick={() => setWhy((w) => !w)}>
                     {t.import.why}
                   </button>
                 </span>
@@ -99,7 +117,7 @@ export function SourceRow({ title, name, parts, counts, skipped, primary, menu, 
           {items.length > 0 && <SourceMenu ref={menuBtn} label={fmt(t.import.more, { title })} items={items} disabled={disabled} />}
         </div>
       </div>
-      {skipped && skipped.n > 0 && (
+      {why0 && skipped && (
         <div id={`${id}-why`} className="eb-src-why" hidden={!why} data-testid="not-counted">
           {skipped.body}
         </div>

@@ -7,6 +7,7 @@ import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { fmt } from '@/i18n/core'
 import { es } from '@/i18n/messages/es'
 import { withI18n } from './i18n-render'
+import type { PlacesUnplaced } from '@/lib/list/filter-summary'
 
 // The one pass over the list that counts every place level, watched: a checkbox must not count the list again.
 vi.mock('@/lib/list/filters', async (importOriginal) => {
@@ -62,7 +63,7 @@ function seededOwl() {
   return makeReducer({ species })(initialState(), { type: 'restore', saved })
 }
 
-function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesNote }) {
+function Harness({ variant = 'full', note, unplaced }: { variant?: Variant; note?: PlacesNote; unplaced?: PlacesUnplaced }) {
   const reduce = makeReducer({ species })
   const [state, dispatch] = useReducer(reduce, undefined, () => seeded(variant))
   const [open, setOpen] = useState<Panel | null>(null)
@@ -70,7 +71,7 @@ function Harness({ variant = 'full', note }: { variant?: Variant; note?: PlacesN
   return (
     <>
       <div className="eb-dock">
-        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} time={time} />
+        <FilterDropdowns state={state} dispatch={dispatch} species={species} regions={regions} open={open} onOpen={setOpen} placesNote={note} placesUnplaced={unplaced} time={time} />
       </div>
       <button type="button">elsewhere</button>
       <button type="button" onClick={() => dispatch({ type: 'filter', filter: { ...state.filter, order: 'Anseriformes' } })}>ducks only</button>
@@ -190,6 +191,39 @@ describe('Places and Time: dropdowns in the controls bar', () => {
     fireEvent.click(placesBtn())
     expect(screen.getByTestId('places-lifer-only')).toHaveTextContent(/^Places only knows where you first recorded each bird\. Import MyEBirdData again to filter by every place you recorded each bird\.$/)
     expect(screen.getByRole('link', { name: 'Import MyEBirdData again' })).toHaveAttribute('href', '/settings#add-mydata')
+  })
+
+  it('observation.org life list birds with no places: a line above the lifer-only note, linking to the observations Add panel', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    const { unmount } = render(<Harness variant="lifer" note="add" unplaced="add" />)
+    fireEvent.click(placesBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveClass('eb-note', 'eb-places-note')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\. Add the observations export to place them by country and province\.$/)
+    expect(within(line).getByRole('link', { name: 'Add the observations export' })).toHaveAttribute('href', '/settings#add-obsorg')
+    const lifer = screen.getByTestId('places-lifer-only')
+    expect(line.compareDocumentPosition(lifer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    unmount()
+    render(<Harness variant="lifer" unplaced="add" />)
+    fireEvent.click(placesBtn())
+    expect(screen.getByTestId('places-unplaced')).toBeInTheDocument()
+    expect(screen.queryByTestId('places-lifer-only')).toBeNull()
+  })
+
+  it('with the observations on the list: the first sentence only, no link', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" unplaced="plain" />)
+    fireEvent.click(placesBtn())
+    const line = screen.getByTestId('places-unplaced')
+    expect(line).toHaveTextContent(/^Birds only on your observation\.org life list have no places, so a place filter leaves them out\.$/)
+    expect(within(line).queryByRole('link')).toBeNull()
+  })
+
+  it('no unplaced line without the prop', () => {
+    vi.stubGlobal('innerWidth', 1000)
+    render(<Harness variant="lifer" note="add" />)
+    fireEvent.click(placesBtn())
+    expect(screen.queryByTestId('places-unplaced')).toBeNull()
   })
 })
 

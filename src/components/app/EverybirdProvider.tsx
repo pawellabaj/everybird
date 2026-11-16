@@ -6,7 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { track } from '@/lib/analytics'
 import { loadRegions } from '@/lib/import/places'
 import { slotSource, SLOTS, type ImportResult, type Slot } from '@/lib/list/model'
-import type { EbirdDetails, InatDetails, Saved } from '@/lib/list/storage'
+import type { DetailsFor, Saved } from '@/lib/list/storage'
 import { useEverybird, type Action, type AppState, type EverybirdMeta } from '@/lib/list/store'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { useLoadNames } from '@/lib/species/use-names'
@@ -48,7 +48,7 @@ export function EverybirdProvider({ children }: { children: ReactNode }) {
     return () => { live = false }
   }, [])
 
-  const onImport = useCallback((slot: Slot, result: ImportResult, details: EbirdDetails | InatDetails) => {
+  const onImport = useCallback((slot: Slot, result: ImportResult, details: DetailsFor<Slot>) => {
     dispatch({ type: 'import', source: slot, result, details })
     track('collage_made', { source: slotSource(slot) })
   }, [dispatch])

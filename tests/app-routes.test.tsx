@@ -42,13 +42,20 @@ const fx = vi.hoisted(() => {
   return { species, taxa }
 })
 
-vi.mock('@/lib/import/parse-client', async () => {
+vi.mock('@/lib/import/parse-client', async (orig) => {
+  const actual = await orig<typeof import('@/lib/import/parse-client')>()
   const { parseEbirdLifeList } = await import('@/lib/import/ebird-lifelist')
+  const { parseObsOrgSpecies } = await import('@/lib/import/obsorg')
   const { buildTaxonomyIndex } = await import('@/lib/species/load')
   return {
-    parseInWorker: vi.fn(async (_kind: string, file: File, onProgress?: (rows: number) => void) => {
-      onProgress?.(4)
-      return parseEbirdLifeList(await file.text(), buildTaxonomyIndex(fx.taxa as never))
+    ...actual,
+    parseInWorker: vi.fn(async (kind: string, file: File, opts?: { onProgress?: (rows: number) => void; synonyms?: Record<string, string> }) => {
+      opts?.onProgress?.(4)
+      const t = buildTaxonomyIndex(fx.taxa as never)
+      if (kind !== 'obsorg-species') return parseEbirdLifeList(await file.text(), t)
+      const r = parseObsOrgSpecies(await file.text(), t, opts?.synonyms ?? {})
+      if ('error' in r) throw new actual.ParseError(r.error, 'no-birds')
+      return r
     }),
   }
 })
@@ -145,8 +152,8 @@ const stats = () => screen.getByTestId('collage-stats')
 const openTick = () => fireEvent.click(screen.getByRole('button', { name: 'Tick birds off a list' }))
 const tickOption = (name: RegExp) => within(screen.getByRole('listbox', { name: 'Species to tick' })).getByRole('option', { name })
 
-async function drop(file: File) {
-  const zone = screen.getByTestId('ebird-drop')
+async function drop(file: File, zoneId = 'ebird-drop') {
+  const zone = screen.getByTestId(zoneId)
   await act(async () => {
     fireEvent.dragOver(zone, { dataTransfer: { files: [file], types: ['Files'] } })
     fireEvent.drop(zone, { dataTransfer: { files: [file], types: ['Files'] } })
@@ -227,8 +234,8 @@ describe('the Collage page (/)', () => {
     expect(within(screen.getByRole('banner')).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { level: 2, name: 'Your list' })).toBeInTheDocument()
     // One row per source, each "Not added" yet.
-    for (const h of [/^eBird life list/, /^MyEBirdData/, /^iNaturalist/, /^Ticked by hand/]) expect(screen.getByRole('heading', { level: 3, name: h })).toBeInTheDocument()
-    expect(screen.getAllByText('Not added')).toHaveLength(3)
+    for (const h of [/^eBird life list/, /^MyEBirdData/, /^iNaturalist/, /^observation\.org life list/, /^observation\.org observations/, /^Ticked by hand/]) expect(screen.getByRole('heading', { level: 3, name: h })).toBeInTheDocument()
+    expect(screen.getAllByText('Not added')).toHaveLength(5)
     expect(screen.getByText('Your list never leaves your browser. We count visits anonymously.')).toBeInTheDocument()
   })
 
@@ -338,6 +345,31 @@ describe('Settings and the collage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'List' }))
     const list = screen.getByRole('list', { name: 'Life list' })
     for (const n of ['Northern Flicker', 'Gilded Flicker', 'Yellow-rumped Warbler']) expect(within(list).getByText(n)).toBeInTheDocument()
+  })
+
+  it('an observation.org life list imported on Settings shows its row, the summary and its unmatched rows', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { analytics } = await mount()
+    const name = 'observation-2026-01-02-03-04-species_observed_testbirder.csv'
+    await drop(new File([readFileSync('tests/fixtures/obsorg/species-observed-nl.csv', 'utf8')], name, { type: 'text/csv' }), 'obsorg-drop')
+    // In the test taxonomy: Colaptes auratus (and its subspecies), Setophaga coronata auduboni, and Milvus aegyptius
+    // through observation.org's own synonym (Black Kite).
+    await waitFor(() => expect(made()).toHaveTextContent('Your collage has 3 species, all from observation.org. See my collage'))
+    expect(vi.mocked(analytics.track).mock.calls).toEqual([['collage_made', { source: 'obsorg' }]])
+    const row = screen.getByTestId('source-obsorg-list')
+    expect(row).toHaveTextContent(`observation.org life list · ${name}`)
+    expect(row).toHaveTextContent(/3 species · 10 skipped/) // 5 not species, 5 unmatched
+    // Only the life list: the note under the observation.org rows; the eBird rows have none.
+    expect(screen.getByTestId('places-obsorg-note')).toBeInTheDocument()
+    expect(screen.queryByTestId('places-lifer-note')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Fix them' }))
+    expect(screen.getByText('observation.org life list row 13')).toBeInTheDocument()
+    // Remove takes only this file, and focus goes to the observation.org group.
+    fireEvent.click(within(row).getByRole('button', { name: 'More for observation.org life list' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }))
+    fireEvent.click(within(row).getByRole('button', { name: 'Yes, remove it' }))
+    await waitFor(() => expect(screen.getByRole('group', { name: 'observation.org files' })).toHaveFocus())
+    expect(screen.queryByTestId('source-obsorg-list')).toBeNull()
   })
 
   it('a file that is not an eBird export says so plainly', async () => {

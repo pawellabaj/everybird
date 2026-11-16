@@ -20,7 +20,7 @@ const v1 = () => ({
 })
 const withSeen = () => ({
   ...emptySaved(),
-  records: { ebird: [{ code: 'a', source: 'ebird' as const, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US'] }], 'ebird-list': [], inat: [], manual: [] },
+  records: { obsorg: [], 'obsorg-list': [], ebird: [{ code: 'a', source: 'ebird' as const, seen: ['2020-01-01|CA-BC|Capital', '2021-01-01|US'] }], 'ebird-list': [], inat: [], manual: [] },
   unmatched: [{ source: 'ebird' as const, row: 3, reason: 'no-match' as const, seen: ['2020-01-01|MX'] }],
 })
 
@@ -41,6 +41,8 @@ describe('Saved v2', () => {
   it('v1 backups restore as v4', () => {
     const r = fromJson(JSON.stringify(v1()))
     expect(r.v).toBe(4)
+    expect(r.records.obsorg).toEqual([])
+    expect(r.records['obsorg-list']).toEqual([])
     expect(r.records.ebird[0].seen).toBeUndefined()
   })
   it('malformed seen-here and unknown versions are refused', () => {

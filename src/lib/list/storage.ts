@@ -17,12 +17,38 @@ export type EbirdDetails = {
 /** The iNaturalist account fetched. The username stays on this device (it was sent to iNaturalist by the birder). */
 export type InatDetails = { user?: string; observations?: number; at?: string }
 /**
+ * An observation.org file: 'species-list' (Observed species, no places) in the 'obsorg-list' slot, 'observations'
+ * (the per-observation export) in 'obsorg'. `excluded` (escapes, uncertain records) comes with observations only.
+ */
+export type ObsOrgDetails = {
+  kind: 'species-list' | 'observations'
+  /** The file's name, as the browser gave it. Stays on this device. */
+  file?: string
+  /** Data rows read from the file. */
+  rows?: number
+  /** When it was imported (ISO). */
+  at?: string
+  excluded?: { escape: number; uncertain: number }
+}
+/**
  * What each connected source is, for "Your sources" on a return visit and its Refresh. A slot with records but no
  * entry here was imported before v3: its details are unknown.
  */
-export type SourceDetails = { ebird?: EbirdDetails; 'ebird-list'?: EbirdDetails; inat?: InatDetails }
+export type SourceDetails = {
+  ebird?: EbirdDetails
+  'ebird-list'?: EbirdDetails
+  inat?: InatDetails
+  obsorg?: ObsOrgDetails
+  'obsorg-list'?: ObsOrgDetails
+}
 /** The details an import into `slot` carries. */
-export type DetailsFor<S extends Slot> = S extends 'inat' ? InatDetails : S extends 'ebird' | 'ebird-list' ? EbirdDetails : never
+export type DetailsFor<S extends Slot> = S extends 'inat'
+  ? InatDetails
+  : S extends 'ebird' | 'ebird-list'
+    ? EbirdDetails
+    : S extends 'obsorg' | 'obsorg-list'
+      ? ObsOrgDetails
+      : never
 
 /**
  * The stored list. v2 (Task PL) added seen-here (`SourceRecord.seen`, `Unmatched.seen`); a v1 list is the same shape
@@ -55,7 +81,7 @@ export const STORAGE_KEY = 'everybird:v1'
 export function emptySaved(): Saved {
   return {
     v: 4,
-    records: { ebird: [], 'ebird-list': [], inat: [], manual: [] },
+    records: { ebird: [], 'ebird-list': [], inat: [], obsorg: [], 'obsorg-list': [], manual: [] },
     unmatched: [],
     edits: { removed: [], added: [], marks: {}, fixes: {} },
     rules: { ...DEFAULT_RULES },

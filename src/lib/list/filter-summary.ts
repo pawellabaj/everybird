@@ -103,6 +103,9 @@ export function timeSpoken(f: Filter, t: Ui): string | undefined {
 export type FullPlacesSource = { anchor: string }
 export const MYEBIRDDATA_PLACES: FullPlacesSource = { anchor: 'add-mydata' }
 
+/** Settings' anchor that opens observation.org's observations Add panel (the Places panel's unplaced line links to it; the words are `t.places.unplaced`). */
+export const OBSORG_PLACES = { anchor: 'add-obsorg' } as const
+
 /**
  * Whether the Places dropdown says its places are only lifer places, and what to do: undefined for an empty list or
  * one with seen-here (some record knows every place a species was seen); 'reimport' when the MyEBirdData slot holds
@@ -111,6 +114,33 @@ export const MYEBIRDDATA_PLACES: FullPlacesSource = { anchor: 'add-mydata' }
  */
 export function placesNoteFor(saved: Pick<Saved, 'records'>, listLength: number, seenFull: boolean): 'add' | 'reimport' | undefined {
   if (!listLength || seenFull) return undefined
-  const full = saved.records.ebird ?? []
+  const { records } = saved
+  const eBirdOrInat = !!(records.ebird?.length || records['ebird-list']?.length || records.inat?.length)
+  const obsorg = !!(records.obsorg?.length || records['obsorg-list']?.length)
+  if (!eBirdOrInat && obsorg) return undefined // the MyEBirdData pitch is only for eBird birders
+  const full = records.ebird ?? []
   return full.length && !full.some((r) => Array.isArray(r.seen)) ? 'reimport' : 'add'
+}
+
+/** The Places panel's unplaced line: 'add' with its link to the observations' Add panel, 'plain' its first sentence
+ *  only (the observations are on the list already, so adding them is no advice). */
+export type PlacesUnplaced = 'add' | 'plain'
+
+/**
+ * Whether some bird on the observation.org life list ('obsorg-list', no places) has no record in any slot carrying a
+ * place or seen-here: those birds drop out of any place filter, and the Places panel says so. An observations import
+ * (or MyEBirdData, iNaturalist) that places the same birds turns it off for them. Birds the birder removed are off the
+ * list and don't count; only records do (a hand tick in `edits.added` places nothing). With the observations on the
+ * list (`records.obsorg`), the line has no link ('plain'); else 'add'. Undefined: no line.
+ */
+export function placesUnplacedFor(saved: Pick<Saved, 'records'> & { edits?: Pick<Saved['edits'], 'removed'> }): PlacesUnplaced | undefined {
+  const removed = new Set(saved.edits?.removed ?? [])
+  const listed = (saved.records['obsorg-list'] ?? []).filter((r) => !removed.has(r.code))
+  if (!listed.length) return undefined
+  const placed = new Set<string>()
+  for (const recs of Object.values(saved.records)) {
+    for (const r of recs ?? []) if (r.place || r.seen?.length) placed.add(r.code)
+  }
+  if (!listed.some((r) => !placed.has(r.code))) return undefined
+  return saved.records.obsorg?.length ? 'plain' : 'add'
 }

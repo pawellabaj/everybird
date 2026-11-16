@@ -41,6 +41,7 @@ afterEach(() => {
 describe('payloadFor', () => {
   it('is {n, p} with the one allowed value, and d: touch only for a touch Mac', () => {
     expect(payloadFor('collage_made', { source: 'inat' })).toEqual({ n: 'collage_made', p: 'inat' })
+    expect(payloadFor('collage_made', { source: 'obsorg' })).toEqual({ n: 'collage_made', p: 'obsorg' })
     expect(payloadFor('visit', { page: 'shared' })).toEqual({ n: 'visit', p: 'shared' })
     expect(payloadFor('shared', { via: 'link' })).toEqual({ n: 'shared', p: 'link' })
     expect(payloadFor('image_downloaded', { format: 'post' }, true)).toEqual({ n: 'image_downloaded', p: 'post', d: 'touch' })

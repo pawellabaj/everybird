@@ -7,7 +7,7 @@ import { plural } from '@/i18n/core'
 import { formatInt } from '@/i18n/format'
 import { useI18n } from '@/i18n/I18nProvider'
 import { pageTitle } from '@/lib/list/title'
-import { placesNoteFor } from '@/lib/list/filter-summary'
+import { placesNoteFor, placesUnplacedFor } from '@/lib/list/filter-summary'
 import { undoRemove } from '@/lib/list/tick'
 import { nameOfCode } from '@/lib/species/names'
 import type { Edits, ListEntry } from '@/lib/list/model'
@@ -87,6 +87,7 @@ export function CollagePage() {
             species={data.species}
             regions={data.regions}
             placesNote={placesNoteFor(saved, state.list.length, state.seen.full)}
+            placesUnplaced={placesUnplacedFor(saved)}
             label={t.collage.regionYours}
             whose="your"
             cardActions={actions}

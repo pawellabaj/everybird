@@ -235,6 +235,11 @@ export const EN_UI = {
       add: 'Places only knows where you first recorded each bird. <link>Add MyEBirdData</link> to filter by every place you recorded each bird, down to the county.',
       reimport: 'Places only knows where you first recorded each bird. <link>Import MyEBirdData again</link> to filter by every place you recorded each bird.',
     },
+    /** The Places panel's line about birds only on the observation.org life list (no places); <link> goes to the observations' Add panel. */
+    unplaced: {
+      plain: 'Birds only on your observation.org life list have no places, so a place filter leaves them out.',
+      add: 'Birds only on your observation.org life list have no places, so a place filter leaves them out. <link>Add the observations export</link> to place them by country and province.',
+    },
     /** Three or more places on the share image ("Canada and 2 more"; two are joined by " + " in code). */
     andMore: '{first} and {n} more',
   },
@@ -437,17 +442,20 @@ export const EN_UI = {
       all: {
         ebird: { one: 'all from eBird', other: 'all from eBird' },
         inat: { one: 'all from iNaturalist', other: 'all from iNaturalist' },
+        obsorg: { one: 'all from observation.org', other: 'all from observation.org' },
         manual: { one: 'all ticked by hand', other: 'all ticked by hand' },
       },
       /** The first part. */
       first: {
         ebird: { one: '{n} from eBird', other: '{n} from eBird' },
         inat: { one: '{n} from iNaturalist', other: '{n} from iNaturalist' },
+        obsorg: { one: '{n} from observation.org', other: '{n} from observation.org' },
         manual: { one: '{n} ticked by hand', other: '{n} ticked by hand' },
       },
       /** A later part: the species it adds to the ones before (eBird is always first when it is on the list). */
       more: {
         inat: { one: '{n} more from iNaturalist', other: '{n} more from iNaturalist' },
+        obsorg: { one: '{n} more from observation.org', other: '{n} more from observation.org' },
         manual: { one: '{n} ticked by hand', other: '{n} ticked by hand' },
       },
     },
@@ -455,6 +463,7 @@ export const EN_UI = {
     species: { one: '{n} species', other: '{n} species' },
     onlyHere: '{n} only here',
     onlyEbird: '{n} only in eBird',
+    onlyObsorg: '{n} only in observation.org',
     /** "· 10 skipped why?" (SourceRow): the entries that weren't counted, and the button that says why. */
     skipped: { one: '{n} skipped', other: '{n} skipped' },
     why: 'why?',
@@ -478,6 +487,38 @@ export const EN_UI = {
     removeAsk: 'Remove {what}? Its birds leave your collage unless another source has them. Your edits stay.',
     removeYes: 'Yes, remove it',
     keep: 'Keep it',
+    /** The two observation.org rows (ObsOrgDrop), their notes, errors and the built sentences (obsorg-copy.ts). Menu names in the how-to are observation.org's own (English) site. */
+    obsorg: {
+      group: 'observation.org files',
+      input: 'observation.org file',
+      choose: 'Choose your observation.org file',
+      howTo: 'How do I get this file?',
+      rows: {
+        'obsorg-list': { title: 'observation.org life list', guide: 'Your Observed species list from observation.org. It gives each bird\'s first date, but no places.', help: 'On observation.org: open Observed species, choose Birds and Life list, then Export as CSV. Everybird reads the CSV, not the Excel file.', what: 'your observation.org life list' },
+        obsorg: { title: 'observation.org observations', guide: 'Every bird observation you made on observation.org. It places each bird by country and province, so Places can filter them.', help: 'On observation.org: open your Observations, choose Birds, then Export as CSV. Everybird reads the CSV, not the Excel file.', what: 'your observation.org observations' },
+      },
+      /** A connected row's name when the browser gave no file name. */
+      fallback: { 'species-list': 'observation.org Observed species', observations: 'observation.org observations export' },
+      /** Under the rows while only the life list is on the list; <link> opens the observations' Add panel. */
+      note: 'Your observation.org life list has no places, so Places can\'t filter these birds. <link>Add the observations export</link> to place each bird by country and province.',
+      errors: {
+        unknown: 'Couldn\'t read this file. Use observation.org\'s Observed species export or your observations export, as a CSV.',
+        noBirds: 'No birds in this file. On observation.org, choose Birds before you export.',
+        damaged: 'Couldn\'t read this file. It may be damaged or not an observation.org export.',
+        xlsx: 'This is an Excel file. Everybird reads CSV files: export as CSV and add that file instead.',
+        data: 'Couldn\'t load Everybird\'s bird data. Check your connection and try again.',
+      },
+      notSpecies: { one: '{n} entry isn\'t a species: birds only identified to a group (like “Motacilla spec.”), either/or IDs, hybrids, forms and varieties.', other: '{n} entries aren\'t species: birds only identified to a group (like “Motacilla spec.”), either/or IDs, hybrids, forms and varieties.' },
+      escape: { one: '{n} observation marked as an escape isn\'t counted.', other: '{n} observations marked as escapes aren\'t counted.' },
+      uncertain: { one: '{n} observation marked uncertain isn\'t counted.', other: '{n} observations marked uncertain aren\'t counted.' },
+      both: '{escape} and {uncertain} aren\'t counted.',
+      bothEscape: { one: '{n} observation marked as an escape', other: '{n} observations marked as escapes' },
+      bothUncertain: '{n} marked uncertain',
+      notCountedLabel: { one: '{n} observation not counted', other: '{n} observations not counted' },
+      notCountedAsk: { one: 'Why {n} not counted?', other: 'Why {n} not counted?' },
+      whereList: 'observation.org life list row {row}',
+      whereRow: 'observation.org row {row}',
+    },
     /** The two eBird rows (EbirdDrop). */
     ebird: {
       listTitle: 'eBird life list',

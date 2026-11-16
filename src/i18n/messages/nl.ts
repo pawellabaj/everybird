@@ -185,6 +185,11 @@ export const nl: Messages = {
         add: 'Plaatsen weet alleen waar je elke vogel voor het eerst hebt vastgelegd. <link>Voeg MyEBirdData toe</link> om te filteren op elke plaats waar je elke vogel hebt vastgelegd, tot op het graafschap.',
         reimport: 'Plaatsen weet alleen waar je elke vogel voor het eerst hebt vastgelegd. <link>Importeer MyEBirdData opnieuw</link> om te filteren op elke plaats waar je elke vogel hebt vastgelegd.',
       },
+      /** The Places panel's line about birds only on the observation.org life list (no places); <link> goes to the observations' Add panel. */
+      unplaced: {
+        plain: 'Vogels die alleen op je levenslijst van observation.org staan, hebben geen plaatsen, dus een plaatsfilter laat ze weg.',
+        add: 'Vogels die alleen op je levenslijst van observation.org staan, hebben geen plaatsen, dus een plaatsfilter laat ze weg. <link>Voeg de export van je waarnemingen toe</link> om ze per land en provincie te plaatsen.',
+      },
       andMore: '{first} en nog {n}',
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
@@ -360,21 +365,25 @@ export const nl: Messages = {
         all: {
           ebird: { one: 'uit eBird', other: 'allemaal uit eBird' },
           inat: { one: 'uit iNaturalist', other: 'allemaal uit iNaturalist' },
+          obsorg: { one: 'allemaal van observation.org', other: 'allemaal van observation.org' },
           manual: { one: 'met de hand aangevinkt', other: 'allemaal met de hand aangevinkt' },
         },
         first: {
           ebird: { one: '{n} uit eBird', other: '{n} uit eBird' },
           inat: { one: '{n} uit iNaturalist', other: '{n} uit iNaturalist' },
+          obsorg: { one: '{n} van observation.org', other: '{n} van observation.org' },
           manual: { one: '{n} met de hand aangevinkt', other: '{n} met de hand aangevinkt' },
         },
         more: {
           inat: { one: '{n} extra uit iNaturalist', other: '{n} extra uit iNaturalist' },
+          obsorg: { one: '{n} extra van observation.org', other: '{n} extra van observation.org' },
           manual: { one: '{n} met de hand aangevinkt', other: '{n} met de hand aangevinkt' },
         },
       },
       species: { one: '{n} soort', other: '{n} soorten' },
       onlyHere: '{n} alleen hier',
       onlyEbird: '{n} alleen in eBird',
+      onlyObsorg: '{n} alleen in observation.org',
       skipped: { one: '{n} overgeslagen', other: '{n} overgeslagen' },
       why: 'waarom?',
       whyLabel: { one: 'Waarom {n} overgeslagen?', other: 'Waarom {n} overgeslagen?' },
@@ -394,6 +403,38 @@ export const nl: Messages = {
       removeAsk: 'Wil je {what} verwijderen? De vogels ervan verdwijnen uit je collage, tenzij een andere bron ze heeft. Je aanpassingen blijven.',
       removeYes: 'Ja, verwijderen',
       keep: 'Houden',
+      /** The two observation.org rows (ObsOrgDrop), their notes, errors and the built sentences (obsorg-copy.ts). Menu names in the how-to are observation.org's own (English) site. */
+      obsorg: {
+        group: 'Bestanden van observation.org',
+        input: 'Bestand van observation.org',
+        choose: 'Kies je bestand van observation.org',
+        howTo: 'Hoe krijg ik dit bestand?',
+        rows: {
+          'obsorg-list': { title: 'Levenslijst van observation.org', guide: 'Je lijst “Observed species” van observation.org. Ze geeft de eerste datum van elke vogel, maar geen plaatsen.', help: 'Op observation.org: open “Observed species”, kies “Birds” en “Life list” en dan “Export as CSV”. Everybird leest de CSV, niet het Excel-bestand.', what: 'je levenslijst van observation.org' },
+          obsorg: { title: 'Waarnemingen van observation.org', guide: 'Elke vogelwaarneming die je op observation.org deed. Ze plaatst elke vogel per land en provincie, dus Plaatsen kan ze filteren.', help: 'Op observation.org: open je “Observations”, kies “Birds” en dan “Export as CSV”. Everybird leest de CSV, niet het Excel-bestand.', what: 'je waarnemingen van observation.org' },
+        },
+        /** A connected row's name when the browser gave no file name. */
+        fallback: { 'species-list': 'Observed species van observation.org', observations: 'Export van waarnemingen van observation.org' },
+        /** Under the rows while only the life list is on the list; <link> opens the observations' Add panel. */
+        note: 'Je levenslijst van observation.org heeft geen plaatsen, dus Plaatsen kan deze vogels niet filteren. <link>Voeg de export van je waarnemingen toe</link> om elke vogel per land en provincie te plaatsen.',
+        errors: {
+          unknown: 'Dit bestand kon niet worden gelezen. Gebruik de export “Observed species” van observation.org of de export van je waarnemingen, als CSV.',
+          noBirds: 'Geen vogels in dit bestand. Kies op observation.org “Birds” voordat je exporteert.',
+          damaged: 'Dit bestand kon niet worden gelezen. Het is misschien beschadigd of geen export van observation.org.',
+          xlsx: 'Dit is een Excel-bestand. Everybird leest CSV-bestanden: exporteer als CSV en voeg dat bestand toe.',
+          data: 'De vogelgegevens van Everybird konden niet worden geladen. Controleer je verbinding en probeer het opnieuw.',
+        },
+        notSpecies: { one: '{n} item is geen soort: vogels die alleen tot een groep zijn bepaald (zoals “Motacilla spec.”), of/of-bepalingen, hybriden, vormen en variëteiten.', other: '{n} items zijn geen soorten: vogels die alleen tot een groep zijn bepaald (zoals “Motacilla spec.”), of/of-bepalingen, hybriden, vormen en variëteiten.' },
+        escape: { one: '{n} waarneming gemarkeerd als ontsnapt telt niet mee.', other: '{n} waarnemingen gemarkeerd als ontsnapt tellen niet mee.' },
+        uncertain: { one: '{n} waarneming gemarkeerd als onzeker telt niet mee.', other: '{n} waarnemingen gemarkeerd als onzeker tellen niet mee.' },
+        both: '{escape} en {uncertain} tellen niet mee.',
+        bothEscape: { one: '{n} waarneming gemarkeerd als ontsnapt', other: '{n} waarnemingen gemarkeerd als ontsnapt' },
+        bothUncertain: '{n} gemarkeerd als onzeker',
+        notCountedLabel: { one: '{n} waarneming telt niet mee', other: '{n} waarnemingen tellen niet mee' },
+        notCountedAsk: { one: 'Waarom telt {n} niet mee?', other: 'Waarom tellen {n} niet mee?' },
+        whereList: 'Levenslijst van observation.org, rij {row}',
+        whereRow: 'Rij {row} van observation.org',
+      },
       ebird: {
         listTitle: 'eBird-levenslijst',
         listFile: 'eBird-levenslijstdownload',
@@ -527,7 +568,7 @@ export const nl: Messages = {
       how: {
         head: 'Hoe het werkt',
         steps: [
-          'Breng je lijst binnen via <link>Instellingen</link>: een eBird-bestand, een iNaturalist-gebruikersnaam of vogels die je met de hand aanvinkt. Combineer ze als je meer dan één lijst bijhoudt.',
+          'Breng je lijst binnen via <link>Instellingen</link>: een bestand van eBird of observation.org, een iNaturalist-gebruikersnaam of vogels die je met de hand aanvinkt. Combineer ze als je meer dan één lijst bijhoudt.',
           'Elke vogel wordt gekoppeld aan de eBird-taxonomie van dit jaar en houdt zijn vroegste datum. Rijen die niet passen, staan in een lijst, zodat er niets stilletjes wegvalt.',
           'De collage, de filters en de afbeeldingen om te delen worden allemaal in je browser gemaakt.',
         ],
@@ -566,7 +607,7 @@ export const nl: Messages = {
         stickers: { lead: 'Elke vogelsticker komt uit huashu-bird-sticker van alchaincyf, onder de licentie <cc>CC BY 4.0</cc>. De stickers zijn verkleind en bijgesneden voor het web; verder is er niets aan veranderd.', commit: 'Bron-commit <code>{sha}</code>.', tail: 'Ongeveer 2% van de soorten heeft nog geen sticker; die zie je als een omtrek, en nieuwe tekeningen komen vanzelf binnen naarmate de stickerset groeit.' },
         inspiration: 'Avian Visitors van Teddy Warner liet zien hoe mooi een muur vol vogels kan zijn. Everybird begon daar.',
         taxonomyTitle: 'eBird en Clements',
-        taxonomy: 'Vogelnamen, soorten en hun volgorde volgen de eBird/Clements-taxonomie, versie {version}, van het Cornell Lab of Ornithology. eBird-bestanden worden in je browser gelezen.',
+        taxonomy: 'Vogelnamen, soorten en hun volgorde volgen de eBird/Clements-taxonomie, versie {version}, van het Cornell Lab of Ornithology. Bestanden van eBird en observation.org worden in je browser gelezen.',
         masses: 'De stickergroottes gebruiken lichaamsgewichten uit AVONET (Tobias et al. 2022, Ecology Letters), via de soortentabel van huashu.',
         redList: 'Categorieën van de Rode Lijst van de IUCN zoals opgegeven voor BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via de soortentabel van huashu, onder de licentie <cc>CC BY 4.0</cc>. Everybird heeft ze aan eBird-soorten gekoppeld.',
         api: 'Waarnemingen komen uit de openbare API van iNaturalist, rechtstreeks vanuit je browser aangeroepen, ongeveer één keer per seconde.',

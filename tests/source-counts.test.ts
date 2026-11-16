@@ -111,6 +111,27 @@ describe('sourceCounts', () => {
     expect(summaryLine(c, t)).toBe('Your collage has 3 species, all from eBird.')
   })
 
+  it('observation.org: its summary parts, one source alone, and "only in observation.org" on its bigger file', () => {
+    const s = emptySaved()
+    s.records['ebird-list'] = [r('a', 'ebird'), r('b', 'ebird'), r('c', 'ebird')]
+    s.records.obsorg = [r('c', 'obsorg'), r('d', 'obsorg')]
+    s.records['obsorg-list'] = [r('c', 'obsorg'), r('d', 'obsorg'), r('e', 'obsorg')]
+    const c = counts(s)
+    expect(summaryLine(c, t)).toBe('Your collage has 5 species: 3 from eBird, 2 more from observation.org.')
+    expect(c.rows['obsorg-list']).toEqual({ species: 3, only: 2, onlyIn: 'observation.org' }) // c d e; only d e
+    expect(c.rows.obsorg).toEqual({ species: 2, only: 0, onlyIn: 'here' })
+    expect(countParts(c.rows['obsorg-list'], t)).toEqual(['3 species', '2 only in observation.org'])
+    expect(countParts(c.rows.obsorg, t)).toEqual(['2 species'])
+    // The observations file bigger: the number moves to it.
+    s.records.obsorg = [r('c', 'obsorg'), r('d', 'obsorg'), r('e', 'obsorg'), r('f', 'obsorg')]
+    const c2 = counts(s)
+    expect(c2.rows.obsorg).toEqual({ species: 4, only: 3, onlyIn: 'observation.org' })
+    expect(c2.rows['obsorg-list']).toEqual({ species: 3, only: 0, onlyIn: 'here' })
+    const alone = emptySaved()
+    alone.records.obsorg = [r('d', 'obsorg'), r('e', 'obsorg')]
+    expect(summaryLine(counts(alone), t)).toBe('Your collage has 2 species, all from observation.org.')
+  })
+
   it('a bird kept only by two records together (one heard, one dead) still has a source', () => {
     const s = emptySaved()
     s.records['ebird-list'] = [r('a', 'ebird', { heard: true })]

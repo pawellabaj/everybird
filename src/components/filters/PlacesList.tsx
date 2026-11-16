@@ -8,19 +8,33 @@ import Link from '@/components/app/IntentLink'
 import { rich } from '@/i18n/core'
 import { useI18n } from '@/i18n/I18nProvider'
 import { regionsIn } from '@/lib/i18n-places'
-import { MYEBIRDDATA_PLACES, type FullPlacesSource } from '@/lib/list/filter-summary'
+import { MYEBIRDDATA_PLACES, OBSORG_PLACES, type FullPlacesSource, type PlacesUnplaced } from '@/lib/list/filter-summary'
 import type { PlacesBodyProps, PlacesNote } from './places-shared'
 import { PlacesDrill } from './PlacesDrill'
 
-export function PlacesList({ note, ...props }: PlacesBodyProps & { note?: PlacesNote }) {
+export function PlacesList({ note, unplaced, ...props }: PlacesBodyProps & { note?: PlacesNote; unplaced?: PlacesUnplaced }) {
   const { lang } = useI18n()
   // Countries named in the UI language (Intl.DisplayNames) for every row, the breadcrumb and the search.
   const body = { ...props, regions: regionsIn(props.regions, lang) }
   return (
     <div className="eb-places">
+      {unplaced && <PlacesUnplacedLine link={unplaced === 'add'} />}
       {note && <PlacesNoteLine note={note} />}
       <PlacesDrill {...body} />
     </div>
+  )
+}
+
+/** Birds only on the observation.org life list have no places; while the observations aren't on the list, a link to
+ *  their Add panel follows (`t.places.unplaced`). */
+export function PlacesUnplacedLine({ link = true }: { link?: boolean }) {
+  const { t } = useI18n()
+  return (
+    <p className="eb-note eb-places-note" data-testid="places-unplaced">
+      {link
+        ? rich(t.places.unplaced.add, { link: (chunk) => <Link href={`/settings#${OBSORG_PLACES.anchor}`}>{chunk}</Link> })
+        : t.places.unplaced.plain}
+    </p>
   )
 }
 

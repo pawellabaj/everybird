@@ -95,6 +95,8 @@ describe('older lists and backups keep loading', () => {
   it('migrateSaved adds the empty life-list slot and keeps everything else', () => {
     const m = migrateSaved(oldSaved() as never)
     expect(m.records['ebird-list']).toEqual([])
+    expect(m.records.obsorg).toEqual([])
+    expect(m.records['obsorg-list']).toEqual([])
     expect(m.records.ebird).toEqual([rec('a')])
     expect(m.edits.fixes).toEqual({ 'ebird:4': 'a' })
     expect(unmatchedKey(m.unmatched[0])).toBe('ebird:4')
@@ -106,7 +108,7 @@ describe('older lists and backups keep loading', () => {
     const restored = fromJson(JSON.stringify(oldSaved()))
     expect(restored.records['ebird-list']).toEqual([])
     expect(restored.records.ebird).toHaveLength(1)
-    const both = { ...emptySaved(), records: { ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [], manual: [] } }
+    const both = { ...emptySaved(), records: { obsorg: [], 'obsorg-list': [], ebird: [rec('a')], 'ebird-list': [rec('b')], inat: [], manual: [] } }
     expect(fromJson(toJson(both)).records['ebird-list']).toEqual([rec('b')])
     const withSlot = { ...both, unmatched: [{ source: 'ebird' as const, slot: 'ebird-list' as const, row: 1, reason: 'no-match' as const }], skipped: { 'ebird-list': 3 } }
     const back = fromJson(toJson(withSlot))

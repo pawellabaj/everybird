@@ -1,0 +1,16 @@
+name,scientific name,group,date first observed,date last observed,number of observations,number of individuals,number of photos,number of sounds,species type
+Demo bird 1,Colaptes auratus,Vogels,2021-05-03,2026-01-01,1,1,0,0,soort
+Demo bird 2,Colaptes auratus cafer,Vogels,2020-04-11,2026-01-01,1,1,0,0,ondersoort
+Demo bird 3,Setophaga coronata auduboni,Vogels,2019-08-20,2026-01-01,1,1,0,0,ondersoort
+Demo bird 4,Gyps rueppelli,Vogels,2018-01-15,2026-01-01,1,1,0,0,soort
+Demo bird 5,Anas platyrhynchos,Vogels,2017-03-02,2026-01-01,1,1,0,0,soort
+Demo bird 6,Milvus aegyptius,Vogels,2022-07-09,2026-01-01,1,1,0,0,synoniem
+Demo bird 7,Corvus cornix,Vogels,2016-10-10,2026-01-01,1,1,0,0,synoniem
+Demo bird 8,Colaptes spec.,Vogels,,2026-01-01,1,1,0,0,verzamelsoort
+Demo bird 9,Colaptes auratus / chrysoides,Vogels,,2026-01-01,1,1,0,0,verzamelsoort
+Demo bird 10,Colaptes auratus x Colaptes chrysoides,Vogels,,2026-01-01,1,1,0,0,hybride
+Demo bird 11,Columba livia (domestica),Vogels,,2026-01-01,1,1,0,0,forma
+Demo bird 12,Anas platyrhynchos (domesticus),Vogels,,2026-01-01,1,1,0,0,variëteit
+Demo bird 13,Avis inventa,Vogels,2023-02-02,2026-01-01,1,1,0,0,soort
+Demo bird 14,Neotis denhamii,Vogels,,2026-01-01,1,1,0,0,soort
+Demo bird 15,Bufo bufo,Amfibieën,,2026-01-01,1,1,0,0,soort

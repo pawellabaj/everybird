@@ -28,7 +28,7 @@ const page = {
     how: {
       head: 'How it works',
       steps: [
-        'Bring your list on <link>Settings</link>: an eBird file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.',
+        'Bring your list on <link>Settings</link>: an eBird or observation.org file, an iNaturalist username, or birds ticked by hand. Combine them if you keep more than one record.',
         "Each bird is matched to this year's eBird taxonomy and keeps its earliest date. Rows that don't match are listed, so nothing is dropped quietly.",
         'The collage, the filters and the share images are all made in your browser.',
       ],
@@ -67,7 +67,7 @@ const page = {
       stickers: { lead: 'Every bird sticker comes from huashu-bird-sticker by alchaincyf, licensed <cc>CC BY 4.0</cc>. The stickers were resized and trimmed for the web; nothing else was changed.', commit: 'Source commit <code>{sha}</code>.', tail: "About 2% of species don't have a sticker yet; they show as an outline, and new drawings arrive automatically as the sticker set grows." },
       inspiration: "Teddy Warner's Avian Visitors showed how lovely a wall of birds can be. Everybird started there.",
       taxonomyTitle: 'eBird and Clements',
-      taxonomy: 'Bird names, species and their order follow the eBird/Clements taxonomy, version {version}, from the Cornell Lab of Ornithology. eBird files are read in your browser.',
+      taxonomy: 'Bird names, species and their order follow the eBird/Clements taxonomy, version {version}, from the Cornell Lab of Ornithology. eBird and observation.org files are read in your browser.',
       masses: "Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu's species table.",
       redList: "IUCN Red List categories as given for BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via huashu's species table, licensed <cc>CC BY 4.0</cc>. Everybird matched them to eBird species.",
       api: "Observations come from iNaturalist's public API, called straight from your browser, about once a second.",

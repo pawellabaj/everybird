@@ -185,6 +185,11 @@ export const es: Messages = {
         add: 'Lugares solo sabe dónde registraste cada ave por primera vez. <link>Añade MyEBirdData</link> para filtrar por todos los lugares donde registraste cada ave, hasta el condado.',
         reimport: 'Lugares solo sabe dónde registraste cada ave por primera vez. <link>Vuelve a importar MyEBirdData</link> para filtrar por todos los lugares donde registraste cada ave.',
       },
+      /** The Places panel's line about birds only on the observation.org life list (no places); <link> goes to the observations' Add panel. */
+      unplaced: {
+        plain: 'Las aves que solo están en tu lista de vida de observation.org no tienen lugares, así que un filtro de lugar las deja fuera.',
+        add: 'Las aves que solo están en tu lista de vida de observation.org no tienen lugares, así que un filtro de lugar las deja fuera. <link>Añade la exportación de observaciones</link> para situarlas por país y provincia.',
+      },
       andMore: '{first} y {n} más',
     },
     /** Global IUCN Red List categories (the codes LC … DD stay as they are): their full names, the share image's label for
@@ -360,21 +365,25 @@ export const es: Messages = {
         all: {
           ebird: { one: 'de eBird', other: 'todas de eBird' },
           inat: { one: 'de iNaturalist', other: 'todas de iNaturalist' },
+          obsorg: { one: 'todas de observation.org', other: 'todas de observation.org' },
           manual: { one: 'marcada a mano', other: 'todas marcadas a mano' },
         },
         first: {
           ebird: { one: '{n} de eBird', other: '{n} de eBird' },
           inat: { one: '{n} de iNaturalist', other: '{n} de iNaturalist' },
+          obsorg: { one: '{n} de observation.org', other: '{n} de observation.org' },
           manual: { one: '{n} marcada a mano', other: '{n} marcadas a mano' },
         },
         more: {
           inat: { one: '{n} más de iNaturalist', other: '{n} más de iNaturalist' },
+          obsorg: { one: '{n} más de observation.org', other: '{n} más de observation.org' },
           manual: { one: '{n} marcada a mano', other: '{n} marcadas a mano' },
         },
       },
       species: { one: '{n} especie', other: '{n} especies' },
       onlyHere: '{n} solo aquí',
       onlyEbird: '{n} solo en eBird',
+      onlyObsorg: '{n} solo en observation.org',
       skipped: { one: '{n} omitida', other: '{n} omitidas' },
       why: '¿por qué?',
       whyLabel: { one: '¿Por qué {n} omitida?', other: '¿Por qué {n} omitidas?' },
@@ -394,6 +403,38 @@ export const es: Messages = {
       removeAsk: '¿Quitar {what}? Las aves de esa fuente salen de tu collage salvo que otra fuente las tenga. Tus cambios se mantienen.',
       removeYes: 'Sí, quitar',
       keep: 'Conservar',
+      /** The two observation.org rows (ObsOrgDrop), their notes, errors and the built sentences (obsorg-copy.ts). Menu names in the how-to are observation.org's own (English) site. */
+      obsorg: {
+        group: 'Archivos de observation.org',
+        input: 'Archivo de observation.org',
+        choose: 'Elige tu archivo de observation.org',
+        howTo: '¿Cómo consigo este archivo?',
+        rows: {
+          'obsorg-list': { title: 'Lista de vida de observation.org', guide: 'Tu lista «Observed species» de observation.org. Da la primera fecha de cada ave, pero no los lugares.', help: 'En observation.org: abre «Observed species», elige «Birds» y «Life list», y después «Export as CSV». Everybird lee el CSV, no el archivo de Excel.', what: 'tu lista de vida de observation.org' },
+          obsorg: { title: 'Observaciones de observation.org', guide: 'Cada observación de aves que hiciste en observation.org. Sitúa cada ave por país y provincia, así que Lugares puede filtrarlas.', help: 'En observation.org: abre tus «Observations», elige «Birds» y después «Export as CSV». Everybird lee el CSV, no el archivo de Excel.', what: 'tus observaciones de observation.org' },
+        },
+        /** A connected row's name when the browser gave no file name. */
+        fallback: { 'species-list': 'Observed species de observation.org', observations: 'Exportación de observaciones de observation.org' },
+        /** Under the rows while only the life list is on the list; <link> opens the observations' Add panel. */
+        note: 'Tu lista de vida de observation.org no tiene lugares, así que Lugares no puede filtrar estas aves. <link>Añade la exportación de observaciones</link> para situar cada ave por país y provincia.',
+        errors: {
+          unknown: 'No se pudo leer este archivo. Usa la exportación «Observed species» de observation.org o la exportación de tus observaciones, en CSV.',
+          noBirds: 'No hay aves en este archivo. En observation.org, elige «Birds» antes de exportar.',
+          damaged: 'No se pudo leer este archivo. Puede estar dañado o no ser una exportación de observation.org.',
+          xlsx: 'Este es un archivo de Excel. Everybird lee archivos CSV: exporta como CSV y añade ese archivo.',
+          data: 'No se pudieron cargar los datos de aves de Everybird. Revisa tu conexión e inténtalo de nuevo.',
+        },
+        notSpecies: { one: '{n} entrada no es una especie: aves identificadas solo hasta un grupo (como “Motacilla spec.”), identificaciones entre dos especies, híbridos, formas y variedades.', other: '{n} entradas no son especies: aves identificadas solo hasta un grupo (como “Motacilla spec.”), identificaciones entre dos especies, híbridos, formas y variedades.' },
+        escape: { one: '{n} observación marcada como escapada no se cuenta.', other: '{n} observaciones marcadas como escapadas no se cuentan.' },
+        uncertain: { one: '{n} observación marcada como incierta no se cuenta.', other: '{n} observaciones marcadas como inciertas no se cuentan.' },
+        both: '{escape} y {uncertain} no se cuentan.',
+        bothEscape: { one: '{n} observación marcada como escapada', other: '{n} observaciones marcadas como escapadas' },
+        bothUncertain: '{n} marcadas como inciertas',
+        notCountedLabel: { one: '{n} observación sin contar', other: '{n} observaciones sin contar' },
+        notCountedAsk: { one: '¿Por qué {n} sin contar?', other: '¿Por qué {n} sin contar?' },
+        whereList: 'Lista de vida de observation.org, fila {row}',
+        whereRow: 'Fila {row} de observation.org',
+      },
       ebird: {
         listTitle: 'Lista de vida de eBird',
         listFile: 'Descarga de la lista de vida de eBird',
@@ -527,7 +568,7 @@ export const es: Messages = {
       how: {
         head: 'Cómo funciona',
         steps: [
-          'Trae tu lista en <link>Ajustes</link>: un archivo de eBird, un nombre de usuario de iNaturalist o aves marcadas a mano. Combínalos si llevas más de un registro.',
+          'Trae tu lista en <link>Ajustes</link>: un archivo de eBird o de observation.org, un nombre de usuario de iNaturalist o aves marcadas a mano. Combínalos si llevas más de un registro.',
           'Cada ave se empareja con la taxonomía de eBird de este año y conserva su fecha más antigua. Las filas que no coinciden aparecen en una lista, así que nada se descarta en silencio.',
           'El collage, los filtros y las imágenes para compartir se hacen en tu navegador.',
         ],
@@ -566,7 +607,7 @@ export const es: Messages = {
         stickers: { lead: 'Cada sticker de ave viene de huashu-bird-sticker, de alchaincyf, con licencia <cc>CC BY 4.0</cc>. Los stickers se redimensionaron y recortaron para la web; no se cambió nada más.', commit: 'Commit de origen <code>{sha}</code>.', tail: 'Alrededor del 2% de las especies aún no tienen sticker; aparecen como un contorno, y los dibujos nuevos llegan solos a medida que crece el conjunto de stickers.' },
         inspiration: 'Avian Visitors, de Teddy Warner, mostró lo bonito que puede ser un muro de aves. Everybird empezó ahí.',
         taxonomyTitle: 'eBird y Clements',
-        taxonomy: 'Los nombres de las aves, las especies y su orden siguen la taxonomía eBird/Clements, versión {version}, del Laboratorio de Ornitología de Cornell. Los archivos de eBird se leen en tu navegador.',
+        taxonomy: 'Los nombres de las aves, las especies y su orden siguen la taxonomía eBird/Clements, versión {version}, del Laboratorio de Ornitología de Cornell. Los archivos de eBird y de observation.org se leen en tu navegador.',
         masses: 'Los tamaños de los stickers usan masas corporales de AVONET (Tobias et al. 2022, Ecology Letters), a través de la tabla de especies de huashu.',
         redList: 'Categorías de la Lista Roja de la UICN tal como aparecen para BirdLife {birdlife} en AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), a través de la tabla de especies de huashu, con licencia <cc>CC BY 4.0</cc>. Everybird las asoció con las especies de eBird.',
         api: 'Las observaciones vienen de la API pública de iNaturalist, a la que se llama directamente desde tu navegador, más o menos una vez por segundo.',
