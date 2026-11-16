@@ -83,7 +83,7 @@ describe('cardLayout', () => {
       expect(off.collage.y).toBe(on.collage.y)
       expect(off.rule.y).toBe(on.rule.y)
       expect(off.collage.h - on.collage.h).toBe(on.rule.y - on.latest!.y) // the row's icon and its gap to the rule
-      expect(packSpec(off).aspect).toBeLessThan(packSpec(on).aspect) // taller frame, so a new pack
+      expect(packSpec(off).aspect).toBeLessThan(packSpec(on).aspect) // the taller area: the pack is NOT remade for it (imagePackSpec)
     }
   })
 

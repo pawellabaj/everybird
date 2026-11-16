@@ -50,12 +50,12 @@
    above the preview's area, the controls under it, so neither moves when the preview changes shape), a grid from 720px
    (the preview on the left down both rows, the format control over the rest of the controls on the right). */
 .eb-share-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px 20px; min-width: 0; }
-/* The orientation switch is the first row (the segmented control's height: a 44px button, 4px padding and a 1px border
-   each side: 54px) and the formats the second, at least 54px, so print mode's shorter "Share images" button in its place
-   moves nothing below it, in both modes. No min-height here: an explicit one is the item's "minimum contribution" to the body's
+/* Two rows of at least the segmented control's height (a 44px button, 4px padding and a 1px border each side: 54px):
+   share mode has the orientation switch, then the formats; print mode the shorter "Share images" button, then the
+   switch, so nothing below moves between the modes. No min-height here: an explicit one is the item's "minimum contribution" to the body's
    auto row, which a grid squeezed to a definite height (the desktop body, below) may shrink the row to, so the second
    row overflowed it onto the options box. The two rows already make this column 54 + 8 + 54 = 116px tall. */
-.eb-share-formats { display: grid; grid-template-rows: auto minmax(54px, auto); gap: 8px; min-width: 0; container-type: inline-size; }
+.eb-share-formats { display: grid; grid-template-rows: minmax(54px, auto) minmax(54px, auto); gap: 8px; min-width: 0; container-type: inline-size; }
 /* Print mode's "Share images" button takes the first row's place at its own width, as it did when alone in the column. */
 .eb-share-formats > .eb-btn { justify-self: start; align-self: start; }
 

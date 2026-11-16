@@ -157,8 +157,9 @@ const sideMargin = (format: CardFormat) => M + (format === 'desktop' ? DESKTOP_S
 export const SAFE: Record<CardFormat, { top: number; bottom: number }> = {
   story: { top: 160, bottom: 156 }, post: { top: M, bottom: M }, square: { top: M, bottom: M }, print: { top: M, bottom: M },
   // A desktop wallpaper keeps clear of the menu bar (about 37 units at the top of a 1080-unit screen: 72 leaves air under
-  // it) and the Dock or a Windows taskbar at 100 to 150% (about 90 to 135 at the bottom: the footer line ends 126 above the edge and the latest lifer row's sticker 120); the sides keep M inside the central column (DESKTOP_SIDE).
-  desktop: { top: 72, bottom: 126 }, wide: { top: M, bottom: M }, printLandscape: { top: M, bottom: M },
+  // it) and the Windows taskbar up to 150% or a Mac Dock's lower part (80 units: the footer line ends 86 above the edge and
+  // the latest lifer row's sticker 80); the sides keep M inside the central column (DESKTOP_SIDE).
+  desktop: { top: 72, bottom: 86 }, wide: { top: M, bottom: M }, printLandscape: { top: M, bottom: M },
 }
 /** Where the title starts (the collage starts at SAFE.top when there's no title). */
 export const TITLE_TOP: Record<CardFormat, number> = { story: 184, post: M, square: M, print: M, desktop: 72, wide: M, printLandscape: M }
@@ -302,12 +303,14 @@ export function cardLayout(format: CardFormat, c: CardContent, dims?: readonly [
   const G = GAPS[format]
   // One line (LATEST_ONE_LINE): the row is on the footer's own line, on its right, so the hairline sits just above the
   // footer and the collage gets the height a stacked row took. Otherwise the row stacks above the hairline.
-  const oneLine = !!LATEST_ONE_LINE[format] && !!c.latest
+  // The one-line formats keep that geometry with the row off too (the row only leaves the line), so the collage's frame,
+  // and with it the pack, is the same either way: the switch never moves a bird.
+  const oneLine = !!LATEST_ONE_LINE[format]
   let rule: { y: number }
   let latest: CardLayout['latest']
   if (oneLine) {
     rule = { y: footer.y - 20 }
-    latest = { x: X, y: footer.y - 4, icon: ONE_LINE.icon, tw: 0, label: ONE_LINE.label, name: ONE_LINE.name, oneLine }
+    latest = c.latest ? { x: X, y: footer.y - 4, icon: ONE_LINE.icon, tw: 0, label: ONE_LINE.label, name: ONE_LINE.name, oneLine } : undefined
   } else {
     rule = { y: footer.y - 30 }
     latest = c.latest ? { x: X, y: rule.y - G.latest - icon, icon, tw: W - 2 * X - icon - 20, label: 20, name: 34, oneLine } : undefined
@@ -401,7 +404,9 @@ export const abortError = (message = 'share image cancelled') => {
  * whatever frame it gets. The print packs once at PRINT_DESIGN_H for every A size.
  */
 export function imagePackSpec(format: CardFormat, c: CardContent): PackSpec {
-  return packSpec(cardLayout(format, c))
+  // Always the frame with the latest lifer row (the smaller one): the "Show latest lifer" switch never changes the pack.
+  // With the row off, the same pack is fitted into the taller area (fitPack), so every bird keeps its place.
+  return packSpec(cardLayout(format, { ...c, latest: true }))
 }
 
 // --- drawing ---

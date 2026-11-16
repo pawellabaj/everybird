@@ -1,20 +1,20 @@
 // The desktop wallpaper is crop-proof without detecting the screen (Safari hides it): 1920 × 1080 units drawn at 2× (3840 × 2160),
 // and everything (collage, count, title, filter, latest-lifer row, hairline, wordmark, footer) inside the central 3:2 column,
-// x in [150, 1770], 64 units of margin inside it. The vertical clearance: at least 60 from the top, 120 from the bottom.
+// x in [150, 1770], 64 units of margin inside it. The vertical clearance: at least 60 from the top, 80 from the bottom.
 import { createHash } from 'node:crypto'
 import { en } from '@/i18n/messages/en'
 import { es } from '@/i18n/messages/es'
 import { nl } from '@/i18n/messages/nl'
 import { pt } from '@/i18n/messages/pt'
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { CREDIT_MIN, DESKTOP_SIDE, IMAGE_SCALE, IMAGE_SIZE, cardDims, cardLayout, clearStickerCache, drawShareImage, prepareCard, renderShareImage, type CardFormat } from '@/lib/share/image'
+import { CREDIT_MIN, DESKTOP_SIDE, IMAGE_SCALE, IMAGE_SIZE, cardDims, cardLayout, clearStickerCache, drawShareImage, imagePackSpec, prepareCard, renderShareImage, type CardFormat } from '@/lib/share/image'
 import { entries, installStubs, NOW, pack, species } from './fixtures/share-image-harness'
 
 afterEach(() => vi.unstubAllGlobals())
 
 const M = 64
 const LEFT = DESKTOP_SIDE, RIGHT = 1920 - DESKTOP_SIDE // 150, 1770
-const TOP_CLEAR = 60, BOTTOM_CLEAR = 120
+const TOP_CLEAR = 60, BOTTOM_CLEAR = 80
 const CONTENTS = [
   { name: true, filter: true, latest: true },
   { name: false, filter: false, latest: true },
@@ -155,3 +155,32 @@ describe('the other formats draw as before', () => {
   }
 })
 
+
+// The "Show latest lifer" switch never changes the arrangement: one pack spec for on and off, and the same pack fitted into
+// the (for the stacked formats taller) area, so every bird keeps its place.
+describe('the latest lifer switch does not rearrange the collage', () => {
+  const ALL: CardFormat[] = ['story', 'post', 'square', 'wide', 'desktop', 'print', 'printLandscape']
+  for (const f of ALL) {
+    it(`${f}: the pack spec is the same with the row on and off, with and without a name and a filter`, () => {
+      for (const name of [false, true]) for (const filter of [false, true]) {
+        const on = imagePackSpec(f, { name, filter, latest: true, count: 185 })
+        const off = imagePackSpec(f, { name, filter, latest: false, count: 185 })
+        expect(off).toEqual(on)
+      }
+    })
+    it(`${f}: the tiles keep their order and their relative places with the row off`, async () => {
+      installStubs()
+      const base = { format: f, theme: 'light' as const, entries, species, pack, now: NOW, strings: en.ui, printSize: 'A2' as const }
+      const on = await prepareCard({ ...base, latest: true } as never)
+      const off = await prepareCard({ ...base, latest: false } as never)
+      const mid = (t: { x: number; y: number; w: number; h: number }) => [t.x + t.w / 2, t.y + t.h / 2]
+      // The same birds in the same order (a bigger tile may take the 384 file instead of the 128).
+      const bird = (u: string | null) => u?.replace(/\/v1\/\d+\//, '/')
+      expect(off.tiles.map((t) => bird(t.url))).toEqual(on.tiles.map((t) => bird(t.url)))
+      const rank = (xs: number[]) => xs.map((v) => xs.filter((u) => u < v - 1e-6).length)
+      for (const k of [0, 1]) expect(rank(off.tiles.map((t) => mid(t)[k]))).toEqual(rank(on.tiles.map((t) => mid(t)[k])))
+      if (f === 'desktop') expect(off.tiles).toEqual(on.tiles) // the same frame: nothing moves at all
+      else expect(off.L.collage.h).toBeGreaterThan(on.L.collage.h)
+    })
+  }
+})

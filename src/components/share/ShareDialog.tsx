@@ -54,8 +54,7 @@ type Props = { state: AppState; dispatch: (a: Action) => void; species: SpeciesI
 const RENDER_DELAY_MS = 250
 /** The format buttons: each slot's ratio and icon in each orientation (the square is square in both). */
 const FORMATS: { id: FormatSlot; hint: Record<Orientation, string>; icon: Record<Orientation, Icon> }[] = [
-  // The horizontal story is the desktop wallpaper: no ratio (it is always 16:9, its content in the central 3:2 column).
-  { id: 'story', hint: { vertical: '9:16', horizontal: '' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
+  { id: 'story', hint: { vertical: '9:16', horizontal: '16:9' }, icon: { vertical: DeviceMobile, horizontal: Monitor } },
   { id: 'post', hint: { vertical: '4:5', horizontal: '5:4' }, icon: { vertical: FrameCorners, horizontal: FrameCorners } },
   { id: 'square', hint: { vertical: '1:1', horizontal: '1:1' }, icon: { vertical: Square, horizontal: Square } },
 ]
@@ -120,8 +119,8 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   const hasLatest = useMemo(() => shown.some((e) => e.date), [shown])
   const withLatest = hasLatest && showLatest
 
-  // One pack per format, name-or-not and lifer-or-not while the dialog is open (the view can't change underneath it; a
-  // name takes a line off the collage and the latest lifer row gives one back, so each gets its own pack); workers end
+  // One pack per format and name-or-not while the dialog is open (the view can't change underneath it; a
+  // name takes a line off the collage, so each gets its own pack; the latest lifer switch never changes the pack); workers end
   // on close.
   const life = useRef<AbortController | null>(null)
   useEffect(() => {
@@ -131,11 +130,12 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
   }, [])
   const packFor = useMemo(() => {
     const packs = new Map<string, Promise<ImagePack>>()
-    return (f: CardFormat, named: boolean, lifer: boolean) => {
-      const k = `${f}|${named}|${lifer}`
+    // Not keyed by the latest lifer switch: imagePackSpec packs for the with-row frame, so on and off share one pack.
+    return (f: CardFormat, named: boolean) => {
+      const k = `${f}|${named}`
       let p = packs.get(k)
       if (!p) {
-        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: lifer, count: shown.length })
+        const spec = imagePackSpec(f, { name: named, filter: !!label, latest: true, count: shown.length })
         p = packForImage(shown, species, spec, life.current?.signal)
         packs.set(k, p)
         p.catch(() => packs.delete(k))
@@ -174,7 +174,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
       const t = setTimeout(resolve, delay)
       cancel = () => { clearTimeout(t); reject(abortError('superseded')) }
     })
-      .then(() => packFor(cardFormat, !!trimmed, withLatest))
+      .then(() => packFor(cardFormat, !!trimmed))
       .then((pack) => renderShareImage({
         format: cardFormat, ...(print ? { printSize: size } : {}), entries: shown, species, filterLabel: label, name: trimmed || undefined,
         theme, pack, latest: withLatest, strings: t, nameOf: displayName, signal: life.current?.signal,
@@ -287,7 +287,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
     focusNext.current = 'cancel'
     try {
       const mod = await (posterModule.current ?? loadPoster())
-      const pack = await packFor(landscape ? 'printLandscape' : 'print', !!trimmed, withLatest)
+      const pack = await packFor(landscape ? 'printLandscape' : 'print', !!trimmed)
       if (ctl.signal.aborted) return
       const p = await mod.makePoster(
         { size, landscape, entries: shown, species, filterLabel: label, name: trimmed || undefined, pack, latest: withLatest, theme, strings: t, nameOf: displayName, signal: ctl.signal },
@@ -537,6 +537,12 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
           {/* Its own column on top of the controls beside the preview; above the preview on phones (share.css). In print
               mode the way back to the share images takes its place. */}
           <div className="eb-share-formats">
+            {print ? (
+              <button ref={backRef} type="button" className="eb-btn eb-btn-quiet" onClick={() => switchMode('share')}>
+                <ArrowLeft aria-hidden="true" focusable="false" />
+                {t.share.print.back}
+              </button>
+            ) : null}
             <div className="eb-seg eb-share-orient" role="group" aria-label={t.share.orientation.group}>
               {ORIENTATIONS.map((o) => (
                 <button
@@ -547,12 +553,7 @@ export default function ShareDialog({ state, dispatch, species, regions, onClose
                 </button>
               ))}
             </div>
-            {print ? (
-              <button ref={backRef} type="button" className="eb-btn eb-btn-quiet" onClick={() => switchMode('share')}>
-                <ArrowLeft aria-hidden="true" focusable="false" />
-                {t.share.print.back}
-              </button>
-            ) : (
+            {!print && (
               <div className="eb-seg" role="group" aria-label={t.share.formats}>
                 {FORMATS.map(({ id, hint, icon }) => {
                   // Horizontal, the story is the desktop wallpaper: its name and icon change, the post keeps its name.
