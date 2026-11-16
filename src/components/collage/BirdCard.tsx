@@ -8,7 +8,7 @@ import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions, SpeciesRow } from '@/lib/species/types'
 import { useVariant } from '@/lib/variants'
 import { CloseIcon } from './icons'
-import { IucnPill } from './IucnPill'
+import { IucnBadge } from './IucnPill'
 import { Marks, marksOf } from './Marks'
 import './card-list.css'
 
@@ -199,7 +199,7 @@ export function BirdFacts({ entry, row, regions, sci = false, heading = true, st
   const marks = marksOf(entry).map((m) => m.label)
   const when = [date, ...marks].filter(Boolean)
   const Name = heading ? 'h2' : 'p'
-  const badge = status && row.iu ? <IucnPill cat={row.iu} as="button" /> : null
+  const badge = status && row.iu ? <IucnBadge cat={row.iu} /> : null
   return (
     <>
       <div className="eb-card-head">

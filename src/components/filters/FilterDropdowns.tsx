@@ -12,7 +12,7 @@
 //  - Time: the timeline (Timeline.tsx): month bars, a year axis, a range of months; Clear.
 //  - Status (StatusList.tsx): a checklist of global IUCN Red List categories with counts; Clear. Shown only when a
 //    species on the list has a status (or one is checked), as `hide` leaves out what a shared link doesn't carry.
-import { CalendarBlank, CaretDown, GlobeHemisphereWest, Leaf } from '@phosphor-icons/react'
+import { CalendarBlank, CaretDown, Gauge, GlobeHemisphereWest, Hourglass, ShieldCheck } from '@phosphor-icons/react'
 import { createPortal } from 'react-dom'
 import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
 import { CloseIcon } from '@/components/collage/icons'
@@ -24,6 +24,7 @@ import type { Action, AppState } from '@/lib/list/store'
 import type { Month } from '@/lib/list/timeline'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
+import { useVariant } from '@/lib/variants'
 import { PlacesList } from './PlacesList'
 import type { PlacesNote } from './places-shared'
 import { StatusList } from './StatusList'
@@ -53,15 +54,23 @@ type Props = {
   threatLine?: number
 }
 
+/** Preview variants of the Status button's glyph (`?v=statusicon:b`): a, a gauge (a graded scale, as the Red List is
+ *  from LC to EX; production's); b, a shield (protection); c, an hourglass (time running out). */
+const STATUS_ICON_VARIANTS = ['a', 'b', 'c'] as const
+const STATUS_ICONS = { a: Gauge, b: ShieldCheck, c: Hourglass } as const
+
+const STATUS_ICON_NAMES = { a: 'gauge', b: 'shield-check', c: 'hourglass' } as const
+
 const PANELS: { id: Panel; label: string; Icon: typeof GlobeHemisphereWest }[] = [
   { id: 'places', label: 'Places', Icon: GlobeHemisphereWest },
   { id: 'time', label: 'Time', Icon: CalendarBlank },
-  { id: 'status', label: 'Status', Icon: Leaf },
+  { id: 'status', label: 'Status', Icon: Gauge },
 ]
 
 export function FilterDropdowns({ state, dispatch, species, regions, open, onOpen, hide, placesNote, time, inert, threatLine }: Props) {
   const base = useId()
   const sheet = useIsSheet()
+  const statusIcon = useVariant('statusicon', STATUS_ICON_VARIANTS)
   const { filter } = state
   const buttons = useRef<Partial<Record<Panel, HTMLButtonElement | null>>>({})
   // Status only when some species on the list has one, or a category is checked (so it can be cleared).
@@ -78,7 +87,8 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
   return (
     <>
       <div className="eb-dock-filters" role="group" aria-label="Places, time and status" inert={inert}>
-        {shown.map(({ id, label, Icon }) => {
+        {shown.map(({ id, label, Icon: PanelIcon }) => {
+          const Icon = id === 'status' ? STATUS_ICONS[statusIcon] : PanelIcon
           const s = summary(id)
           const said = spoken(id)
           return (
@@ -96,7 +106,7 @@ export function FilterDropdowns({ state, dispatch, species, regions, open, onOpe
               data-testid={`filter-tab-${id}`}
               onClick={() => onOpen(open === id ? null : id)}
             >
-              <Icon aria-hidden="true" focusable="false" />
+              <Icon aria-hidden="true" focusable="false" data-icon={id === 'status' ? STATUS_ICON_NAMES[statusIcon] : undefined} />
               <span className="eb-drop-label">
                 {label}
                 {s && <span className="eb-drop-sum"> · {s}</span>}

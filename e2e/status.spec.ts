@@ -3,8 +3,7 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import linkIndex from "../data/link-index.json";
 
-// The global IUCN Red List status (item 3): the stats line's threatened count, the Status dropdown, the card's pill (a
-// toggletip), the shared view, and the pill's Line ring in the dark theme. A synthetic list of eleven species picked
+// The global IUCN Red List status (item 3): the stats line's threatened count, the Status dropdown, the card's pill (with its name in plain text), the shared view, and the pill's Line ring in the dark theme. A synthetic list of eleven species picked
 // from the published data by their status: one LC, NT, VU, EN, EW, EX and DD, two CR, and two without a status, all
 // with their own sticker and in the link index (so a copied link carries every one). Threatened: VU + EN + 2 CR = 4.
 // Written in Round 4 and not run yet: whoever runs e2e next, check it first.
@@ -98,45 +97,19 @@ for (const width of [1280, 390]) {
       await expect(stats(page)).toHaveText(new RegExp(`^${TOTAL} species`));
     });
 
-    test("the card's pill names the category on hover or a tap, with a 44px press; a bird without a status has none", async ({ page }) => {
+    test("the card shows the pill and the category's name without a press; a bird without a status has none", async ({ page }) => {
       await seed(page);
       const card = await openCard(page, BY.VU);
-      const pill = card.getByTestId("iucn-pill");
-      await expect(pill).toHaveText("VU");
-      await expect(pill).toHaveAccessibleName("VU, Vulnerable (IUCN Red List)");
-      const tip = card.locator(".eb-iucn-tip");
-      await expect(tip).toBeHidden();
-      if (phone) {
-        // The toggle's own state: a sticky :hover (an engine whose touch emulation keeps a fine pointer) could still show
-        // the tip after the second tap, so the close is read from aria-expanded and data-open.
-        const wrap = card.getByTestId("iucn-wrap");
-        await pill.tap();
-        await expect(pill).toHaveAttribute("aria-expanded", "true");
-        await expect(wrap).toHaveAttribute("data-open", "true");
-        await expect(tip).toBeVisible();
-        await expect(tip).toHaveText("Vulnerable");
-        await pill.tap();
-        await expect(pill).toHaveAttribute("aria-expanded", "false");
-        await expect(wrap).not.toHaveAttribute("data-open");
-      } else {
-        await pill.hover();
-        await expect(tip).toBeVisible();
-        await expect(tip).toHaveText("Vulnerable");
-      }
-      // The press: the pill's box plus its ::after (18px tall, 13px above and below).
-      const press = await pill.evaluate((el) => {
-        const b = el.getBoundingClientRect();
-        const af = getComputedStyle(el, "::after");
-        const t = parseFloat(af.top) || 0, l = parseFloat(af.left) || 0;
-        return { w: b.width - 2 * Math.min(l, 0), h: b.height - 2 * Math.min(t, 0) };
-      });
-      expect(Math.round(press.w)).toBeGreaterThanOrEqual(44);
-      expect(Math.round(press.h)).toBeGreaterThanOrEqual(44);
+      const badge = card.getByTestId("iucn-badge");
+      await expect(badge.locator(".eb-iucn")).toHaveText("VU");
+      await expect(badge.locator(".eb-iucn-name")).toBeVisible();
+      await expect(badge.locator(".eb-iucn-name")).toContainText("Vulnerable");
+      await expect(badge.getByRole("button")).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(card).toHaveCount(0);
 
       const plain = await openCard(page, NONE[0]);
-      await expect(plain.getByTestId("iucn-pill")).toHaveCount(0);
+      await expect(plain.getByTestId("iucn-badge")).toHaveCount(0);
     });
 
     test("the shared view: Status filters the copied link's birds and the card has the pill", async ({ page, baseURL }) => {
@@ -167,14 +140,14 @@ for (const width of [1280, 390]) {
       await page.keyboard.press("Escape");
       await expect(panel).toHaveCount(0);
       const card = await openCard(page, CR[0]);
-      await expect(card.getByTestId("iucn-pill")).toHaveText("CR");
+      await expect(card.getByTestId("iucn-badge").locator(".eb-iucn")).toHaveText("CR");
     });
 
     test("in the dark theme the EX pill keeps its Line ring", async ({ page }) => {
       await seed(page, "dark");
       await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
       const card = await openCard(page, BY.EX);
-      const pill = card.getByTestId("iucn-pill");
+      const pill = card.getByTestId("iucn-badge").locator(".eb-iucn");
       await expect(pill).toHaveText("EX");
       // tokens.css's dark --line, #76767f; the fill stays the Red List's black in both themes.
       expect(await pill.evaluate((el) => getComputedStyle(el).boxShadow)).toContain("rgb(118, 118, 127)");

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CollageView } from '@/components/app/CollageView'
 import { FilterDropdowns, type Panel } from '@/components/filters/FilterDropdowns'
 import { StatusList } from '@/components/filters/StatusList'
-import { IucnPill } from '@/components/collage/IucnPill'
+import { IucnBadge, IucnPill } from '@/components/collage/IucnPill'
 import { initialState, makeReducer, type AppState } from '@/lib/list/store'
 import { emptySaved } from '@/lib/list/storage'
 import { monthBins } from '@/lib/list/timeline'
@@ -71,7 +71,8 @@ describe('Status: a dropdown in the controls bar', () => {
     expect(screen.getByText(/Categories · 3/)).toBeInTheDocument()
     expect(screen.getAllByRole('checkbox').map((c) => c.getAttribute('data-testid'))).toEqual(['status-LC', 'status-VU', 'status-EN'])
     expect(screen.getByRole('checkbox', { name: 'Vulnerable, 1 species' })).toBeInTheDocument()
-    expect(screen.getByText('Global IUCN Red List categories. Birds without one are left out once you pick a category.')).toBeInTheDocument()
+    // The source note lives only on About.
+    expect(screen.queryByText(/Global IUCN Red List categories/)).toBeNull()
     // Each row: the box, the pill (hidden from assistive tech), the full name, the count.
     const label = screen.getByTestId('status-VU').closest('label')!
     const pill = label.querySelector('.eb-iucn')!
@@ -180,14 +181,42 @@ describe('IucnPill', () => {
     expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#d81e05')
     expect(pill.style.getPropertyValue('--iucn-text')).toBe('#ffffff')
   })
-  it('the button form: a button named by the abbreviation and the full name', () => {
-    render(<IucnPill cat="VU" as="button" />)
-    const pill = screen.getByTestId('iucn-pill')
-    expect(pill.tagName).toBe('BUTTON')
-    expect(pill).toHaveAttribute('type', 'button')
-    expect(pill).toHaveAccessibleName('VU, Vulnerable (IUCN Red List)')
-    expect(pill).toHaveTextContent('VU')
-    expect(pill.style.getPropertyValue('--iucn-fill')).toBe('#f9e814')
+  it('the card badge: the pill and the full name as plain text, no button', () => {
+    render(<IucnBadge cat="VU" />)
+    const badge = screen.getByTestId('iucn-badge')
+    expect(badge.querySelector('button')).toBeNull()
+    expect(badge).toHaveTextContent('VUVulnerable (IUCN Red List)')
+    expect(badge.querySelector('.eb-iucn')).toHaveAttribute('aria-hidden', 'true')
+  })
+})
+
+describe('The Status button’s glyph (?v=statusicon:<letter>)', () => {
+  afterEach(() => {
+    history.replaceState(null, '', '/')
+    sessionStorage.removeItem('everybird:variants')
+  })
+  it.each([
+    ['', 'gauge'],
+    ['a', 'gauge'],
+    ['b', 'shield-check'],
+    ['c', 'hourglass'],
+  ])('?v=statusicon:%s draws the %s', (v, icon) => {
+    if (v) history.replaceState(null, '', `/?v=statusicon:${v}`)
+    render(<Harness />)
+    const glyph = statusBtn().querySelector('svg')!
+    expect(glyph).toHaveAttribute('data-icon', icon)
+    // Places and Time keep their own glyphs, unmarked.
+    expect(screen.getByTestId('filter-tab-places').querySelector('svg')).not.toHaveAttribute('data-icon')
+  })
+  it('the three glyphs are different drawings', () => {
+    const paths = ['a', 'b', 'c'].map((v) => {
+      history.replaceState(null, '', `/?v=statusicon:${v}`)
+      const { unmount } = render(<Harness />)
+      const d = statusBtn().querySelector('svg')!.innerHTML
+      unmount()
+      return d
+    })
+    expect(new Set(paths).size).toBe(3)
   })
 })
 
