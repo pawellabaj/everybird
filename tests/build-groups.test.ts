@@ -31,7 +31,7 @@ describe('species groups', () => {
     expect(() => buildGroups(overlap, synthetic)).toThrow(/exactly one/)
   })
   it('uses only eBird GETs, puts the key in the header, maps Portuguese to pt_BR', async () => {
-    const get = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(JSON.stringify([row()])))
+    const get = vi.fn<typeof fetch>(async () => new Response(JSON.stringify([row()])))
     const out = await fetchGroups(get, 'synthetic-test-key')
     expect(Object.keys(out)).toEqual(['en', 'es', 'pt', 'nl'])
     expect(get).toHaveBeenCalledTimes(4)
