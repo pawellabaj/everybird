@@ -1,6 +1,6 @@
 // The chip model: what an active filter (or, for item 9's smart search, an understood phrase) shows as a removable chip.
 // Pure. `filterChips` reads a Filter into chips (places, time, statuses); `withoutFilterChip` removes one.
-import { IUCN_NAMES } from '@/lib/species/iucn'
+import { statusName } from '@/lib/species/status-filter'
 import type { Regions } from '@/lib/species/types'
 import { filterPlaceKeys, withPlaces, withStatuses, type Filter } from './filters'
 import { FILTERS_UI, fill, placesSpoken, timeSpoken, timeSummary } from './filter-summary'
@@ -38,7 +38,7 @@ export function filterChips(f: Filter, regions: Names): Chip[] {
   if (cats.length > MAX_CHIPS) {
     out.push({ kind: 'status', label: fill(FILTERS_UI.manyStatuses, { n: cats.length }), token: ALL })
   } else {
-    for (const c of cats) out.push({ kind: 'status', label: IUCN_NAMES[c], token: c })
+    for (const c of cats) out.push({ kind: 'status', label: statusName(c), token: c })
   }
   return out
 }

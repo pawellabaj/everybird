@@ -5,12 +5,13 @@
 // hover tooltip, so it is hidden from assistive tech. The card's pill (IucnBadge, `tip`) is a button: a toggletip whose
 // label (the full name) shows on a press, on keyboard focus and on a fine pointer's hover; the button's name says it.
 import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
-import { IUCN_COLORS, IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
+import { IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
+import { statusColor, type StatusFilterCat } from '@/lib/species/status-filter'
 import './card-list.css'
 
-const pillStyle = (cat: IucnCat) => ({ '--iucn-fill': IUCN_COLORS[cat].fill, '--iucn-text': IUCN_COLORS[cat].text }) as CSSProperties
+const pillStyle = (cat: StatusFilterCat) => ({ '--iucn-fill': statusColor(cat).fill, '--iucn-text': statusColor(cat).text }) as CSSProperties
 
-export function IucnPill({ cat }: { cat: IucnCat }) {
+export function IucnPill({ cat }: { cat: StatusFilterCat }) {
   const style = pillStyle(cat)
   return (
     <span className="eb-iucn" data-cat={cat} style={style} aria-hidden="true">

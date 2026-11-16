@@ -64,6 +64,7 @@ describe('Status in words', () => {
     expect(statusSpoken({})).toBeUndefined()
     expect(statusSpoken({ statuses: ['VU', 'EN'] })).toBe('Vulnerable, Endangered')
     expect(statusSpoken({ statuses: ['CR', 'EX', 'DD'] })).toBe('Critically Endangered, Extinct, Data Deficient')
+    expect(statusSpoken({ statuses: ['VU', 'NE'] })).toBe('Vulnerable, Not evaluated')
   })
   it('the share label: exactly VU, EN and CR read "Threatened"; else one, two joined by +, or "and N more"', () => {
     expect(statusLabel(undefined)).toBeUndefined()
@@ -73,6 +74,8 @@ describe('Status in words', () => {
     expect(statusLabel(['VU', 'EN'])).toBe('Vulnerable + Endangered')
     expect(statusLabel(['NT', 'VU', 'EN', 'CR'])).toBe('Near Threatened and 3 more')
     expect(statusLabel(['VU', 'EN', 'CR', 'EW'])).toBe('Vulnerable and 3 more')
+    expect(statusLabel(['NE'])).toBe('Not evaluated')
+    expect(statusLabel(['VU', 'EN', 'CR', 'NE'])).toBe('Vulnerable and 3 more')
   })
 })
 

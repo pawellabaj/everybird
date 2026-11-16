@@ -2,13 +2,14 @@
 // The Status panel's body (the Conservation status section of Filters.tsx), on the Places panel's structure: the head
 // "N categories" with Clear, then one checklist of global IUCN Red List categories in Red List order,
 // each row the box, the pill, the full name and the count (species under the OTHER filters, statusOptions). A checked
-// category another filter left with no species stays, at 0, so it can be unchecked. At most eight rows: no search.
+// category another filter left with no species stays, at 0, so it can be unchecked. At most nine rows (the eight Red List
+// categories and NE, Not evaluated, last): no search.
 import { useMemo } from 'react'
 import { IucnPill } from '@/components/collage/IucnPill'
 import { COUNT_WORDS, countHead } from '@/lib/list/filter-summary'
 import { statusOptions, toggleStatus, withStatuses, type Filter } from '@/lib/list/filters'
 import type { AppState } from '@/lib/list/store'
-import { IUCN_CATS, IUCN_NAMES, type IucnCat } from '@/lib/species/iucn'
+import { STATUS_FILTER_CATS, statusName, type StatusFilterCat } from '@/lib/species/status-filter'
 import type { SpeciesIndex } from '@/lib/species/load'
 import { fmt } from './places-shared'
 
@@ -23,11 +24,11 @@ type Props = {
 export function StatusList({ state, species, threatLine, onFilter }: Props) {
   const { list, filter, seen } = state
   const counted = useMemo(() => statusOptions(list, filter, species, seen), [list, filter, species, seen])
-  const checked = useMemo(() => new Set<IucnCat>(filter.statuses ?? []), [filter.statuses])
+  const checked = useMemo(() => new Set<StatusFilterCat>(filter.statuses ?? []), [filter.statuses])
   // The counted rows, and any checked category they lack at 0, all in Red List order.
   const rows = useMemo(() => {
     const by = new Map(counted.map((o) => [o.value, o.count]))
-    return IUCN_CATS.filter((c) => by.has(c) || checked.has(c)).map((c) => ({ cat: c, count: by.get(c) ?? 0 }))
+    return STATUS_FILTER_CATS.filter((c) => by.has(c) || checked.has(c)).map((c) => ({ cat: c, count: by.get(c) ?? 0 }))
   }, [counted, checked])
 
   return (
@@ -51,7 +52,7 @@ export function StatusList({ state, species, threatLine, onFilter }: Props) {
               <label className="eb-check" data-checked={on ? '' : undefined}>
                 <input type="checkbox" checked={on} onChange={() => onFilter(toggleStatus(filter, cat))} data-testid={`status-${cat}`} />
                 <IucnPill cat={cat} />
-                <span className="eb-check-name">{IUCN_NAMES[cat]}</span>
+                <span className="eb-check-name">{statusName(cat)}</span>
                 <span className="eb-count" aria-hidden="true">{fmt(count)}</span>
                 <span className="eb-sr">, {fmt(count)} species</span>
               </label>

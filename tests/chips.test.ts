@@ -38,6 +38,8 @@ describe('filterChips', () => {
   it('statuses: one chip each up to three in Red List order, then "N statuses"', () => {
     expect(filterChips({ statuses: ['VU', 'EN', 'CR'] }, r).map((c) => c.label)).toEqual(['Vulnerable', 'Endangered', 'Critically Endangered'])
     expect(filterChips({ statuses: ['LC', 'NT', 'VU', 'EN'] }, r)).toEqual([{ kind: 'status', label: '4 statuses', token: ALL }])
+    expect(filterChips({ statuses: ['VU', 'NE'] }, r).map((c) => c.label)).toEqual(['Vulnerable', 'Not evaluated'])
+    expect(withoutFilterChip({ statuses: ['VU', 'NE'] }, { kind: 'status', label: 'Not evaluated', token: 'NE' })).toEqual({ statuses: ['VU'] })
   })
 
   it('order: places, time, statuses; none for taxonomy or an empty filter', () => {
