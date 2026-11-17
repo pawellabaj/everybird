@@ -7,7 +7,7 @@ The anonymous usage Worker for Everybird (`stats.yusuftaleb.com`).
 
 ## The dashboard
 
-**Prepared locally, not deployed:** the approved dashboard rebuild and receipt timestamps share this branch. Deploy only after approval and the timestamp column migration below. Design brief: `docs/superpowers/specs/2026-11-16-private-dashboard-brief.md`.
+**Live 2026-11-16 at 21:41 Pacific:** dashboard rebuild and receipt timestamps deployed from merged main `b1489e0` ([PR #3](https://github.com/yusuftaleb/everybird/pull/3)), Worker version `3c9af67f-5691-4bb3-b8a2-61c3b2a678c1`. The nullable timestamp column was applied and verified before deploying. Natural traffic now carries receipt times; older rows remain untimed. Design brief: `docs/superpowers/specs/2026-11-16-private-dashboard-brief.md`.
 
 One self-contained page, no framework, CDN, remote fonts or chart dependency. It uses Paper/Ink and the site's seven tokens. Light is the default; the labelled theme button saves a choice in `everybird:theme` with storage failures handled.
 
@@ -39,7 +39,7 @@ New events carry `received_at`, a UTC ISO 8601 timestamp from the Worker's clock
 
 Older events have `received_at = NULL`; no historical times are guessed or backfilled. The hourly query uses Vancouver's year-round UTC-7 rule, effective before timestamp collection begins. There is no timestamp index, so the change adds no index writes. The dashboard exposes only hourly aggregates.
 
-Deployment order (not applied yet):
+Deployment completed on 2026-11-16. Repeat-deployment procedure (do not reapply the column migration if present):
 
 1. Apply only `migrations/2026-11-17-event-timestamps.sql` with `npx wrangler d1 execute everybird-events --remote --file migrations/2026-11-17-event-timestamps.sql` from this directory. Check `PRAGMA table_info(events)` first; apply once if `received_at` is absent. Do not use `migrations apply`: this database's older migrations were applied individually.
 2. Deploy this Worker with `npx wrangler deploy` after the nullable column exists. The old Worker continues working after the schema change.
@@ -86,9 +86,13 @@ Access runs in front of the Worker and adds the JWT; the Worker verifies it itse
 
 ## Checks
 
-Local validation on 2026-11-16: 81 scoped stats tests and all 2,144 unit tests (149 files) passed; root route type generation, root/Worker typechecks and changed-file lint passed (one inherited Worker export-style warning). Final Worker bundle dry run: 81.64 KiB / gzip 26.04 KiB. No browser or visual checks; Yusuf's UI review and release approval remain pending.
+Local validation on 2026-11-16: 81 scoped stats tests and all 2,144 unit tests (149 files) passed; root route type generation, root/Worker typechecks and changed-file lint passed (one inherited Worker export-style warning). Final Worker bundle dry run: 81.64 KiB / gzip 26.04 KiB. No browser or visual checks; Yusuf's UI review remains pending. Release was approved and deployed on 2026-11-16.
 
 ```
 npx vitest run tests/stats-worker.test.ts tests/stats-dashboard.test.ts tests/stats-workspace.test.ts   # from the repo root
 cd workers/stats && npx wrangler types && npx -p typescript tsc --noEmit
 ```
+
+### Production verification (2026-11-16 21:41 Pacific)
+
+All ten workspace aggregate queries ran successfully against production D1. Daily active/collage/download totals, hourly known-plus-unknown visit coverage, same-scope Explore totals, distinct Other bounds and reach denominators passed consistency checks. Natural incoming traffic produced timestamped rows and Pacific-hour buckets without a synthetic beacon. Anonymous requests to the private page and both data modes were denied (403); no access policy or secrets were changed. Historical rows stayed NULL. The Vercel preview packaging omission was fixed by excluding `tests/stats-workspace.test.ts` alongside the other Worker tests; the corrected preview and main build compiled successfully. Rollback target for the Worker is `5a7dd9c2-5b87-449e-88dd-9edc5946b560`, leaving the nullable column and collected times intact.

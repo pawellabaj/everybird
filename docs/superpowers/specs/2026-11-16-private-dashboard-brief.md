@@ -1,6 +1,6 @@
 # Private analytics dashboard: design brief
 
-Status: approved by Yusuf on 2026-11-16; implementation prepared locally on `feat/visit-timestamps`. Code validation and release status are recorded in the Worker README and the implementation handoff below. No push, migration or deployment is authorized by design approval.
+Status: approved by Yusuf on 2026-11-16; implementation merged in PR #3 and deployed from main `b1489e0` on 2026-11-16 at 21:41 Pacific. Code validation and release status are recorded in the Worker README and the implementation handoff below. No push, migration or deployment is authorized by design approval.
 
 ## Job and outcome
 
@@ -86,3 +86,7 @@ Per Yusuf's instructions, agents do not run browser tests, screenshots, visual c
 Implemented locally on `feat/visit-timestamps`: Overview, Explore and Definitions; shared filters/custom dates; compatible measure/breakdown controls; explicit drill-downs; sorted/paginated tables and full CSV; local saved views and URL navigation; coverage-aware hourly visits; separate demo/restore counts; exact Other reach; and stale-response/refresh handling. Previous-period comparison is an Overview control; Explore reports the selected aggregate. Dates before collection are excluded from averages, the first collection day is marked partial, and wholly uncollected periods have an unavailable state.
 
 Validation: 81 scoped stats tests and all 2,144 tests across 149 files passed; route type generation, root and Worker typechecks, and changed-file lint passed (one inherited anonymous-default-export warning in the Worker entry). Final Worker deployment dry run passed: 81.64 KiB, gzip 26.04 KiB. No browser, screenshot or visual testing performed. Yusuf's UI review remains pending. No push, migration or deployment performed. Follow the nullable timestamp-column-first release procedure and rollback notes in `workers/stats/README.md` after release approval.
+
+## Release (2026-11-16)
+
+Yusuf approved publishing. PR #3 merged as `b1489e0`; the timestamp column was applied and verified before deployment. Worker `3c9af67f-5691-4bb3-b8a2-61c3b2a678c1` serves the private dashboard. Natural traffic has receipt times; historical times remain NULL. Production aggregate consistency checks passed, and anonymous private-route requests were denied. The Vercel packaging exclusion for the new Worker test was added in `18c94d0`; the corrected preview and main build compiled successfully. UI/visual review remains Yusuf's. Earlier handoff paragraphs describe the pre-release state.
