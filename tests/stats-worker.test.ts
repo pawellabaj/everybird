@@ -240,14 +240,32 @@ describe.skipIf(!sqlite)('POST /e stores the stats day', () => {
       const req = new Request('https://stats.yusuftaleb.com/e', { method: 'POST', body: JSON.stringify(body), headers: { origin: 'https://everybird.yusuftaleb.com', 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X)', 'cf-connecting-ip': '192.0.2.7' } })
       return (await worker.fetch(req, env as never)).status
     }
-    expect(await send('2026-11-16T23:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // UTC 16 Nov: stored
+    expect(await send('2026-11-16T23:30:00Z', { n: 'visit', p: 'landing', received_at: '1900-01-01T00:00:00Z' })).toBe(204) // UTC 16 Nov: stored; client time ignored
     expect(await send('2026-11-17T00:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // Pacific 16 Nov, after the cutover: the same person-day, not stored again
     expect(await send('2026-11-17T06:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // still Pacific 16 Nov: not stored again
     expect(await send('2026-11-17T07:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // Pacific 17 Nov: stored
-    expect(d.prepare('SELECT day, name, value FROM events ORDER BY rowid').all()).toEqual([
-      { day: '2026-11-16', name: 'visit', value: 'landing' },
-      { day: '2026-11-17', name: 'visit', value: 'landing' },
+    expect(await send('2026-11-17T07:31:02.123Z', { n: 'collage_made', p: 'inat' })).toBe(204)
+    expect(d.prepare('SELECT day, name, value, received_at FROM events ORDER BY rowid').all()).toEqual([
+      { day: '2026-11-16', name: 'visit', value: 'landing', received_at: '2026-11-16T23:30:00.000Z' },
+      { day: '2026-11-17', name: 'visit', value: 'landing', received_at: '2026-11-17T07:30:00.000Z' },
+      { day: '2026-11-17', name: 'collage_made', value: 'inat', received_at: '2026-11-17T07:31:02.123Z' },
     ])
+  })
+
+  it('adds nullable timestamps without inventing old times, and both old and new Workers can write', async () => {
+    const d = new sqlite!.DatabaseSync(':memory:')
+    d.exec(SCHEMA().replace(/, -- visit only[^\n]*\n  received_at TEXT[^\n]*/, ' -- visit only: browser language'))
+    const oldInsert = () => d.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)').run('2026-11-16', 'visit', 'landing', 'MX', 'iphone', 'legacy', '')
+    oldInsert()
+    d.exec(readFileSync('workers/stats/migrations/2026-11-17-event-timestamps.sql', 'utf8'))
+    oldInsert() // rolling deploy: the previous Worker still works after migration
+    expect(d.prepare('SELECT received_at FROM events').all()).toEqual([{ received_at: null }, { received_at: null }])
+    expect(indexes(d)).toEqual(['events_day_vid'])
+    const req = new Request('https://stats.yusuftaleb.com/e', { method: 'POST', body: JSON.stringify({ n: 'visit', p: 'about' }) })
+    expect((await worker.fetch(req, { DB: adapter(d), SALT_SECRET: 'test' } as never)).status).toBe(204)
+    const rows = d.prepare('SELECT received_at FROM events WHERE received_at IS NOT NULL').all()
+    expect(rows).toHaveLength(1)
+    expect(new Date(rows[0].received_at as string).toISOString()).toBe(rows[0].received_at)
   })
 })
 

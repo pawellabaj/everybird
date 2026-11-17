@@ -80,8 +80,8 @@ describe.skipIf(!sqlite)('the dashboard aggregation', () => {
   })
   it('uses a handful of statements; all but the two since-launch ones are on the day range', () => {
     const s = statements(p)
-    expect(s.length).toBeLessThanOrEqual(10)
-    expect(s.filter((x) => x.sql.includes('day BETWEEN')).length).toBe(8)
+    expect(s.length).toBeLessThanOrEqual(11)
+    expect(s.filter((x) => x.sql.includes('day BETWEEN')).length).toBe(9)
     for (const x of s) expect(x.sql.match(/\?/g)?.length ?? 0).toBe(x.binds.length) // bound params only
   })
   it('counts rates in person-days, never summing people across days', () => {
@@ -109,6 +109,26 @@ describe.skipIf(!sqlite)('the dashboard aggregation', () => {
   })
   it('stays aggregates only with the new fields', () => {
     expect(JSON.stringify(run(seeded(), p))).not.toMatch(/"vid"|"p1"/)
+  })
+  it('groups timestamped visits by Pacific hour, respects country and range, and excludes unknown times', () => {
+    const db = seeded()
+    const add = (day: string, time: string, country = 'MX', name = 'visit') => db.prepare('INSERT INTO events (day, name, value, country, device, vid, received_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(day, name, 'landing', country, 'iphone', 'test-visitor', time)
+    add('2026-11-17', '2026-11-17T07:00:00.000Z') // midnight Pacific
+    add('2026-11-17', '2026-11-17T20:30:00.000Z') // 13:30 Pacific
+    add('2026-11-17', '2026-11-18T06:59:59.999Z') // 23:59 Pacific
+    add('2026-11-17', '2026-11-17T20:30:00.000Z', 'US')
+    add('2026-11-17', '2026-11-17T20:30:00.000Z', 'MX', 'collage_made')
+    add('2026-11-18', '2026-11-18T07:00:00.000Z') // outside range
+    const out = run(db, { from: '2026-11-17', to: '2026-11-17', country: 'MX' }).hourlyVisits
+    expect(out.timeZone).toBe('America/Vancouver')
+    expect(out.hours).toHaveLength(24)
+    expect(out.hours.filter((x) => x.visits)).toEqual([{ hour: 0, visits: 1 }, { hour: 13, visits: 1 }, { hour: 23, visits: 1 }])
+    expect(out.withoutTime).toBe(0)
+    const historic = run(db, p).hourlyVisits
+    expect(historic.hours.every((x) => x.visits === 0)).toBe(true)
+    expect(historic.withoutTime).toBe(6) // six seeded visit events, not six distinct people
+    expect(JSON.stringify(out)).not.toContain('test-visitor')
+    expect(JSON.stringify(out)).not.toContain('2026-11-17T')
   })
 })
 
@@ -168,7 +188,7 @@ describe('the Worker routes', () => {
   }
   it('answers 404 on /dashboard and /dashboard/data without a valid token, wrong aud, or a disallowed email', async () => {
     const k = await keys()
-    for (const path of ['/dashboard', '/dashboard/', '/dashboard/data?from=2026-11-01&to=2026-11-02']) {
+    for (const path of ['/dashboard', '/dashboard/', '/dashboard/data?from=2026-11-01&to=2026-11-02', '/dashboard/data?workspace=1']) {
       for (const [t, c] of [[undefined, 'none'], [await k.sign({ aud: ['x'] }), 'aud'], [await k.sign({ email: 'eve@example.com' }), 'email']] as const) {
         const r = await call(path, { method: 'GET' }, t, { ...ENV }, k.jwks)
         expect([path, c, r.status]).toEqual([path, c, 404])
@@ -205,6 +225,18 @@ describe('the Worker routes', () => {
     const ok = await call('/e', { method: 'POST', body: '{"n":"visit","p":"landing"}', headers: { origin: 'https://everybird.yusuftaleb.com' } })
     expect([ok.status, ok.headers.get('access-control-allow-origin')]).toEqual([204, 'https://everybird.yusuftaleb.com'])
     expect(db.prepare).toHaveBeenCalled() // the insert path ran
+  })
+  it('gates and validates workspace queries, returning a recoverable error on a database failure', async () => {
+    const k = await keys(), t = await k.sign({})
+    const result = await call('/dashboard/data?workspace=1&measure=collages&dimension=source', { method: 'GET' }, t, { ...ENV }, k.jwks)
+    expect(result.status).toBe(200)
+    expect(await result.json()).toMatchObject({ explore: { measure: 'collages', dimension: 'source', total: 0 } })
+    expect((await call('/dashboard/data?workspace=1&measure=downloads&dimension=language', { method: 'GET' }, t, { ...ENV }, k.jwks)).status).toBe(400)
+    db.batch.mockRejectedValueOnce(new Error('database unavailable'))
+    const fail = await call('/dashboard/data?workspace=1', { method: 'GET' }, t, { ...ENV }, k.jwks)
+    expect(fail.status).toBe(503)
+    expect(fail.headers.get('cache-control')).toBe('no-store')
+    expect(await fail.json()).toEqual({ error: 'Analytics could not be refreshed. Try again shortly.' })
   })
   it('makes "today" the Pacific date: the default range ends there, whatever the UTC date is', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })

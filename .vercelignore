@@ -11,4 +11,5 @@ playwright-report/
 workers/
 # Its unit tests import the Worker's code, so they can't type-check without workers/.
 tests/stats-worker.test.ts
+tests/stats-workspace.test.ts
 tests/stats-dashboard.test.ts

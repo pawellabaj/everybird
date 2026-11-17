@@ -1,460 +1,145 @@
-// The dashboard page: one self-contained HTML document (inline CSS and JS, no framework, no CDN, no web fonts: the
-// site's families are named first and fall back to the system's). The page body is String.raw, so it has no backticks
-// and no ${}; the one interpolation is the small pure functions from pure.ts (hash state, CSV, rates, the safe claim).
 import { PURE_JS } from './pure'
+import { WORKSPACE_META } from './workspace'
+import { WORKSPACE_JS } from './workspace-client'
 
+// Self-contained, Access-protected UI. All data labels use textContent; no remote scripts or fonts.
 export const PAGE = String.raw`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>Everybird stats</title>
-<script>(function(){try{var t=localStorage.getItem('everybird:theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Everybird stats</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('everybird:theme')==='dark'?'dark':'light';}catch(e){}</script>
 <style>
-/* The site's seven tokens, two themes. No data-theme: follow the device. data-theme (the toggle, saved per device) wins. */
-:root {
-  --ink: #1e1e24; --paper: #f6f4ef; --accent: #92140c; --muted: #5f5f69; --line: #857f74; --hairline: #dedad2; --surface: #ebe8e1;
-  --display: "Cabinet Grotesk", "Satoshi", system-ui, sans-serif;
-  --body: "Satoshi", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  --ease: cubic-bezier(.16, 1, .3, 1); --corner: .566;
-  color-scheme: light dark;
+:root{color-scheme:light;--paper:#f6f4ef;--ink:#1e1e24;--accent:#92140c;--muted:#5f5f69;--line:#857f74;--hairline:#dedad2;--surface:#ebe8e1;--radius:8px}
+:root[data-theme=dark]{color-scheme:dark;--paper:#1e1e24;--ink:#fff;--accent:#f06a5f;--muted:#a9a9b2;--line:#76767f;--hairline:#3d3d45;--surface:#28282f}
+@supports(corner-shape:superellipse(2)){:root{--radius:14px}}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:1rem/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}::selection{background:var(--surface);color:var(--accent)}a{color:var(--accent);text-underline-offset:3px}button,input,select{font:inherit;color:inherit;caret-color:var(--accent)}button,select,input{min-height:44px;border:1px solid var(--line);border-radius:var(--radius);corner-shape:superellipse(2);background:var(--paper);padding:8px 12px;max-width:100%}button{cursor:pointer}button:disabled{cursor:default;background:var(--surface);color:var(--muted);border-color:var(--hairline)}button[aria-pressed=true],nav button[aria-current=page]{border-color:var(--accent);color:var(--accent);background:var(--surface)}:focus-visible{outline:2px solid var(--accent);outline-offset:3px}input[type=checkbox]{min-height:auto;width:18px;height:18px;accent-color:var(--accent)}h1,h2,h3,p{margin:0}h1{font-size:1.75rem;line-height:1.2;letter-spacing:-.02em}h2{font-size:1.25rem;line-height:1.3}h3{font-size:1rem}p{max-width:72ch}.muted,.note{color:var(--muted)}.note{font-size:.875rem}.row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.between{justify-content:space-between}.stack{display:grid;gap:12px}.section{padding:24px 0;border-top:1px solid var(--hairline)}.section>p,.section>.row+p{margin-top:8px}.section .row+h3{margin-top:20px}.mono{font: .75rem/1.5 ui-monospace,SFMono-Regular,monospace;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}.shell{display:grid;grid-template-columns:190px minmax(0,1fr);max-width:1600px;margin:auto;min-height:100vh}.sidebar{padding:28px 20px;border-right:1px solid var(--hairline);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:24px}.brand{font-weight:700;font-size:1.125rem}.sidebar nav{display:grid;gap:8px}.sidebar nav button{text-align:left;border-color:transparent}.sidebar footer{margin-top:auto}.main{min-width:0;padding:28px 32px 48px}.head{margin-bottom:24px}.head p{margin-top:6px}.toolbar{border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);padding:16px 0;display:flex;align-items:end;gap:12px;flex-wrap:wrap}.field{display:grid;gap:4px;font-size:.875rem;min-width:130px}.field input,.field select{font-size:1rem;width:100%}.check{display:flex;gap:8px;align-items:center;min-height:44px;font-size:.875rem}.chips{display:flex;flex-wrap:wrap;gap:8px}.chips:empty{display:none}.chips button{font-size:.875rem;background:var(--surface)}.notice{padding:12px 0;border-bottom:1px solid var(--hairline);font-size:.875rem}.notice p+p{margin-top:6px}.error{color:var(--accent)}#status{min-height:28px;padding-top:8px}#content{padding-top:16px}.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 24px;gap:16px}.summary>div{border-bottom:1px solid var(--hairline);padding:0 0 20px}.summary dt{font-size:.875rem;color:var(--muted)}.summary dd{margin:6px 0;font-size:2rem;line-height:1.2;font-weight:650;letter-spacing:-.02em}.summary .note{margin-top:6px}.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}.plot{margin:16px 0;min-width:0}.plot svg{display:block;width:100%;height:190px;overflow:visible}.plot .axis{color:var(--muted);font-size:.75rem}.plot .line{fill:none;stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke}.plot .previous{stroke:var(--muted);stroke-dasharray:5 4}.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.875rem}.legend span:before{content:'';display:inline-block;width:20px;border-top:2px solid var(--accent);margin-right:6px;vertical-align:middle}.legend .prior:before{border-top:2px dashed var(--muted)}.bars{list-style:none;padding:0;margin:16px 0;display:grid;gap:8px}.bars button,.bars .bar{width:100%;min-height:44px;display:grid;grid-template-columns:minmax(80px,1fr) minmax(30px,2fr) auto;gap:12px;align-items:center;text-align:left;background:transparent;border:0;border-radius:0;padding:4px 0}.bars .track{height:8px;background:var(--surface);border-radius:3px;overflow:hidden}.bars .fill{height:100%;background:var(--ink);opacity:.72}.bars .name{overflow-wrap:anywhere}.bars .value{font-size:.875rem}.bars button:hover .name{text-decoration:underline;text-underline-offset:3px}.table-wrap{overflow:auto;max-width:100%;scrollbar-color:var(--line) var(--surface);margin-top:16px}table{border-collapse:collapse;width:100%;font-size:.875rem}caption{text-align:left;color:var(--muted);padding-bottom:8px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--hairline);vertical-align:top}th:first-child,td:first-child{padding-left:0}td.num,th.num{text-align:right}th button{font-size:inherit;border:0;padding:4px 8px;background:transparent}td button{font-size:inherit;min-height:44px;padding:4px 8px}.pages{margin-top:12px}.builder{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px}.shelf{background:var(--surface);border-radius:var(--radius);corner-shape:superellipse(2);padding:16px;align-self:start;display:grid;gap:16px}.shelf .field{min-width:0}.result{min-width:0}.result-head{display:grid;gap:8px}.big{font-size:1.5rem;font-weight:650}.hour-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;margin:16px 0}.hour-grid button{padding:6px 2px;display:grid;gap:6px;font-size:.75rem;align-content:end}.hour-grid .hour-bar{height:48px;display:flex;align-items:end;background:var(--surface)}.hour-grid .hour-bar span{display:block;width:100%;background:var(--ink);opacity:.72}.definitions{max-width:78ch}.definitions dt{font-weight:650;margin-top:20px}.definitions dd{margin:6px 0 0}.empty{padding:24px 0}.saved{padding-top:20px;border-top:1px solid var(--hairline);margin-top:24px}.saved input{max-width:240px}.skeleton{height:160px;background:var(--surface);border-radius:var(--radius)}details{margin-top:20px}summary{cursor:pointer;min-height:44px;display:list-item;padding:10px 0}details p{margin:8px 0}.skip{position:absolute;top:-80px;left:8px;z-index:2}.skip:focus{top:8px;background:var(--paper);padding:12px}[hidden]{display:none!important}@media(hover:hover){button:not(:disabled):hover{border-color:var(--accent)}nav button:not(:disabled):hover{color:var(--accent)}}@media(max-width:1000px){.shell{grid-template-columns:160px minmax(0,1fr)}.main{padding:24px}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.builder{grid-template-columns:1fr}.shelf{grid-template-columns:repeat(3,minmax(0,1fr))}.shelf .note{grid-column:1/-1}}@media(max-width:720px){.shell{display:block}.sidebar{position:static;height:auto;border-right:0;border-bottom:1px solid var(--hairline);padding:16px;display:grid;grid-template-columns:1fr auto;gap:12px}.sidebar nav{grid-column:1/-1;display:flex;gap:4px}.sidebar nav button{flex:1;text-align:center;padding:8px}.sidebar footer{margin:0;align-self:center}.main{padding:24px 16px}.split{grid-template-columns:1fr;gap:0}.toolbar .field{flex:1;min-width:120px}.shelf{grid-template-columns:1fr}.shelf .note{grid-column:auto}.hour-grid{grid-template-columns:repeat(6,minmax(0,1fr))}.summary dd{font-size:1.75rem}h1{font-size:1.5rem}.head>.row{align-items:start}}@media(prefers-reduced-motion:no-preference){button{transition:background-color .15s,color .15s,border-color .15s}}
+</style></head><body><a class="skip" href="#main">Skip to analytics</a><div class="shell">
+<aside class="sidebar" aria-label="Analytics navigation"><div><div class="brand">Everybird</div><div class="note">Private analytics</div></div><nav aria-label="Dashboard views"><button type="button" data-view="overview">Overview</button><button type="button" data-view="explore">Explore</button><button type="button" data-view="definitions">Definitions</button></nav><footer><button type="button" id="theme">Dark theme</button></footer></aside>
+<main class="main" id="main" tabindex="-1"><header class="head"><div class="row between"><h1 id="heading">Overview</h1><button type="button" id="refresh">Refresh data</button></div><p id="intro" class="muted">Growth, countries and recorded activity.</p><p class="note" id="stamp">Waiting for data.</p></header>
+<form class="toolbar" id="global" aria-label="Shared analytics filters"><label class="field">Period<select id="preset"><option value="7">Last 7 complete days</option><option value="14" selected>Last 14 complete days</option><option value="30">Last 30 complete days</option><option value="today">Today (incomplete)</option><option value="all">All dates (up to 10 years)</option><option value="custom">Custom dates</option></select></label><label class="field" id="from-label" hidden>From<input type="date" id="from" required></label><label class="field" id="to-label" hidden>To<input type="date" id="to" required></label><button type="submit" id="apply" hidden>Apply dates</button><label class="field">Country<select id="country"><option value="">All countries</option></select></label><label class="field">Device<select id="device"><option value="">All devices</option></select></label><label class="check" id="compare-control"><input type="checkbox" id="compare" checked>Compare previous period</label><button type="button" id="reset">Reset filters</button></form>
+<div id="chips" class="chips" style="margin-top:12px" aria-label="Active shared filters"></div><div id="status" role="status" aria-live="polite" class="note"></div><div id="warnings" class="notice" hidden></div><div id="content" aria-busy="true"><div class="skeleton" aria-label="Loading analytics"></div></div><p class="note" style="margin-top:32px">Pacific time · anonymous recorded activity · blockers and privacy preferences reduce coverage. <button type="button" id="help">How these numbers are counted</button></p>
+</main></div><script>
+` + PURE_JS + WORKSPACE_JS + '\nvar META=' + JSON.stringify(WORKSPACE_META) + String.raw`;
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);}, s=workspaceState(location.hash,META), data=null, dataKey='', gate=workspaceRequestGate(), pending=null, focusAfter=null, tablePage=0, dailyTable=false, tableDailyPage=0;
+var fmt=function(n){return Number(n||0).toLocaleString('en-US');};
+var countries;try{countries=new Intl.DisplayNames(['en'],{type:'region'});}catch(e){}
+function countryName(k){if(!k||k==='XX')return 'Unknown country';try{return countries?countries.of(k)||k:k;}catch(e){return k;}}
+function label(d,k){if(k==='__other')return 'Other categories';if(k==='')return d==='hour'?'Without a timestamp':'Unknown';if(d==='country')return countryName(k);if(d==='hour')return String(k).padStart(2,'0')+':00';var names={iphone:'iPhone',ipad:'iPad',mac:'Mac',windows:'Windows',linux:'Linux',chromeos:'ChromeOS','android-phone':'Android phone','android-tablet':'Android tablet','other-tablet':'Other tablet','other-phone':'Other phone',other:'Other device',ebird:'eBird export','ebird-list':'eBird life list',inat:'iNaturalist',obsorg:'Observation.org',manual:'By hand',mixed:'Mixed sources',sample:'Demo',restore:'Restore',image_downloaded:'Image',poster_downloaded:'Poster',place:'Place',continent:'Continent',time:'Time',status:'Conservation status',group:'Bird group',taxonomy:'Taxonomy',smart:'Smart search',bird:'Bird search',landing:'Landing page',collage:'Collage page',settings:'Settings',about:'About',shared:'Shared page'};return names[k]||k;}
+function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
+function clear(n){n.replaceChildren();return n;}
+function button(text,fn){var b=el('button',null,text);b.type='button';b.addEventListener('click',fn);return b;}
+function option(sel,value,text){var o=el('option',null,text);o.value=value;sel.appendChild(o);}
+function field(parent,text,values,value,fn){var l=el('label','field',text),sel=el('select');sel.id='field-'+text.toLowerCase().replace(/[^a-z]+/g,'-');values.forEach(function(v){option(sel,v[0],v[1]);});sel.value=value;sel.addEventListener('change',function(){fn(sel.value);});l.appendChild(sel);parent.appendChild(l);return sel;}
+function note(parent,text){parent.appendChild(el('p','note',text));}
+function section(parent,title,desc,action){var box=el('section','section'),row=el('div','row between');row.appendChild(el('h2',null,title));if(action)row.appendChild(action);box.appendChild(row);if(desc)note(box,desc);parent.appendChild(box);return box;}
+function rememberFocus(){if($('content').contains(document.activeElement))focusAfter=document.activeElement.id||'heading';}
+function restoreFocus(){if(focusAfter){var target=$(focusAfter)||$('heading');if(document.activeElement===document.body||!document.activeElement.isConnected)target.focus({preventScroll:true});focusAfter=null;}}
+function change(patch){rememberFocus();Object.keys(patch).forEach(function(k){s[k]=patch[k];});s=workspaceState(workspaceHash(s),META);tablePage=0;tableDailyPage=0;var hash=workspaceHash(s);if(location.hash!==hash)history.pushState(null,'',location.pathname+location.search+hash);controls();load(false);}
+function explore(measure,dimension,filters){change({view:'explore',measure:measure,dimension:dimension||'day',filters:filters||{},display:'auto',sort:'key',descending:false});$('heading').focus();}
+function chip(parent,text,fn){var b=button(text+' · Remove',fn);parent.appendChild(b);}
+function controls(){
+  $('heading').textContent=s.view==='overview'?'Overview':s.view==='explore'?'Explore':'Definitions';$('heading').tabIndex=-1;
+  $('intro').textContent=s.view==='overview'?'Growth, countries and recorded activity.':s.view==='explore'?'Choose a measure, break it down and inspect the exact values.':'What is counted, what is missing and how to interpret it.';
+  document.querySelectorAll('[data-view]').forEach(function(b){if(b.dataset.view===s.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+  $('global').hidden=s.view==='definitions';$('compare-control').hidden=s.view!=='overview';$('chips').hidden=s.view==='definitions';$('warnings').hidden=s.view==='definitions'||!data||!data.warnings.length;
+  $('preset').value=s.preset;var custom=s.preset==='custom';['from-label','to-label','apply'].forEach(function(k){$(k).hidden=!custom;});
+  $('from').disabled=!custom;$('to').disabled=!custom;$('from').value=s.from;$('to').value=s.to;$('from').max=pacificDay(Date.now());$('to').max=pacificDay(Date.now());
+  var sel=clear($('country'));option(sel,'','All countries');var keys=data?data.countryOptions.slice():[];if(s.country&&keys.indexOf(s.country)<0)keys.push(s.country);keys.sort(function(a,b){return countryName(a).localeCompare(countryName(b));}).forEach(function(k){option(sel,k,countryName(k));});sel.value=s.country;
+  $('device').value=s.device;$('compare').checked=s.compare;$('compare').disabled=s.preset==='today'||s.preset==='all'||(data&&dataKey===workspaceQuery(s,pacificDay(Date.now()))&&!data.range.compareAvailable);
+  var chips=clear($('chips'));if(s.country)chip(chips,'Country: '+countryName(s.country),function(){change({country:''});});if(s.device)chip(chips,'Device: '+label('device',s.device),function(){change({device:''});});
 }
-@supports (corner-shape: superellipse(2)) { :root { --corner: 1; } }
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"] { --ink: #fff; --paper: #1e1e24; --accent: #f06a5f; --muted: #a9a9b2; --line: #76767f; --hairline: #3d3d45; --surface: #28282f; color-scheme: dark; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) { --ink: #fff; --paper: #1e1e24; --accent: #f06a5f; --muted: #a9a9b2; --line: #76767f; --hairline: #3d3d45; --surface: #28282f; }
+function renderWarnings(){var w=clear($('warnings'));if(data)data.warnings.forEach(function(t){w.appendChild(el('p',null,t));});w.hidden=s.view==='definitions'||!data||!data.warnings.length;}
+function queryKey(){return workspaceQuery(s,pacificDay(Date.now()));}
+async function load(quiet){
+  if(quiet&&pending)return;
+  rememberFocus();var id=gate.begin();if(pending){pending.abort();pending=null;}
+  $('refresh').disabled=false;
+  if(s.view==='definitions'){render();return;}
+  var key=queryKey();if(!quiet&&data&&key===dataKey){$('status').textContent='';render();return;}
+  var controller=new AbortController();pending=controller;var timeout=setTimeout(function(){controller.abort();},20000);
+  var same=!!data&&key===dataKey;$('refresh').disabled=true;$('content').setAttribute('aria-busy','true');$('status').className='note';$('status').textContent=same?'Refreshing…':'Loading selected data…';
+  if(!same){clear($('content')).appendChild(el('div','skeleton'));$('warnings').hidden=true;}
+  try{var res=await fetch('/dashboard/data?'+key,{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{accept:'application/json'}});if(!gate.current(id))return;if(res.status===400){var problem=await res.json();throw new Error((problem.error||'Invalid analytics query.')+' Use Reset filters or choose a compatible view.');}if(!res.ok){var err= res.status===404||res.status===401||res.status===403?'Your private access may have expired. Reload this page to sign in again.':'Could not load analytics. Try Refresh data.';throw new Error(err);}if((res.headers.get('content-type')||'').indexOf('application/json')<0)throw new Error('Your private access may have expired. Reload this page to sign in again.');var result=await res.json();if(!gate.current(id))return;data=result;dataKey=key;$('status').textContent='';render();}
+  catch(err){if(!gate.current(id))return;$('status').className='note error';$('status').textContent=(same?'Showing the last successful result. ':'')+(err.name==='AbortError'?'The request timed out. Try Refresh data.':err.message);if(!same){var c=clear($('content'));c.appendChild(el('h2',null,'Data unavailable'));note(c,'Your selections are preserved. Refresh to try again.');}}
+  finally{clearTimeout(timeout);if(gate.current(id)){pending=null;$('refresh').disabled=false;$('content').setAttribute('aria-busy','false');}}
 }
-* { box-sizing: border-box; }
-::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 500 15px/1.45 var(--body); -webkit-text-size-adjust: 100%; caret-color: var(--accent); transition: background-color .2s var(--ease), color .2s var(--ease); }
-.page { max-width: 1152px; margin: 0 auto; padding: 20px 16px 56px; display: grid; gap: 20px; }
-@media (min-width: 720px) { .page { padding: 40px 32px 72px; gap: 28px; } }
-h1 { font: 700 clamp(32px, 5vw, 48px)/1.05 var(--display); letter-spacing: -.02em; margin: 0; }
-h2 { font: 700 18px/1.2 var(--display); margin: 0; }
-.mono { font: 500 12px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
-.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 8px; }
-.between { justify-content: space-between; }
-.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.head .mono { margin-top: 10px; text-transform: none; letter-spacing: .02em; font-size: 13px; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* Buttons and fields: the site's 8px squircle on Surface, 44px to press. */
-.btn, select {
-  font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--hairline); min-height: 44px; padding: 0 14px; cursor: pointer;
-  border-radius: calc(8px * var(--corner)); corner-shape: superellipse(2); transition: border-color .15s var(--ease), opacity .15s var(--ease);
+function chart(parent,rows,dimension,previous){
+  if(!rows.some(function(r){return r.value>0;})){note(parent,'No matching activity in this selection.');return;}
+  var box=el('div','plot'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),max=Math.max.apply(null,rows.concat(previous||[]).map(function(r){return r.value;}))||1;
+  svg.setAttribute('viewBox','0 0 800 190');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('role','img');svg.setAttribute('aria-label','Daily trend. Peak '+fmt(max)+'. Exact values are available in the data table.');
+  function path(points,cls){var p=document.createElementNS('http://www.w3.org/2000/svg','polyline');p.setAttribute('class',cls);p.setAttribute('points',points.map(function(r,i){return (points.length===1?400:6+i/(points.length-1)*788)+','+(180-r.value/max*164);}).join(' '));if(points.length===1){var dot=document.createElementNS('http://www.w3.org/2000/svg','circle');dot.setAttribute('cx','400');dot.setAttribute('cy',String(180-points[0].value/max*164));dot.setAttribute('r','3');dot.setAttribute('fill',cls.indexOf('previous')>=0?'var(--muted)':'var(--accent)');svg.appendChild(dot);}svg.appendChild(p);}
+  if(previous)path(previous,'line previous');path(rows,'line');box.appendChild(svg);var axis=el('div','row between axis');axis.appendChild(el('span',null,rows[0].key));axis.appendChild(el('span',null,'Scale: 0–'+fmt(max)));axis.appendChild(el('span',null,rows[rows.length-1].key));box.appendChild(axis);if(previous){var legend=el('div','legend');legend.appendChild(el('span',null,'Selected period'));legend.appendChild(el('span','prior','Previous period'));box.appendChild(legend);}parent.appendChild(box);
 }
-select { font-size: 16px; /* 16px so iOS does not zoom */ max-width: 100%; min-width: 0; flex: 1 1 160px; border-color: var(--line); }
-.btn:disabled { color: var(--muted); cursor: default; }
-.btn.chip { min-height: 32px; padding: 0 12px; position: relative; }
-.btn.chip::after { content: ""; position: absolute; inset: -6px -3px; }
-.btn.on { border-color: var(--accent); }
-@media (hover: hover) and (pointer: fine) { .btn:not(:disabled):hover, select:hover { border-color: var(--line); } .btn.on:hover { border-color: var(--accent); } }
-/* The site's theme toggle (.eb-theme): a bare 44px squircle with the sun or the moon. */
-.theme { position: relative; display: grid; place-items: center; width: 44px; height: 44px; flex: none; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: calc(14px * var(--corner)); corner-shape: superellipse(2); transition: background-color .15s var(--ease); }
-.theme svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-@media (hover: hover) and (pointer: fine) { .theme:hover { background: var(--surface); } }
-.theme .sun { display: none; }
-:root[data-theme="dark"] .theme .sun { display: block; } :root[data-theme="dark"] .theme .moon { display: none; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme]) .theme .sun { display: block; } :root:not([data-theme]) .theme .moon { display: none; } }
-/* The site's segmented control: no accent; the chosen one is full opacity on Surface, the rest at 66%. */
-.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border: 1px solid var(--hairline); border-radius: calc(16px * var(--corner)); corner-shape: superellipse(2); }
-.seg button { font: inherit; font-size: 14px; color: var(--ink); border: 0; background: none; opacity: .66; min-height: 44px; min-width: 44px; padding: 0 14px; cursor: pointer; border-radius: calc(12px * var(--corner)); corner-shape: superellipse(2); transition: opacity .25s cubic-bezier(.25, .1, .25, 1), background-color .25s cubic-bezier(.25, .1, .25, 1); }
-.seg button[aria-pressed="true"] { opacity: 1; background: var(--surface); }
-#range { width: 100%; } #range button { flex: 1; } @media (min-width: 720px) { #range { width: auto; } }
-/* The site's switch: Surface track with a Line ring, Muted knob; on, the track is Accent and the knob Paper. */
-.sw { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px; font: inherit; font-size: 14px; color: var(--ink); background: none; border: 0; cursor: pointer; }
-.sw i { position: relative; width: 34px; height: 20px; flex: none; border-radius: 10px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); transition: background-color .15s var(--ease); }
-.sw i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: transform .15s var(--ease), background-color .15s var(--ease); }
-.sw[aria-checked="true"] i { background: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.sw[aria-checked="true"] i::after { background: var(--paper); transform: translateX(14px); }
-.sw:disabled { color: var(--muted); cursor: default; }
-#controls { display: grid; gap: 8px; } #controls .row { flex-wrap: nowrap; }
-@media (min-width: 720px) { #controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; } #controls select { flex: 0 1 220px; } }
-/* Cards: hairline, Paper, no shadow at rest (only the tooltip floats). */
-.card { border: 1px solid var(--hairline); border-radius: calc(16px * var(--corner)); corner-shape: superellipse(2); padding: 16px; min-width: 0; }
-.card h2 { margin-bottom: 4px; }
-.sub { font-size: 13px; line-height: 1.4; color: var(--muted); margin: 0 0 12px; }
-.tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-@media (min-width: 720px) { .tiles { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
-.tile { display: grid; gap: 8px; padding: 14px 16px 12px; }
-.num { font: 700 34px/1 var(--display); letter-spacing: -.025em; font-variant-numeric: tabular-nums; min-height: 34px; }
-.tile .num { margin-top: 2px; }
-.delta { display: inline-flex; align-items: center; gap: 4px; font: 500 12px/1.2 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-height: 16px; }
-.delta svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.spark { display: block; width: 100%; height: 28px; margin-top: 2px; }
-.spark path { vector-effect: non-scaling-stroke; }
-.spark .a { fill: var(--surface); stroke: none; } .spark .l { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; } .spark .z { stroke: var(--hairline); stroke-width: 1; stroke-dasharray: 3 3; }
-.grid { display: grid; gap: 12px; grid-template-columns: 1fr; align-items: start; }
-@media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; gap: 16px; } .grid .wide { grid-column: 1 / -1; } }
-@media (min-width: 1000px) { .grid.three { grid-template-columns: repeat(3, 1fr); } }
-.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 12px; }
-.stats .num { font-size: 28px; margin: 6px 0 2px; } .stats small { display: block; font-size: 12px; line-height: 1.35; color: var(--muted); }
-@media (min-width: 720px) { .stats.four { grid-template-columns: repeat(4, 1fr); } }
-.bar { display: grid; grid-template-columns: minmax(70px, 34%) 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 14px; width: 100%; background: none; border: 0; color: inherit; text-align: left; font-family: inherit; }
-button.bar { cursor: pointer; min-height: 44px; }
-@media (hover: hover) and (pointer: fine) { button.bar:hover .fill { background: var(--accent); } }
-.bar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.track { height: 8px; border-radius: 4px; background: var(--surface); overflow: hidden; }
-.fill { display: block; height: 100%; background: var(--ink); opacity: .85; border-radius: 4px; min-width: 2px; transform-origin: left; }
-.go .fill { animation: sweep .45s var(--ease) both; }
-.bar.f .fill { background: var(--accent); opacity: 1; }
-.val { font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.more { margin-top: 8px; }
-.chartbox { position: relative; margin-top: 12px; }
-svg.chart { display: block; width: 100%; touch-action: pan-y; }
-svg.chart:focus-visible { outline-offset: 4px; }
-svg text { font: 500 11px var(--mono); fill: var(--muted); }
-.bars rect { transform-box: fill-box; transform-origin: bottom; transition: fill .12s var(--ease); }
-.bars.go rect { animation: grow .5s var(--ease) both; animation-delay: calc(var(--i) * var(--step, 12ms)); }
-.bars .ghost { fill: var(--line); opacity: .32; } .bars .cur { fill: var(--muted); }
-.tip { position: absolute; pointer-events: none; background: var(--paper); border: 1px solid var(--line); border-radius: calc(8px * var(--corner)); corner-shape: superellipse(2); padding: 6px 10px; font-size: 13px; line-height: 1.4; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04); animation: fade .15s var(--ease); }
-.tip b { font: 700 16px var(--display); font-variant-numeric: tabular-nums; } .tip .p { display: block; color: var(--muted); font-size: 12px; }
-.key { display: flex; gap: 16px; font-size: 12px; color: var(--muted); } .key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
-.claim { margin: 12px 0 0; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 14px; }
-.foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; }
-#err { color: var(--accent); min-height: 0; }
-/* Loading: skeleton blocks at the content's own size, then a gentle dim while a new range loads. */
-.sk { color: transparent !important; background: var(--surface); border-radius: calc(8px * var(--corner)); animation: pulse 1.4s ease-in-out infinite; user-select: none; }
-.sk * { visibility: hidden; }
-#content { display: grid; gap: 20px; transition: opacity .2s var(--ease); } @media (min-width: 720px) { #content { gap: 28px; } } #content[aria-busy="true"] { opacity: .6; }
-@keyframes grow { from { transform: scaleY(0); } }
-@keyframes sweep { from { transform: scaleX(0); } }
-@keyframes fade { from { opacity: 0; } }
-@keyframes pulse { 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-</style>
-</head>
-<body>
-<main class="page">
-  <header class="head">
-    <div><h1>Usage</h1><div class="mono" id="sub">Everybird &middot; private &middot; days are Pacific from 17 Nov</div></div>
-    <button class="theme" id="theme" type="button" role="switch" aria-checked="false" aria-label="Dark mode">
-      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.2 8.2 0 1 0 20 14.2Z"/></svg>
-      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
-    </button>
-  </header>
-  <div id="controls">
-    <div class="seg" id="range" role="group" aria-label="Range"></div>
-    <div class="row"><select id="country" aria-label="Country"></select><button class="sw" id="cmp" type="button" role="switch" aria-checked="false">Compare<i></i></button></div>
-  </div>
-  <div id="content" aria-busy="true">
-    <section class="tiles" id="tiles" aria-label="Headline numbers"></section>
-    <section class="card" id="panel" aria-label="Country" hidden></section>
-    <section class="card" aria-label="Daily chart">
-      <div class="row between"><h2 id="ctitle">Daily</h2><div class="seg" id="seg" role="group" aria-label="Metric"></div></div>
-      <div class="chartbox" id="chart"></div>
-      <div class="row between" style="margin-top: 8px"><div class="key" id="key"></div><button class="btn chip" id="csv" type="button">Export CSV</button></div>
-    </section>
-    <section class="grid">
-      <div class="card" id="rates" aria-label="Rates"></div>
-      <div class="card" id="launch" aria-label="Since launch"></div>
-      <div class="card wide" id="funnel" aria-label="Funnel"></div>
-    </section>
-    <section class="grid three" id="cards"></section>
-  </div>
-  <footer class="foot">
-    <div id="err" role="status"></div>
-    <div class="row"><button class="btn" id="refresh" type="button">Refresh</button><button class="sw" id="auto" type="button" role="switch" aria-checked="false">Auto-refresh every minute<i></i></button></div>
-    <span id="stamp" class="mono"></span>
-    <div>Days are Pacific time (Vancouver) from 17 Nov 2026; earlier days are UTC days, and 16 Nov includes the evening of Pacific 16 Nov. 16 Nov is 31 hours, from 15 Nov 17:00 Pacific. Counts are an undercount: visitors who send Do Not Track or Global Privacy Control, and anyone with a blocker, are not counted. A visitor id lasts one day, so "people" is per day; a range adds up person-days (the same person on two days counts twice).</div>
-  </footer>
-</main>
-<script>
-(function () {
-  'use strict';
-${PURE_JS}
-  var NS = 'http://www.w3.org/2000/svg';
-  var RANGES = [['Today', 1], ['7d', 7], ['14d', 14], ['30d', 30], ['All', 0]];
-  var METRICS = [['people', 'People'], ['collages', 'Collages'], ['downloads', 'Downloads'], ['shares', 'Shares'], ['posters', 'Posters']];
-  // [label, tiles key, days key, caption for the change]
-  var TILES = [['People', 'peopleLast', 'people', 'vs day before'], ['Collages', 'collages', 'collages'], ['Images', 'images', 'images'], ['Shares', 'shares', 'shares'], ['Posters', 'posters', 'posters'], ['Poster downloads', 'posterDownloads', 'posterDownloads']];
-  var st = parseHash(location.hash); st.data = null; st.showAll = false;
-  var $ = function (id) { return document.getElementById(id); };
-  var reduced = function () { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
-  function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function sv(tag, attrs) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
-  function btn(text, cls, fn) { var b = h('button', cls, text); b.type = 'button'; b.onclick = fn; return b; }
-  function fmt(n) { return Number(n).toLocaleString('en-US'); }
-  function pacific(offset) { return addDays(pacificDay(Date.now()), offset); } // "today" and the presets are Pacific dates (pure.ts)
-  function dayLabel(d) { return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
-  function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); return e; }
-  function names(type) { try { return new Intl.DisplayNames(['en'], { type: type }); } catch (e) { return null; } }
-  var REGION = names('region'), LANGUAGE = names('language');
-  function region(c) { try { return c === 'XX' ? 'Unknown' : REGION && REGION.of(c) || c; } catch (e) { return c; } }
-  function language(c) { try { return LANGUAGE && LANGUAGE.of(c) || c; } catch (e) { return c; } }
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function poster(k) { var l = /-l$/.test(k); return k.replace(/-l$/, '').toUpperCase() + (l ? ' landscape' : ' portrait'); }
-  function store(k, v) { try { if (v == null) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
-  function metricLabel() { return METRICS.filter(function (m) { return m[0] === st.metric; })[0][1]; }
-
-  // ---- theme: the site's mechanism ([data-theme] on <html>, saved per device); with no choice it follows the device ----
-  var dark = window.matchMedia('(prefers-color-scheme: dark)');
-  function isDark() { var t = document.documentElement.getAttribute('data-theme'); return t ? t === 'dark' : dark.matches; }
-  function themeUi() { $('theme').setAttribute('aria-checked', String(isDark())); }
-  $('theme').onclick = function () { var t = isDark() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', t); store('everybird:theme', t); themeUi(); };
-  if (dark.addEventListener) dark.addEventListener('change', themeUi);
-
-  // ---- loading ----
-  var seq = 0, animate = true, timer = 0;
-  // quiet: a background refresh keeps the page as it is (no dimming).
-  function load(fresh, quiet) {
-    var to = pacific(0), from = st.all ? '2020-01-01' : pacific(1 - st.days), n = ++seq;
-    var url = '/dashboard/data?from=' + from + '&to=' + to + (st.country ? '&country=' + st.country : '');
-    $('err').textContent = ''; if (!quiet) $('content').setAttribute('aria-busy', 'true');
-    // Refresh skips the browser's 60 s cache; a late answer to an older request is dropped.
-    fetch(url, { credentials: 'same-origin', cache: fresh === true ? 'reload' : 'default' }).then(function (r) {
-      if (!r.ok) throw new Error(r.status === 404 ? 'Session expired: reload the page.' : 'Could not load (' + r.status + ').');
-      return r.json();
-    }).then(function (d) { if (n === seq) { st.data = d; render(); } }).catch(function (e) { if (n === seq) { $('err').textContent = e.message; $('content').setAttribute('aria-busy', 'false'); } });
-  }
-  // Any change of view: keep it in the URL hash, redraw the controls, and fetch (the bars grow again).
-  function change(patch, noLoad) {
-    for (var k in patch) st[k] = patch[k];
-    st.showAll = false; animate = true;
-    try { history.replaceState(null, '', location.pathname + location.search + serializeHash(st)); } catch (e) { /* sandboxed: the view just isn't kept in the URL */ }
-    controls(); if (!noLoad) load(); else if (st.data) render();
-  }
-  window.addEventListener('hashchange', function () { var s = parseHash(location.hash); if (serializeHash(s) !== serializeHash(st)) { st.days = s.days; st.all = s.all; st.country = s.country; st.metric = s.metric; st.compare = s.compare; st.showAll = false; animate = true; controls(); load(); } });
-
-  function controls() {
-    var r = clear($('range'));
-    RANGES.forEach(function (x) {
-      var b = btn(x[0], null, function () { change({ all: x[1] === 0, days: x[1] || st.days, compare: x[1] === 0 ? false : st.compare }); });
-      b.setAttribute('aria-pressed', String(x[1] === 0 ? st.all : !st.all && st.days === x[1])); r.appendChild(b);
-    });
-    var sel = $('country'), list = st.data ? st.data.breakdowns.countries.slice() : [];
-    if (st.country && !list.some(function (x) { return x.k === st.country; })) list.push({ k: st.country, n: 0 });
-    list.sort(function (a, b) { return region(a.k).localeCompare(region(b.k)); });
-    var sig = list.map(function (x) { return x.k; }).join();
-    if (sel.dataset.sig !== sig) {
-      clear(sel); sel.dataset.sig = sig;
-      var any = h('option', null, 'All countries'); any.value = ''; sel.appendChild(any);
-      list.forEach(function (x) { var o = h('option', null, region(x.k)); o.value = x.k; sel.appendChild(o); });
-    }
-    sel.value = st.country;
-    $('cmp').setAttribute('aria-checked', String(st.compare && !st.all)); $('cmp').disabled = st.all; $('cmp').title = st.all ? 'Not available for All' : '';
-    var m = clear($('seg'));
-    METRICS.forEach(function (x) { var b = btn(x[1], null, function () { change({ metric: x[0] }, true); }); b.setAttribute('aria-pressed', String(st.metric === x[0])); m.appendChild(b); });
-  }
-  $('country').onchange = function () { change({ country: this.value }); };
-  $('cmp').onclick = function () { change({ compare: !st.compare }, true); };
-  $('csv').onclick = function () {
-    if (!st.data) return;
-    var a = h('a'), u = URL.createObjectURL(new Blob([buildCsv(st.data.days, st.data.range.country)], { type: 'text/csv' }));
-    a.href = u; a.download = 'everybird-' + st.data.range.from + '-to-' + st.data.range.to + (st.data.range.country ? '-' + st.data.range.country : '') + '.csv';
-    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(u); }, 1000);
-  };
-
-  // ---- skeletons: the real structure with blocks where the numbers go, so nothing jumps when data arrives ----
-  function skeleton() {
-    var t = clear($('tiles'));
-    TILES.forEach(function (x) { var c = tile(x); c.querySelectorAll('.num, .delta, .spark').forEach(function (e) { e.classList.add('sk'); }); t.appendChild(c); });
-    var sk = clear($('chart')); var b = h('div', 'sk'); b.style.height = '200px'; sk.appendChild(b);
-    for (var j = 0; j < 3; j++) { var cd = h('div', 'card'); $('cards').appendChild(cd).appendChild(h('div', 'sk')).style.height = '148px'; }
-    ['rates', 'launch', 'funnel'].forEach(function (id) { var c = clear($(id)); for (var i = 0; i < 3; i++) { var l = h('div', 'sk'); l.style.height = '20px'; l.style.margin = '12px 0'; c.appendChild(l); } });
-  }
-  function tile(x) {
-    var c = h('div', 'card tile'); c.appendChild(h('div', 'mono', x[0])); c.appendChild(h('div', 'num', '0')); c.appendChild(h('div', 'delta', '–'));
-    var s = sv('svg', { class: 'spark', viewBox: '0 0 100 28', preserveAspectRatio: 'none', 'aria-hidden': 'true' }); c.appendChild(s); return c;
-  }
-
-  // ---- headline tiles: built once, then updated in place (numbers roll, nothing is rebuilt) ----
-  function roll(el, to) {
-    var from = Number(el.dataset.v), t0 = performance.now(); el.dataset.v = to; el.classList.remove('sk');
-    if (reduced() || isNaN(from) || from === to) { el.textContent = fmt(to); return; }
-    el.dataset.t = t0;
-    (function step(t) { if (el.dataset.t !== String(t0)) return; var k = Math.min(1, (t - t0) / 320); k = 1 - Math.pow(1 - k, 3); el.textContent = fmt(Math.round(from + (to - from) * k)); if (k < 1) requestAnimationFrame(step); })(t0);
-  }
-  var ARROW = { up: 'M5 9V1M1.5 4.5 5 1l3.5 3.5', down: 'M5 1v8M1.5 5.5 5 9l3.5-3.5', flat: 'M1 5h8' };
-  function deltaEl(e, v, p, caption) {
-    clear(e); e.classList.remove('sk');
-    var d = deltaInfo(v, p);
-    if (d.dir === 'none') { e.textContent = '–'; return; }
-    if (d.dir === 'new') { e.textContent = 'new ' + caption; return; }
-    var s = sv('svg', { viewBox: '0 0 10 10', 'aria-hidden': 'true' }); s.appendChild(sv('path', { d: ARROW[d.dir] })); e.appendChild(s);
-    e.appendChild(h('span', 'sr', d.dir === 'up' ? 'Up ' : d.dir === 'down' ? 'Down ' : ''));
-    e.appendChild(document.createTextNode((d.dir === 'flat' ? 'no change' : d.pct + '%') + ' ' + caption));
-  }
-  function spark(svg, vals) {
-    clear(svg);
-    if (vals.length < 2) { svg.appendChild(sv('path', { class: 'z', d: 'M0 27H100' })); return; }
-    var max = Math.max.apply(null, vals.concat([1])), pts = vals.map(function (v, i) { return (i / (vals.length - 1) * 100).toFixed(1) + ' ' + (26 - v / max * 24).toFixed(1); });
-    svg.appendChild(sv('path', { class: 'a', d: 'M' + pts.join('L') + 'L100 28L0 28Z' })); svg.appendChild(sv('path', { class: 'l', d: 'M' + pts.join('L') }));
-  }
-  function tiles() {
-    var d = st.data, box = $('tiles'), last = d.tiles.peopleLast.day === pacific(0);
-    if (box.children.length !== TILES.length || box.querySelector('.sk')) { clear(box); TILES.forEach(function (x) { box.appendChild(tile(x)); }); }
-    TILES.forEach(function (x, i) {
-      var c = box.children[i], t = d.tiles[x[1]];
-      c.firstChild.textContent = x[0] + (i === 0 ? ' · ' + (last ? 'today' : dayLabel(t.day)) : '');
-      roll(c.querySelector('.num'), t.value);
-      // "All" starts at the first day with data, so its previous period is empty: no comparison there.
-      if (st.all && !x[3]) { var e = c.querySelector('.delta'); clear(e).classList.remove('sk'); e.textContent = 'all time'; } else deltaEl(c.querySelector('.delta'), t.value, t.prev, x[3] || 'vs previous');
-      var sp = c.querySelector('.spark'); sp.classList.remove('sk'); spark(sp, d.days.map(function (y) { return y[x[2]]; }));
-    });
-  }
-
-  // ---- the daily chart: bars, with the previous period as ghost bars behind when Compare is on ----
-  function niceMax(v) { if (v <= 4) return 4; var p = Math.pow(10, Math.floor(Math.log10(v))), f = v / p; return (f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; }
-  var hideTip = null;
-  function chart() {
-    var box = clear($('chart')), d = st.data, days = d.days, key = st.metric, label = metricLabel(), cmp = st.compare && !st.all && d.prevDays.length === days.length;
-    $('ctitle').textContent = 'Daily ' + label.toLowerCase();
-    clear($('key'));
-    if (cmp) { var k1 = h('span'), k2 = h('span'); k1.appendChild(h('i')).style.background = 'var(--muted)'; k1.appendChild(document.createTextNode('This period')); k2.appendChild(h('i')).style.background = 'var(--line)'; k2.appendChild(document.createTextNode('Previous period')); $('key').appendChild(k1); $('key').appendChild(k2); }
-    var W = Math.max(box.clientWidth || box.parentNode.clientWidth - 32, 260), H = 200, L = 32, B = 22, T = 8, R = 4;
-    var all = days.map(function (x) { return x[key]; }).concat(cmp ? d.prevDays.map(function (x) { return x[key]; }) : [], [0]);
-    var max = niceMax(Math.max.apply(null, all));
-    var svg = sv('svg', { class: 'chart', viewBox: '0 0 ' + W + ' ' + H, role: 'img', tabindex: 0, 'aria-label': 'Daily ' + label.toLowerCase() + ', ' + days.length + ' days. Arrow keys read each day.' });
-    [0, .5, 1].forEach(function (f) {
-      var y = T + (H - B - T) * (1 - f);
-      svg.appendChild(sv('line', { x1: L, x2: W - R, y1: y, y2: y, stroke: 'var(--hairline)', 'stroke-width': 1 }));
-      var tx = sv('text', { x: L - 6, y: y + 4, 'text-anchor': 'end' }); tx.textContent = fmt(max * f); svg.appendChild(tx);
-    });
-    var slot = (W - L - R) / days.length, bw = Math.max(1, Math.min(28, slot * .7)), gw = Math.min(slot, bw + 8), g = sv('g', { class: 'bars' + (animate && !reduced() ? ' go' : '') }), cur = [];
-    var yOf = function (v) { return H - B - (H - B - T) * v / max; };
-    function bar(cls, v, w, i) { var x = L + slot * i + (slot - w) / 2, r = sv('rect', { class: cls, x: x, y: yOf(v), width: w, height: Math.max(H - B - yOf(v), v ? 1 : 0), rx: Math.min(4, w / 2) }); r.style.setProperty('--i', i); g.appendChild(r); return r; }
-    if (cmp) d.prevDays.forEach(function (x, i) { bar('ghost', x[key], gw, i); });
-    days.forEach(function (x, i) { cur.push(bar('cur', x[key], bw, i)); });
-    g.style.setProperty('--step', Math.min(12, 240 / days.length).toFixed(2) + 'ms'); // the whole stagger stays under a quarter second
-    svg.appendChild(g);
-    [0, Math.floor((days.length - 1) / 2), days.length - 1].filter(function (v, i, a) { return a.indexOf(v) === i; }).forEach(function (i, n, a) {
-      var tx = sv('text', { x: L + slot * (i + .5), y: H - 6, 'text-anchor': a.length > 1 && n === 0 ? 'start' : a.length > 1 && n === a.length - 1 ? 'end' : 'middle' });
-      if (a.length > 1 && n === 0) tx.setAttribute('x', L); if (a.length > 1 && n === a.length - 1) tx.setAttribute('x', W - R);
-      tx.textContent = dayLabel(days[i].d); svg.appendChild(tx);
-    });
-    var tip = h('div', 'tip'); tip.hidden = true;
-    function show(i) {
-      var rect = svg.getBoundingClientRect(); cur.forEach(function (b, j) { b.style.fill = j === i ? 'var(--accent)' : ''; });
-      clear(tip); tip.appendChild(h('b', null, fmt(days[i][key]))); tip.appendChild(h('span', null, ' ' + label.toLowerCase() + ' · ' + dayLabel(days[i].d)));
-      if (cmp) tip.appendChild(h('span', 'p', fmt(d.prevDays[i][key]) + ' on ' + dayLabel(d.prevDays[i].d)));
-      tip.hidden = false; svg.dataset.i = i;
-      var px = (L + slot * (i + .5)) * rect.width / W; tip.style.left = Math.max(60, Math.min(rect.width - 60, px)) + 'px';
-      tip.style.top = Math.max(cmp ? 44 : 30, yOf(Math.max(days[i][key], cmp ? d.prevDays[i][key] : 0)) * rect.height / H - 6) + 'px';
-    }
-    function at(ev) { var rect = svg.getBoundingClientRect(); show(Math.max(0, Math.min(days.length - 1, Math.floor(((ev.clientX - rect.left) * W / rect.width - L) / slot)))); }
-    function off() { tip.hidden = true; cur.forEach(function (b) { b.style.fill = ''; }); }
-    // A touch "leaves" as the finger lifts, so a tapped tip stays until a tap elsewhere (hideTip, below).
-    svg.addEventListener('pointermove', at); svg.addEventListener('pointerdown', at);
-    svg.addEventListener('pointerleave', function (ev) { if (ev.pointerType !== 'touch') off(); });
-    svg.addEventListener('keydown', function (ev) {
-      var i = Number(svg.dataset.i == null ? -1 : svg.dataset.i), step = ev.key === 'ArrowRight' ? 1 : ev.key === 'ArrowLeft' ? -1 : 0;
-      if (ev.key === 'Escape') off(); if (!step) return; ev.preventDefault(); show(Math.max(0, Math.min(days.length - 1, i + step)));
-    });
-    svg.addEventListener('blur', off);
-    hideTip = off; box.appendChild(svg); box.appendChild(tip);
-    if (key === 'people') box.appendChild(h('p', 'sub', 'People = distinct anonymous visitors that day; ids change daily.')).style.marginTop = '8px';
-  }
-
-  // ---- bar lists, rates, launch totals, funnel ----
-  function bars(parent, items, o) {
-    o = o || {};
-    var total = items.reduce(function (a, x) { return a + x.n; }, 0), max = items.reduce(function (a, x) { return Math.max(a, x.n); }, 0);
-    if (!total) { parent.appendChild(h('div', 'empty', 'Nothing yet.')); return; }
-    (o.limit && !st.showAll ? items.slice(0, o.limit) : o.top ? items.slice(0, o.top) : items).forEach(function (x) {
-      var row = h(o.click ? 'button' : 'div', 'bar' + (o.mark && o.mark(x) ? ' f' : ''));
-      if (o.click) { row.type = 'button'; row.onclick = function () { o.click(x); }; row.title = 'Filter to ' + (o.label ? o.label(x.k) : x.k); }
-      row.appendChild(h('span', 'name', o.label ? o.label(x.k) : x.k));
-      var tr = h('span', 'track'), f = h('span', 'fill'); f.style.width = (x.n / max * 100) + '%'; tr.appendChild(f); row.appendChild(tr);
-      row.appendChild(h('span', 'val', fmt(x.n) + ' · ' + Math.round(x.n / total * 100) + '%'));
-      parent.appendChild(row);
-    });
-    if (o.limit && items.length > o.limit) parent.appendChild(btn(st.showAll ? 'Show top ' + o.limit : 'Show all ' + items.length, 'btn chip more', function () { st.showAll = !st.showAll; cards(); }));
-  }
-  function card(title, sub, items, o) { var c = h('div', 'card'); c.appendChild(h('h2', null, title)); c.appendChild(h('p', 'sub', sub)); bars(c, items, o); return c; }
-  function stat(parent, label, value, note) { var s = h('div'); s.appendChild(h('div', 'mono', label)); s.appendChild(h('div', 'num', value)); s.appendChild(h('small', null, note)); parent.appendChild(s); }
-  function rates() {
-    var r = st.data.rates, c = clear($('rates')), g = h('div', 'stats four');
-    c.appendChild(h('h2', null, 'Rates')); c.appendChild(h('p', 'sub', 'Of ' + fmt(r.pd) + ' person-days, the share that did each thing at least once.'));
-    stat(g, 'Collage', pct(r.collage, r.pd), 'made a collage'); stat(g, 'Download', pct(r.downloaded, r.pd), 'saved an image or poster');
-    stat(g, 'Share', pct(r.shared, r.pd), 'shared'); stat(g, 'Poster', pct(r.poster, r.pd), 'made a poster'); c.appendChild(g);
-  }
-  function launch() {
-    var l = st.data.launch, c = clear($('launch')), g = h('div', 'stats'), claim = safeClaim(l.own, 'collages made on Everybird');
-    c.appendChild(h('h2', null, 'Since launch')); c.appendChild(h('p', 'sub', 'All time, all countries' + (l.since ? ', from ' + dayLabel(l.since) : '') + '.'));
-    stat(g, 'Collages', fmt(l.collages), 'made, ' + fmt(l.own) + ' from real lists'); stat(g, 'Images', fmt(l.images), 'downloaded'); stat(g, 'Posters', fmt(l.posters), 'made');
-    stat(g, 'Busiest day', l.peak ? dayLabel(l.peak.day) : '–', l.peak ? fmt(l.peak.people) + ' people' : 'no data'); c.appendChild(g);
-    var p = h('div', 'claim'); p.appendChild(h('span', null, claim || 'Not enough yet for a claim.'));
-    if (claim) { var b = btn('Copy', 'btn chip', function () { copy(claim); b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }); p.appendChild(b); }
-    c.appendChild(p);
-  }
-  function copy(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).catch(function () {}); return; }
-    var t = h('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) { /* nothing to do */ } t.remove();
-  }
-  function funnel() {
-    var f = st.data.funnel, box = clear($('funnel')), n = { landing: 'Landing page', settings: 'Settings', collage: 'Collage page', collage_made: 'Collage made', downloaded: 'Image or poster downloaded' };
-    box.appendChild(h('h2', null, 'Funnel')); box.appendChild(h('p', 'sub', 'Person-days that reached each step, as a share of the landing page.'));
-    var base = f[0].n || Math.max.apply(null, f.map(function (x) { return x.n; }));
-    if (!base) { box.appendChild(h('div', 'empty', 'Nothing yet.')); return; }
-    f.forEach(function (x) {
-      var row = h('div', 'bar'); row.appendChild(h('span', 'name', n[x.k]));
-      var tr = h('span', 'track'), fl = h('span', 'fill'); fl.style.width = Math.min(100, x.n / base * 100) + '%'; tr.appendChild(fl); row.appendChild(tr);
-      row.appendChild(h('span', 'val', fmt(x.n) + ' · ' + Math.round(x.n / base * 100) + '%')); box.appendChild(row);
-    });
-  }
-
-  // ---- country panel: shown when a country is chosen (the whole page is already filtered to it) ----
-  function panel() {
-    var d = st.data, c = $('panel'), cc = d.range.country; c.hidden = !cc; if (!cc) return; clear(c);
-    var r = d.rates, g = h('div', 'stats four'), top = h('div', 'row between');
-    top.appendChild(h('h2', null, region(cc))); top.appendChild(btn('All countries', 'btn chip', function () { change({ country: '' }); })); c.appendChild(top);
-    c.appendChild(h('p', 'sub', 'Person-days in range, this country only. Interface language counts people who switched it; browser language counts visits.'));
-    var daily = sv('svg', { class: 'spark', viewBox: '0 0 100 28', preserveAspectRatio: 'none', role: 'img', 'aria-label': 'People per day' }); spark(daily, d.days.map(function (y) { return y.people; })); daily.style.height = '40px'; daily.style.marginBottom = '16px'; c.appendChild(daily);
-    var avg = d.days.length ? r.pd / d.days.length : 0;
-    stat(g, 'People', avg >= 10 ? fmt(Math.round(avg)) : avg.toFixed(1), 'a day, on average'); stat(g, 'Collage rate', pct(r.collage, r.pd), 'of person-days made a collage');
-    stat(g, 'Downloads', perPerson(d.tiles.downloads.value, r.pd), 'per person-day'); stat(g, 'Share rate', pct(r.shared, r.pd), 'of person-days shared'); c.appendChild(g);
-    var cols = h('div', 'grid three'); cols.style.marginTop = '16px';
-    var b = d.breakdowns;
-    [['Top formats', b.formats, cap], ['Browser language', b.browserLanguages, language], ['Interface switched to', b.uiLanguages, language]].forEach(function (x) {
-      var col = h('div'); col.appendChild(h('div', 'mono', x[0])).style.marginBottom = '4px';
-      bars(col, x[1], { label: x[2], top: 3 }); cols.appendChild(col);
-    });
-    c.appendChild(cols);
-  }
-
-  function cards() {
-    var b = st.data.breakdowns, g = clear($('cards')), land = 0, port = 0;
-    b.posterSizes.forEach(function (x) { if (/-l$/.test(x.k)) land += x.n; else port += x.n; });
-    g.appendChild(card('Image formats', 'Downloads by format.', b.formats, { label: cap }));
-    g.appendChild(card('Poster sizes', 'Made: ' + fmt(port) + ' portrait, ' + fmt(land) + ' landscape.', b.posterSizes, { label: poster }));
-    g.appendChild(card('Filters used', 'Once per kind per page load.', b.filters, { label: cap }));
-    g.appendChild(card('Searches', 'Smart filters vs a bird.', b.search, { label: function (k) { return k === 'smart' ? 'Smart filters' : 'Bird'; } }));
-    g.appendChild(card('Interface language', 'Switched to.', b.uiLanguages, { label: language }));
-    g.appendChild(card('Browser language', 'Visits, person-days.', b.browserLanguages, { label: language }));
-    g.appendChild(card('Devices', 'Person-days.', b.devices, { label: function (k) { return cap(k.replace(/-/g, ' ')); } }));
-    var cc = card('Countries', 'Person-days. Tap one to filter the page.', b.countries, { label: region, limit: 15, click: function (x) { change({ country: x.k }); }, mark: function (x) { return x.k === st.country; } });
-    cc.classList.add('wide'); g.appendChild(cc);
-  }
-  function render() {
-    var d = st.data; $('content').classList.toggle('go', animate);
-    tiles(); panel(); chart(); lastW = $('chart').clientWidth; rates(); launch(); funnel(); cards(); controls(); animate = false;
-    $('content').setAttribute('aria-busy', 'false');
-    $('sub').textContent = 'Everybird · private · ' + (st.country ? region(st.country) : 'all countries') + ' · days are Pacific from 17 Nov';
-    $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to);
-  }
-
-  // ---- auto-refresh: every 60 s, only while the tab is visible ----
-  function auto(on, keep) {
-    clearInterval(timer); timer = 0; $('auto').setAttribute('aria-checked', String(on)); if (keep) store('everybird:stats-auto', on ? '1' : '0');
-    if (on) timer = setInterval(function () { if (document.visibilityState === 'visible') load(true, true); }, 60000);
-  }
-  $('auto').onclick = function () { auto($('auto').getAttribute('aria-checked') !== 'true', true); };
-  $('refresh').onclick = function () { load(true); };
-  document.addEventListener('pointerdown', function (ev) { if (hideTip && !$('chart').contains(ev.target)) hideTip(); });
-  var rt, lastW = 0;
-  // Redraw on a real width change only: a phone's URL bar collapsing fires resize too, and a redraw would drop a tapped tip.
-  window.addEventListener('resize', function () {
-    clearTimeout(rt);
-    rt = setTimeout(function () { var w = $('chart').clientWidth; if (!st.data || w === lastW) return; lastW = w; var a = animate; animate = false; chart(); animate = a; }, 120);
-  });
-  themeUi(); skeleton(); controls(); auto(store('everybird:stats-auto') === '1'); load();
+function barList(parent,rows,dimension,fn){var list=el('ol','bars'),max=Math.max.apply(null,rows.map(function(r){return r.value;}))||1;rows.forEach(function(r){var b=fn&&r.key!=='__other'?button('',function(){fn(r);}):el('div','bar');b.appendChild(el('span','name',label(dimension,r.key)));var track=el('span','track'),fill=el('span','fill');fill.style.width=(r.value/max*100)+'%';track.setAttribute('aria-hidden','true');track.appendChild(fill);b.appendChild(track);b.appendChild(el('span','value',fmt(r.value)));var li=el('li');li.appendChild(b);list.appendChild(li);});parent.appendChild(list);}
+function dataTable(parent,rows,dimension,unit,fn,state){
+  var wrap=el('div','table-wrap');wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label','Data table, scroll if needed');var t=el('table'),cap=el('caption',null,'Exact values · '+unit+' · '+fmt(rows.length)+' rows');t.appendChild(cap);var head=el('thead'),tr=el('tr');
+  [dimension==='activity'?'Activity':META.dimensions[dimension],unit].forEach(function(title,i){var th=el('th',i?'num':null);th.scope='col';if(state){th.setAttribute('aria-sort',s.sort===(i?'value':'key')?(s.descending?'descending':'ascending'):'none');th.appendChild(button(title+' · Sort',function(){var key=i?'value':'key';change({sort:key,descending:s.sort===key?!s.descending:key==='value'});}));}else th.textContent=title;tr.appendChild(th);});if(fn){var th=el('th',null,'Investigate');th.scope='col';tr.appendChild(th);}head.appendChild(tr);t.appendChild(head);var body=el('tbody'),page=Math.min(state?tablePage:tableDailyPage,Math.max(0,Math.ceil(rows.length/50)-1)),sorted=state?workspaceSort(rows,s.sort,s.descending,dimension):rows,start=page*50;
+  sorted.slice(start,start+50).forEach(function(r){var row=el('tr');row.appendChild(el('td',null,label(dimension,r.key)));row.appendChild(el('td','num',fmt(r.value)));if(fn){var td=el('td');td.appendChild(button('Filter to '+label(dimension,r.key),function(){fn(r);}));row.appendChild(td);}body.appendChild(row);});t.appendChild(body);wrap.appendChild(t);parent.appendChild(wrap);
+  if(rows.length>50){var pages=el('div','row pages'),prev=button('Previous rows',function(){if(state)tablePage=page-1;else tableDailyPage=page-1;render();}),next=button('Next rows',function(){if(state)tablePage=page+1;else tableDailyPage=page+1;render();});prev.disabled=page===0;next.disabled=start+50>=rows.length;pages.append(prev,el('span','note','Rows '+(start+1)+'–'+Math.min(start+50,rows.length)+' of '+rows.length),next);parent.appendChild(pages);}
+}
+function overview(parent){
+  var d=data,r=d.range,sum=d.summary,dl=el('dl','summary');
+  [['Average daily active visitors',sum.active/r.days,'Daily identities averaged across '+r.days+' days.','active'],['Personal-list collages',sum.collages,'Events; demos and restores excluded.','collages'],['Downloads',sum.downloads,'Image and poster download events.','downloads'],['Share actions',sum.shares,'Recorded share events; copied links are separate.','shares']].forEach(function(x,i){var b=el('div');b.append(el('dt',null,x[0]),el('dd',null,i?fmt(x[1]):Number(x[1]).toLocaleString('en-US',{maximumFractionDigits:1})));note(b,x[2]);b.appendChild(button('Explore',function(){explore(x[3],'day');}));dl.appendChild(b);});parent.appendChild(dl);
+  var trend=section(parent,'Daily trend','Daily active visitors count anonymous ids with any recorded event. Other measures count events.',button('Explore this',function(){explore(s.trend,'day');}));
+  field(trend,'Measure',['active','collages','downloads','shares','visits','posters'].map(function(k){return [k,k==='active'?'Daily active visitors':META.measures[k].label];}),s.trend,function(v){change({trend:v});});
+  var points=d.daily.map(function(row){return {key:row.day,value:row[s.trend]};}),cmp=s.compare&&r.compareAvailable;
+  chart(trend,points,'day',cmp?d.previous.map(function(row){return {key:row.day,value:row[s.trend]};}):null);
+  var insight=workspaceObservation(d,s.trend,cmp);if(insight)note(trend,(s.trend==='active'?'Active visitor-days: ':'Events: ')+insight+' Previous: '+r.prevFrom+' to '+r.prevTo+'.');
+  if(s.compare&&!r.compareAvailable)note(trend,'Comparison unavailable: the range includes today, a cutover, all dates, or an incomplete historical baseline.');
+  trend.appendChild(button(dailyTable?'Hide exact daily values':'Show exact daily values',function(){dailyTable=!dailyTable;render();}));if(dailyTable)dataTable(trend,points,'day',s.trend==='active'?'daily active visitors':META.measures[s.trend].unit,function(row){change({preset:'custom',from:row.key,to:row.key});},false);
+  var split=el('div','split');parent.appendChild(split);[['Countries','country',d.countries,'Country locations from requests; not referral websites.'],['Devices','device',d.devices,'Coarse device classes; not individual devices.']].forEach(function(x){var sec=section(split,x[0],x[3]+' Counts are active visitor-days. Categories can overlap across a visitor-day.',button('Explore this',function(){explore('active',x[1]);}));barList(sec,x[2].slice(0,10),x[1],function(row){var p={};p[x[1]]=row.key;change(p);});if(x[2].length>10)note(sec,'Showing the top 10; Explore contains every category and exact Other reach.');if(!x[2].length)note(sec,'No recorded activity for these filters.');});
+  var activity=section(parent,'Recorded activity','These are independent actions, not an ordered conversion funnel.');
+  var activityRows=[['Personal-list collages',sum.collages,'collages','source'],['Demo collages',sum.demos,'demos','day'],['Restored collages',sum.restores,'restores','day'],['Images downloaded',sum.images,'images','format'],['Posters made',sum.posters,'posters','posterSize'],['Posters downloaded',sum.posterDownloads,'posterDownloads','fileType'],['Share actions',sum.shares,'shares','shareType'],['Links copied',sum.links,'links','linkType'],['Searches applied',sum.searches,'searches','searchType'],['Filters used',sum.filters,'filters','filterType']];
+  var table=el('table'),head=el('thead'),tr=el('tr');['Activity','Events','Investigate'].forEach(function(v){var th=el('th',null,v);th.scope='col';tr.appendChild(th);});head.appendChild(tr);table.appendChild(head);var body=el('tbody');activityRows.forEach(function(a){var row=el('tr');row.append(el('td',null,a[0]),el('td','num',fmt(a[1])));var td=el('td');td.appendChild(button('Explore',function(){explore(a[2],a[3]);}));row.appendChild(td);body.appendChild(row);});table.appendChild(body);var tw=el('div','table-wrap');tw.appendChild(table);activity.appendChild(tw);
+  var reach=el('div','stack');reach.style.marginTop='16px';[['Personal-list collage reach',sum.makers],['Download reach',sum.downloaders],['Share reach',sum.sharers]].forEach(function(a){note(reach,a[0]+': '+pct(a[1],sum.active)+' ('+fmt(a[1])+' of '+fmt(sum.active)+' active visitor-days).');});activity.appendChild(reach);
+  var hour=section(parent,'Recorded visits by hour','Pacific receipt time, summed across the selected period. Each page is counted once per anonymous visitor per stats day.',button('Explore this',function(){explore('visits','hour');}));
+  var timed=d.hourly.hours.reduce(function(a,row){return a+row.value;},0);note(hour,fmt(timed)+' timestamped visits; '+fmt(d.hourly.withoutTime)+' older visits without a time. '+(!timed?'Hourly history is unavailable for this selection.':'Select an hour to explore it.'));
+  if(timed){var grid=el('div','hour-grid'),max=Math.max.apply(null,d.hourly.hours.map(function(row){return row.value;}))||1;d.hourly.hours.forEach(function(row){var b=button('',function(){explore('visits','day',{hour:row.key});});b.setAttribute('aria-label',label('hour',row.key)+', '+fmt(row.value)+' recorded visits. Explore this hour.');var track=el('span','hour-bar'),fill=el('span');fill.style.height=(row.value/max*100)+'%';track.appendChild(fill);track.setAttribute('aria-hidden','true');b.append(el('span',null,label('hour',row.key)),track,el('span',null,fmt(row.value)));grid.appendChild(b);});hour.appendChild(grid);}
+  var lifetime=el('details');lifetime.appendChild(el('summary',null,'Since launch · all dates, countries and devices'));note(lifetime,fmt(d.lifetime.collages)+' personal-list collage events and '+fmt(d.lifetime.downloads)+' download events'+(d.lifetime.first?', from '+d.lifetime.first:'')+'. These totals ignore every selected filter.');parent.appendChild(lifetime);
+}
+function exploreView(parent){
+  var x=data.explore,layout=el('div','builder'),shelf=el('div','shelf'),out=el('section','result');layout.append(shelf,out);parent.appendChild(layout);
+  field(shelf,'Measure',Object.keys(META.measures).map(function(k){return[k,META.measures[k].label];}),s.measure,function(v){var dims=META.measures[v].dimensions;change({measure:v,dimension:dims.indexOf(s.dimension)>=0?s.dimension:'day',filters:{},display:'auto'});});
+  field(shelf,'Break down by',META.measures[s.measure].dimensions.map(function(k){return[k,META.dimensions[k]];}),s.dimension,function(v){change({dimension:v,display:s.display==='line'&&v!=='day'?'auto':s.display});});
+  var display=s.display==='auto'?(s.dimension==='day'?'line':'bar'):s.display;
+  field(shelf,'Display',(s.dimension==='day'?[['line','Line'],['bar','Bars'],['table','Table']]:[['bar','Bars'],['table','Table']]),display,function(v){change({display:v});});note(shelf,'Only compatible fields are offered. Browser language is recorded on visits only. Change the measure to clear event-specific filters. Previous-period comparison is available on Overview.');
+  var title=el('div','result-head');title.appendChild(el('h2',null,META.measures[s.measure].label+' by '+META.dimensions[s.dimension].toLowerCase()));note(title,data.range.from+' to '+data.range.to+' · '+(s.country?countryName(s.country):'all countries')+' · '+(s.device?label('device',s.device):'all devices'));title.appendChild(el('p','big',fmt(x.total)+' '+x.unit));out.appendChild(title);
+  var chips=el('div','chips');Object.keys(s.filters).forEach(function(k){chip(chips,META.dimensions[k]+': '+label(k,s.filters[k]),function(){var f=Object.assign({},s.filters);delete f[k];change({filters:f});});});out.appendChild(chips);
+  if(Object.keys(s.filters).length)note(out,'These drill-down filters apply to Explore only. Overview keeps the shared date, country and device filters.');
+  if(x.overlapping)note(out,'A visitor-day can appear in more than one category. Category values, including Other, must not be added to calculate the distinct total.');
+  if(s.measure==='active'&&x.missingIdentity)note(out,fmt(x.missingIdentity)+' events without a daily identity are excluded.');
+  if(s.dimension==='hour')note(out,fmt(x.total-x.unknown)+' events have receipt times; '+fmt(x.unknown)+' have no timestamp. Unknown times are excluded from the chart and retained in the table.');
+  if(s.dimension==='language')note(out,fmt(x.unknown)+' visits have no recorded browser language. This is not the interface-language preference.');
+  var actions=el('div','row');actions.style.marginTop='16px';actions.appendChild(button('Export CSV',function(){var blob=new Blob([workspaceCsv(data,s)],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=el('a');a.href=url;a.download='everybird-'+s.measure+'-'+data.range.from+'-'+data.range.to+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}));if(display!=='table')actions.appendChild(button('Show exact values',function(){change({display:'table'});}));out.appendChild(actions);
+  function filterRow(row){if(row.key==='__other')return;var f=Object.assign({},s.filters);f[s.dimension]=row.key;change({filters:f});$('heading').focus();}
+  if(!x.total){var empty=el('div','empty');empty.appendChild(el('h3',null,s.measure==='active'&&x.missingIdentity?'Daily identities unavailable':'No matching activity'));note(empty,'Try a wider period or remove a filter. Missing timestamps and identities do not imply zero historical activity.');out.appendChild(empty);}
+  var timeUnavailable=s.dimension==='hour'&&x.total>0&&x.unknown===x.total;if(timeUnavailable&&display!=='table')note(out,'Hourly distribution unavailable: none of the matching events have timestamps. Use the table to inspect missing coverage.');
+  if(display==='line')chart(out,workspaceChartRows(x),'day',null);
+  if(display==='bar'&&!timeUnavailable){var rows=workspaceChartRows(x);if(s.dimension==='day'&&rows.length>60){note(out,'Long daily ranges use a line so dates remain readable. Use Table for exact daily values.');chart(out,rows,'day',null);}else barList(out,rows,s.dimension,filterRow);if(x.rows.length>10&&['day','hour'].indexOf(s.dimension)<0)note(out,'Top 10 categories plus Other. The table and export include all categories.');}
+  if(display==='table')dataTable(out,x.rows,s.dimension,x.unit,filterRow,true);
+  if(s.dimension==='hour'&&display!=='table'&&x.unknown)out.appendChild(button('Inspect events without timestamps in the table',function(){change({display:'table'});}));
+  savedViews(parent);
+}
+function readViews(){try{var raw=localStorage.getItem('everybird:analytics-views')||'[]';if(raw.length>100000)return [];var a=JSON.parse(raw);return Array.isArray(a)?a.filter(function(v){return v&&typeof v.name==='string'&&typeof v.hash==='string';}).slice(0,20):[];}catch(e){return [];}}
+function savedViews(parent){var box=el('section','saved stack');box.appendChild(el('h2',null,'Saved views'));note(box,'Saved in this browser. URL state also restores the view after private sign-in.');var row=el('div','row'),name=el('input');name.type='text';name.maxLength=60;name.placeholder='Name this view';name.setAttribute('aria-label','Saved view name');row.appendChild(name);row.appendChild(button('Save current view',function(){var title=name.value.trim();if(!title){name.focus();return;}var views=readViews().filter(function(v){return v.name!==title;});views.push({name:title,hash:workspaceHash(s)});try{localStorage.setItem('everybird:analytics-views',JSON.stringify(views.slice(-20)));$('status').textContent='Saved '+title+'.';render();}catch(e){$('status').textContent='This browser could not save the view. The URL still preserves your selections.';}}));box.appendChild(row);var views=readViews();if(views.length){var select=el('select');select.setAttribute('aria-label','Saved views');option(select,'','Choose a saved view');views.forEach(function(v,i){option(select,String(i),v.name);});var r=el('div','row');r.appendChild(select);r.appendChild(button('Open view',function(){if(select.value==='')return;s=workspaceState(views[Number(select.value)].hash,META);change({});}));r.appendChild(button('Remove saved view',function(){if(select.value==='')return;var kept=views.filter(function(v,i){return i!==Number(select.value);});try{localStorage.setItem('everybird:analytics-views',JSON.stringify(kept));render();$('status').textContent='Saved view removed.';}catch(e){$('status').textContent='This browser could not update saved views.';}}));box.appendChild(r);}parent.appendChild(box);}
+function definitions(parent){var box=el('div','definitions');box.appendChild(el('h2',null,'Read the unit before comparing a number'));note(box,'The dashboard describes recorded activity. It cannot identify individual people or reconstruct an ordered journey.');var dl=el('dl');[
+['Daily active visitors and visitor-days','A daily active visitor is a distinct anonymous daily id with any recorded event. Ids change each stats day and are approximate. Over several days the unit is active visitor-days, not unique people. The average is visitor-days divided by every calendar day selected, including days with no recorded activity, but excluding dates before collection began. The first recorded day may be partial. Events without an id are excluded from these counts.'],
+['Recorded visits','Only the first recorded visit per anonymous visitor, page and stats day is stored. A visitor opening multiple pages can contribute several visits. Reloads are not counted as additional visits.'],
+['Personal-list collages','Collage-made events from eBird, iNaturalist, Observation.org, manual or mixed lists. The sample demo and backup restores are separate measures. Repeated actions are events, not different people.'],
+['Action reach','Active visitor-days with at least one matching action, divided by all active visitor-days under the same shared filters. A person-day with an unknown id contributes to neither side. Action categories are independent; they are not sequential funnel steps or evidence of conversion or abandonment.'],
+['Countries, devices and languages','Country is a coarse request location, not the website that referred a visitor. Device is a class derived from the request, not a device identity. Browser language is recorded only on visits. Interface-language switches count actions, not the distribution of all language preferences. Unknown values remain visible.'],
+['Time and coverage','New timestamps are the UTC receipt time on the server, displayed by Pacific hour. Network delay can separate receipt from the action. Older events have no timestamp and are never assigned an invented hour. Dates before 17 November 2026 use the historical UTC labels. The transition day, 16 November, spans 31 hours and can include duplicate daily identities.'],
+['Comparison','The default is 14 completed days. Compare uses the equal-length period immediately before the selected range. Percent changes are unavailable for a range containing today, the time cutover, All dates, or a baseline starting before collection. A zero baseline is described as no previous activity. These are descriptive changes, not causal conclusions.'],
+['Filters, totals and exports','Date, country and device are shared by Overview and Explore. Additional Explore filters apply only to the builder and appear as removable chips. Changing its measure clears them. Since-launch totals explicitly ignore filters. Charts, tables and CSV use the same aggregate result. Visitor-day category counts can overlap; Other is the distinct reach of remaining categories, not the sum of their counts.'],
+['Privacy and limitations','Access is restricted to the allowed account. Only aggregates leave the database: no visitor ids or individual receipt timestamps. Do Not Track, Global Privacy Control, blockers, failed beacons and the per-day event cap can reduce coverage. There are no cross-day identities, referral-source records, retention cohorts or ordered sessions.']
+].forEach(function(a){dl.append(el('dt',null,a[0]),el('dd',null,a[1]));});box.appendChild(dl);parent.appendChild(box);}
+function render(){controls();var c=clear($('content'));$('content').setAttribute('aria-busy','false');if(s.view==='definitions'){definitions(c);renderWarnings();restoreFocus();return;}if(!data||dataKey!==queryKey()){c.appendChild(el('div','skeleton'));return;}var r=data.range;$('stamp').textContent=r.from+' to '+r.to+' · Pacific day labels · Updated '+new Date(data.generatedAt).toLocaleString('en-CA',{timeZone:'America/Vancouver',dateStyle:'medium',timeStyle:'short'})+' Pacific';renderWarnings();if(!data.coverage.available){c.appendChild(el('h2',null,'No collection coverage'));note(c,data.coverage.first?'Choose dates on or after '+data.coverage.first+'. This period has no collected history.':'No analytics have been recorded yet. Refresh after activity is recorded.');c.appendChild(button('Show all recorded dates',function(){change({preset:'all'});}));restoreFocus();return;}if(s.view==='overview')overview(c);else exploreView(c);restoreFocus();}
+META.devices.forEach(function(k){option($('device'),k,label('device',k));});document.querySelectorAll('[data-view]').forEach(function(b){b.addEventListener('click',function(){change({view:b.dataset.view});$('heading').focus();});});
+$('preset').addEventListener('change',function(){var patch={preset:this.value};if(this.value==='custom'){patch.from=data?data.range.from:addDays(pacificDay(Date.now()),-14);patch.to=data?data.range.to:addDays(pacificDay(Date.now()),-1);}change(patch);});
+$('global').addEventListener('submit',function(e){e.preventDefault();if($('from').value>$('to').value){$('status').textContent='From must be on or before To.';return;}change({preset:'custom',from:$('from').value,to:$('to').value});});
+$('country').addEventListener('change',function(){change({country:this.value});});$('device').addEventListener('change',function(){change({device:this.value});});$('compare').addEventListener('change',function(){change({compare:this.checked});});$('reset').addEventListener('click',function(){change({preset:'14',from:'',to:'',country:'',device:'',filters:{},compare:true});});$('refresh').addEventListener('click',function(){load(true);});$('help').addEventListener('click',function(){change({view:'definitions'});$('heading').focus();});
+function theme(){var dark=document.documentElement.dataset.theme==='dark';$('theme').textContent=dark?'Light theme':'Dark theme';$('theme').setAttribute('aria-label','Switch to '+(dark?'light':'dark')+' theme');}theme();$('theme').addEventListener('click',function(){document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';try{localStorage.setItem('everybird:theme',document.documentElement.dataset.theme);}catch(e){}theme();});
+function restore(){s=workspaceState(location.hash,META);tablePage=0;tableDailyPage=0;controls();load(false);}window.addEventListener('popstate',restore);window.addEventListener('hashchange',restore);
+setInterval(function(){if(!document.hidden&&s.view!=='definitions'&&!$('content').contains(document.activeElement))load(true);},60000);document.addEventListener('visibilitychange',function(){if(!document.hidden&&s.view!=='definitions')load(true);});controls();load(false);
 })();
-</script>
-</body>
-</html>
-`
+</script></body></html>`

@@ -54,6 +54,9 @@ export function statements(p: Params): Stmt[] {
     { sql: `SELECT day, ${VID} AS people FROM events GROUP BY day ORDER BY people DESC, day LIMIT 1`, binds: [] },
     // Rates: person-days with each action over all person-days, for the range and country.
     { sql: `SELECT ${PD} AS pd, ${pdIf('collage_made')} AS collage, ${pdIf('shared')} AS shared, ${pdIf('poster_made')} AS poster FROM events ${w}${c}`, binds: cur },
+    // Receipt timestamps begin after Vancouver adopted year-round UTC-7. NULL times stay in a separate group;
+    // never infer an hour for historical rows from their daily label. No visitor ids or individual times leave D1.
+    { sql: `SELECT CAST(strftime('%H', received_at, '-7 hours') AS INTEGER) AS hour, COUNT(*) AS visits FROM events ${w} AND name = 'visit'${c} GROUP BY hour`, binds: cur },
   ]
 }
 
@@ -63,7 +66,7 @@ const num = (v: unknown) => Number(v ?? 0)
 
 /** The JSON the page draws. `results` are the rows of statements(p), in order. */
 export function shape(p: Params, results: Row[][], now = new Date()) {
-  const [daily, people, values, steps, countries, devices, langs, launch, peak, rates] = results
+  const [daily, people, values, steps, countries, devices, langs, launch, peak, rates, hours = []] = results
   const first = (launch?.[0]?.d as string | null | undefined) ?? null
   const from = first && first > p.from ? (first > p.to ? p.to : first) : p.from
   const len = (ms(p.to) - ms(p.from)) / 86_400_000 + 1
@@ -94,6 +97,11 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
     tiles: { peopleLast: { value: peopleOn.get(p.to) ?? 0, prev: peopleOn.get(addDays(p.to, -1)) ?? 0, day: p.to }, ...tiles },
     days,
     prevDays,
+    hourlyVisits: {
+      timeZone: 'America/Vancouver',
+      hours: Array.from({ length: 24 }, (_, hour) => ({ hour, visits: num(hours.find((r) => r.hour !== null && Number(r.hour) === hour)?.visits) })),
+      withoutTime: hours.filter((r) => r.hour === null).reduce((sum, r) => sum + num(r.visits), 0),
+    },
     rates: { pd: num(rates?.[0]?.pd), collage: num(rates?.[0]?.collage), downloaded: step('downloaded'), shared: num(rates?.[0]?.shared), poster: num(rates?.[0]?.poster) },
     launch: { since: first, collages: num(launch?.[0]?.collages), own: num(launch?.[0]?.own), images: num(launch?.[0]?.images), posters: num(launch?.[0]?.posters), peak: peak?.[0] ? { day: peak[0].day as string, people: num(peak[0].people) } : null },
     funnel: [

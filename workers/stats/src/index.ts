@@ -7,6 +7,7 @@ import { SEEN_SQL, eventRow, keepRow, pacificDay, seenBinds, statsDay } from './
 import { fetchTeamJwks, verifyAccess, type AccessEnv, type JwksFetch } from './access'
 import { parseParams, shape, statements, type Row } from './dashboard'
 import { PAGE } from './page'
+import { parseWorkspace, shapeWorkspace, workspaceStatements } from './workspace'
 
 const ORIGINS = new Set(['https://everybird.yusuftaleb.com', 'http://localhost:3000', 'http://localhost:3001'])
 
@@ -56,6 +57,16 @@ async function dashboard(req: Request, env: Env, url: URL, notFound: () => Respo
   if (url.pathname === '/dashboard' || url.pathname === '/dashboard/') {
     return new Response(PAGE, { headers: { ...SECURE, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" } })
   }
+  if (url.searchParams.get('workspace') === '1') {
+    const today = pacificDay(new Date()), p = parseWorkspace(url.searchParams, today)
+    if (typeof p === 'string') return Response.json({ error: p }, { status: 400, headers: { ...SECURE, 'cache-control': 'no-store' } })
+    try {
+      const out = await env.DB.batch(workspaceStatements(p).map((s) => env.DB.prepare(s.sql).bind(...s.binds)))
+      return Response.json(shapeWorkspace(p, out.map((r) => (r.results ?? []) as Row[]), today), { headers: { ...SECURE, 'cache-control': 'private, max-age=60' } })
+    } catch {
+      return Response.json({ error: 'Analytics could not be refreshed. Try again shortly.' }, { status: 503, headers: { ...SECURE, 'cache-control': 'no-store' } })
+    }
+  }
   const p = parseParams(url.searchParams, pacificDay(new Date())) // "today" is the Pacific date, always (the default range ends there)
   if (typeof p === 'string') return Response.json({ error: p }, { status: 400, headers: { ...SECURE, 'cache-control': 'no-store' } })
   const stmts = statements(p)
@@ -73,6 +84,7 @@ export default {
     if (req.method === 'GET' && (url.pathname === '/dashboard' || url.pathname === '/dashboard/' || url.pathname === '/dashboard/data')) return dashboard(req, env, url, notFound, jwks)
     if (req.method !== 'POST' || url.pathname !== '/e') return new Response('not found', { status: 404, headers: h })
     if (origin && !ORIGINS.has(origin)) return new Response(null, { status: 204, headers: h })
+    const received = new Date() // server clock, before reading/hashing; never trust a timestamp in the beacon
     let body: { n?: unknown; p?: unknown; d?: unknown; l?: unknown }
     try { body = JSON.parse((await req.text()).slice(0, 512)) } catch { return new Response(null, { status: 204, headers: h }) }
     // Check the allow-list before hashing anything; the real row is built below with the context.
@@ -80,13 +92,13 @@ export default {
     const country = (req as Request & { cf?: { country?: string } }).cf?.country ?? 'XX'
     let device = deviceClass(req.headers.get('user-agent') ?? '')
     if (device === 'mac' && body.d === 'touch') device = 'ipad' // iPadOS 13+ sends a Mac UA
-    const day = statsDay(new Date()) // UTC date before the cutover, Pacific from it on (event.ts)
+    const day = statsDay(received) // use the same instant for the stats day and timestamp
     const vid = await dailyVisitorId(env.SALT_SECRET ?? '', day, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('user-agent') ?? '')
     const row = eventRow(body, { day, country, device, vid })!
     const seen = await env.DB.prepare(SEEN_SQL).bind(...seenBinds(row)).first<{ c: number | null; dup: number | null }>()
     if (!keepRow(row, seen ?? { c: 0, dup: 0 })) return new Response(null, { status: 204, headers: h })
-    await env.DB.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(row.day, row.name, row.value, row.country, row.device, row.vid, row.lang).run()
+    await env.DB.prepare('INSERT INTO events (day, name, value, country, device, vid, lang, received_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(row.day, row.name, row.value, row.country, row.device, row.vid, row.lang, received.toISOString()).run()
     return new Response(null, { status: 204, headers: h })
   },
 }
