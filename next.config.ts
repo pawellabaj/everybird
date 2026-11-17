@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // Pin the root: a stray package-lock.json higher up would otherwise confuse Next.
   turbopack: { root: dirname(fileURLToPath(import.meta.url)) },
+  // No next/image in the app (the flags and share previews are plain <img>, the share image a blob URL), so no image
+  // optimisation runs on either host. Unoptimised also keeps Cloudflare's OpenNext build free of an Images binding.
+  images: { unoptimized: true },
   // The root layout sits under app/[lang], so a URL no route matches gets app/global-not-found.tsx.
   experimental: { globalNotFound: true },
   // Every page is prerendered once per language under app/[lang]; the visible URLs stay unprefixed. These rewrites pick

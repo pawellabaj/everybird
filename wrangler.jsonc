@@ -1,0 +1,21 @@
+{
+  // Cloudflare Workers hosting for Everybird (OpenNext, `npm run cf:build`). The Vercel build never reads this file.
+  // This copy is workers.dev only. The live domain is attached later, as docs/cloudflare-cutover.md describes.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "everybird",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "everybird" }
+  ],
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "everybird-opennext-cache" }
+  ],
+  "observability": { "enabled": true }
+}

@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "cf:deploy": "opennextjs-cloudflare deploy",
     "lint": "eslint",
     "test": "vitest run",
     "e2e": "playwright test",
@@ -15,6 +18,7 @@
     "data": "tsx scripts/build-data/copy-synonyms.ts && tsx scripts/build-data/build-species.ts && tsx scripts/build-data/build-names.ts && tsx scripts/build-data/build-groups.ts && tsx scripts/build-data/build-geo.ts && tsx scripts/build-data/build-stickers.ts && tsx scripts/build-data/link-index.ts"
   },
   "dependencies": {
+    "@jsquash/webp": "1.5.0",
     "@phosphor-icons/react": "^2.1.10",
     "fflate": "^0.8.3",
     "flag-icons": "^7.6.0",
@@ -26,6 +30,7 @@
     "sharp": "^0.35.5"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.16",
     "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
@@ -41,6 +46,7 @@
     "jsdom": "^29.1.1",
     "tsx": "^4.23.15",
     "typescript": "^5",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "wrangler": "4.163.0"
   }
 }

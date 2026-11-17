@@ -17,9 +17,13 @@ import { CF_BEACON_SRC, CF_BEACON_TOKEN, CloudflareBeacon } from '@/components/a
 import { wantsFullLoad } from '@/components/app/FullNavigation'
 import { visitPageFor } from '@/components/app/VisitTracker'
 
+/** The beacon loads on the production hostname only: the document's location is stubbed to that host (or another). */
+const onHost = (host: string) => vi.stubGlobal('location', new URL(`https://${host}/`))
+
 afterEach(() => {
   cleanup()
   vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
   delete (navigator as { doNotTrack?: unknown }).doNotTrack
   delete (navigator as { globalPrivacyControl?: unknown }).globalPrivacyControl
 })
@@ -28,6 +32,7 @@ const beacons = () => document.querySelectorAll(`script[src="${CF_BEACON_SRC}"]`
 
 describe('Cloudflare Web Analytics beacon', () => {
   it('renders the beacon with its public site token, after interactive', () => {
+    onHost('everybird.yusuftaleb.com')
     render(<CloudflareBeacon />)
     const s = beacons()
     expect(s).toHaveLength(1)
@@ -35,6 +40,7 @@ describe('Cloudflare Web Analytics beacon', () => {
     expect(s[0].getAttribute('strategy')).toBe('afterInteractive')
   })
   it('stays out of a document that started on a shared view, even after it moved into the app', () => {
+    onHost('everybird.yusuftaleb.com')
     const real = performance.getEntriesByType.bind(performance)
     const spy = vi.spyOn(performance, 'getEntriesByType').mockImplementation((t: string) =>
       t === 'navigation' ? ([{ name: 'https://everybird.yusuftaleb.com/s/1abc' }] as unknown as PerformanceEntryList) : real(t))
@@ -43,6 +49,7 @@ describe('Cloudflare Web Analytics beacon', () => {
     spy.mockRestore()
   })
   it('stays out with Do Not Track or Global Privacy Control', () => {
+    onHost('everybird.yusuftaleb.com')
     Object.defineProperty(navigator, 'doNotTrack', { value: '1', configurable: true })
     render(<CloudflareBeacon />)
     expect(beacons()).toHaveLength(0)
@@ -52,15 +59,20 @@ describe('Cloudflare Web Analytics beacon', () => {
     render(<CloudflareBeacon />)
     expect(beacons()).toHaveLength(0)
   })
-  it('loads from the (app) layout in production only (not previews, local builds or dev)', () => {
-    vi.stubEnv('VERCEL_ENV', 'production')
-    render(<AppLayout>page</AppLayout>)
-    expect(beacons()).toHaveLength(1)
-    for (const v of ['preview', 'development', '']) {
+  it('loads from the (app) layout on the production hostname only, on Vercel or Cloudflare alike', () => {
+    onHost('everybird.yusuftaleb.com')
+    for (const v of ['production', 'preview', '']) {
       cleanup()
       vi.stubEnv('VERCEL_ENV', v)
       render(<AppLayout>page</AppLayout>)
-      expect(beacons(), `VERCEL_ENV=${v}`).toHaveLength(0)
+      expect(beacons(), `prod host, VERCEL_ENV=${v || 'unset'}`).toHaveLength(1)
+    }
+    for (const host of ['everybird-preview.vercel.app', 'everybird.yusuftaleb.workers.dev', 'localhost:3000']) {
+      cleanup()
+      vi.unstubAllGlobals()
+      onHost(host)
+      render(<AppLayout>page</AppLayout>)
+      expect(beacons(), host).toHaveLength(0)
     }
   })
   it('is never in the root layout or the shared view, which the token travels through', () => {

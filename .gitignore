@@ -23,3 +23,5 @@ next-env.d.ts
 .wrangler/
 .dev.vars*
 worker-configuration.d.ts
+# OpenNext's Cloudflare build output (`npm run cf:build`).
+/.open-next/

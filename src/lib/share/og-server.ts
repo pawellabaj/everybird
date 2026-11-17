@@ -1,20 +1,20 @@
-// Server side of the link preview: species and masks read from public/data with fs, fonts from Fontshare and Google
-// (cached in memory), sticker bytes fetched with a timeout, converted to PNG and embedded as data URLs.
-import { readFile } from 'node:fs/promises'
-import path from 'node:path'
-import sharp from 'sharp'
+// Server side of the link preview: species and masks read from public/data (from disk on Node, from the Worker's static
+// assets on Cloudflare: public-text.ts), fonts from Fontshare and Google (cached in memory), sticker bytes fetched with a
+// timeout, converted to PNG (sticker-png.ts) and embedded as data URLs.
 import type { MaskLoader, MaskTable } from '@/lib/layout/layout.worker'
+import { readPublicText } from './public-text'
+import { stickerPng } from './sticker-png'
 import { stickerUrl } from '@/lib/sticker-url'
 import { baseOfLang } from '@/lib/species/name-locales'
 import type { SpeciesFile, SpeciesRow } from '@/lib/species/types'
 
-const dataFile = (...p: string[]) => path.join(process.cwd(), 'public', 'data', ...p)
+const dataFile = (...p: string[]) => ['data', ...p].join('/')
 
 let speciesP: Promise<Map<string, SpeciesRow>> | null = null
 /** species.v1.json by code, read once per server process. */
 export function serverSpecies(): Promise<Map<string, SpeciesRow>> {
   if (!speciesP) {
-    speciesP = readFile(dataFile('species.v1.json'), 'utf8').then((t) => new Map((JSON.parse(t) as SpeciesFile).species.map((r) => [r.code, r])))
+    speciesP = readPublicText(dataFile('species.v1.json')).then((t) => new Map((JSON.parse(t) as SpeciesFile).species.map((r) => [r.code, r])))
     speciesP.catch(() => { speciesP = null })
   }
   return speciesP
@@ -31,7 +31,7 @@ export function serverNames(lang: string): Promise<Record<string, string> | null
   if (!base) return Promise.resolve({})
   let p = namesByBase.get(base)
   if (!p) {
-    p = readFile(dataFile(`names.${base}.v1.json`), 'utf8').then((t) => (JSON.parse(t) as { names: Record<string, string> }).names)
+    p = readPublicText(dataFile(`names.${base}.v1.json`)).then((t) => (JSON.parse(t) as { names: Record<string, string> }).names)
     namesByBase.set(base, p)
     p.catch(() => { namesByBase.delete(base) })
   }
@@ -43,7 +43,7 @@ const maskTables = new Map<string, Promise<MaskTable>>()
 export const serverMasks: MaskLoader = (order) => {
   let p = maskTables.get(order)
   if (!p) {
-    p = readFile(dataFile('masks', `${order}.v1.json`), 'utf8').then((t) => JSON.parse(t) as MaskTable)
+    p = readPublicText(dataFile('masks', `${order}.v1.json`)).then((t) => JSON.parse(t) as MaskTable)
     maskTables.set(order, p)
     p.catch(() => maskTables.delete(order))
   }
@@ -180,9 +180,7 @@ export async function fetchStickers(
       const res = await get(stickerUrl(code, big ? 384 : 128, 1, sv), Math.max(1, Math.min(STICKER_TIMEOUT_MS, deadline - Date.now())))
       if (!(res.headers.get('content-type') ?? 'image/webp').startsWith('image/')) return
       // Satori can't draw WebP (it renders nothing), so each sticker goes in as a PNG.
-      let img = sharp(Buffer.from(await res.arrayBuffer()))
-      if (big) img = img.resize({ width: LARGE_PX, height: LARGE_PX, fit: 'inside', withoutEnlargement: true })
-      const png = await img.png({ compressionLevel: 3 }).toBuffer()
+      const png = await stickerPng(await res.arrayBuffer(), big ? LARGE_PX : undefined)
       const url = `data:image/png;base64,${png.toString('base64')}`
       out.set(code, url)
       if (stickerCache.size >= STICKER_CACHE_MAX) stickerCache.delete(stickerCache.keys().next().value!)

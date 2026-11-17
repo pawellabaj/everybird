@@ -3,12 +3,15 @@
 import Script from 'next/script'
 import { useSyncExternalStore } from 'react'
 import { automatedRun, optedOut, safeSession } from '@/lib/analytics'
+import { SHARE_ORIGIN } from '@/lib/share/origin'
 
 /** Everybird's public Cloudflare Web Analytics site token (it goes out in every app page's HTML anyway). */
 export const CF_BEACON_TOKEN = '810be5cc6af7455686262e3fe8c0cf30'
 export const CF_BEACON_SRC = 'https://static.cloudflareinsights.com/beacon.min.js'
 
 const noop = () => () => {}
+/** The production hostname (the share origin). The beacon never loads anywhere else: previews, localhost and the Workers copy. */
+const PROD_HOST = new URL(SHARE_ORIGIN).host
 /** Whether this document began (or is) on a shared view: its first navigation's URL, or the current path, is /s/... */
 export function startedOnShare(): boolean {
   try {
@@ -26,12 +29,13 @@ export function startedOnShare(): boolean {
  * moment after hydration (a click in that gap would be a client navigation into the app, and the beacon's route
  * tracking would later see the token on Back).
  */
-const allowedNow = () => !optedOut(navigator, (window as Window & { doNotTrack?: string | null }).doNotTrack) && !startedOnShare()
+const allowedNow = () => location.host === PROD_HOST && !optedOut(navigator, (window as Window & { doNotTrack?: string | null }).doNotTrack) && !startedOnShare()
   && !automatedRun(navigator, location.search, safeSession(window))
 
 /**
- * Cloudflare Web Analytics: cookieless page-view counts. Rendered only from app/[lang]/(app)/layout.tsx in production
- * (VERCEL_ENV=production), so it never loads on a shared view: /s/<token> is outside that group, and the beacon, which
+ * Cloudflare Web Analytics: cookieless page-view counts. Rendered from app/[lang]/(app)/layout.tsx on every host, and it
+ * loads only on the production hostname (checked in the browser: PROD_HOST), so it never runs on previews, the Workers
+ * copy or localhost. It never loads on a shared view: /s/<token> is outside that group, and the beacon, which
  * reports location.href with no way to redact it, must never see a share token. The shared view also makes every link
  * into the app a full page load (FullNavigation.tsx), so a document that has shown /s/<token> never gets the beacon,
  * not even on Back. Not loaded at all with Do Not Track or Global Privacy Control on, or in an automated run
