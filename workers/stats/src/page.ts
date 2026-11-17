@@ -160,7 +160,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     <div id="err" role="status"></div>
     <div class="row"><button class="btn" id="refresh" type="button">Refresh</button><button class="sw" id="auto" type="button" role="switch" aria-checked="false">Auto-refresh every minute<i></i></button></div>
     <span id="stamp" class="mono"></span>
-    <div>Days are Pacific time (Vancouver) from 17 Nov 2026; earlier days are UTC days, so 16 Nov runs from 15 Nov 17:00 to 16 Nov 24:00 Pacific (31 hours). Counts are an undercount: visitors who send Do Not Track or Global Privacy Control, and anyone with a blocker, are not counted. A visitor id lasts one day, so "people" is per day; a range adds up person-days (the same person on two days counts twice).</div>
+    <div>Days are Pacific time (Vancouver) from 17 Nov 2026; earlier days are UTC days, and 16 Nov includes the evening of Pacific 16 Nov (31 hours, from 15 Nov 17:00). Counts are an undercount: visitors who send Do Not Track or Global Privacy Control, and anyone with a blocker, are not counted. A visitor id lasts one day, so "people" is per day; a range adds up person-days (the same person on two days counts twice).</div>
   </footer>
 </main>
 <script>
