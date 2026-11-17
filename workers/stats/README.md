@@ -7,23 +7,31 @@ The anonymous usage Worker for Everybird (`stats.yusuftaleb.com`).
 
 ## The dashboard
 
-One page, no framework, no CDN, no web fonts, in the site's Paper/Ink style. Light and dark use the site's seven tokens through `[data-theme]` on `<html>`; with no saved choice the page follows the device, and the sun/moon switch in the header saves a choice per device (localStorage `everybird:theme`, wrapped in try/catch). Loading shows skeletons; changing the range, country or metric grows the bars (not under `prefers-reduced-motion`).
-For the chosen range (Today, 7d, 14d, 30d, All; default 14 days) and an optional country it shows:
+**Prepared locally, not deployed:** the approved dashboard rebuild and receipt timestamps share this branch. Deploy only after approval and the timestamp column migration below. Design brief: `docs/superpowers/specs/2026-11-16-private-dashboard-brief.md`.
 
-1. Headline tiles: people on the last day, collages, images downloaded, shares, posters made, poster downloads, each with its daily sparkline and the change against the equal period just before (a quiet arrow, no colour; none on All, whose previous period has no data).
-2. A daily bar chart with a metric switcher (People, Collages, Downloads, Shares, Posters). Hover, tap or use the arrow keys for the exact value and date. **Compare** draws the previous period as ghost bars behind. **Export CSV** saves the daily series for the current range and country.
-3. **Rates**: the share of person-days that made a collage, downloaded an image or poster, shared, and made a poster.
-4. **Since launch** (all time, all countries): collages, images, posters, the busiest day (by people), and a Copy button for a postable sentence ("More than N collages made on Everybird."), rounded down and strictly below the count. It counts only collages from a real list (not the landing demo's `sample`, not a `restore`).
-5. The funnel: landing, settings, collage page, collage made, image or poster downloaded, as person-days and a share of the landing page.
-6. Breakdowns: image formats, poster sizes, filters used, searches, interface language, browser language, devices, and the top 15 countries. Clicking a country (or choosing it in the selector) filters the whole page and opens a compact **country panel**: people a day, collage rate, downloads per person-day, share rate, top formats, browser language and interface language. Interface language counts people who switched it (the site only records a switch); browser language counts visits.
-7. A footer with the refresh button (it skips the browser's 60-second cache), an optional **auto-refresh** every 60 s while the tab is visible (saved per device), and the last refresh time.
-8. **Recorded visits by hour:** 24 hourly counts in Pacific time, summed over the selected range and country. Visits remain the first recorded visit per person, page and stats day, so this is not a count of every reload. Older visits without timestamps are excluded from the bars and counted separately in the note.
+One self-contained page, no framework, CDN, remote fonts or chart dependency. It uses Paper/Ink and the site's seven tokens. Light is the default; the labelled theme button saves a choice in `everybird:theme` with storage failures handled.
 
-The URL hash keeps the view, so a link reopens it: `#r=7&c=MX&m=collages&cmp=1` (range 1, 7, 14, 30 or `all`; country; metric; compare). Defaults are left out.
+- **Overview:** average daily active visitors, personal-list collages, downloads and share actions; a daily trend with an optional previous-period line; countries and device classes; independent event counts and action reach; hourly recorded visits; explicitly unfiltered lifetime totals in a disclosure. Demo and restored collages are separate from personal-list collages. Countries are request locations, not referrals.
+- **Explore:** choose a measure and compatible breakdown, display a line/bar chart or sortable table, narrow categories with explicit filter actions, export the complete aggregate to CSV, and save up to 20 named views in this browser (`everybird:analytics-views`). All query state is encoded in the URL; old range/country/metric links still open. A measure change clears Explore-specific filters.
+- **Definitions:** units, deduplication, privacy, coverage and comparison rules, available without a successful data request.
 
-The page's small pure functions (hash parse and serialize, CSV, the safe claim, rates, change) live in `src/pure.ts` as a plain-JS string that `page.ts` inlines and the tests evaluate, so there is one copy.
+Date, country and device filters apply to every ordinary Overview result and Explore. Country picker options are independent of the selected country/device; they are not metric results. Explore drill-downs are separate removable chips and affect only Explore. Since-launch totals explicitly ignore all filters. Presets are 7/14/30 completed days (default 14), Today, All and custom dates. All is bounded to the latest 3,660 days. Future dates and excessive ranges are rejected.
 
-Notes on the numbers: days are Pacific (America/Vancouver) from 17 Nov 2026, and UTC days before (see **Day boundary** below); counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one stats day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows, vids or individual receipt times), as eleven statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. `hourlyVisits` contains `timeZone`, 24 `{hour, visits}` buckets and `withoutTime`; other fields are unchanged.
+Daily active visitors count distinct anonymous daily ids with any recorded event. Multi-day totals are **active visitor-days**, not unique people; their average divides by all selected calendar days after excluding dates before collection began. The first collection day is marked as potentially partial; wholly uncollected ranges have an unavailable state instead of zero-activity charts. Blank ids are excluded from both action-reach numerators and their active-visitor-day denominator. Event counts retain those events. Country/device categories can overlap within a visitor-day: their sum is not a distinct total. Top-10 Explore charts include Other; for active visitor-days the server counts distinct reach in the complement, rather than adding category counts. Tables/CSV retain every category, including unknown values. Long daily ranges use a line instead of crowded bars; tables paginate 50 aggregate rows at a time.
+
+Capabilities are defined once in `src/workspace.ts` and embedded in the page. Common breakdowns are day, country and device. Event measures also support receipt hour. Browser language and page apply only to visits; import source only to personal-list collages; image formats, poster sizes/file types, share/link/search/filter types and UI-language switches apply to their matching events. There is no arbitrary SQL, raw-event export, cross-day identity, ordered funnel or referral tracking.
+
+The Overview comparison uses the equal-length immediately preceding period; Explore reports the selected aggregate without a comparison control. It is unavailable for Today, All, any range including the current day, a baseline beginning on/before the first collection day, or a comparison spanning the 31-hour cutover. A zero baseline is described without an infinite percentage. Observations are descriptive totals with exact ranges and values, not causal claims. Coverage warnings appear beside the results. Unknown historical times are kept separate; a wholly untimed selection has no hourly distribution chart.
+
+Refresh bypasses the browser data cache. Background refresh runs every 60 seconds while visible and outside Definitions, and waits while focus is inside the result area. Requests time out after 20 seconds. A navigation ticket invalidates older responses even when returning to cached results; superseded requests are aborted. Failed refreshes retain the last successful matching result, its timestamp and a stale-data notice. Failed queries for a new selection show an error instead of mismatched old totals. Access expiry offers a reload/sign-in explanation. Local storage is optional.
+
+### Aggregate API
+
+`GET /dashboard/data?workspace=1&from=YYYY-MM-DD&to=YYYY-MM-DD&country=MX&device=iphone&measure=collages&dimension=source` returns `range`, `coverage`, `summary`, `daily`, `previous`, `countries`, `devices`, `hourly`, `explore`, `lifetime`, `countryOptions` and `warnings`. Optional `all=1` uses the bounded full history. Additional filters use `f_<dimension>=<value>`, validated against the measure's capability list and fixed value vocabularies. Empty `f_hour` / `f_language` selects missing timestamps / browser languages. Every SQL value is bound; SQL expressions and predicates come only from server constants. Nine statements run in one D1 batch, or ten when an exact Other reach query is needed. Only aggregates leave D1. Database failures return a recoverable 503 without internal details. Cache policy remains `private, max-age=60`.
+
+The legacy `/dashboard/data?from=...&to=...&country=...` response remains compatible, using `src/dashboard.ts`; the rebuilt page uses the workspace API exclusively. Its older collage counts still include demo/restore events and should not be substituted for the new personal-list measure.
+
+Pure state, query, request-ticket, sorting, top-N and CSV helpers live in `src/workspace-client.ts`; date/rate helpers remain in `src/pure.ts`. The page inlines the same functions the unit tests exercise. CSV includes exact scope, units, Explore filters, coverage warnings, the generation time and full aggregate rows, with spreadsheet-formula escaping.
 
 ## Event timestamps
 
@@ -42,11 +50,11 @@ Deployment order (not applied yet):
 **Completed on 2026-11-16 at 19:14 Pacific.** The Worker was deployed from main `74651e9` as version `5a7dd9c2-5b87-449e-88dd-9edc5946b560`. The one-time relabel moved 3,764 old-Worker events into Pacific 16 Nov. Remote queries then found zero rows still labelled 17 Nov while new events continued arriving on 16 Nov. No migration action remains.
 
 - **Cutover:** `CUTOVER` is `2026-11-17T00:00:00Z` (`src/event.ts`). From that instant a row's `day` is the America/Vancouver date (`statsDay()`), and before it the UTC date. Vancouver is UTC-7 all year from 1 Nov 2026 (tzdata 2026f; `wrangler dev --local` agrees), so the Pacific date is 16 Nov until 07:00Z and 17 Nov from then. The visitor id (`vid`), the visit dedupe and the daily cap all use the same day.
-- "Today" and the default ranges on the dashboard are the Pacific date (`pacificDay`, and `pacific()` in the page from `src/pure.ts`).
+- "Today" and the default ranges on the dashboard are the Pacific date (`pacificDay` in the Worker and the page helper in `src/pure.ts`).
 - The old Worker wrote UTC dates. Its events from 00:00Z until deployment were labelled `2026-11-17` but belonged to Pacific 16 Nov evening; the completed relabel corrected them.
 - **Do not rerun `migrations/2026-11-17-pacific-relabel.sql`.** Its historical deadline was 2026-11-17T07:00Z. After that instant new, legitimate Pacific 17 Nov events use the same day label; the file has no runtime deadline guard and cannot distinguish them from the old events.
-- 16 Nov, after the relabel, is **31 hours**: from 15 Nov 17:00 to 16 Nov 24:00 Pacific. The dashboard footer says so.
-- Known and accepted: a visitor who visited between 00:00Z and the deploy (their visit keyed on the UTC 17 Nov string) and again on the same Pacific 16 Nov after the deploy is counted twice on 16 Nov. The "busiest day" figure can be 16 Nov, a 31-hour day.
+- 16 Nov, after the relabel, is **31 hours**: from 15 Nov 17:00 to 16 Nov 24:00 Pacific. The dashboard shows a warning for selections intersecting it.
+- Known and accepted: a visitor who visited between 00:00Z and the deploy (their visit keyed on the UTC 17 Nov string) and again on the same Pacific 16 Nov after the deploy is counted twice on 16 Nov. The legacy API's "busiest day" figure can be 16 Nov, a 31-hour day; the rebuilt UI does not present it as an ordinary peak day.
 
 ## Environment variables
 
@@ -78,7 +86,9 @@ Access runs in front of the Worker and adds the JWT; the Worker verifies it itse
 
 ## Checks
 
+Local validation on 2026-11-16: 81 scoped stats tests and all 2,144 unit tests (149 files) passed; root route type generation, root/Worker typechecks and changed-file lint passed (one inherited Worker export-style warning). Final Worker bundle dry run: 81.64 KiB / gzip 26.04 KiB. No browser or visual checks; Yusuf's UI review and release approval remain pending.
+
 ```
-npx vitest run tests/stats-worker.test.ts tests/stats-dashboard.test.ts   # from the repo root
+npx vitest run tests/stats-worker.test.ts tests/stats-dashboard.test.ts tests/stats-workspace.test.ts   # from the repo root
 cd workers/stats && npx wrangler types && npx -p typescript tsc --noEmit
 ```

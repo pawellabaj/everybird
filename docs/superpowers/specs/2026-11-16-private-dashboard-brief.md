@@ -1,6 +1,6 @@
 # Private analytics dashboard: design brief
 
-Status: proposed, awaiting Yusuf's confirmation. No dashboard redesign code or deployment in this planning step.
+Status: approved by Yusuf on 2026-11-16; implementation prepared locally on `feat/visit-timestamps`. Code validation and release status are recorded in the Worker README and the implementation handoff below. No push, migration or deployment is authorized by design approval.
 
 ## Job and outcome
 
@@ -80,3 +80,9 @@ After confirmation, first implement the metric/capability contract and aggregate
 Code acceptance checks use synthetic SQLite fixtures for correct units and denominators; every supported filter and field pair; unknown and missing fields; empty/partial ranges; midnight, cutover and untimed history; comparison arithmetic; top-N plus Other; and chart/table/CSV agreement. Check query validation, bound parameters, Access protection, URL state, export escaping and stale-response handling with unit tests. Run scoped lint/typechecks/tests while building and one full unit suite when finished.
 
 Per Yusuf's instructions, agents do not run browser tests, screenshots, visual checks or model design reviews. Yusuf checks navigation, readability and responsive visuals. Correctness is defined through these explicit contracts and checks, not a promise of zero defects. Pushing, migration and deployment remain separate approval steps once the implementation is concrete and tested.
+
+## Implementation handoff (2026-11-16)
+
+Implemented locally on `feat/visit-timestamps`: Overview, Explore and Definitions; shared filters/custom dates; compatible measure/breakdown controls; explicit drill-downs; sorted/paginated tables and full CSV; local saved views and URL navigation; coverage-aware hourly visits; separate demo/restore counts; exact Other reach; and stale-response/refresh handling. Previous-period comparison is an Overview control; Explore reports the selected aggregate. Dates before collection are excluded from averages, the first collection day is marked partial, and wholly uncollected periods have an unavailable state.
+
+Validation: 81 scoped stats tests and all 2,144 tests across 149 files passed; route type generation, root and Worker typechecks, and changed-file lint passed (one inherited anonymous-default-export warning in the Worker entry). Final Worker deployment dry run passed: 81.64 KiB, gzip 26.04 KiB. No browser, screenshot or visual testing performed. Yusuf's UI review remains pending. No push, migration or deployment performed. Follow the nullable timestamp-column-first release procedure and rollback notes in `workers/stats/README.md` after release approval.

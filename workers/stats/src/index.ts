@@ -7,6 +7,7 @@ import { SEEN_SQL, eventRow, keepRow, pacificDay, seenBinds, statsDay } from './
 import { fetchTeamJwks, verifyAccess, type AccessEnv, type JwksFetch } from './access'
 import { parseParams, shape, statements, type Row } from './dashboard'
 import { PAGE } from './page'
+import { parseWorkspace, shapeWorkspace, workspaceStatements } from './workspace'
 
 const ORIGINS = new Set(['https://everybird.yusuftaleb.com', 'http://localhost:3000', 'http://localhost:3001'])
 
@@ -55,6 +56,16 @@ async function dashboard(req: Request, env: Env, url: URL, notFound: () => Respo
   if (!email) return notFound()
   if (url.pathname === '/dashboard' || url.pathname === '/dashboard/') {
     return new Response(PAGE, { headers: { ...SECURE, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" } })
+  }
+  if (url.searchParams.get('workspace') === '1') {
+    const today = pacificDay(new Date()), p = parseWorkspace(url.searchParams, today)
+    if (typeof p === 'string') return Response.json({ error: p }, { status: 400, headers: { ...SECURE, 'cache-control': 'no-store' } })
+    try {
+      const out = await env.DB.batch(workspaceStatements(p).map((s) => env.DB.prepare(s.sql).bind(...s.binds)))
+      return Response.json(shapeWorkspace(p, out.map((r) => (r.results ?? []) as Row[]), today), { headers: { ...SECURE, 'cache-control': 'private, max-age=60' } })
+    } catch {
+      return Response.json({ error: 'Analytics could not be refreshed. Try again shortly.' }, { status: 503, headers: { ...SECURE, 'cache-control': 'no-store' } })
+    }
   }
   const p = parseParams(url.searchParams, pacificDay(new Date())) // "today" is the Pacific date, always (the default range ends there)
   if (typeof p === 'string') return Response.json({ error: p }, { status: 400, headers: { ...SECURE, 'cache-control': 'no-store' } })

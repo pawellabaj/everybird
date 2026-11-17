@@ -188,7 +188,7 @@ describe('the Worker routes', () => {
   }
   it('answers 404 on /dashboard and /dashboard/data without a valid token, wrong aud, or a disallowed email', async () => {
     const k = await keys()
-    for (const path of ['/dashboard', '/dashboard/', '/dashboard/data?from=2026-11-01&to=2026-11-02']) {
+    for (const path of ['/dashboard', '/dashboard/', '/dashboard/data?from=2026-11-01&to=2026-11-02', '/dashboard/data?workspace=1']) {
       for (const [t, c] of [[undefined, 'none'], [await k.sign({ aud: ['x'] }), 'aud'], [await k.sign({ email: 'eve@example.com' }), 'email']] as const) {
         const r = await call(path, { method: 'GET' }, t, { ...ENV }, k.jwks)
         expect([path, c, r.status]).toEqual([path, c, 404])
@@ -225,6 +225,18 @@ describe('the Worker routes', () => {
     const ok = await call('/e', { method: 'POST', body: '{"n":"visit","p":"landing"}', headers: { origin: 'https://everybird.yusuftaleb.com' } })
     expect([ok.status, ok.headers.get('access-control-allow-origin')]).toEqual([204, 'https://everybird.yusuftaleb.com'])
     expect(db.prepare).toHaveBeenCalled() // the insert path ran
+  })
+  it('gates and validates workspace queries, returning a recoverable error on a database failure', async () => {
+    const k = await keys(), t = await k.sign({})
+    const result = await call('/dashboard/data?workspace=1&measure=collages&dimension=source', { method: 'GET' }, t, { ...ENV }, k.jwks)
+    expect(result.status).toBe(200)
+    expect(await result.json()).toMatchObject({ explore: { measure: 'collages', dimension: 'source', total: 0 } })
+    expect((await call('/dashboard/data?workspace=1&measure=downloads&dimension=language', { method: 'GET' }, t, { ...ENV }, k.jwks)).status).toBe(400)
+    db.batch.mockRejectedValueOnce(new Error('database unavailable'))
+    const fail = await call('/dashboard/data?workspace=1', { method: 'GET' }, t, { ...ENV }, k.jwks)
+    expect(fail.status).toBe(503)
+    expect(fail.headers.get('cache-control')).toBe('no-store')
+    expect(await fail.json()).toEqual({ error: 'Analytics could not be refreshed. Try again shortly.' })
   })
   it('makes "today" the Pacific date: the default range ends there, whatever the UTC date is', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
