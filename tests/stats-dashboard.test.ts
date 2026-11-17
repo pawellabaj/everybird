@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { verifyAccess, type AccessEnv, type Jwk } from '../workers/stats/src/access'
 import { parseParams, shape, statements, type Row } from '../workers/stats/src/dashboard'
 import worker from '../workers/stats/src/index'
+import { PURE_JS } from '../workers/stats/src/pure'
 
 // node:sqlite (as in tests/stats-worker.test.ts): the dashboard's SQL runs for real, on the Worker's schema.
 type Db = { exec(sql: string): void; prepare(sql: string): { run(...a: unknown[]): unknown; all(...a: unknown[]): Row[] } }
@@ -76,10 +77,37 @@ describe.skipIf(!sqlite)('the dashboard aggregation', () => {
     const text = JSON.stringify(d)
     expect(text).not.toMatch(/"vid"|"a"|"p1"/)
   })
-  it('uses a handful of statements, each on the day range', () => {
+  it('uses a handful of statements; all but the two since-launch ones are on the day range', () => {
     const s = statements(p)
-    expect(s.length).toBeLessThanOrEqual(8)
-    for (const x of s.slice(0, 7)) expect(x.sql).toContain('day BETWEEN')
+    expect(s.length).toBeLessThanOrEqual(10)
+    expect(s.filter((x) => x.sql.includes('day BETWEEN')).length).toBe(8)
+    for (const x of s) expect(x.sql.match(/\?/g)?.length ?? 0).toBe(x.binds.length) // bound params only
+  })
+  it('counts rates in person-days, never summing people across days', () => {
+    // person-days: a and b on the 4th, a and c on the 5th, d on the 6th = 5
+    expect(run(seeded(), p).rates).toEqual({ pd: 5, collage: 1, downloaded: 1, shared: 1, poster: 1 })
+    expect(run(seeded(), { ...p, country: 'US' }).rates).toEqual({ pd: 2, collage: 0, downloaded: 0, shared: 1, poster: 1 })
+    expect(run(seeded(), { from: '2026-11-04', to: '2026-11-04', country: '' }).rates.pd).toBe(2)
+  })
+  it('totals since launch for the whole site, whatever the range or country', () => {
+    const all = run(seeded(), p).launch
+    expect(all).toEqual({ since: '2026-11-02', collages: 3, own: 3, images: 1, posters: 1, peak: { day: '2026-11-04', people: 2 } })
+    expect(run(seeded(), { from: '2026-11-06', to: '2026-11-06', country: 'XX' }).launch).toEqual(all)
+  })
+  it('keeps the demo and backups out of the postable collage count', () => {
+    const db = seeded()
+    const ins = db.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    ins.run('2026-10-01', 'collage_made', 'sample', 'MX', 'iphone', 'z1', ''); ins.run('2026-10-01', 'collage_made', 'restore', 'MX', 'iphone', 'z2', '')
+    expect(run(db, p).launch).toMatchObject({ collages: 5, own: 3, since: '2026-10-01' })
+  })
+  it('returns the previous period day for day, for compare', () => {
+    const d = run(seeded(), p)
+    expect(d.prevDays.map((x) => [x.d, x.people, x.collages])).toEqual([['2026-11-01', 0, 0], ['2026-11-02', 1, 1], ['2026-11-03', 0, 0]])
+    expect(run(seeded(), { from: '2020-01-01', to: '2026-11-06', country: '' }).prevDays).toEqual([]) // "All" has none
+    expect(d.days[0]).toMatchObject({ images: 1, posterDownloads: 1 })
+  })
+  it('stays aggregates only with the new fields', () => {
+    expect(JSON.stringify(run(seeded(), p))).not.toMatch(/"vid"|"p1"/)
   })
 })
 
@@ -155,9 +183,8 @@ describe('the Worker routes', () => {
     const html = await page.text()
     expect(html).toContain('<title>Everybird stats</title>')
     expect(html).not.toMatch(/https?:\/\/(?!www\.w3\.org)/) // self-contained: no CDN, no fonts
-    expect(html.length).toBeLessThan(30_000)
-    const script = /<script>([\s\S]*)<\/script>/.exec(html)?.[1] ?? ''
-    expect(() => new Function(script)).not.toThrow() // the inline JS parses (eslint and tsc don't see it)
+    expect(html.length).toBeLessThan(60_000)
+    for (const m of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) expect(() => new Function(m[1])).not.toThrow() // the inline JS parses (eslint and tsc don't see it)
     const data = await call('/dashboard/data?from=2026-11-01&to=2026-11-14&country=mx', { method: 'GET' }, t, { ...ENV }, k.jwks)
     expect(data.status).toBe(200)
     expect(data.headers.get('cache-control')).toBe('private, max-age=60')
@@ -177,5 +204,79 @@ describe('the Worker routes', () => {
     const ok = await call('/e', { method: 'POST', body: '{"n":"visit","p":"landing"}', headers: { origin: 'https://everybird.yusuftaleb.com' } })
     expect([ok.status, ok.headers.get('access-control-allow-origin')]).toEqual([204, 'https://everybird.yusuftaleb.com'])
     expect(db.prepare).toHaveBeenCalled() // the insert path ran
+  })
+})
+
+// The page's pure functions: the same string the page inlines.
+type HashState = { days: number; all: boolean; country: string; metric: string; compare: boolean }
+const lib = new Function(PURE_JS + '; return { parseHash, serializeHash, buildCsv, safeClaim, pct, perPerson, deltaInfo }')() as {
+  parseHash(h: string): HashState
+  serializeHash(s: HashState): string
+  buildCsv(days: Record<string, number | string>[], country: string): string
+  safeClaim(n: number, what: string): string
+  pct(a: number, b: number): string
+  perPerson(a: number, b: number): string
+  deltaInfo(v: number, p: number): { dir: string; pct: number }
+}
+
+describe('the dashboard hash state', () => {
+  const def = { days: 14, all: false, country: '', metric: 'people', compare: false }
+  it('parses defaults and every field', () => {
+    expect(lib.parseHash('')).toEqual(def)
+    expect(lib.parseHash('#r=7&c=mx&m=collages&cmp=1')).toEqual({ days: 7, all: false, country: 'MX', metric: 'collages', compare: true })
+    expect(lib.parseHash('#r=all&cmp=1')).toEqual({ ...def, all: true }) // no compare on All
+  })
+  it('ignores anything invalid', () => {
+    expect(lib.parseHash('#r=99&c=USA&m=<script>&cmp=yes&x=1')).toEqual(def)
+    expect(lib.parseHash('#c=%3Cb%3E&&=&r')).toEqual(def)
+  })
+  it('serializes without defaults and round-trips', () => {
+    expect(lib.serializeHash(def)).toBe('')
+    const s = { days: 30, all: false, country: 'US', metric: 'shares', compare: true }
+    expect(lib.serializeHash(s)).toBe('#r=30&c=US&m=shares&cmp=1')
+    expect(lib.parseHash(lib.serializeHash(s))).toEqual(s)
+    expect(lib.serializeHash({ ...def, all: true, compare: true })).toBe('#r=all')
+    expect(lib.serializeHash({ ...def, days: 1 })).toBe('#r=1')
+  })
+})
+
+describe('the CSV export', () => {
+  const head = 'date,country,people,collages,images,poster_downloads,downloads,shares,posters\n'
+  it('writes a header and one row per day', () => {
+    const csv = lib.buildCsv([{ d: '2026-11-04', people: 2, collages: 2, images: 1, posterDownloads: 1, downloads: 2, shares: 0, posters: 0 }, { d: '2026-11-05', people: 2 }], '')
+    expect(csv).toBe(head + '2026-11-04,all,2,2,1,1,2,0,0\n2026-11-05,all,2,0,0,0,0,0,0\n')
+    expect(lib.buildCsv([{ d: '2026-11-04' }], 'MX').split('\n')[1]).toBe('2026-11-04,MX,0,0,0,0,0,0,0')
+  })
+  it('quotes cells that need it', () => {
+    expect(lib.buildCsv([{ d: 'a,"b"' }], '').split('\n')[1].startsWith('"a,""b""",all')).toBe(true)
+    expect(lib.buildCsv([], '')).toBe(head)
+  })
+})
+
+describe('the safe claim', () => {
+  it('rounds down and stays strictly below the count', () => {
+    expect(lib.safeClaim(1234, 'collages made')).toBe('More than 1,200 collages made.')
+    expect(lib.safeClaim(1200, 'x')).toBe('More than 1,100 x.')
+    expect(lib.safeClaim(56789, 'x')).toBe('More than 56,000 x.')
+    expect(lib.safeClaim(101, 'x')).toBe('More than 100 x.')
+    expect(lib.safeClaim(100, 'x')).toBe('More than 90 x.')
+    expect(lib.safeClaim(57, 'x')).toBe('More than 50 x.')
+    expect(lib.safeClaim(11, 'x')).toBe('More than 10 x.')
+    expect(lib.safeClaim(3, 'x')).toBe('More than 2 x.')
+    for (const n of [3, 9, 10, 11, 99, 100, 101, 999, 1000, 1001, 123456, 1000000]) expect(Number(/More than ([\d,]+)/.exec(lib.safeClaim(n, 'x'))![1].replace(/,/g, ''))).toBeLessThan(n)
+  })
+  it('makes no claim for tiny or bad counts', () => {
+    for (const n of [0, 1, 2, -5, NaN]) expect(lib.safeClaim(n, 'x')).toBe('')
+  })
+})
+
+describe('rates and changes', () => {
+  it('formats shares and ratios', () => {
+    expect(lib.pct(1, 3)).toBe('33%'); expect(lib.pct(1, 20)).toBe('5.0%'); expect(lib.pct(0, 5)).toBe('0.0%'); expect(lib.pct(1, 0)).toBe('–')
+    expect(lib.perPerson(5, 4)).toBe('1.25'); expect(lib.perPerson(1, 0)).toBe('–')
+  })
+  it('classifies the change against the previous period', () => {
+    expect(lib.deltaInfo(12, 10)).toEqual({ dir: 'up', pct: 20 }); expect(lib.deltaInfo(5, 10)).toEqual({ dir: 'down', pct: 50 })
+    expect(lib.deltaInfo(10, 10)).toEqual({ dir: 'flat', pct: 0 }); expect(lib.deltaInfo(3, 0)).toEqual({ dir: 'new', pct: 0 }); expect(lib.deltaInfo(0, 0)).toEqual({ dir: 'none', pct: 0 })
   })
 })

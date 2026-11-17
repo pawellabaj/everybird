@@ -7,16 +7,22 @@ The anonymous usage Worker for Everybird (`stats.yusuftaleb.com`).
 
 ## The dashboard
 
-One page, no framework, no CDN, no web fonts, in the site's Paper/Ink style (light and dark follow the device).
+One page, no framework, no CDN, no web fonts, in the site's Paper/Ink style. Light and dark use the site's seven tokens through `[data-theme]` on `<html>`; with no saved choice the page follows the device, and the sun/moon switch in the header saves a choice per device (localStorage `everybird:theme`, wrapped in try/catch). Loading shows skeletons; changing the range, country or metric grows the bars (not under `prefers-reduced-motion`).
 For the chosen range (Today, 7d, 14d, 30d, All; default 14 days) and an optional country it shows:
 
-1. Headline tiles: people on the last day, collages, images downloaded, shares, posters made, poster downloads, each with the change against the equal period just before (none on All, whose previous period has no data).
-2. A daily bar chart with a metric switcher (People, Collages, Downloads, Shares, Posters). Hover or tap a bar for the exact value and date.
-3. The funnel: landing, settings, collage page, collage made, image or poster downloaded, as person-days and a share of the landing page.
-4. Breakdowns: image formats, poster sizes (portrait vs landscape), filters used, searches, interface language, browser language, devices, and the top 15 countries (a "Show all" toggle). Clicking a country filters the whole page; the chip next to the selector removes the filter.
-5. A footer with the refresh button (it skips the browser's 60-second cache) and the last refresh time.
+1. Headline tiles: people on the last day, collages, images downloaded, shares, posters made, poster downloads, each with its daily sparkline and the change against the equal period just before (a quiet arrow, no colour; none on All, whose previous period has no data).
+2. A daily bar chart with a metric switcher (People, Collages, Downloads, Shares, Posters). Hover, tap or use the arrow keys for the exact value and date. **Compare** draws the previous period as ghost bars behind. **Export CSV** saves the daily series for the current range and country.
+3. **Rates**: the share of person-days that made a collage, downloaded an image or poster, shared, and made a poster.
+4. **Since launch** (all time, all countries): collages, images, posters, the busiest day (by people), and a Copy button for a postable sentence ("More than N collages made on Everybird."), rounded down and strictly below the count. It counts only collages from a real list (not the landing demo's `sample`, not a `restore`).
+5. The funnel: landing, settings, collage page, collage made, image or poster downloaded, as person-days and a share of the landing page.
+6. Breakdowns: image formats, poster sizes, filters used, searches, interface language, browser language, devices, and the top 15 countries. Clicking a country (or choosing it in the selector) filters the whole page and opens a compact **country panel**: people a day, collage rate, downloads per person-day, share rate, top formats, browser language and interface language. Interface language counts people who switched it (the site only records a switch); browser language counts visits.
+7. A footer with the refresh button (it skips the browser's 60-second cache), an optional **auto-refresh** every 60 s while the tab is visible (saved per device), and the last refresh time.
 
-Notes on the numbers: days are UTC; counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one UTC day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as a handful of GROUP BY queries run in one `DB.batch`, with `Cache-Control: private, max-age=60`.
+The URL hash keeps the view, so a link reopens it: `#r=7&c=MX&m=collages&cmp=1` (range 1, 7, 14, 30 or `all`; country; metric; compare). Defaults are left out.
+
+The page's small pure functions (hash parse and serialize, CSV, the safe claim, rates, change) live in `src/pure.ts` as a plain-JS string that `page.ts` inlines and the tests evaluate, so there is one copy.
+
+Notes on the numbers: days are UTC; counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one UTC day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as ten statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. New fields: `days[]` also carry `images` and `posterDownloads`; `prevDays[]` is the previous period day for day (empty on All); `rates` (person-days with each action, over all person-days); `launch` (`since`, `collages`, `own`, `images`, `posters`, `peak`).
 
 ## Environment variables
 
