@@ -27,7 +27,8 @@ export function Landing() {
       </div>
       {/* The pre-packed sample needs no bird data, so a failed load says nothing here (Settings says it). */}
       <AppNotices eb={eb} memory={false} failure={false} />
-      <SampleDemo />
+      {/* The demo's species counts and controls describe a sample, not the product's search result. */}
+      <div data-nosnippet style={{ display: 'contents' }}><SampleDemo /></div>
       <Welcome />
     </main>
   )

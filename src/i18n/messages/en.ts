@@ -12,9 +12,10 @@ import { EN_UI, type Widen } from './en-ui'
 
 const page = {
   /** Page metadata (title, description, Open Graph, Twitter) per language (generateMetadata under app/[lang]). Titles
-   *  get " · Everybird" in code; the site's own title is just "Everybird". The shared view's are og.ts's, from `ui`. */
+   *  get " · Everybird" in code; the landing title describes the tool. The shared view's are og.ts's, from `ui`. */
   meta: {
-    description: 'Your life list as a sticker collage, from eBird, iNaturalist, or by hand.',
+    title: 'Everybird · Turn your bird life list into a collage',
+    description: 'Turn your bird life list into a free sticker collage. Import from eBird, iNaturalist or observation.org, then share images or print a poster.',
     about: {
       title: 'About',
       description: 'What Everybird is, how it works, what True size means, and the data, stickers, fonts and code it is built from.',

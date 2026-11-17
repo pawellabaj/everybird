@@ -599,7 +599,8 @@ export const nl: Messages = {
   },
   page: {
     meta: {
-      description: 'Je levenslijst als stickercollage, uit eBird, iNaturalist of met de hand.',
+      title: 'Everybird · Je vogellijst als stickercollage',
+      description: 'Maak gratis een stickercollage van je vogellijst. Importeer uit eBird, iNaturalist of observation.org. Deel afbeeldingen of druk een poster af.',
       about: {
         title: 'Over',
         description: 'Wat Everybird is, hoe het werkt, wat Ware grootte betekent, en de data, stickers, lettertypen en code waarmee het gemaakt is.',

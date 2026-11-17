@@ -33,7 +33,7 @@ describe('page metadata', () => {
       alternates: { canonical: `${ORIGIN}/` },
       openGraph: {
         type: 'website', siteName: 'Everybird', url: `${ORIGIN}/`, title: 'Everybird',
-        description: 'Your life list as a sticker collage, from eBird, iNaturalist, or by hand.',
+        description: SITE_DESCRIPTION,
         images: [{ url: '/icons/icon-512.png', width: 512, height: 512, alt: 'Everybird' }],
         locale: 'en_US',
       },
@@ -67,8 +67,8 @@ describe('page metadata', () => {
     const about = (await import('../app/[lang]/(app)/about/page')).generateMetadata
     const settings = (await import('../app/[lang]/(app)/settings/page')).generateMetadata
     const pt = await layout(params('pt'))
-    expect(pt.title).toBe('Everybird')
-    expect(pt.description).toBe('Sua lista de vida como uma colagem de adesivos, do eBird, do iNaturalist ou à mão.')
+    expect(pt.title).toBe('Everybird · Sua lista de aves em uma colagem')
+    expect(pt.description).toBe('Transforme sua lista de aves em uma colagem de adesivos grátis. Importe do eBird, iNaturalist ou observation.org. Compartilhe imagens ou imprima um pôster.')
     expect(pt.openGraph).toMatchObject({ locale: 'pt_BR', description: pt.description, url: `${ORIGIN}/` })
     expect(pt.referrer).toBe('strict-origin')
     expect((await about(params('es'))).title).toBe('Acerca de · Everybird')

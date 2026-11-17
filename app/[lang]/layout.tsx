@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 /** The site's metadata in the page's language (`page.meta`); pages that set their own title replace the SEO part. */
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const lang = await langParam(params);
-  const { description } = getMessages(lang).page.meta;
-  return { ...BASE_METADATA, description, ...pageSeo("/", SITE_NAME, description, lang) };
+  const { title, description } = getMessages(lang).page.meta;
+  return { ...BASE_METADATA, title, description, ...pageSeo("/", title, description, lang) };
 }
 
 const BASE_METADATA: Metadata = {
@@ -32,6 +32,7 @@ const BASE_METADATA: Metadata = {
         ? new URL(`https://${process.env.VERCEL_URL}`)
         : undefined,
   title: SITE_NAME,
+  applicationName: SITE_NAME,
   // generateMetadata adds the description and the landing page's canonical, Open Graph and Twitter card. Every page
   // that sets its own title sets its own copy of these (about, settings) or replaces them (/s/<token>, which also says
   // noindex), so none inherits "/".
