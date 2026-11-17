@@ -17,5 +17,6 @@
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "everybird-opennext-cache" }
   ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "routes": [{ "pattern": "everybird.yusuftaleb.com", "custom_domain": true }]
 }
