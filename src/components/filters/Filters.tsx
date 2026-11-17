@@ -23,6 +23,7 @@ import type { Action, AppState } from '@/lib/list/store'
 import type { Month } from '@/lib/list/timeline'
 import type { SpeciesIndex } from '@/lib/species/load'
 import type { Regions } from '@/lib/species/types'
+import { useOfferResume, useTakeResume } from '@/lib/use-resume'
 import { ChipRow } from './ChipRow'
 import { PlacesList } from './PlacesList'
 import { STATUS_ICON } from './status-icon'
@@ -293,6 +294,9 @@ export function useFiltersUi({ state, dispatch, species, regions, hide, placesNo
   const { lang, t } = useI18n()
   const sheet = useIsSheet()
   const [open, setOpen] = useState<FiltersOpen | null>(null)
+  // Carried over a language switch (view-resume.ts): the section it was open at, if the birder had it open.
+  useTakeResume('panel', (r) => setOpen(r.open ? { at: r.at } : null))
+  useOfferResume('panel', () => ({ open: !!open, at: open?.at }))
   const opener = useRef<HTMLElement | null>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const sections = useFilterSections(state, species, hide)

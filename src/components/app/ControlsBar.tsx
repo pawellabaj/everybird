@@ -10,6 +10,7 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownIcon, CollageIcon, ListIcon } from '@/components/collage/icons'
 import { useI18n } from '@/i18n/I18nProvider'
+import { useOfferResume, useTakeResume } from '@/lib/use-resume'
 import { DockSearchField, SearchButton, type DockSearchProps } from './DockSearch'
 
 type Props = {
@@ -33,6 +34,10 @@ type Props = {
 
 export function ControlsBar({ view, onView, trueSize, onTrueSize, lightFirst, onDirection, sci, onSci, search, filters, below, onFind }: Props) {
   const [finding, setFinding] = useState(false)
+  // Whether the search is open is carried over a language switch (view-resume.ts); the typed text is not.
+  const hasSearch = !!search
+  useTakeResume('search', (r) => { if (hasSearch) setFinding(r.open) })
+  useOfferResume('search', () => (hasSearch ? { open: finding } : undefined))
   const { t } = useI18n()
   const c = t.collage.controls
   const wrap = useRef<HTMLDivElement>(null)
