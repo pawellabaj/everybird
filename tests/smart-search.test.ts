@@ -292,8 +292,11 @@ describe('places under the continent model (nf-10 keys)', () => {
 })
 
 describe('Polish (pl)', () => {
-  it('reads Polish places, months (genitive too), relative dates, status and lifers; groups by their English name until pl names exist', () => {
-    expect(parse('waterfowl kanada 2026', 'pl').filter).toMatchObject({ group: 'waterfowl', countries: ['CA'], basis: 'seen', from: '2026-01', to: '2026-12' })
+  it('reads Polish groups (and English ones), places, months (genitive too), relative dates, status and lifers', () => {
+    expect(parse('blaszkodziobe kanada 2026', 'pl').filter).toMatchObject({ group: 'waterfowl', countries: ['CA'], basis: 'seen', from: '2026-01', to: '2026-12' })
+    expect(parse('waterfowl kanada 2026', 'pl').filter).toMatchObject({ group: 'waterfowl', countries: ['CA'] })
+    expect(parse('szponiaste BC', 'pl').filter).toMatchObject({ group: 'vultures-hawks-and-allies', provinces: ['CA-BC'] })
+    expect(parse('blaszkodziobe', 'pl').chips[0].label).toBe('Blaszkodziobe')
     expect(span('październik', 'pl')).toEqual(['2026-10', '2026-10'])
     expect(span('od marca do maja', 'pl')).toEqual(['2026-03', '2026-05'])
     expect(span('w zeszłym roku', 'pl')).toEqual(['2025-01', '2025-12'])

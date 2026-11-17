@@ -75,8 +75,8 @@ describe.each(LANGS)('About, the demo poster in %s', (lang) => {
     expect(text(wide.querySelector('.ebd-img-latest-label'))).toContain(ui.share.latestLifer)
     expect(text(wide.querySelector('.ebd-img-latest-label'))).toContain(ui.date.months[9])
     expect(text(wide.querySelector('.ebd-img-mark'))).toBe('Everybird')
-    // The latest lifer's name is the language's base name (es, pt_BR, nl), English in English and (no names yet) Polish.
-    const base = { en: undefined, es: 'es', pt: 'pt_BR', nl: 'nl', pl: undefined }[lang] as keyof typeof LATEST.names | undefined
+    // The latest lifer's name is the language's base name (es, pt_BR, nl, pl), English in English.
+    const base = { en: undefined, es: 'es', pt: 'pt_BR', nl: 'nl', pl: 'pl' }[lang] as keyof typeof LATEST.names | undefined
     expect(text(wide.querySelector('.ebd-img-latest-name'))).toBe(base ? LATEST.names[base] : LATEST.name)
   })
 
