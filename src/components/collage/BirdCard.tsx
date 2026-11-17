@@ -54,12 +54,15 @@ function rectOf(a: CardAnchor): DOMRect | null {
 
 /** The mass label (a tooltip and screen-reader text: the card shows only the value, as on LifeList). */
 export function massLabel(row: SpeciesRow, t: Ui): string {
+  if (row.gSrc === 'genus') return t.card.massGenus
   if (row.gSrc === 'family') return t.card.massFamily
   if (row.gSrc === 'order') return t.card.massOrder
   return t.card.mass
 }
+/** Estimates (genus, family, order) are the ones the card marks with "~". */
+const isEstimate = (row: SpeciesRow) => row.gSrc === 'genus' || row.gSrc === 'family' || row.gSrc === 'order'
 /** The mass as the card and the list show it: "~4.3 g" for an estimate ("~4,3 g" in es). */
-export const massValue = (row: SpeciesRow, t: Ui) => `${row.gSrc === 'family' || row.gSrc === 'order' ? '~' : ''}${formatMass(row.g, t.num)}`
+export const massValue = (row: SpeciesRow, t: Ui) => `${isEstimate(row) ? '~' : ''}${formatMass(row.g, t.num)}`
 
 export function BirdCard({ entry, species, regions, anchor = null, onClose, actions, returnFocus, sci = false, follow, filter, seen }: Props) {
   const row = species.byCode.get(entry.code)

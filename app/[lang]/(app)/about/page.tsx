@@ -122,6 +122,9 @@ export default async function AboutPage({ params }: { params: Promise<{ lang: st
           <Credit label={c.label.masses} title={<A href="https://doi.org/10.1111/ele.13898">AVONET</A>}>
             {c.masses}
           </Credit>
+          <Credit label={c.label.masses} title={<A href="https://doi.org/10.1038/s41597-025-05615-3">BIRDBASE</A>}>
+            {c.birdbase}
+          </Credit>
           <Credit label={c.label.redList} title={<A href={AVILIST.doi}>AviList</A>}>
             {rich(fmt(c.redList, { birdlife: AVILIST.birdlife, version: AVILIST.version, year: String(AVILIST.year) }), { cc: link('https://creativecommons.org/licenses/by/4.0/') })}
           </Credit>

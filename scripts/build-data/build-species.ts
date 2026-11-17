@@ -5,6 +5,7 @@ import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { restrictToShipped } from '../sync/huashu-lib'
 import { assertRawPinned, readLock } from './huashu-pin'
+import { indexBirdbase, loadBirdbase, matchBirdbase, type BirdbaseMatch, type BirdbaseRow } from './birdbase'
 import { IUCN_SOURCE, parseIucn, type IucnCat } from '../../src/lib/species/iucn'
 import type {
   HuashuForm, HuashuRecord, Overrides, SpeciesFile, SpeciesRow, TaxonCategory, TaxonomyFile, TaxonRow,
@@ -49,7 +50,7 @@ const isSameTaxon = (p: { relation?: string }) => p.relation === undefined || SA
 
 /**
  * A match through a form: the parent record with the form's sticker in place of its own, and no traits (the mass is
- * the parent's taxon, not the form's, so the species keeps its family or order fallback). No conservation status
+ * the parent's taxon, not the form's, so the species keeps its own mass: BIRDBASE, or the genus, family or order estimate). No conservation status
  * either: the parent's category describes another taxon. `form` names the taxon.
  */
 export function formMatch(parent: HuashuRecord, f: HuashuForm): HuashuRecord {
@@ -157,9 +158,19 @@ export function matchHuashu(huashu: HuashuRecord[], taxonomy: TaxonRow[], overri
   return { matches, multi, sciFallback, viaOverride, lumped, viaForm }
 }
 
+/** The genus of a scientific name: its first word. */
+export const genusOf = (sci: string): string => sci.split(' ')[0] ?? ''
+
+/**
+ * Body masses, in order: the override, the AVONET mass of the huashu record, the BIRDBASE mass (scientific name, then
+ * English name: birdbase.ts), then for a species with none of these the median of the genus's masses from those three
+ * steps, then the family's, the order's, and the global median. An estimate never feeds another estimate: every pool
+ * is built from the three steps only. `birdbase` is the extract read by loadBirdbase.
+ */
 export function buildSpecies(
   huashu: HuashuRecord[], taxonomy: TaxonRow[], overrides: Overrides,
   meta: { ebirdTaxonomy?: string; huashuCommit?: string } = {},
+  birdbase: readonly BirdbaseRow[] = [],
 ): { file: SpeciesFile; report: string } {
   const { matches, multi, sciFallback, viaOverride: overrideHuashu, lumped, viaForm } = matchHuashu(huashu, taxonomy, overrides)
   const species = taxonomy.filter((t) => t.cat === 'species').sort((a, b) => a.to - b.to)
@@ -179,7 +190,8 @@ export function buildSpecies(
     return others.length ? `huashu ${rec.id} is also matched by ${others.join(', ')}` : undefined
   }
 
-  type Pre = { t: TaxonRow; rec?: HuashuRecord; g?: number; gSrc?: SpeciesRow['gSrc'] }
+  type Pre = { t: TaxonRow; rec?: HuashuRecord; g?: number; gSrc?: SpeciesRow['gSrc']; bb?: BirdbaseMatch }
+  const bbIndex = indexBirdbase(birdbase)
   const pre: Pre[] = species.map((t) => {
     const ov = overrides[t.code]
     const rec = matches.get(t.code)
@@ -187,13 +199,19 @@ export function buildSpecies(
     const p: Pre = { t, rec }
     if (typeof ov?.massG === 'number') { p.g = ov.massG; p.gSrc = 'override' }
     else if (typeof rec?.traits?.massG === 'number') { p.g = rec.traits.massG; p.gSrc = 'avonet' }
+    else {
+      const bb = matchBirdbase(bbIndex, t.sci, t.com)
+      if (bb) { p.g = bb.row.massG; p.gSrc = 'birdbase'; p.bb = bb }
+    }
     return p
   })
 
-  const fams = new Map<string, number[]>(), ords = new Map<string, number[]>(), all: number[] = []
+  // The pools: masses from the override, AVONET and BIRDBASE only (no estimate feeds another estimate).
+  const genera = new Map<string, number[]>(), fams = new Map<string, number[]>(), ords = new Map<string, number[]>(), all: number[] = []
   for (const p of pre) {
     if (p.g === undefined) continue
     all.push(p.g)
+    genera.set(genusOf(p.t.sci), [...(genera.get(genusOf(p.t.sci)) ?? []), p.g])
     fams.set(p.t.fam ?? '', [...(fams.get(p.t.fam ?? '') ?? []), p.g])
     ords.set(p.t.ord ?? '', [...(ords.get(p.t.ord ?? '') ?? []), p.g])
   }
@@ -206,11 +224,13 @@ export function buildSpecies(
     if (why === 'unknown') statusUnknown.push(`${p.t.code} (${p.t.com}): ${p.rec!.conservation!.iucn}`)
     let { g, gSrc } = p
     if (g === undefined) {
-      const f = fams.get(p.t.fam ?? ''), o = ords.get(p.t.ord ?? '')
-      if (f?.length) { g = median(f); gSrc = 'family' }
+      const gen = genera.get(genusOf(p.t.sci)), f = fams.get(p.t.fam ?? ''), o = ords.get(p.t.ord ?? '')
+      if (gen?.length) { g = median(gen); gSrc = 'genus' }
+      else if (f?.length) { g = median(f); gSrc = 'family' }
       else if (o?.length) { g = median(o); gSrc = 'order' }
       else { g = median(all); gSrc = 'order' } // last resort: global median, labelled 'order'
-      massFallback.push(`${p.t.code} (${p.t.com}): ${g} g from ${f?.length ? 'family' : o?.length ? 'order' : 'global median'} ${f?.length ? p.t.fam : o?.length ? p.t.ord : ''}`.trimEnd())
+      const from = gen?.length ? `genus ${genusOf(p.t.sci)}` : f?.length ? `family ${p.t.fam}` : o?.length ? `order ${p.t.ord}` : 'global median'
+      massFallback.push(`${p.t.code} (${p.t.com}): ${g} g from ${from}`)
     }
     return {
       code: p.t.code, com: p.t.com, sci: p.t.sci,
@@ -234,7 +254,8 @@ export function buildSpecies(
     '# Crosswalk report', '',
     `- Species rows: ${rows.length}`,
     `- With sticker: ${rows.filter((r) => r.st).length}; without: ${noSticker.length}`,
-    `- Mass sources: avonet ${massCount('avonet')}, override ${massCount('override')}, family ${massCount('family')}, order ${massCount('order')}`,
+    `- Mass sources: avonet ${massCount('avonet')}, override ${massCount('override')}, birdbase ${massCount('birdbase')}, genus ${massCount('genus')}, family ${massCount('family')}, order ${massCount('order')}`,
+    `- BIRDBASE masses by scientific name: ${pre.filter((p) => p.bb?.by === 'scientific').length}; by English name: ${pre.filter((p) => p.bb?.by === 'english').length}`,
     `- Multi-candidate choices: ${multi.length}; scientific-name fallbacks: ${sciFallback.length}; huashu orphans: ${orphans.length}`,
     `- From huashu forms (a subspecies drawing of that very taxon): ${viaForm.length}`,
     `- No sticker because huashu has them only inside another species (lumped): ${lumped.length}`,
@@ -246,6 +267,8 @@ export function buildSpecies(
     list('Lumped by huashu: no sticker (a record never lends its drawing to a species it absorbed)', lumped),
     list('Override huashu records used', overrideHuashu),
     list('No sticker', noSticker),
+    list('BIRDBASE masses matched by English name, not scientific (weaker: check)', pre.filter((p) => p.bb?.by === 'english')
+      .map((p) => `${p.t.code} (${p.t.com}) -> BIRDBASE ${p.bb!.row.id} ${p.bb!.row.sci.birdlife}, ${p.bb!.row.massG} g`)),
     list('Mass fallbacks', massFallback),
     list("No status: huashu's taxon is not eBird's", statusConcept),
     list("No status: huashu's record is not this species' alone (a hand-named override, or shared with another eBird species)", statusBorrowed),
@@ -326,7 +349,7 @@ function main() {
   const taxa = loadEbirdTaxonomy(resolve(raw, 'ebird-taxonomy.json'))
   const overrides = JSON.parse(readFileSync(resolve(process.cwd(), 'data/overrides.json'), 'utf8')) as Overrides
   const huashu = loadHuashu(resolve(raw, 'huashu'))
-  const { file, report } = buildSpecies(huashu, taxa, overrides, manifest)
+  const { file, report } = buildSpecies(huashu, taxa, overrides, manifest, loadBirdbase())
 
   const outDir = resolve(process.cwd(), 'public/data')
   mkdirSync(outDir, { recursive: true })

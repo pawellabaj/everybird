@@ -310,6 +310,7 @@ export const EN_UI = {
     mass: 'Average body mass',
     massFamily: 'Average body mass, estimated from its family',
     massOrder: 'Average body mass, estimated from its order',
+    massGenus: 'Average body mass, estimated from its genus',
     heard: 'Heard only',
     dead: 'Found dead',
     /** The list view's accessible name. */

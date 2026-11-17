@@ -4,7 +4,8 @@ export type TaxonCategory = 'species'|'issf'|'form'|'intergrade'|'spuh'|'slash'|
 export type SpeciesRow = {
   code: string; com: string; sci: string          // eBird code, English common name, scientific name
   ord: string; fam: string; famCom: string; to: number   // order, family (sci), family common, eBird taxonOrder
-  g: number; gSrc: 'avonet'|'override'|'family'|'order' // body mass (g) and where it came from
+  // body mass (g) and where it came from: override, AVONET, BIRDBASE (measured); genus, family, order (estimated)
+  g: number; gSrc: 'override'|'avonet'|'birdbase'|'genus'|'family'|'order'
   st: boolean; ar: number; q: boolean              // has sticker, sticker aspect w/h, meets huashu quality bar
   iu?: IucnCat  // global Red List category from the species' own same-concept huashu record
   sv?: string  // sticker version: only for stickers rebuilt after v1 (data/sticker-versions.json), see sticker-url.ts

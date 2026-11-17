@@ -40,7 +40,11 @@ describe('About: conservation status', () => {
       "IUCN Red List categories as given for BirdLife v10 in AviList: The Global Avian Checklist, v2026 (AviList Core Team, 2026), via huashu's species table, licensed CC BY 4.0. Everybird matched them to eBird species.",
     )
     expect(within(credit).getByRole('link', { name: 'CC BY 4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
-    expect(credit.previousElementSibling!.textContent).toContain('AVONET')
+    // Body masses: AVONET, then BIRDBASE (the credit for the species AVONET gives no mass), then the Red List
+    const birdbase = credit.previousElementSibling!
+    expect(within(birdbase as HTMLElement).getByRole('link', { name: 'BIRDBASE' })).toHaveAttribute('href', 'https://doi.org/10.1038/s41597-025-05615-3')
+    expect(birdbase.textContent).toContain('BIRDBASE')
+    expect(birdbase.previousElementSibling!.textContent).toContain('AVONET')
   })
 
   it('reads its version text and DOI from AVILIST, as IUCN_SOURCE does', () => {

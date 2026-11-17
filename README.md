@@ -34,7 +34,7 @@ the raw sources in `data/raw/` (git-ignored) and the stickers repo checked out n
 1. `npx tsx scripts/build-data/fetch-sources.ts`: downloads the eBird taxonomy, huashu-bird-sticker, Natural Earth and iso-codes into `data/raw/` and writes `data/raw/manifest.json`.
 2. `npm run data`, which runs:
    1. `copy-synonyms.ts`: publishes `data/inat-synonyms.json`.
-   2. `build-species.ts`: `species.v1.json` and `taxonomy.v1.json` (masses from AVONET, `data/overrides.json` first).
+   2. `build-species.ts`: `species.v1.json` and `taxonomy.v1.json` (masses: `data/overrides.json` first, then AVONET, then BIRDBASE by name, then the genus, family or order median).
    3. `build-names.ts`: the bird names per language (`names.*.v1.json`).
    4. `build-groups.ts`: `groups.v1.json`, the eBird species groups the smart search matches.
    5. `build-geo.ts`: `regions.v1.json` (country and province names).
@@ -46,7 +46,7 @@ the raw sources in `data/raw/` (git-ignored) and the stickers repo checked out n
 
 - **Stickers:** [huashu-bird-sticker](https://github.com/alchaincyf/huashu-bird-sticker), CC BY 4.0. Credited wherever stickers appear.
 - **Taxonomy:** eBird/Clements checklist, used for species names and codes. Every source, with its licence, is also listed on the in-app credits (About, `/about#credits`).
-- **Body masses:** [AVONET](https://doi.org/10.1111/ele.13898) (CC BY 4.0) via huashu's species table, with a few sourced overrides in `data/overrides.json`.
+- **Body masses:** [AVONET](https://doi.org/10.1111/ele.13898) (CC BY 4.0) via huashu's species table, with a few sourced overrides in `data/overrides.json`; and [BIRDBASE](https://doi.org/10.1038/s41597-025-05615-3) (CC BY 4.0) for the species AVONET gives no mass for. Its compact extract is `data/raw/birdbase/` (see its README).
 - **Regions:** place names from Natural Earth (public domain) and [Debian iso-codes](https://salsa.debian.org/iso-codes-team/iso-codes) ISO 3166-2 data (LGPL-2.1), used for names only.
 - **Fonts:** Satoshi and Cabinet Grotesk from [Fontshare](https://www.fontshare.com) (loaded from their CSS, not bundled), and Geist Mono via `next/font/google`.
 

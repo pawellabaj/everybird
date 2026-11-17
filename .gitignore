@@ -5,7 +5,9 @@ node_modules/
 .vercel/
 .env*
 /private/
-/data/raw/
+/data/raw/*
+!/data/raw/birdbase/
+/data/raw/birdbase/*.xlsx
 *.log
 .DS_Store
 /test-results/

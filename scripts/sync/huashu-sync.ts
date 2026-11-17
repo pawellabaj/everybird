@@ -36,6 +36,7 @@ import { IUCN_SOURCE } from '../../src/lib/species/iucn'
 import {
   applyStickerVersions, buildSpecies, creditMatchesSources, iucnSources, loadHuashu, matchHuashu, taxonomyFromPublic, STICKER_VERSIONS,
 } from '../build-data/build-species'
+import { loadBirdbase, type BirdbaseRow } from '../build-data/birdbase'
 import {
   ARTIFACT_URL, HUASHU_REPO, MAX_REBUILD, PR_URL, SPECIES_JSON, STICKERS_PREFIX, UpstreamInconsistency, codesFromMatches,
   diffRecords, diffRows, diffStickers, implausible, lockJson, makeLock, nextShipped, nextVersions, parseLsTree,
@@ -90,6 +91,8 @@ type Repo = {
   species: SpeciesFile
   taxonomy: TaxonomyFile
   overrides: Overrides
+  /** The BIRDBASE mass extract: every rebuild of species.v1.json takes its masses from it (build-species.ts). */
+  birdbase: BirdbaseRow[]
   versions: Record<string, string>
   website: Set<string>
 }
@@ -101,6 +104,7 @@ function readRepo(root: string): Repo {
     species: readJson<SpeciesFile>(pub('species.v1.json')),
     taxonomy: readJson<TaxonomyFile>(pub('taxonomy.v1.json')),
     overrides: readJson<Overrides>(join(root, 'data/overrides.json')),
+    birdbase: loadBirdbase(root),
     versions: existsSync(vPath) ? readJson(vPath) : {},
     website: new Set(existsSync(wPath) ? readJson<string[]>(wPath) : []),
   }
@@ -125,7 +129,7 @@ function initLock(root: string, dir: string): void {
   const st = repo.species.species.filter((s) => s.st).map((s) => s.code).sort()
   const locked = Object.keys(lock.shipped).sort()
   if (JSON.stringify(st) !== JSON.stringify(locked)) throw new Error('the crosswalk disagrees with species.v1.json about which species have stickers')
-  const { file } = buildSpecies(huashu, taxa, repo.overrides, { ebirdTaxonomy: repo.species.ebirdTaxonomy, huashuCommit: commit })
+  const { file } = buildSpecies(huashu, taxa, repo.overrides, { ebirdTaxonomy: repo.species.ebirdTaxonomy, huashuCommit: commit }, repo.birdbase)
   const prev = new Map(repo.species.species.map((s) => [s.code, s]))
   for (const s of file.species) { const p = prev.get(s.code); if (p) s.ar = p.ar }
   applyStickerVersions(file.species, repo.versions)
@@ -225,7 +229,7 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   const prevRows = repo.species.species
   let rows: SpeciesRow[]
   if (huashu) {
-    rows = buildSpecies(huashu, taxa, repo.overrides, { ebirdTaxonomy: repo.species.ebirdTaxonomy, huashuCommit: commit }).file.species
+    rows = buildSpecies(huashu, taxa, repo.overrides, { ebirdTaxonomy: repo.species.ebirdTaxonomy, huashuCommit: commit }, repo.birdbase).file.species
     const prevAr = new Map(prevRows.map((s) => [s.code, s.ar]))
     for (const s of rows) if (prevAr.has(s.code)) s.ar = prevAr.get(s.code)!
   } else {
