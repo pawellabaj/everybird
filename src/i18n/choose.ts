@@ -2,6 +2,7 @@
 // Accept-Language. It is the only stored copy. Safari caps script-set cookies at 7 days, so every page load writes a
 // present cookie again with the same value (I18nProvider's effect); a missing one is never created there.
 import { track } from '@/lib/analytics'
+import { stashResume } from '@/lib/view-resume'
 import { LANG_COOKIE, isLang, type Lang } from './langs'
 
 type CookieDoc = { cookie: string; location?: { protocol?: string } }
@@ -52,6 +53,7 @@ export function chooseLang(lang: Lang): void {
     // Cookies blocked: nothing to remember, and the reload would show the same language.
     return
   }
+  stashResume() // the view (filters, search, panel) for the new page to take back (view-resume.ts)
   track('ui_language', { lang }) // beacons survive the reload; a deliberate switch only, never a load
   location.reload()
 }

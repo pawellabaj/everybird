@@ -10,6 +10,8 @@ import { slottedRecords } from './source-counts'
 import type { Edits, ImportResult, ListEntry, Rules, Slot, SourceRecord, Unmatched } from './model'
 import { buildSeen, type SeenIndex } from './seen'
 import * as storage from './storage'
+import { takeResume, type CollageResume } from '../view-resume'
+import { useOfferResume } from '../use-resume'
 import { emptySaved, NAME_MAX, removeSource, replaceSource, type DetailsFor, type Saved } from './storage'
 
 export type AppState = {
@@ -41,6 +43,8 @@ export type Action =
   | { type: 'massOrder'; massOrder: AppState['massOrder'] }
   | { type: 'sci'; sci: boolean }
   | { type: 'restore'; saved: Saved }
+  /** The view carried over a language switch (view-resume.ts): applied with the stored list, before the first paint. */
+  | { type: 'resume'; view: CollageResume }
   /** The collage's title (Saved.name), verbatim on the page, share images and links; blank removes it. */
   | { type: 'name'; name: string }
   | { type: 'forget' }
@@ -126,6 +130,15 @@ export function makeReducer(ctx: StoreContext): (s: AppState, a: Action) => AppS
         return { ...s, massOrder: a.massOrder }
       case 'sci':
         return { ...s, sci: a.sci }
+      case 'resume':
+        return {
+          ...s,
+          filter: applyFilterValidity(a.view.filter, s.list, ctx.species, true, s.seen),
+          mode: a.view.mode,
+          view: a.view.view,
+          massOrder: a.view.massOrder,
+          sci: a.view.sci,
+        }
       case 'persistence':
         return { ...s, persistence: a.persistence }
       case 'name': {
@@ -178,7 +191,12 @@ export function useEverybird(opts: { deferIfEmpty?: boolean } = {}): [AppState, 
   const [ctx, setCtx] = useState<StoreContext | null>(null)
   const reducer = useMemo(() => makeReducer(ctx ?? NO_CTX), [ctx])
   const [state, rawDispatch] = useReducer(reducer, undefined, initialState)
+  // The view carried over a language switch (view-resume.ts), claimed once. A ref, not a local: StrictMode runs the load effect
+  // twice, the first run is cancelled, and its claim must still reach the second.
+  const carried = useRef<CollageResume | null | undefined>(undefined)
   const [meta, setMeta] = useState<EverybirdMeta>({ ready: false })
+  // Until the carried view is applied (ready), it is what a switch carries on, not the default state.
+  useOfferResume('collage', () => (!meta.ready && carried.current ? carried.current : { filter: state.filter, mode: state.mode, view: state.view, massOrder: state.massOrder, sci: state.sci }))
   const seen = useRef(state.saved) // last `saved` we looked at; only a different one schedules a save
   const skipSave = useRef(false) // the next change to `saved` comes from load/forget and must not be written
   const pending = useRef<Saved | null>(null)
@@ -193,6 +211,8 @@ export function useEverybird(opts: { deferIfEmpty?: boolean } = {}): [AppState, 
     let cancelled = false
     ;(async () => {
       try {
+        if (carried.current === undefined) carried.current = takeResume('collage') ?? null
+        const resumed = carried.current
         const storedP = storage.load()
         // A visitor with no list on the landing page sees the pre-packed sample: let its stickers have the network
         // first, and fetch the big species file once the browser is idle.
@@ -212,6 +232,8 @@ export function useEverybird(opts: { deferIfEmpty?: boolean } = {}): [AppState, 
           skipSave.current = early.length === 0
           rawDispatch({ type: 'restore', saved: stored })
         }
+        // After the list, so its filter is checked against it; the same batch as `ready`, so the first collage render has it.
+        if (resumed) rawDispatch({ type: 'resume', view: resumed })
         if (storage.isMemoryOnly()) rawDispatch({ type: 'persistence', persistence: 'memory-only' })
         setMeta({ ready: true, species, stored })
         // Actions dispatched before ready run now, on top of the stored list, with the loaded species.
