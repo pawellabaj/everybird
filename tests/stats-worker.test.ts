@@ -1,10 +1,12 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ALLOWED as APP_ALLOWED } from '@/lib/analytics'
-import { ALLOWED, DAILY_CAP, SEEN_SQL, eventRow, keepRow, seenBinds, type EventRow } from '../workers/stats/src/event'
+import { ALLOWED, CUTOVER, DAILY_CAP, SEEN_SQL, eventRow, keepRow, pacificDay, seenBinds, statsDay, type EventRow } from '../workers/stats/src/event'
+import worker from '../workers/stats/src/index'
 
 const ctx = { day: '2026-11-15', country: 'MX', device: 'iphone', vid: 'abc123' }
+const at = (s: string) => new Date(s)
 
 describe("the stats Worker's row", () => {
   it("keeps a visit's browser language", () => {
@@ -145,6 +147,107 @@ describe('visits are counted once per person, page and day', () => {
     expect(store(db, { n: 'visit', p: 'about' })).toBe(true)
     const plan = db.prepare(`EXPLAIN QUERY PLAN ${SEEN_SQL}`).all(...seenBinds({ ...ctx, name: 'visit', value: 'about', lang: '' }))
     expect(plan.map((r) => String(r.detail)).join(' ')).toContain('events_day_vid')
+  })
+})
+
+describe('the stats day', () => {
+  it('is the UTC date before the cutover, where Pacific is still the day before', () => {
+    expect(statsDay(at('2026-11-16T03:00:00Z'))).toBe('2026-11-16') // UTC 16 Nov; Pacific would say 15 Nov
+  })
+  it('is the Pacific date from the cutover (00:00Z on 17 Nov): 16 Nov until 07:00Z, then 17 Nov', () => {
+    expect(statsDay(at('2026-11-17T00:00:00Z'))).toBe('2026-11-16') // UTC says 17 Nov
+    expect(statsDay(at('2026-11-17T02:00:00Z'))).toBe('2026-11-16')
+    expect(statsDay(at('2026-11-17T06:59:59Z'))).toBe('2026-11-16') // Pacific 23:59:59 on 16 Nov
+    expect(statsDay(at('2026-11-17T07:00:00Z'))).toBe('2026-11-17') // Pacific midnight
+    expect(statsDay(at('2026-11-18T06:59:59Z'))).toBe('2026-11-17') // Pacific 23:59:59 on 17 Nov
+    expect(statsDay(at('2026-11-18T07:00:00Z'))).toBe('2026-11-18')
+  })
+  it('keeps the cutover at 00:00Z, and Pacific at UTC-7 (1 Nov 2026 onward)', () => {
+    expect(CUTOVER).toBe(Date.parse('2026-11-17T00:00:00Z'))
+    expect(pacificDay(new Date(CUTOVER))).toBe('2026-11-16')
+    expect(pacificDay(at('2026-11-16T07:30:00Z'))).toBe('2026-11-16') // 00:30 on 16 Nov; under UTC-8 it would be 15 Nov
+    expect(pacificDay(at('2026-10-31T06:59:59Z'))).toBe('2026-10-30') // 23:59:59 PDT on 30 Oct
+    expect(pacificDay(at('2026-10-31T07:00:00Z'))).toBe('2026-10-31') // 00:00 PDT on 31 Oct
+  })
+})
+
+describe('the cutover in the table', () => {
+  const db = () => {
+    const d = new sqlite!.DatabaseSync(':memory:')
+    d.exec(SCHEMA())
+    return d
+  }
+  const days = (d: Db) => d.prepare('SELECT day FROM events ORDER BY rowid').all().map((r) => r.day)
+  it.skipIf(!sqlite)('a visit either side of the cutover on the same Pacific day (16 Nov) is one person-day', () => {
+    const d = db()
+    const before = { ...ctx, vid: 'p', day: statsDay(at('2026-11-16T23:30:00Z')) } // UTC 16 Nov, before the cutover
+    const after = { ...ctx, vid: 'p', day: statsDay(at('2026-11-17T00:30:00Z')) } // Pacific 16 Nov, 16:30, after it
+    expect([before.day, after.day]).toEqual(['2026-11-16', '2026-11-16'])
+    expect(store(d, { n: 'visit', p: 'landing' }, before)).toBe(true)
+    expect(store(d, { n: 'visit', p: 'landing' }, after)).toBe(false) // same person, page and day: not stored again
+    expect(count(d)).toBe(1)
+  })
+  it.skipIf(!sqlite)('from 07:00Z the same person is on the next Pacific day, so a visit is stored again', () => {
+    const d = db()
+    expect(store(d, { n: 'visit', p: 'landing' }, { ...ctx, vid: 'p', day: statsDay(at('2026-11-17T06:30:00Z')) })).toBe(true) // Pacific 16 Nov
+    expect(store(d, { n: 'visit', p: 'landing' }, { ...ctx, vid: 'p', day: statsDay(at('2026-11-17T07:30:00Z')) })).toBe(true) // Pacific 17 Nov
+    expect(days(d)).toEqual(['2026-11-16', '2026-11-17'])
+  })
+  it.skipIf(!sqlite)('the daily cap spans the cutover: a visitor who used it up before it is capped after it, the same Pacific day', () => {
+    const d = db()
+    const ins = d.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)')
+    for (let i = 0; i < DAILY_CAP; i++) ins.run('2026-11-16', 'collage_made', 'inat', 'MX', 'iphone', 'busy') // all before the cutover
+    expect(store(d, { n: 'collage_made', p: 'inat' }, { ...ctx, vid: 'busy', day: statsDay(at('2026-11-17T00:30:00Z')) })).toBe(false)
+    expect(store(d, { n: 'collage_made', p: 'inat' }, { ...ctx, vid: 'fresh', day: statsDay(at('2026-11-17T00:30:00Z')) })).toBe(true)
+  })
+  it.skipIf(!sqlite)('the relabel moves the 17 Nov rows the old Worker wrote, and a second run changes nothing', () => {
+    const d = db()
+    const add = (day: string, vid: string) => d.prepare('INSERT INTO events (day, name, value, country, device, vid) VALUES (?, ?, ?, ?, ?, ?)').run(day, 'visit', 'landing', 'MX', 'iphone', vid)
+    add('2026-11-16', 'a') // UTC 16 Nov
+    add('2026-11-17', 'b') // old Worker, 01:00Z on 17 Nov (UTC date): Pacific 16 Nov evening
+    add('2026-11-17', 'c') // old Worker, 05:00Z
+    add('2026-11-16', 'd') // new Worker, 06:00Z: already Pacific 16 Nov
+    const migration = readFileSync('workers/stats/migrations/2026-11-17-pacific-relabel.sql', 'utf8')
+    d.exec(migration)
+    expect(days(d)).toEqual(['2026-11-16', '2026-11-16', '2026-11-16', '2026-11-16'])
+    d.exec(migration)
+    expect(days(d)).toEqual(['2026-11-16', '2026-11-16', '2026-11-16', '2026-11-16'])
+  })
+})
+
+// POST /e on the Worker, over node:sqlite: the day each beacon is stored under, and one visit per person-day across the cutover.
+const adapter = (d: Db) => ({
+  prepare(sql: string) {
+    let args: unknown[] = []
+    const s = {
+      bind(...v: unknown[]) { args = v; return s },
+      first: async () => d.prepare(sql).get(...args) ?? null,
+      run: async () => d.prepare(sql).run(...args),
+    }
+    return s
+  },
+  batch: async () => [],
+})
+describe.skipIf(!sqlite)('POST /e stores the stats day', () => {
+  afterEach(() => vi.useRealTimers())
+  it('stores the Pacific day across the cutover, and dedupes one person-day from before it into the same day', async () => {
+    const d = new sqlite!.DatabaseSync(':memory:')
+    d.exec(SCHEMA())
+    const env = { DB: adapter(d), SALT_SECRET: 'test-salt' }
+    const send = async (when: string, body: unknown) => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(when))
+      const req = new Request('https://stats.yusuftaleb.com/e', { method: 'POST', body: JSON.stringify(body), headers: { origin: 'https://everybird.yusuftaleb.com', 'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X)', 'cf-connecting-ip': '192.0.2.7' } })
+      return (await worker.fetch(req, env as never)).status
+    }
+    expect(await send('2026-11-16T23:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // UTC 16 Nov: stored
+    expect(await send('2026-11-17T00:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // Pacific 16 Nov, after the cutover: the same person-day, not stored again
+    expect(await send('2026-11-17T06:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // still Pacific 16 Nov: not stored again
+    expect(await send('2026-11-17T07:30:00Z', { n: 'visit', p: 'landing' })).toBe(204) // Pacific 17 Nov: stored
+    expect(d.prepare('SELECT day, name, value FROM events ORDER BY rowid').all()).toEqual([
+      { day: '2026-11-16', name: 'visit', value: 'landing' },
+      { day: '2026-11-17', name: 'visit', value: 'landing' },
+    ])
   })
 })
 

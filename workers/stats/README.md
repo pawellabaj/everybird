@@ -22,7 +22,25 @@ The URL hash keeps the view, so a link reopens it: `#r=7&c=MX&m=collages&cmp=1` 
 
 The page's small pure functions (hash parse and serialize, CSV, the safe claim, rates, change) live in `src/pure.ts` as a plain-JS string that `page.ts` inlines and the tests evaluate, so there is one copy.
 
-Notes on the numbers: days are UTC; counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one UTC day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as ten statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. New fields: `days[]` also carry `images` and `posterDownloads`; `prevDays[]` is the previous period day for day (empty on All); `rates` (person-days with each action, over all person-days); `launch` (`since`, `collages`, `own`, `images`, `posters`, `peak`).
+Notes on the numbers: days are Pacific (America/Vancouver) from 17 Nov 2026, and UTC days before (see **Day boundary** below); counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one stats day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as ten statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. New fields: `days[]` also carry `images` and `posterDownloads`; `prevDays[]` is the previous period day for day (empty on All); `rates` (person-days with each action, over all person-days); `launch` (`since`, `collages`, `own`, `images`, `posters`, `peak`).
+
+## Day boundary (Pacific from 17 Nov 2026)
+
+- **Cutover:** `CUTOVER` is `2026-11-17T00:00:00Z` (`src/event.ts`). From that instant a row's `day` is the America/Vancouver date (`statsDay()`), and before it the UTC date. Vancouver is UTC-7 all year from 1 Nov 2026 (tzdata 2026f; `wrangler dev --local` agrees), so the Pacific date is 16 Nov until 07:00Z and 17 Nov from then. The visitor id (`vid`), the visit dedupe and the daily cap all use the same day.
+- "Today" and the default ranges on the dashboard are the Pacific date (`pacificDay`, and `pacific()` in the page from `src/pure.ts`).
+- The old Worker writes UTC dates, so the rows it wrote from 00:00Z until the new Worker went live carry day `2026-11-17` but are Pacific 16 Nov evening. The relabel moves them.
+- **Deploy the Worker before 2026-11-17T07:00Z, then run the relabel right after the deploy, and before 07:00Z.** From 07:00Z the new Worker writes Pacific 17 Nov rows under the same label, so the relabel must not run after that. SQL cannot read the clock; this deadline is the operator's to keep.
+
+```
+cd workers/stats
+npx wrangler d1 execute everybird-events --remote --command "SELECT COUNT(*) AS n FROM events WHERE day = '2026-11-17'"   # rows to move
+npx wrangler d1 execute everybird-events --remote --file migrations/2026-11-17-pacific-relabel.sql
+npx wrangler d1 execute everybird-events --remote --command "SELECT COUNT(*) AS n FROM events WHERE day = '2026-11-17'"   # now 0
+```
+
+  Old instances can still write for a short time after a deploy. If the last count is not 0 and it is still before 07:00Z, run the migration again; it is safe to repeat before 07:00Z.
+- 16 Nov, after the relabel, is **31 hours**: from 15 Nov 17:00 to 16 Nov 24:00 Pacific. The dashboard footer says so.
+- Known and accepted: a visitor who visited between 00:00Z and the deploy (their visit keyed on the UTC 17 Nov string) and again on the same Pacific 16 Nov after the deploy is counted twice on 16 Nov. The "busiest day" figure can be 16 Nov, a 31-hour day.
 
 ## Environment variables
 

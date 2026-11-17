@@ -3,7 +3,7 @@
 // accepted; anything else is dropped. Country comes from Cloudflare's request metadata (coarse, no IP is stored).
 // Device class is derived from the User-Agent and only the class is kept. A visit is stored once per visitor, page
 // and day (see keepRow in event.ts); the daily cap and that check share one indexed read (SEEN_SQL).
-import { SEEN_SQL, eventRow, keepRow, seenBinds } from './event'
+import { SEEN_SQL, eventRow, keepRow, pacificDay, seenBinds, statsDay } from './event'
 import { fetchTeamJwks, verifyAccess, type AccessEnv, type JwksFetch } from './access'
 import { parseParams, shape, statements, type Row } from './dashboard'
 import { PAGE } from './page'
@@ -16,7 +16,7 @@ interface D1Like { prepare(sql: string): D1Stmt; batch(s: D1Stmt[]): Promise<{ r
 interface Env extends AccessEnv { DB: D1Like; SALT_SECRET: string }
 
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('')
-/** An anonymous visitor id that changes every UTC day: HMAC(secret, day) keys a hash of IP + User-Agent.
+/** An anonymous visitor id that changes every stats day (statsDay): HMAC(secret, day) keys a hash of IP + User-Agent.
  *  Neither the IP nor the User-Agent is stored, and ids from different days can't be linked. */
 async function dailyVisitorId(secret: string, day: string, ip: string, ua: string): Promise<string> {
   const enc = new TextEncoder()
@@ -56,7 +56,7 @@ async function dashboard(req: Request, env: Env, url: URL, notFound: () => Respo
   if (url.pathname === '/dashboard' || url.pathname === '/dashboard/') {
     return new Response(PAGE, { headers: { ...SECURE, 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" } })
   }
-  const p = parseParams(url.searchParams, new Date().toISOString().slice(0, 10))
+  const p = parseParams(url.searchParams, pacificDay(new Date())) // "today" is the Pacific date, always (the default range ends there)
   if (typeof p === 'string') return Response.json({ error: p }, { status: 400, headers: { ...SECURE, 'cache-control': 'no-store' } })
   const stmts = statements(p)
   const out = await env.DB.batch(stmts.map((s) => env.DB.prepare(s.sql).bind(...s.binds)))
@@ -80,7 +80,7 @@ export default {
     const country = (req as Request & { cf?: { country?: string } }).cf?.country ?? 'XX'
     let device = deviceClass(req.headers.get('user-agent') ?? '')
     if (device === 'mac' && body.d === 'touch') device = 'ipad' // iPadOS 13+ sends a Mac UA
-    const day = new Date().toISOString().slice(0, 10)
+    const day = statsDay(new Date()) // UTC date before the cutover, Pacific from it on (event.ts)
     const vid = await dailyVisitorId(env.SALT_SECRET ?? '', day, req.headers.get('cf-connecting-ip') ?? '', req.headers.get('user-agent') ?? '')
     const row = eventRow(body, { day, country, device, vid })!
     const seen = await env.DB.prepare(SEEN_SQL).bind(...seenBinds(row)).first<{ c: number | null; dup: number | null }>()

@@ -1,14 +1,15 @@
 // Everybird's usage report, from the stats Worker's D1 database (workers/stats, table events: day, name, value,
 // country, device, vid, lang). Aggregates only: the table holds no names, species, places, IPs or cookies.
 //
-//   npm run stats                              the last 30 days (UTC)
+//   npm run stats                              the last 30 days (Pacific days)
 //   npm run stats -- --since 2026-11-01        from a day on
 //   npm run stats -- --top 10                  top 10 countries per event (default 5)
 //   npm run stats -- --print-sql               print the SQL and the wrangler command, run nothing
 //
 // Runs `npx wrangler d1 execute everybird-events --remote --json --command <sql>` from workers/stats (so wrangler reads
-// its wrangler.jsonc), which needs `npx wrangler login` once. vid is an anonymous id the Worker derives per UTC day, so
-// a count of distinct vids over several days counts person-days: the same birder on two days is two.
+// its wrangler.jsonc), which needs `npx wrangler login` once. vid is an anonymous id the Worker derives per stats day
+// (Pacific from 17 Nov 2026 00:00Z, UTC before: workers/stats/src/event.ts statsDay), so a count of distinct vids over
+// several days counts person-days: the same birder on two days is two.
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -34,8 +35,17 @@ const VALUE_LABELS: Record<string, Record<string, string>> = {
 
 export type Args = { since: string; top: number; printSql: boolean }
 
+// The America/Vancouver date of an instant: the same rule as workers/stats/src/event.ts pacificDay. Kept here, not
+// imported, because tests/stats-report.test.ts imports this file and must not reach workers/ (see .vercelignore).
+const PACIFIC = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' })
+export function pacificDay(now: Date): string {
+  const p = Object.fromEntries(PACIFIC.formatToParts(now).map((x) => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day}`
+}
+
+/** The Pacific date n days before now's Pacific date (the default --since is 30 of them). */
 export function daysAgo(n: number, now = new Date()): string {
-  return new Date(now.getTime() - n * 86_400_000).toISOString().slice(0, 10)
+  return new Date(Date.parse(`${pacificDay(now)}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10)
 }
 
 export function parseArgs(argv: string[], now = new Date()): Args {
@@ -132,7 +142,7 @@ function pivot(rows: Row[], rowKey: string, colKey: string, valKey: string, rowO
 
 export function formatReport(r: Results, args: Pick<Args, 'since' | 'top'>): string {
   // Visits are stored once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.
-  const out: string[] = [`Everybird stats since ${args.since} (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.`]
+  const out: string[] = [`Everybird stats since ${args.since} (days are Pacific time from 17 Nov 2026; earlier days are UTC days).People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.`]
 
   // Visitors per day, with page views by page.
   const pages = ['landing', 'collage', 'settings', 'about', 'shared']

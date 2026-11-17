@@ -24,7 +24,17 @@ function serializeHash(s) {
   return a.length ? '#' + a.join('&') : '';
 }
 
-/* The daily series as CSV (one row per UTC day). */
+/* America/Vancouver calendar dates in the browser, the same rule as event.ts pacificDay: the Pacific date of an instant
+   (ms), and day arithmetic on a YYYY-MM-DD string (no 24-hour steps, so daylight saving can't shift a day). */
+var PACIFIC_FMT = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' });
+function pacificDay(ms) {
+  var p = {};
+  PACIFIC_FMT.formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = x.value; });
+  return p.year + '-' + p.month + '-' + p.day;
+}
+function addDays(d, n) { return new Date(Date.parse(d + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10); }
+
+/* The daily series as CSV (one row per day). */
 var CSV_COLUMNS = ['d', 'people', 'collages', 'images', 'posterDownloads', 'downloads', 'shares', 'posters'];
 function csvCell(v) { var t = String(v == null ? '' : v); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }
 function buildCsv(days, country) {

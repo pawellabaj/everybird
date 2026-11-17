@@ -15,6 +15,25 @@ export const ALLOWED: Record<string, Set<string>> = {
   filter_used: new Set(['place', 'continent', 'time', 'status', 'group', 'taxonomy']),
 }
 
+/** The day boundary: 2026-11-17T00:00Z. From this instant a row's day is the America/Vancouver date, which is 16 Nov until
+ *  07:00Z (Vancouver is UTC-7 all year from 1 Nov 2026, tzdata 2026f) and 17 Nov from then on. Before it, the UTC date.
+ *  The old Worker's rows from 00:00Z to the deploy carry 17 Nov: migrations/2026-11-17-pacific-relabel.sql moves them to
+ *  16 Nov, and must run before 07:00Z. Change this only together with that migration and the README's "Day boundary". */
+export const CUTOVER = Date.parse('2026-11-17T00:00:00Z')
+
+const PACIFIC = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' })
+
+/** The America/Vancouver calendar date of an instant, YYYY-MM-DD. Intl applies the zone's rules, daylight saving included. */
+export function pacificDay(now: Date): string {
+  const p = Object.fromEntries(PACIFIC.formatToParts(now).map((x) => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day}`
+}
+
+/** The day a row is stored under (and the visitor id is keyed on): the UTC date before CUTOVER, the Pacific date from it on. */
+export function statsDay(now: Date): string {
+  return now.getTime() < CUTOVER ? now.toISOString().slice(0, 10) : pacificDay(now)
+}
+
 export type EventContext = { day: string; country: string; device: string; vid: string }
 export type EventRow = EventContext & { name: string; value: string; lang: string }
 

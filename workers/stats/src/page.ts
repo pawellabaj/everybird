@@ -131,7 +131,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
 <body>
 <main class="page">
   <header class="head">
-    <div><h1>Usage</h1><div class="mono" id="sub">Everybird &middot; private &middot; days are UTC</div></div>
+    <div><h1>Usage</h1><div class="mono" id="sub">Everybird &middot; private &middot; days are Pacific from 17 Nov</div></div>
     <button class="theme" id="theme" type="button" role="switch" aria-checked="false" aria-label="Dark mode">
       <svg class="moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4 8.2 8.2 0 1 0 20 14.2Z"/></svg>
       <svg class="sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>
@@ -160,7 +160,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
     <div id="err" role="status"></div>
     <div class="row"><button class="btn" id="refresh" type="button">Refresh</button><button class="sw" id="auto" type="button" role="switch" aria-checked="false">Auto-refresh every minute<i></i></button></div>
     <span id="stamp" class="mono"></span>
-    <div>Days are UTC. Counts are an undercount: visitors who send Do Not Track or Global Privacy Control, and anyone with a blocker, are not counted. A visitor id lasts one day, so "people" is per day; a range adds up person-days (the same person on two days counts twice).</div>
+    <div>Days are Pacific time (Vancouver) from 17 Nov 2026; earlier days are UTC days, and 16 Nov includes the evening of Pacific 16 Nov. 16 Nov is 31 hours, from 15 Nov 17:00 Pacific. Counts are an undercount: visitors who send Do Not Track or Global Privacy Control, and anyone with a blocker, are not counted. A visitor id lasts one day, so "people" is per day; a range adds up person-days (the same person on two days counts twice).</div>
   </footer>
 </main>
 <script>
@@ -179,7 +179,7 @@ ${PURE_JS}
   function sv(tag, attrs) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
   function btn(text, cls, fn) { var b = h('button', cls, text); b.type = 'button'; b.onclick = fn; return b; }
   function fmt(n) { return Number(n).toLocaleString('en-US'); }
-  function utc(offset) { return new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10); }
+  function pacific(offset) { return addDays(pacificDay(Date.now()), offset); } // "today" and the presets are Pacific dates (pure.ts)
   function dayLabel(d) { return new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
   function clear(e) { while (e.firstChild) e.removeChild(e.firstChild); return e; }
   function names(type) { try { return new Intl.DisplayNames(['en'], { type: type }); } catch (e) { return null; } }
@@ -202,7 +202,7 @@ ${PURE_JS}
   var seq = 0, animate = true, timer = 0;
   // quiet: a background refresh keeps the page as it is (no dimming).
   function load(fresh, quiet) {
-    var to = utc(0), from = st.all ? '2020-01-01' : utc(1 - st.days), n = ++seq;
+    var to = pacific(0), from = st.all ? '2020-01-01' : pacific(1 - st.days), n = ++seq;
     var url = '/dashboard/data?from=' + from + '&to=' + to + (st.country ? '&country=' + st.country : '');
     $('err').textContent = ''; if (!quiet) $('content').setAttribute('aria-busy', 'true');
     // Refresh skips the browser's 60 s cache; a late answer to an older request is dropped.
@@ -286,7 +286,7 @@ ${PURE_JS}
     svg.appendChild(sv('path', { class: 'a', d: 'M' + pts.join('L') + 'L100 28L0 28Z' })); svg.appendChild(sv('path', { class: 'l', d: 'M' + pts.join('L') }));
   }
   function tiles() {
-    var d = st.data, box = $('tiles'), last = d.tiles.peopleLast.day === utc(0);
+    var d = st.data, box = $('tiles'), last = d.tiles.peopleLast.day === pacific(0);
     if (box.children.length !== TILES.length || box.querySelector('.sk')) { clear(box); TILES.forEach(function (x) { box.appendChild(tile(x)); }); }
     TILES.forEach(function (x, i) {
       var c = box.children[i], t = d.tiles[x[1]];
@@ -434,8 +434,8 @@ ${PURE_JS}
     var d = st.data; $('content').classList.toggle('go', animate);
     tiles(); panel(); chart(); lastW = $('chart').clientWidth; rates(); launch(); funnel(); cards(); controls(); animate = false;
     $('content').setAttribute('aria-busy', 'false');
-    $('sub').textContent = 'Everybird · private · ' + (st.country ? region(st.country) : 'all countries') + ' · days are UTC';
-    $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to) + ' UTC';
+    $('sub').textContent = 'Everybird · private · ' + (st.country ? region(st.country) : 'all countries') + ' · days are Pacific from 17 Nov';
+    $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to);
   }
 
   // ---- auto-refresh: every 60 s, only while the tab is visible ----

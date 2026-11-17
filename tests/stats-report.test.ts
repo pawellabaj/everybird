@@ -20,6 +20,9 @@ describe('parseArgs', () => {
   it('defaults to the last 30 days and the top 5 countries', () => {
     expect(parseArgs([], NOW)).toEqual({ since: '2026-10-07', top: 5, printSql: false })
     expect(daysAgo(0, NOW)).toBe('2026-11-06')
+    // Pacific, not UTC: at 03:00Z on 17 Nov it is still 16 Nov in Vancouver (UTC would say 17 Nov).
+    expect(daysAgo(0, new Date('2026-11-17T03:00:00Z'))).toBe('2026-11-16')
+    expect(daysAgo(1, new Date('2026-11-17T03:00:00Z'))).toBe('2026-11-15')
     expect(parseArgs(['--since', '2026-11-01', '--top', '10', '--print-sql'], NOW)).toEqual({ since: '2026-11-01', top: 10, printSql: true })
   })
   it('refuses anything that is not a plain date or count (they go into the SQL text)', () => {
@@ -151,7 +154,7 @@ describe('the report', () => {
   it('prints compact tables: visitors by day, then each event by value and device, people, repeats and countries', () => {
     const text = formatReport(parseWrangler(fake, names), { since: '2026-11-01', top: 5 })
     expect(text).toBe([
-      'Everybird stats since 2026-11-01 (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.',
+      'Everybird stats since 2026-11-01 (days are Pacific time from 17 Nov 2026; earlier days are UTC days).People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.',
       '',
       'Visitors by day',
       'day         visitors  landing  collage  settings  about  shared  all events',
