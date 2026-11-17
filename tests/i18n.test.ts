@@ -14,7 +14,7 @@ import { withI18n } from './i18n-render'
 /** Values that may read the same as English: names, formats, and words the languages share. */
 const ALLOW_SAME = [
   'eBird', 'iNaturalist', 'CSV', 'JSON', 'Everybird', 'GitHub', 'Collage',
-  // Words the languages share: pt "Story" (Instagram's word in Brazil), nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
+  // Words the languages share: pt "Story" (a common format label in Brazil), nl "Filters", "Families", "{n} families"; order labels (es Kiwis, es/pt Turacos, pt
   // Flamingos, pt Seriemas, nl Hoatzin, nl Trogons); nl "{n} continent" (the same word); nl's full month needs no "de" ("maart 2020").
   'Filters', '{n} continent', 'Filters · {n} · {species}', 'Filters · {species}', 'Families', '{n} families', 'Story', 'Post', 'Kiwis', 'Turacos', 'Flamingos', 'Seriemas', 'Hoatzin', 'Trogons', '{month} {year}',
   // The orientation switch and the desktop format: es and pt keep "Vertical" and "Horizontal", and pt and nl "Desktop".

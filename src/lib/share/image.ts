@@ -14,7 +14,7 @@
 //           quiet line beside it, the site, the sticker credit and the date the image was made
 //           ("everybird.yusuftaleb.com · stickers by huashu · 14 Nov 2026", stamp.ts; Geist Mono 20px, Muted).
 //           The full credit, with the licence, travels in the share text.
-// The story keeps Instagram's safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
+// The story keeps the story safe zones clear: nothing in the top 160px (the profile row; the title from 184) or the
 // bottom 156px (the reply bar); the post and the square use 64px margins all round. The story's collage is tall (about 952 × 1284 with
 // a name and the latest lifer): packFrame packs it for that aspect (the spiral stretched to it, as the narrow layout's
 // 0.55), so it is a tall rounded cluster, and fitPack spreads a short list's ring to its height (SPREAD).
@@ -151,7 +151,7 @@ const sideMargin = (format: CardFormat) => M + (format === 'desktop' ? DESKTOP_S
 /**
  * Clear of the platform's own chrome: a story keeps the top 160px (the progress bar and the profile row) and the bottom
  * 156px (the reply bar) empty; the post and the square use 64px margins all round. The story's numbers come from a real
- * Instagram story (2026-11-06): its title starts at 184 (TITLE_TOP), with air under the profile row, and the footer
+ * Vertical story view (2026-11-06): its title starts at 184 (TITLE_TOP), with air under the profile row, and the footer
  * ends about 150px of the phone's screen above "Say something", in the band the reply bar leaves empty.
  */
 export const SAFE: Record<CardFormat, { top: number; bottom: number }> = {
