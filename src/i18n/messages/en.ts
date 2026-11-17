@@ -69,6 +69,7 @@ const page = {
       taxonomyTitle: 'eBird and Clements',
       taxonomy: 'Bird names, species and their order follow the eBird/Clements taxonomy, version {version}, from the Cornell Lab of Ornithology. eBird and observation.org files are read in your browser.',
       masses: "Sticker sizes use body masses from AVONET (Tobias et al. 2022, Ecology Letters), via huashu's species table.",
+      birdbase: "Sticker sizes for species that AVONET has no mass for use body masses from BIRDBASE (Şekercioğlu et al. 2025, Scientific Data).",
       redList: "IUCN Red List categories as given for BirdLife {birdlife} in AviList: The Global Avian Checklist, {version} (AviList Core Team, {year}), via huashu's species table, licensed <cc>CC BY 4.0</cc>. Everybird matched them to eBird species.",
       api: "Observations come from iNaturalist's public API, called straight from your browser, about once a second.",
       countries: 'Country names, most region names and the continent globes’ coastlines come from Natural Earth.',

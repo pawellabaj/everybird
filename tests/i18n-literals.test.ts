@@ -22,7 +22,7 @@ export const SKIP: Record<string, string> = {
 export const ALLOW = new Set<string>([
   'Everybird', 'iNaturalist',
   // About's credits: the names of what Everybird is built from, and the Buy Me a Coffee button's own words (its image is English).
-  'Yusuf Taleb', 'huashu-bird-sticker', 'Avian Visitors', 'AVONET', 'Natural Earth', 'Debian iso-codes', 'Fontshare', 'Geist Mono',
+  'Yusuf Taleb', 'huashu-bird-sticker', 'Avian Visitors', 'AVONET', 'BIRDBASE', 'Natural Earth', 'Debian iso-codes', 'Fontshare', 'Geist Mono',
   'flag-icons', 'AviList', 'Phosphor', 'Icons8', 'Buy me a coffee', 'MyEBirdData', 'CSV',
 ])
 

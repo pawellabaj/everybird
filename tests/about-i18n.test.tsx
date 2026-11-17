@@ -121,7 +121,7 @@ describe.each(LANGS)('About, the page in %s', (lang) => {
     // The coffee sentence is translated, the button and its alt stay
     expect(text(credits.querySelector('.eb-coffee .eb-prose'))).toBe(m.page.about.credits.coffee)
     expect(within(credits).getByRole('img', { name: 'Buy me a coffee' })).toHaveAttribute('src', '/buy-me-a-coffee.png')
-    for (const name of ['huashu-bird-sticker', 'CC BY 4.0', 'Icons8', 'Origami', 'Natural Earth', 'Debian iso-codes', 'Fontshare', 'flag-icons', 'AVONET', 'iNaturalist']) {
+    for (const name of ['huashu-bird-sticker', 'CC BY 4.0', 'Icons8', 'Origami', 'Natural Earth', 'Debian iso-codes', 'Fontshare', 'flag-icons', 'AVONET', 'BIRDBASE', 'iNaturalist']) {
       expect(within(credits).getAllByRole('link', { name }).length, name).toBeGreaterThan(0)
     }
     expect(within(credits).getByRole('link', { name: 'huashu-bird-sticker' })).toHaveAttribute('href', 'https://github.com/alchaincyf/huashu-bird-sticker')

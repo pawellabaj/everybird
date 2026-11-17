@@ -235,7 +235,8 @@ describe('no stickers through lumps', () => {
 
   it('a species the record absorbed (lumped_into_this) gets no sticker; the record’s own species keeps it', () => {
     expect(get('gumaj1')).toMatchObject({ st: true, q: true, g: 80, gSrc: 'avonet' })
-    expect(get('gumin1')).toMatchObject({ st: false, q: false, ar: 1, gSrc: 'family' })
+    // Gus minor's genus has one measured species, Gus major (80 g): the genus estimate, not the family's
+    expect(get('gumin1')).toMatchObject({ st: false, q: false, ar: 1, g: 80, gSrc: 'genus' })
     const m = matchHuashu(recs, taxa, {})
     expect(m.matches.has('gumin1')).toBe(false)
     expect(m.lumped).toContain('gumin1 (gumin1, Gus minor): only a former name in huashu Gus_major (lumped_into_this)')
@@ -294,7 +295,8 @@ describe('stickers from huashu forms', () => {
     expect(m.matches.get('kumin1')).toMatchObject({ id: 'Kus_major', form: 'Kus major minor', sticker: { file: 'stickers/Ordo/Famone/Kus_major.minor.webp' } })
     expect(m.matches.get('kumin1')?.traits).toBeUndefined()
     const r = buildSpecies(recs, taxa, {}).file.species.find((s) => s.code === 'kumin1')!
-    expect(r).toMatchObject({ st: true, q: false, gSrc: 'family' })
+    // Kus's genus: Kus major (500 g) and Kus own (40 g), so the genus median, not the family's
+    expect(r).toMatchObject({ st: true, q: false, g: 270, gSrc: 'genus' })
     expect(m.lumped.some((l) => l.startsWith('kumin1'))).toBe(false)
     expect(m.viaForm).toEqual(['kumin1 (kumin1, Kus minor) -> stickers/Ordo/Famone/Kus_major.minor.webp (form Kus major minor in huashu Kus_major)'])
   })
