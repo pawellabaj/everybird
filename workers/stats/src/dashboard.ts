@@ -47,8 +47,9 @@ export function statements(p: Params): Stmt[] {
     { sql: `SELECT country, COUNT(*) AS n, ${PD} AS pd FROM events ${w} GROUP BY country ORDER BY pd DESC, country`, binds: [p.from, p.to] },
     { sql: `SELECT device, ${PD} AS pd FROM events ${w}${c} GROUP BY device ORDER BY pd DESC`, binds: cur },
     { sql: `SELECT lang, ${PD} AS pd FROM events ${w} AND name = 'visit' AND lang <> ''${c} GROUP BY lang ORDER BY pd DESC`, binds: cur },
-    // Since launch (whole site, any range): the first day and the all-time totals, then the busiest day by people.
-    { sql: "SELECT MIN(day) AS d, SUM(name = 'collage_made') AS collages, SUM(name = 'image_downloaded') AS images, SUM(name = 'poster_made') AS posters FROM events", binds: [] },
+    // Since launch (whole site, any range): the first day and the all-time totals (own = collages from a real list: not the
+    // landing demo's 'sample', not a backup 'restore'; the postable claim counts only those), then the busiest day by people.
+    { sql: "SELECT MIN(day) AS d, SUM(name = 'collage_made') AS collages, SUM(name = 'image_downloaded') AS images, SUM(name = 'poster_made') AS posters, SUM(name = 'collage_made' AND value NOT IN ('sample', 'restore')) AS own FROM events", binds: [] },
     { sql: `SELECT day, ${VID} AS people FROM events GROUP BY day ORDER BY people DESC, day LIMIT 1`, binds: [] },
     // Rates: person-days with each action over all person-days, for the range and country.
     { sql: `SELECT ${PD} AS pd, ${pdIf('collage_made')} AS collage, ${pdIf('shared')} AS shared, ${pdIf('poster_made')} AS poster FROM events ${w}${c}`, binds: cur },
@@ -93,7 +94,7 @@ export function shape(p: Params, results: Row[][], now = new Date()) {
     days,
     prevDays,
     rates: { pd: num(rates?.[0]?.pd), collage: num(rates?.[0]?.collage), downloaded: step('downloaded'), shared: num(rates?.[0]?.shared), poster: num(rates?.[0]?.poster) },
-    launch: { since: first, collages: num(launch?.[0]?.collages), images: num(launch?.[0]?.images), posters: num(launch?.[0]?.posters), peak: peak?.[0] ? { day: peak[0].day as string, people: num(peak[0].people) } : null },
+    launch: { since: first, collages: num(launch?.[0]?.collages), own: num(launch?.[0]?.own), images: num(launch?.[0]?.images), posters: num(launch?.[0]?.posters), peak: peak?.[0] ? { day: peak[0].day as string, people: num(peak[0].people) } : null },
     funnel: [
       { k: 'landing', n: visit('landing') }, { k: 'settings', n: visit('settings') }, { k: 'collage', n: visit('collage') },
       { k: 'collage_made', n: step('collage_made') }, { k: 'downloaded', n: step('downloaded') },

@@ -32,7 +32,7 @@ export const PAGE = String.raw`<!doctype html>
 body { margin: 0; background: var(--paper); color: var(--ink); font: 500 15px/1.45 var(--body); -webkit-text-size-adjust: 100%; caret-color: var(--accent); transition: background-color .2s var(--ease), color .2s var(--ease); }
 .page { max-width: 1152px; margin: 0 auto; padding: 20px 16px 56px; display: grid; gap: 20px; }
 @media (min-width: 720px) { .page { padding: 40px 32px 72px; gap: 28px; } }
-h1 { font: 700 clamp(34px, 6vw, 52px)/1 var(--display); letter-spacing: -.025em; margin: 0; }
+h1 { font: 700 clamp(32px, 5vw, 48px)/1.05 var(--display); letter-spacing: -.02em; margin: 0; }
 h2 { font: 700 18px/1.2 var(--display); margin: 0; }
 .mono { font: 500 12px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 8px; }
@@ -45,7 +45,7 @@ h2 { font: 700 18px/1.2 var(--display); margin: 0; }
   font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--hairline); min-height: 44px; padding: 0 14px; cursor: pointer;
   border-radius: calc(8px * var(--corner)); corner-shape: superellipse(2); transition: border-color .15s var(--ease), opacity .15s var(--ease);
 }
-select { max-width: 100%; min-width: 0; flex: 1 1 160px; border-color: var(--line); }
+select { font-size: 16px; /* 16px so iOS does not zoom */ max-width: 100%; min-width: 0; flex: 1 1 160px; border-color: var(--line); }
 .btn:disabled { color: var(--muted); cursor: default; }
 .btn.chip { min-height: 32px; padding: 0 12px; position: relative; }
 .btn.chip::after { content: ""; position: absolute; inset: -6px -3px; }
@@ -107,7 +107,7 @@ svg.chart { display: block; width: 100%; touch-action: pan-y; }
 svg.chart:focus-visible { outline-offset: 4px; }
 svg text { font: 500 11px var(--mono); fill: var(--muted); }
 .bars rect { transform-box: fill-box; transform-origin: bottom; transition: fill .12s var(--ease); }
-.bars.go rect { animation: grow .5s var(--ease) both; animation-delay: calc(var(--i) * 12ms); }
+.bars.go rect { animation: grow .5s var(--ease) both; animation-delay: calc(var(--i) * var(--step, 12ms)); }
 .bars .ghost { fill: var(--line); opacity: .32; } .bars .cur { fill: var(--muted); }
 .tip { position: absolute; pointer-events: none; background: var(--paper); border: 1px solid var(--line); border-radius: calc(8px * var(--corner)); corner-shape: superellipse(2); padding: 6px 10px; font-size: 13px; line-height: 1.4; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: 0 12px 32px rgb(0 0 0 / .08), 0 2px 6px rgb(0 0 0 / .04); animation: fade .15s var(--ease); }
 .tip b { font: 700 16px var(--display); font-variant-numeric: tabular-nums; } .tip .p { display: block; color: var(--muted); font-size: 12px; }
@@ -118,7 +118,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
 .foot { color: var(--muted); font-size: 13px; display: grid; gap: 8px; }
 #err { color: var(--accent); min-height: 0; }
 /* Loading: skeleton blocks at the content's own size, then a gentle dim while a new range loads. */
-.sk { color: transparent !important; background: var(--surface); border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; user-select: none; }
+.sk { color: transparent !important; background: var(--surface); border-radius: calc(8px * var(--corner)); animation: pulse 1.4s ease-in-out infinite; user-select: none; }
 .sk * { visibility: hidden; }
 #content { display: grid; gap: 20px; transition: opacity .2s var(--ease); } @media (min-width: 720px) { #content { gap: 28px; } } #content[aria-busy="true"] { opacity: .6; }
 @keyframes grow { from { transform: scaleY(0); } }
@@ -200,10 +200,11 @@ ${PURE_JS}
 
   // ---- loading ----
   var seq = 0, animate = true, timer = 0;
-  function load(fresh) {
+  // quiet: a background refresh keeps the page as it is (no dimming).
+  function load(fresh, quiet) {
     var to = utc(0), from = st.all ? '2020-01-01' : utc(1 - st.days), n = ++seq;
     var url = '/dashboard/data?from=' + from + '&to=' + to + (st.country ? '&country=' + st.country : '');
-    $('err').textContent = ''; $('content').setAttribute('aria-busy', 'true');
+    $('err').textContent = ''; if (!quiet) $('content').setAttribute('aria-busy', 'true');
     // Refresh skips the browser's 60 s cache; a late answer to an older request is dropped.
     fetch(url, { credentials: 'same-origin', cache: fresh === true ? 'reload' : 'default' }).then(function (r) {
       if (!r.ok) throw new Error(r.status === 404 ? 'Session expired: reload the page.' : 'Could not load (' + r.status + ').');
@@ -253,6 +254,7 @@ ${PURE_JS}
     var t = clear($('tiles'));
     TILES.forEach(function (x) { var c = tile(x); c.querySelectorAll('.num, .delta, .spark').forEach(function (e) { e.classList.add('sk'); }); t.appendChild(c); });
     var sk = clear($('chart')); var b = h('div', 'sk'); b.style.height = '200px'; sk.appendChild(b);
+    for (var j = 0; j < 3; j++) { var cd = h('div', 'card'); $('cards').appendChild(cd).appendChild(h('div', 'sk')).style.height = '148px'; }
     ['rates', 'launch', 'funnel'].forEach(function (id) { var c = clear($(id)); for (var i = 0; i < 3; i++) { var l = h('div', 'sk'); l.style.height = '20px'; l.style.margin = '12px 0'; c.appendChild(l); } });
   }
   function tile(x) {
@@ -318,6 +320,7 @@ ${PURE_JS}
     function bar(cls, v, w, i) { var x = L + slot * i + (slot - w) / 2, r = sv('rect', { class: cls, x: x, y: yOf(v), width: w, height: Math.max(H - B - yOf(v), v ? 1 : 0), rx: Math.min(4, w / 2) }); r.style.setProperty('--i', i); g.appendChild(r); return r; }
     if (cmp) d.prevDays.forEach(function (x, i) { bar('ghost', x[key], gw, i); });
     days.forEach(function (x, i) { cur.push(bar('cur', x[key], bw, i)); });
+    g.style.setProperty('--step', Math.min(12, 240 / days.length).toFixed(2) + 'ms'); // the whole stagger stays under a quarter second
     svg.appendChild(g);
     [0, Math.floor((days.length - 1) / 2), days.length - 1].filter(function (v, i, a) { return a.indexOf(v) === i; }).forEach(function (i, n, a) {
       var tx = sv('text', { x: L + slot * (i + .5), y: H - 6, 'text-anchor': a.length > 1 && n === 0 ? 'start' : a.length > 1 && n === a.length - 1 ? 'end' : 'middle' });
@@ -352,7 +355,7 @@ ${PURE_JS}
     o = o || {};
     var total = items.reduce(function (a, x) { return a + x.n; }, 0), max = items.reduce(function (a, x) { return Math.max(a, x.n); }, 0);
     if (!total) { parent.appendChild(h('div', 'empty', 'Nothing yet.')); return; }
-    (o.limit && !st.showAll ? items.slice(0, o.limit) : items).forEach(function (x) {
+    (o.limit && !st.showAll ? items.slice(0, o.limit) : o.top ? items.slice(0, o.top) : items).forEach(function (x) {
       var row = h(o.click ? 'button' : 'div', 'bar' + (o.mark && o.mark(x) ? ' f' : ''));
       if (o.click) { row.type = 'button'; row.onclick = function () { o.click(x); }; row.title = 'Filter to ' + (o.label ? o.label(x.k) : x.k); }
       row.appendChild(h('span', 'name', o.label ? o.label(x.k) : x.k));
@@ -371,9 +374,9 @@ ${PURE_JS}
     stat(g, 'Share', pct(r.shared, r.pd), 'shared'); stat(g, 'Poster', pct(r.poster, r.pd), 'made a poster'); c.appendChild(g);
   }
   function launch() {
-    var l = st.data.launch, c = clear($('launch')), g = h('div', 'stats'), claim = safeClaim(l.collages, 'collages made on Everybird');
+    var l = st.data.launch, c = clear($('launch')), g = h('div', 'stats'), claim = safeClaim(l.own, 'collages made on Everybird');
     c.appendChild(h('h2', null, 'Since launch')); c.appendChild(h('p', 'sub', 'All time, all countries' + (l.since ? ', from ' + dayLabel(l.since) : '') + '.'));
-    stat(g, 'Collages', fmt(l.collages), 'made'); stat(g, 'Images', fmt(l.images), 'downloaded'); stat(g, 'Posters', fmt(l.posters), 'made');
+    stat(g, 'Collages', fmt(l.collages), 'made, ' + fmt(l.own) + ' from real lists'); stat(g, 'Images', fmt(l.images), 'downloaded'); stat(g, 'Posters', fmt(l.posters), 'made');
     stat(g, 'Busiest day', l.peak ? dayLabel(l.peak.day) : '–', l.peak ? fmt(l.peak.people) + ' people' : 'no data'); c.appendChild(g);
     var p = h('div', 'claim'); p.appendChild(h('span', null, claim || 'Not enough yet for a claim.'));
     if (claim) { var b = btn('Copy', 'btn chip', function () { copy(claim); b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }); p.appendChild(b); }
@@ -400,14 +403,18 @@ ${PURE_JS}
     var d = st.data, c = $('panel'), cc = d.range.country; c.hidden = !cc; if (!cc) return; clear(c);
     var r = d.rates, g = h('div', 'stats four'), top = h('div', 'row between');
     top.appendChild(h('h2', null, region(cc))); top.appendChild(btn('All countries', 'btn chip', function () { change({ country: '' }); })); c.appendChild(top);
-    c.appendChild(h('p', 'sub', 'Person-days in range, with this country only.'));
+    c.appendChild(h('p', 'sub', 'Person-days in range, this country only. Interface language counts people who switched it; browser language counts visits.'));
+    var daily = sv('svg', { class: 'spark', viewBox: '0 0 100 28', preserveAspectRatio: 'none', role: 'img', 'aria-label': 'People per day' }); spark(daily, d.days.map(function (y) { return y.people; })); daily.style.height = '40px'; daily.style.marginBottom = '16px'; c.appendChild(daily);
     var avg = d.days.length ? r.pd / d.days.length : 0;
     stat(g, 'People', avg >= 10 ? fmt(Math.round(avg)) : avg.toFixed(1), 'a day, on average'); stat(g, 'Collage rate', pct(r.collage, r.pd), 'of person-days made a collage');
     stat(g, 'Downloads', perPerson(d.tiles.downloads.value, r.pd), 'per person-day'); stat(g, 'Share rate', pct(r.shared, r.pd), 'of person-days shared'); c.appendChild(g);
-    var cols = h('div', 'grid'); cols.style.marginTop = '16px';
-    var a = h('div'), b = h('div'); a.appendChild(h('div', 'mono', 'Top formats')); b.appendChild(h('div', 'mono', 'Browser language')); [a, b].forEach(function (x) { x.firstChild.style.marginBottom = '4px'; });
-    bars(a, d.breakdowns.formats.slice(0, 3), { label: cap }); bars(b, d.breakdowns.browserLanguages.slice(0, 3), { label: language });
-    cols.appendChild(a); cols.appendChild(b); c.appendChild(cols);
+    var cols = h('div', 'grid three'); cols.style.marginTop = '16px';
+    var b = d.breakdowns;
+    [['Top formats', b.formats, cap], ['Browser language', b.browserLanguages, language], ['Interface switched to', b.uiLanguages, language]].forEach(function (x) {
+      var col = h('div'); col.appendChild(h('div', 'mono', x[0])).style.marginBottom = '4px';
+      bars(col, x[1], { label: x[2], top: 3 }); cols.appendChild(col);
+    });
+    c.appendChild(cols);
   }
 
   function cards() {
@@ -425,7 +432,7 @@ ${PURE_JS}
   }
   function render() {
     var d = st.data; $('content').classList.toggle('go', animate);
-    tiles(); panel(); chart(); rates(); launch(); funnel(); cards(); controls(); animate = false;
+    tiles(); panel(); chart(); lastW = $('chart').clientWidth; rates(); launch(); funnel(); cards(); controls(); animate = false;
     $('content').setAttribute('aria-busy', 'false');
     $('sub').textContent = 'Everybird · private · ' + (st.country ? region(st.country) : 'all countries') + ' · days are UTC';
     $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to) + ' UTC';
@@ -434,12 +441,17 @@ ${PURE_JS}
   // ---- auto-refresh: every 60 s, only while the tab is visible ----
   function auto(on, keep) {
     clearInterval(timer); timer = 0; $('auto').setAttribute('aria-checked', String(on)); if (keep) store('everybird:stats-auto', on ? '1' : '0');
-    if (on) timer = setInterval(function () { if (document.visibilityState === 'visible') load(true); }, 60000);
+    if (on) timer = setInterval(function () { if (document.visibilityState === 'visible') load(true, true); }, 60000);
   }
   $('auto').onclick = function () { auto($('auto').getAttribute('aria-checked') !== 'true', true); };
   $('refresh').onclick = function () { load(true); };
   document.addEventListener('pointerdown', function (ev) { if (hideTip && !$('chart').contains(ev.target)) hideTip(); });
-  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (st.data) { var a = animate; animate = false; chart(); animate = a; } }, 120); });
+  var rt, lastW = 0;
+  // Redraw on a real width change only: a phone's URL bar collapsing fires resize too, and a redraw would drop a tapped tip.
+  window.addEventListener('resize', function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () { var w = $('chart').clientWidth; if (!st.data || w === lastW) return; lastW = w; var a = animate; animate = false; chart(); animate = a; }, 120);
+  });
   themeUi(); skeleton(); controls(); auto(store('everybird:stats-auto') === '1'); load();
 })();
 </script>

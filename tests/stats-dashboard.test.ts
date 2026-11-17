@@ -91,8 +91,14 @@ describe.skipIf(!sqlite)('the dashboard aggregation', () => {
   })
   it('totals since launch for the whole site, whatever the range or country', () => {
     const all = run(seeded(), p).launch
-    expect(all).toEqual({ since: '2026-11-02', collages: 3, images: 1, posters: 1, peak: { day: '2026-11-04', people: 2 } })
+    expect(all).toEqual({ since: '2026-11-02', collages: 3, own: 3, images: 1, posters: 1, peak: { day: '2026-11-04', people: 2 } })
     expect(run(seeded(), { from: '2026-11-06', to: '2026-11-06', country: 'XX' }).launch).toEqual(all)
+  })
+  it('keeps the demo and backups out of the postable collage count', () => {
+    const db = seeded()
+    const ins = db.prepare('INSERT INTO events (day, name, value, country, device, vid, lang) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    ins.run('2026-10-01', 'collage_made', 'sample', 'MX', 'iphone', 'z1', ''); ins.run('2026-10-01', 'collage_made', 'restore', 'MX', 'iphone', 'z2', '')
+    expect(run(db, p).launch).toMatchObject({ collages: 5, own: 3, since: '2026-10-01' })
   })
   it('returns the previous period day for day, for compare', () => {
     const d = run(seeded(), p)
