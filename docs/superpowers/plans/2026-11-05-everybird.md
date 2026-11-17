@@ -985,7 +985,7 @@ export function shareCardText(n: number, latest?: { com: string; date?: string }
 - **`docs/validation.md`** also holds the manual launch gate from the spec:
   - a real mid-range phone with 1,000+ species, in Safari iOS and Chrome Android
   - every way in, on a phone
-  - share images posted to LinkedIn and Instagram, and checked by eye
+  - exported share images checked by Yusuf in their intended destinations
   - three to five birder friends trying it privately, with their problems logged and fixed
 
 - [ ] **Step 1: Write the failing test** in `e2e/credits.spec.ts`: `/credits` contains a link to `https://github.com/alchaincyf/huashu-bird-sticker` and the text "CC BY 4.0", and every page has a footer link to `/credits`.
@@ -1009,7 +1009,7 @@ export function shareCardText(n: number, latest?: { com: string; date?: string }
   2. Create the Vercel project from the repo (the `vercel` CLI or dashboard), set `NEXT_PUBLIC_STICKER_BASE=https://<user>.github.io/everybird-stickers`, and turn on Web Analytics.
   3. Run `npx playwright test` against the preview URL by setting `BASE_URL`. Expected: all pass.
 - [ ] **Step 4: Production.** Promote the build to production at `everybird.yusuftaleb.com`, then run the full e2e suite against it.
-- [ ] **Step 5: Launch.** Hand the manual launch gate in `docs/validation.md` to Yusuf. **The LinkedIn post happens only after he signs it off.**
+- [ ] **Step 5: Launch.** Hand the manual launch gate in `docs/validation.md` to Yusuf.
 - [ ] **Step 6: Commit and push** the README and validation updates, with the message `docs: live URLs and validation results`.
 
 ---

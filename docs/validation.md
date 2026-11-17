@@ -2,13 +2,15 @@
 
 What "complete and validated" means before launch (spec, "My calls" 11), how each part is checked, and the results so far. This file is public, so it holds **no personal data**: only the method and aggregate results. Species-level detail stays in `private/validation-report.md`, which is git-ignored.
 
-## Launch checklist
+## Historical launch checklist
+
+Unchecked items below require Yusuf's confirmation; they are not claims that the live release is broken. Agents now run code checks only, with no browser, screenshot or visual testing. The stats/search release checks on 2026-11-16 passed lint, typecheck and 2,120 unit tests. Device and visual results are not inferred from those checks.
 
 - [x] **The author's own data reproduces his list**, with every difference explained (automated, below).
 - [ ] **A big list on a real phone:** a mid-range phone with a 1,000+ species list loads and filters smoothly, in Safari on iOS and Chrome on Android.
 - [ ] **Every way in, on a phone:** eBird life list file, MyEBirdData.csv, iNaturalist username and ticking by hand, plus merging them, in Safari on iOS and Chrome on Android.
 - [ ] **Copy link in Safari on an iPhone:** on the deployed site, open Share, tap Copy link once, then paste in Notes or Messages: the `/s/1…` link is there and opens the collage. Automated in WebKit (`e2e/share.spec.ts`, "Safari: Copy link writes the clipboard inside the click": the write happens during the click, while the page has user activation, and resolves to the link), but desktop WebKit can't read the clipboard back or reproduce iOS's stricter gesture rule, so a real iPhone is the proof.
-- [ ] **Share images, by eye:** the story and post images posted to LinkedIn and Instagram look right, and the link preview shows.
+- [ ] **Share images, by eye:** the exported story and post images look right in their intended destinations, and the link preview shows.
 - [ ] **eBird CSV headers in other eBird site languages (optional, Yusuf):** unchecked. The parsers match eBird's English column names. Download a MyEBirdData and a life list with eBird's language set to Español, Português and Nederlands and confirm the headers are still English (aggregate result only, no rows or personal data in this file); if eBird localizes them, the importer needs those headers before launch in es and pt.
 - [ ] **Three to five birder friends** try it privately with their own data. Their problems are logged and fixed.
 

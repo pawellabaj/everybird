@@ -79,7 +79,7 @@ test("story image is 1080×1920 PNG, post is 1080×1350 and square is 1080×1080
   const story = await previewInfo(page);
   expect(story).toMatchObject({ w: 1080, h: 1920, type: "image/png" });
   expect(story.colours).toBeGreaterThan(2000); // the stickers are in it (a tainted canvas would not export at all)
-  // Instagram's safe zones stay empty: nothing in the top 160px or the bottom 156px (measured on a real story).
+  // The story safe zones stay empty: nothing in the top 160px or the bottom 156px (measured on a real story).
   expect(story.clearTop).toBeGreaterThanOrEqual(160);
   expect(story.clearBottom).toBeGreaterThanOrEqual(156);
 

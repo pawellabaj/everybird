@@ -36,6 +36,22 @@ function painted(code: string, [x, y, w, h]: [number, number, number, number]): 
 const overlap = (a: Rect, b: Rect, tol: number) => a[0] < b[2] - tol && b[0] < a[2] - tol && a[1] < b[3] - tol && b[1] < a[3] - tol
 
 describe('the About demo', () => {
+  it('builds from prospective species and masks without changing committed inputs', () => {
+    const committed = readFileSync(HOWTO_DATA, 'utf8')
+    const baseline = makeHowtoData()
+    const overlay = <T,>(file: string): T => {
+      const data = JSON.parse(readFileSync(join(DATA, file), 'utf8'))
+      if (file === 'species.v1.json') data.species = data.species.map((row: SpeciesFile['species'][number]) => row.code === 'amerob' ? { ...row, ar: 1, sv: 'next-preview' } : row)
+      if (file === 'masks/Passeriformes.v1.json') data.amerob = [24, 24, Buffer.alloc(72, 255).toString('base64')]
+      return data as T
+    }
+    const preview = makeHowtoData(overlay)
+    expect(preview).toContain('"amerob":"next-preview"')
+    const collageLine = (source: string) => source.split('\n').find((line) => line.startsWith('export const COLLAGE:'))
+    expect(collageLine(preview)).not.toBe(collageLine(baseline))
+    expect(readFileSync(HOWTO_DATA, 'utf8')).toBe(committed)
+  })
+
   it('is what scripts/build-data/build-howto.ts packs today (rerun it after changing the packer, the masks or the demo)', () => {
     expect(readFileSync(HOWTO_DATA, 'utf8')).toBe(makeHowtoData())
   })

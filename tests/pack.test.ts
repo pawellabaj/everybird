@@ -336,7 +336,8 @@ function big(name: string, n = 5000) {
 // species huashu lumps lost their borrowed stickers, and again when those 22 got their own drawings from huashu's
 // forms, again when the count's hole began to follow the count's text, count-box.ts, and again 2026-11-09 for
 // huashu 442341a: 6,992 redrawn and 38 new stickers, 11,027 masks, SHAPE_REF 215, and again 2026-11-15 when the
-// count's label box grew to 8 characters for every language, COUNT_LABEL_CHARS); a change here means
+// count's label box grew to 8 characters for every language, COUNT_LABEL_CHARS), and 2026-11-16 for
+// huashu 3b42ef8's 544 replacements (all 18 old values reproduced exactly using the previous masks); a change here means
 // small lists moved, or the pool did (new masks shift the stride).
 const fingerprint = (r: PackResult) => {
   let s = 0
@@ -344,15 +345,15 @@ const fingerprint = (r: PackResult) => {
   return `${r.base.toFixed(6)}|${r.W}x${r.H}|${s.toFixed(3)}`
 }
 const SMALL: [string, number, string, string][] = [
-  ['wide', 20, '80.000000|750x474|2468750.968', '55.846426|750x474|2347450.678'],
-  ['wide', 100, '59.106857|1120x700|13813315.939', '41.345287|1120x700|13634278.000'],
-  ['wide', 200, '34.762566|1120x700|23600514.723', '22.590662|1120x700|23467635.799'],
-  ['medium', 20, '79.923885|636x570|2639853.631', '59.178824|636x570|2545205.503'],
-  ['medium', 100, '48.958865|700x800|12552640.022', '34.371268|700x800|12500698.196'],
-  ['medium', 200, '28.846100|700x800|22020069.717', '18.341189|700x800|21517953.709'],
-  ['narrow', 20, '79.786322|350x876|2887923.895', '57.495717|350x876|2700044.436'],
-  ['narrow', 100, '35.818982|350x900|10762922.536', '24.614198|350x900|10667563.858'],
-  ['narrow', 200, '20.536987|350x900|20619973.295', '13.101110|350x900|20521398.077'],
+  ['wide', 20, '80.000000|754x466|2441527.494', '62.625061|754x466|2475932.335'],
+  ['wide', 100, '58.734909|1120x700|13413429.681', '41.588008|1120x700|13380807.745'],
+  ['wide', 200, '34.970537|1120x700|24234761.940', '22.711610|1120x700|23803764.753'],
+  ['medium', 20, '79.922674|588x642|2634446.976', '58.487603|588x642|2360432.976'],
+  ['medium', 100, '49.667321|700x800|11948383.506', '34.322154|700x800|11584260.139'],
+  ['medium', 200, '29.503127|700x800|21941801.001', '18.731187|700x800|21757987.238'],
+  ['narrow', 20, '79.785415|350x822|2937729.006', '56.932927|350x822|2689277.213'],
+  ['narrow', 100, '35.768640|350x900|10978454.722', '24.388196|350x900|10478450.467'],
+  ['narrow', 200, '20.491612|350x900|19711749.843', '12.858152|350x900|19465037.173'],
 ]
 
 describe('small lists keep their layouts (identical boxes)', () => {

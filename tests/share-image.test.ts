@@ -103,7 +103,7 @@ describe('cardLayout', () => {
         expect(!!L.filter).toBe(filter)
         const head = [L.name, L.filter].filter(Boolean) as { y: number; size: number }[]
         if (head.length) {
-          expect(head[0].y).toBe(L.name && format === 'story' ? 184 : top) // the story's title starts lower, under Instagram's profile row
+          expect(head[0].y).toBe(L.name && format === 'story' ? 184 : top) // the story's title starts lower, under the story profile row
           if (head.length === 2) expect(head[1].y).toBeGreaterThanOrEqual(head[0].y + head[0].size)
           const last = head[head.length - 1]
           expect(L.collage.y).toBeGreaterThan(last.y + last.size)
@@ -130,7 +130,7 @@ describe('cardLayout', () => {
   }
   it('story: a tall collage (about 952 × 1240 with a name and the latest lifer), packed for its aspect', () => {
     const L = cardLayout('story', { name: true, filter: false, latest: true, count: 197 })
-    expect(L.name!.y).toBe(184) // the title has air under Instagram's profile row
+    expect(L.name!.y).toBe(184) // the title has air under the story profile row
     expect(L.footer.y + L.footer.size).toBe(1920 - 156 - 4) // the descenders clear the safe line too
     expect(L.collage.h).toBeGreaterThanOrEqual(1230)
     expect(L.collage.h / L.collage.w).toBeGreaterThan(1.25)

@@ -290,6 +290,10 @@ async function syncFrom(root: string, a: Args, lock: HuashuLock, repo: Repo, dir
   const { buildDataFiles } = await import('../build-data/data-files')
   const dataText = (n: string) => outputs.get(`public/data/${n}`) ?? readFileSync(join(root, 'public/data', n), 'utf8')
   for (const [rel, text] of buildDataFiles(dataText, masks as Map<string, Record<string, unknown>>)) outputs.set(rel, text)
+  // The About demo embeds sticker versions and positions too. Read this run's in-memory data so a dry run
+  // regenerates it under target without reading stale masks or writing into the working repository.
+  const { HOWTO_DATA_PATH, makeHowtoData } = await import('../build-data/build-howto')
+  outputs.set(HOWTO_DATA_PATH, makeHowtoData(<T>(file: string) => JSON.parse(dataText(file)) as T))
   const changedFiles: string[] = []
   for (const [rel, text] of outputs) {
     const now = existsSync(join(root, rel)) ? readFileSync(join(root, rel), 'utf8') : null

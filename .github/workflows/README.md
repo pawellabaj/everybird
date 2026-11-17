@@ -1,5 +1,11 @@
 # Workflows
 
+## Current sync status (2026-11-16 Pacific)
+
+Recovery run [44007441599](https://github.com/yusuftaleb/everybird/actions/runs/44007441599) succeeded from current main and opened [PR #2](https://github.com/yusuftaleb/everybird/pull/2). The release updates the upstream pin from `442341a` to `3b42ef8`: 544 replacements used by Everybird, zero added/removed stickers and no species mass/name/status changes. Versioned stickers and generated data were uploaded to R2 before the PR opened. The sync also regenerates the About demo from the same proposed species data and masks, including in dry runs, so its embedded versions and positions stay current.
+
+The earlier 11-16 scheduled run failed only at PR creation after uploading. The repository setting **Allow GitHub Actions to create and approve pull requests** is now enabled and verified; default workflow permissions remain read, with this job requesting its own scoped write permissions. Future scheduled runs can open their PRs.
+
 ## huashu sync (`huashu-sync.yml`)
 
 Every Monday at 14:00 UTC (and on demand: Actions > huashu sync > Run workflow) this compares upstream

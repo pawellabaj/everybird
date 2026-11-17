@@ -61,7 +61,7 @@ share-image changes it has to translate; print reuses the finished share rendere
 
 ## 5. Smaller places
 
-Request: Biray Pınar (Instagram, 2026-11-15): "when I filter by country, it only shows species I saw there for the
+Request: Biray Pınar (feedback, 2026-11-15): "when I filter by country, it only shows species I saw there for the
 first time … a filter by hotspot or smaller region would be great too."
 
 - The Places filter drills down: country → province/state → county. Data is already there: seen-here stores sub1 and
