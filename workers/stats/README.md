@@ -26,20 +26,21 @@ Notes on the numbers: days are Pacific (America/Vancouver) from 17 Nov 2026, and
 
 ## Day boundary (Pacific from 17 Nov 2026)
 
-- A row's `day` is `statsDay()` (`src/event.ts`): the UTC date before `CUTOVER`, and the America/Vancouver date from it on. `CUTOVER` is `2026-11-17T07:00:00Z`, midnight Pacific. Vancouver is UTC-7 all year from 1 Nov 2026 (tzdata 2026f dropped its return to standard time; `wrangler dev --local` on this machine agrees), so 08:00Z would be 01:00. The visitor id (`vid`), the visit dedupe and the daily cap all use that same day.
-- "Today" and the default ranges on the dashboard are the Pacific date (`pacificDay`, and `pacific()` in the page from `src/pure.ts`). Until the cutover the rows are still labelled by UTC, so from 00:00Z to 07:00Z on 17 Nov "today" can be a day ahead of the rows it reads. From the cutover on, both are Pacific.
-- Deploy the Worker before 2026-11-18T00:00Z (17:00 Pacific on 17 Nov). Until then the old and the new Worker write the same day label: before 07:00Z both use the UTC date, and from 07:00Z to 00:00Z on 18 Nov the UTC date and the Pacific date are the same. After 00:00Z on 18 Nov the old Worker keeps writing UTC dates, which would be a day ahead of Pacific. The deploy time does not change the relabel.
-- Rows written between 00:00Z and 07:00Z on 17 Nov carry day `2026-11-17` but belong to Pacific 16 Nov. So 16 Nov, after the relabel, runs from 15 Nov 17:00 to 16 Nov 24:00 Pacific: **31 hours**. The dashboard footer says so.
-- **The relabel, once, after the cutover** (`migrations/2026-11-17-pacific-relabel.sql`), from `workers/stats`. Rowids rise with insert time: the table never deletes rows, and on the live table (17 Nov, 01:53Z) the day labels never interleave by rowid. So the rows written before the cutover are the ones at or below the rowid read at the cutover.
-  1. Read the boundary, read-only, from about 06:58Z: `caffeinate -i ./read-boundary.sh`. It reads `MAX(rowid)` every few seconds and stops itself at 07:01:00Z. Each line is the read's start, the value and its end time. Take **B** = the value on the last line that ended before 07:00:00Z. The rows written in the seconds around the cutover can fall on either side of B: rows with rowid in (B, B2], where B2 is the next line's value, are ambiguous, and they stay on 17 Nov.
-  2. Count what will move: `npx wrangler d1 execute everybird-events --remote --command "SELECT COUNT(*) AS n FROM events WHERE day = '2026-11-17' AND rowid <= B"`.
-  3. Fill in B in a copy outside the repo, then run it: `sed "s/rowid <= :LAST_PRE_CUTOVER_ROWID/rowid <= B/" migrations/2026-11-17-pacific-relabel.sql > "${TMPDIR:-/tmp}/pacific-relabel.sql"` and `npx wrangler d1 execute everybird-events --remote --file "${TMPDIR:-/tmp}/pacific-relabel.sql"`.
-  4. Verify: the count from step 2 is now 0 for day `2026-11-17` with rowid <= B, and the 16 Nov count went up by n. A second run changes nothing.
-- If the loop cannot run, a safe partial alternative: the floor reading 96571 (the highest rowid at 01:53:34Z on 17 Nov) covers 3,188 rows, all written before the cutover. Relabel `rowid <= 96571` instead, and the rows written after that read keep 17 Nov.
-- Known and accepted:
-  - A visitor's visit before the cutover and the same page again on the same Pacific day is counted once on 17 Nov. After the relabel the earlier visit is on 16 Nov, so 17 Nov has no visit from that person.
-  - A visitor active on both 16 Nov UTC and the 16 Nov Pacific evening has two vids (each is keyed on the day string it was written under), so is counted on 16 Nov twice.
-  - "Busiest day" in the since-launch figures can be 16 Nov, a 31-hour day, and it includes those evening visits.
+- **Cutover:** `CUTOVER` is `2026-11-17T00:00:00Z` (`src/event.ts`). From that instant a row's `day` is the America/Vancouver date (`statsDay()`), and before it the UTC date. Vancouver is UTC-7 all year from 1 Nov 2026 (tzdata 2026f; `wrangler dev --local` agrees), so the Pacific date is 16 Nov until 07:00Z and 17 Nov from then. The visitor id (`vid`), the visit dedupe and the daily cap all use the same day.
+- "Today" and the default ranges on the dashboard are the Pacific date (`pacificDay`, and `pacific()` in the page from `src/pure.ts`).
+- The old Worker writes UTC dates, so the rows it wrote from 00:00Z until the new Worker went live carry day `2026-11-17` but are Pacific 16 Nov evening. The relabel moves them.
+- **Deploy the Worker before 2026-11-17T07:00Z, then run the relabel right after the deploy, and before 07:00Z.** From 07:00Z the new Worker writes Pacific 17 Nov rows under the same label, so the relabel must not run after that. SQL cannot read the clock; this deadline is the operator's to keep.
+
+```
+cd workers/stats
+npx wrangler d1 execute everybird-events --remote --command "SELECT COUNT(*) AS n FROM events WHERE day = '2026-11-17'"   # rows to move
+npx wrangler d1 execute everybird-events --remote --file migrations/2026-11-17-pacific-relabel.sql
+npx wrangler d1 execute everybird-events --remote --command "SELECT COUNT(*) AS n FROM events WHERE day = '2026-11-17'"   # now 0
+```
+
+  Old instances can still write for a short time after a deploy. If the last count is not 0 and it is still before 07:00Z, run the migration again; it is safe to repeat before 07:00Z.
+- 16 Nov, after the relabel, is **31 hours**: from 15 Nov 17:00 to 16 Nov 24:00 Pacific. The dashboard footer says so.
+- Known and accepted: a visitor who visited between 00:00Z and the deploy (their visit keyed on the UTC 17 Nov string) and again on the same Pacific 16 Nov after the deploy is counted twice on 16 Nov. The "busiest day" figure can be 16 Nov, a 31-hour day.
 
 ## Environment variables
 

@@ -8,7 +8,7 @@
 //
 // Runs `npx wrangler d1 execute everybird-events --remote --json --command <sql>` from workers/stats (so wrangler reads
 // its wrangler.jsonc), which needs `npx wrangler login` once. vid is an anonymous id the Worker derives per stats day
-// (Pacific from 17 Nov 2026 07:00Z, UTC before: workers/stats/src/event.ts statsDay), so a count of distinct vids over
+// (Pacific from 17 Nov 2026 00:00Z, UTC before: workers/stats/src/event.ts statsDay), so a count of distinct vids over
 // several days counts person-days: the same birder on two days is two.
 import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'

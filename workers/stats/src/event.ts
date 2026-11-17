@@ -15,10 +15,11 @@ export const ALLOWED: Record<string, Set<string>> = {
   filter_used: new Set(['place', 'continent', 'time', 'status', 'group', 'taxonomy']),
 }
 
-/** The day boundary changes here: midnight America/Vancouver on 17 Nov 2026. Vancouver is UTC-7 all year from 1 Nov 2026
- *  (tzdata 2026f dropped its return to standard time), so midnight is 07:00Z. Change this only together with
- *  migrations/2026-11-17-pacific-relabel.sql and the README's "Day boundary" section. */
-export const CUTOVER = Date.parse('2026-11-17T07:00:00Z')
+/** The day boundary: 2026-11-17T00:00Z. From this instant a row's day is the America/Vancouver date, which is 16 Nov until
+ *  07:00Z (Vancouver is UTC-7 all year from 1 Nov 2026, tzdata 2026f) and 17 Nov from then on. Before it, the UTC date.
+ *  The old Worker's rows from 00:00Z to the deploy carry 17 Nov: migrations/2026-11-17-pacific-relabel.sql moves them to
+ *  16 Nov, and must run before 07:00Z. Change this only together with that migration and the README's "Day boundary". */
+export const CUTOVER = Date.parse('2026-11-17T00:00:00Z')
 
 const PACIFIC = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', year: 'numeric', month: '2-digit', day: '2-digit' })
 
