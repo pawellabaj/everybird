@@ -3,7 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { fetchBytes } from './fetch-sources'
-import type { BirdGroup, GroupsFile, SearchLang } from '../../src/lib/search/groups'
+import type { BirdGroup, GroupLang as SearchLang, GroupsFile } from '../../src/lib/search/groups'
 import { inGroup } from '../../src/lib/search/groups'
 import type { SpeciesFile } from '../../src/lib/species/types'
 

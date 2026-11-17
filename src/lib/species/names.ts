@@ -28,7 +28,7 @@ function regional(lang: Lang, region: string | undefined): NameLocale | null {
  * a set of this language, else the list's top country when it does, else the base (es, pt_BR, nl). English: null.
  */
 export function pickNameLocale(lang: Lang, languages: readonly string[], top?: string): NameLocale | null {
-  if (lang === 'en') return null
+  if (lang === 'en' || lang === 'pl') return null
   if (lang === 'nl') return 'nl'
   const tag = languages.find((t) => primarySubtag(t) === lang)
   return regional(lang, tag ? regionOf(tag) : undefined) ?? regional(lang, top) ?? (lang === 'es' ? 'es' : 'pt_BR')
