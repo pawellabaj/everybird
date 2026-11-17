@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { verifyAccess, type AccessEnv, type Jwk } from '../workers/stats/src/access'
 import { parseParams, shape, statements, type Row } from '../workers/stats/src/dashboard'
+import { pacificDay } from '../workers/stats/src/event'
 import worker from '../workers/stats/src/index'
 import { PURE_JS } from '../workers/stats/src/pure'
 
@@ -204,6 +205,32 @@ describe('the Worker routes', () => {
     const ok = await call('/e', { method: 'POST', body: '{"n":"visit","p":"landing"}', headers: { origin: 'https://everybird.yusuftaleb.com' } })
     expect([ok.status, ok.headers.get('access-control-allow-origin')]).toEqual([204, 'https://everybird.yusuftaleb.com'])
     expect(db.prepare).toHaveBeenCalled() // the insert path ran
+  })
+  it('makes "today" the Pacific date: the default range ends there, whatever the UTC date is', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-17T06:30:00Z')) // UTC 17 Nov, but 22:30 on 16 Nov in Pacific
+      const k = await keys(), t = await k.sign({})
+      const r = await call('/dashboard/data', { method: 'GET' }, t, { ...ENV }, k.jwks)
+      expect(await r.json()).toMatchObject({ range: { from: '2026-11-03', to: '2026-11-16', days: 14 } })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('the Pacific date in the page and the Worker', () => {
+  afterEach(() => vi.useRealTimers())
+  const pure = new Function(PURE_JS + '; return { pacificDay, addDays }')() as { pacificDay(ms: number): string; addDays(d: string, n: number): string }
+  it('the page computes the same Pacific dates as the Worker, around the cutover and midnight', () => {
+    for (const s of ['2026-11-16T06:59:59Z', '2026-11-17T06:59:59Z', '2026-11-17T07:00:00Z', '2026-11-17T23:30:00Z', '2026-11-18T06:59:59Z', '2026-11-18T07:00:00Z']) {
+      expect(pure.pacificDay(Date.parse(s)), s).toBe(pacificDay(new Date(s)))
+    }
+  })
+  it('does day arithmetic on the date string, so a daylight-saving day cannot shift a range', () => {
+    expect(pure.addDays('2026-11-01', -1)).toBe('2026-10-31')
+    expect(pure.addDays('2026-02-28', 1)).toBe('2026-03-01')
+    expect(pure.addDays('2026-11-16', 1 - 14)).toBe('2026-11-03')
   })
 })
 

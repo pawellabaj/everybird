@@ -1,6 +1,6 @@
 -- Everybird anonymous events: one row per event, day-level only.
 CREATE TABLE IF NOT EXISTS events (
-  day TEXT NOT NULL,      -- YYYY-MM-DD (UTC)
+  day TEXT NOT NULL,      -- YYYY-MM-DD: the UTC date before 2026-11-17 07:00Z, the Pacific date from then (event.ts statsDay)
   name TEXT NOT NULL,     -- visit | collage_made | image_downloaded | shared | link_copied
   value TEXT NOT NULL,    -- the one allowed property value
   country TEXT NOT NULL,  -- ISO 3166-1 alpha-2 from Cloudflare, XX if unknown

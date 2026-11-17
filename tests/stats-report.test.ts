@@ -151,7 +151,7 @@ describe('the report', () => {
   it('prints compact tables: visitors by day, then each event by value and device, people, repeats and countries', () => {
     const text = formatReport(parseWrangler(fake, names), { since: '2026-11-01', top: 5 })
     expect(text).toBe([
-      'Everybird stats since 2026-11-01 (UTC days). People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.',
+      'Everybird stats since 2026-11-01 (days are Pacific time from 17 Nov 2026; earlier days are UTC days).People are anonymous daily ids: over several days, person-days. Visits count once per person, page and day from the 2026-11-16 deploy on; rows stored before it count every view.',
       '',
       'Visitors by day',
       'day         visitors  landing  collage  settings  about  shared  all events',

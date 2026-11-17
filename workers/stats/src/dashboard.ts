@@ -12,7 +12,8 @@ const iso = (t: number) => new Date(t).toISOString().slice(0, 10)
 const addDays = (d: string, n: number) => iso(ms(d) + n * 86_400_000)
 export const MAX_DAYS = 3660
 
-/** Validates ?from=&to=&country=; defaults to the last 14 UTC days. Returns an error message for a bad one. */
+/** Validates ?from=&to=&country=; defaults to the 14 days ending on `today`, the Pacific date (pacificDay, from the Worker).
+ *  Returns an error message for a bad one. */
 export function parseParams(q: URLSearchParams, today: string): Params | string {
   const ok = (d: string) => DAY.test(d) && !Number.isNaN(ms(d)) && iso(ms(d)) === d
   const to = q.get('to') ?? today
