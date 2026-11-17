@@ -75,6 +75,11 @@ select { font-size: 16px; /* 16px so iOS does not zoom */ max-width: 100%; min-w
 /* Cards: hairline, Paper, no shadow at rest (only the tooltip floats). */
 .card { border: 1px solid var(--hairline); border-radius: calc(16px * var(--corner)); corner-shape: superellipse(2); padding: 16px; min-width: 0; }
 .card h2 { margin-bottom: 4px; }
+.hourly { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; list-style: none; margin: 16px 0 0; padding: 0; }
+.hourly li { min-width: 0; }
+.hourly .column { height: 100px; display: flex; align-items: end; background: var(--surface); border-radius: 3px 3px 0 0; overflow: hidden; }
+.hourly .column span { display: block; width: 100%; background: var(--accent); }
+.hourly .hour { display: block; height: 20px; margin-top: 6px; font: 11px var(--mono); color: var(--muted); }
 .sub { font-size: 13px; line-height: 1.4; color: var(--muted); margin: 0 0 12px; }
 .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 @media (min-width: 720px) { .tiles { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
@@ -149,6 +154,7 @@ svg text { font: 500 11px var(--mono); fill: var(--muted); }
       <div class="chartbox" id="chart"></div>
       <div class="row between" style="margin-top: 8px"><div class="key" id="key"></div><button class="btn chip" id="csv" type="button">Export CSV</button></div>
     </section>
+    <section class="card" id="hourly" aria-label="Recorded visits by hour"></section>
     <section class="grid">
       <div class="card" id="rates" aria-label="Rates"></div>
       <div class="card" id="launch" aria-label="Since launch"></div>
@@ -386,6 +392,27 @@ ${PURE_JS}
     if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).catch(function () {}); return; }
     var t = h('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) { /* nothing to do */ } t.remove();
   }
+  function hourly() {
+    var c = clear($('hourly')), data = st.data.hourlyVisits;
+    c.appendChild(h('h2', null, 'Recorded visits by hour'));
+    c.appendChild(h('p', 'sub', 'Pacific time · selected range and country · first recorded visit per person, page and day.'));
+    if (!data) return;
+    var total = data.hours.reduce(function (n, x) { return n + x.visits; }, 0);
+    if (data.withoutTime) c.appendChild(h('p', 'sub', fmt(data.withoutTime) + ' older visits have no timestamp and are excluded.'));
+    if (!total) { c.appendChild(h('div', 'empty', 'No timestamped visits in this range yet.')); return; }
+    var max = Math.max.apply(null, data.hours.map(function (x) { return x.visits; }));
+    var readout = h('p', 'sub', 'Tap or focus a bar for its count.'); readout.setAttribute('aria-live', 'polite');
+    var list = h('ol', 'hourly');
+    data.hours.forEach(function (x) {
+      var label = String(x.hour).padStart(2, '0') + ':00', description = label + ' Pacific: ' + fmt(x.visits) + ' recorded visits';
+      var item = h('li'); item.setAttribute('aria-label', description); item.title = description; item.tabIndex = 0;
+      item.onclick = item.onfocus = function () { readout.textContent = description; };
+      var column = h('div', 'column'), fill = h('span'); fill.style.height = (x.visits / max * 100) + '%'; column.appendChild(fill); column.setAttribute('aria-hidden', 'true'); item.appendChild(column);
+      var hour = h('span', 'hour', x.hour % 3 === 0 ? String(x.hour).padStart(2, '0') : ''); hour.setAttribute('aria-hidden', 'true'); item.appendChild(hour); list.appendChild(item);
+    });
+    c.appendChild(list);
+    c.appendChild(readout);
+  }
   function funnel() {
     var f = st.data.funnel, box = clear($('funnel')), n = { landing: 'Landing page', settings: 'Settings', collage: 'Collage page', collage_made: 'Collage made', downloaded: 'Image or poster downloaded' };
     box.appendChild(h('h2', null, 'Funnel')); box.appendChild(h('p', 'sub', 'Person-days that reached each step, as a share of the landing page.'));
@@ -432,7 +459,7 @@ ${PURE_JS}
   }
   function render() {
     var d = st.data; $('content').classList.toggle('go', animate);
-    tiles(); panel(); chart(); lastW = $('chart').clientWidth; rates(); launch(); funnel(); cards(); controls(); animate = false;
+    tiles(); panel(); chart(); lastW = $('chart').clientWidth; hourly(); rates(); launch(); funnel(); cards(); controls(); animate = false;
     $('content').setAttribute('aria-busy', 'false');
     $('sub').textContent = 'Everybird · private · ' + (st.country ? region(st.country) : 'all countries') + ' · days are Pacific from 17 Nov';
     $('stamp').textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + dayLabel(d.range.from) + ' to ' + dayLabel(d.range.to);

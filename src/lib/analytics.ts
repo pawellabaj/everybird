@@ -5,7 +5,7 @@ import { primarySubtag, type Lang } from '@/i18n/langs'
 
 /**
  * Everybird's anonymous counter (spec "My calls" 13). Each event is one tiny POST to Yusuf's Worker
- * (workers/stats: Cloudflare D1, one row per event, day-level, no IPs or cookies) with the body {n, p, d?, l?}: the
+ * (workers/stats: Cloudflare D1, one row per event with a server receipt time and stats day, no IPs or cookies) with the body {n, p, d?, l?}: the
  * event's name, its one property value from a fixed list, d: 'touch' on an iPad that reports a Mac, and on a visit only
  * l, the browser language's primary subtag ("es" for es-MX; the browser's, not the UI language, to choose the next
  * language). Never counts, names, species, places, URLs or share tokens.

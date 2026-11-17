@@ -17,12 +17,25 @@ For the chosen range (Today, 7d, 14d, 30d, All; default 14 days) and an optional
 5. The funnel: landing, settings, collage page, collage made, image or poster downloaded, as person-days and a share of the landing page.
 6. Breakdowns: image formats, poster sizes, filters used, searches, interface language, browser language, devices, and the top 15 countries. Clicking a country (or choosing it in the selector) filters the whole page and opens a compact **country panel**: people a day, collage rate, downloads per person-day, share rate, top formats, browser language and interface language. Interface language counts people who switched it (the site only records a switch); browser language counts visits.
 7. A footer with the refresh button (it skips the browser's 60-second cache), an optional **auto-refresh** every 60 s while the tab is visible (saved per device), and the last refresh time.
+8. **Recorded visits by hour:** 24 hourly counts in Pacific time, summed over the selected range and country. Visits remain the first recorded visit per person, page and stats day, so this is not a count of every reload. Older visits without timestamps are excluded from the bars and counted separately in the note.
 
 The URL hash keeps the view, so a link reopens it: `#r=7&c=MX&m=collages&cmp=1` (range 1, 7, 14, 30 or `all`; country; metric; compare). Defaults are left out.
 
 The page's small pure functions (hash parse and serialize, CSV, the safe claim, rates, change) live in `src/pure.ts` as a plain-JS string that `page.ts` inlines and the tests evaluate, so there is one copy.
 
-Notes on the numbers: days are Pacific (America/Vancouver) from 17 Nov 2026, and UTC days before (see **Day boundary** below); counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one stats day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows or vids), as ten statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. New fields: `days[]` also carry `images` and `posterDownloads`; `prevDays[]` is the previous period day for day (empty on All); `rates` (person-days with each action, over all person-days); `launch` (`since`, `collages`, `own`, `images`, `posters`, `peak`).
+Notes on the numbers: days are Pacific (America/Vancouver) from 17 Nov 2026, and UTC days before (see **Day boundary** below); counts are an undercount (Do Not Track, Global Privacy Control and blockers are not counted). A visitor id (`vid`) lasts one stats day, so "people" is only meaningful per day. Multi-day figures are person-days (distinct day + vid pairs) and labelled so. `/dashboard/data?from=YYYY-MM-DD&to=YYYY-MM-DD&country=XX` returns aggregates only (never rows, vids or individual receipt times), as eleven statements (GROUP BY queries, bound params only) run in one `DB.batch`, with `Cache-Control: private, max-age=60`. `hourlyVisits` contains `timeZone`, 24 `{hour, visits}` buckets and `withoutTime`; other fields are unchanged.
+
+## Event timestamps
+
+New events carry `received_at`, a UTC ISO 8601 timestamp from the Worker's clock when it receives the beacon, before reading its body or hashing the visitor id. It records server receipt, which can lag the action if the network delays delivery. Client-supplied times are ignored. The stats day and receipt time use the same instant. Existing visit deduplication and the daily cap remain in effect; a duplicate visit neither adds a row nor replaces its first timestamp.
+
+Older events have `received_at = NULL`; no historical times are guessed or backfilled. The hourly query uses Vancouver's year-round UTC-7 rule, effective before timestamp collection begins. There is no timestamp index, so the change adds no index writes. The dashboard exposes only hourly aggregates.
+
+Deployment order (not applied yet):
+
+1. Apply only `migrations/2026-11-17-event-timestamps.sql` with `npx wrangler d1 execute everybird-events --remote --file migrations/2026-11-17-event-timestamps.sql` from this directory. Check `PRAGMA table_info(events)` first; apply once if `received_at` is absent. Do not use `migrations apply`: this database's older migrations were applied individually.
+2. Deploy this Worker with `npx wrangler deploy` after the nullable column exists. The old Worker continues working after the schema change.
+3. Verify new events have receipt times and the private dashboard includes hourly aggregates. Rollback is the previous Worker deployment; leave the nullable column and collected times in place.
 
 ## Day boundary (Pacific; cutover 2026-11-17T00:00Z)
 
