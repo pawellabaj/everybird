@@ -1,12 +1,12 @@
 # Cloudflare cutover: everybird.yusuftaleb.com from Vercel to the Worker
 
-Status (2026-11-17): the test copy runs on Cloudflare Workers at `https://everybird.yusufbtaleb.workers.dev` (Worker name `everybird`). It has no routes and no custom domain, so `everybird.yusuftaleb.com` still serves from Vercel. Nothing in this runbook has been run yet. Each step below is for Yusuf to approve and run.
+Status (2026-11-17): **COMPLETED.** `everybird.yusuftaleb.com` is attached to the Worker `everybird` (Worker version `f367c38c`, from main `37db23d`) and serves from Cloudflare Workers: `curl -sI` returns `x-opennext: 1` and no `x-vercel-id`. Sections 1 to 3 are the cutover runbook; section 4 is the rollback, which works only while the Vercel project is live. Rollback DNS value, from the cutover notes and not in the repo: A `everybird` to 76.76.21.21, proxied.
 
 Deadline: Vercel's Hobby plan pauses the project at about **2026-11-18 23:35 America/Vancouver** (more than 1M CDN requests in a rolling 30 days). After that the live domain stops serving until Vercel is unpaused. Cut over before the pause. A rollback to Vercel only works while the Vercel project is live.
 
 ## What is already in place
 
-- `wrangler.jsonc`: Worker `everybird`, `main` `.open-next/worker.js`, the `ASSETS` binding, `WORKER_SELF_REFERENCE`, and the R2 incremental cache `NEXT_INC_CACHE_R2_BUCKET` on the existing `everybird-opennext-cache` bucket. It has **no** `routes` and **no** `custom_domain`, and it must stay that way until the cutover commit.
+- `wrangler.jsonc`: Worker `everybird`, `main` `.open-next/worker.js`, the `ASSETS` binding, `WORKER_SELF_REFERENCE`, and the R2 incremental cache `NEXT_INC_CACHE_R2_BUCKET` on the existing `everybird-opennext-cache` bucket. It has a `routes` entry for `everybird.yusuftaleb.com` (`custom_domain: true`), added in the cutover commit `de5a089`.
 - `open-next.config.ts`: the R2 incremental cache. The Vercel build never reads it.
 - Build-time values: the production Vercel values of `NEXT_PUBLIC_DATA_BASE` and `NEXT_PUBLIC_STICKER_BASE` are inlined by `next build`. They must be in the environment of any Cloudflare build (`npm run cf:build`). They are not Worker runtime variables, and the values are not committed.
 - The Worker needs no runtime secrets. The Vercel-only variables (`VERCEL_ENV`, `VERCEL_URL`) are not needed: the production origin comes from the code, and the Cloudflare Web Analytics beacon loads on the production hostname only.
@@ -73,7 +73,7 @@ The rollback only works while the Vercel project is live and still has the domai
 - Keep `public/_headers` and the header rules in `next.config.ts` in step (`public/_headers` is ignored by Vercel).
 - Build environment: a future Cloudflare build (laptop or CI) needs `NEXT_PUBLIC_DATA_BASE` and `NEXT_PUBLIC_STICKER_BASE` set, or the app loads data from the wrong place.
 - The zone's Cloudflare Web Analytics auto-injection (visible on Vercel's HTML today) is zone-level, so it carries on after the cutover. Check that counts are not doubled.
-- Update the hosting notes in README.md and AGENTS.md once Yusuf has decided the cutover is final.
+- Done 2026-11-17: the hosting notes in README.md, AGENTS.md and PRODUCT.md now describe the Worker.
 
 ## Cost notes
 

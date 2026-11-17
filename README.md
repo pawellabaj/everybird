@@ -4,7 +4,7 @@ A lifetime of birds. Everybird turns a birder's life list into a sticker collage
 
 Your list never leaves your browser. The only network calls that carry user input are iNaturalist API requests (a username and place IDs). A share link carries the whole list in the link itself. Anonymous usage counts (visits, and a few actions such as a collage made or an image shared, never list contents) are sent to a stats endpoint, and Cloudflare Web Analytics counts visits without cookies; both are skipped with Do Not Track or Global Privacy Control.
 
-Live at https://everybird.yusuftaleb.com (share links, link previews and the share images' footer use this origin, `src/lib/share/origin.ts`).
+Live at https://everybird.yusuftaleb.com (share links, link previews and the share images' footer use this origin, `src/lib/share/origin.ts`). It is served by a Cloudflare Worker (OpenNext); the release steps are in `AGENTS.md`.
 
 ## Pages
 
@@ -21,7 +21,7 @@ Light by default, with a sun/moon toggle in the top bar. The interface is in Eng
 - Vertical/Horizontal sharing: Story 9:16 or Desktop 16:9, Post 4:5 or 5:4, and Square; print posters A4–A1 in either orientation.
 - Search metadata in all four languages, a `WebSite` site-name declaration on the homepage, and the landing demo excluded from search snippets. Google's displayed result can lag a deployment.
 - Private anonymous-usage dashboard at `https://stats.yusuftaleb.com/dashboard`, behind Cloudflare Access. Days now follow America/Vancouver; the completed 2026-11-16 transition is documented in [the stats README](workers/stats/README.md).
-- Sticker updates use the weekly [huashu sync workflow](.github/workflows/README.md); uploaded files only become live when the app's updated data is merged and deployed.
+- Sticker updates use the weekly [huashu sync workflow](.github/workflows/README.md); uploaded files only become live when the app's updated data is merged and deployed with `npm run cf:deploy` (a push to main does not deploy).
 
 ## Run it
 

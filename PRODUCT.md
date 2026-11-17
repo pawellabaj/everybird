@@ -4,7 +4,7 @@
 Web (Next.js 16 app router, React 19), mobile first, works from 320px.
 
 ## Stack
-Next.js, React, Web Workers for layout and import parsing, IndexedDB/localStorage for the list, and Vitest. Live on Vercel at https://everybird.yusuftaleb.com; stickers and generated data on Cloudflare R2; Cloudflare Web Analytics and a Cloudflare Worker with D1 (`workers/stats`) for anonymous counts and a private Access-protected dashboard. Playwright specs are retained for Yusuf; agents run code checks only.
+Next.js, React, Web Workers for layout and import parsing, IndexedDB/localStorage for the list, and Vitest. Live on Cloudflare Workers (OpenNext) at https://everybird.yusuftaleb.com; stickers and generated data on Cloudflare R2; Cloudflare Web Analytics and a Cloudflare Worker with D1 (`workers/stats`) for anonymous counts and a private Access-protected dashboard. Playwright specs are retained for Yusuf; agents run code checks only.
 
 ## Users
 Birders with a life list (eBird or observation.org export, iNaturalist username, or ticking by hand) who want to see and share it. Phone first; shared links are opened by non-birders too.
